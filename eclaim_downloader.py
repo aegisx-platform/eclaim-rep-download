@@ -160,9 +160,9 @@ class EClaimDownloader:
                     else:
                         print(f"[{idx}/{len(download_links)}] Downloading {filename}...")
 
-                    # Handle download with timeout
-                    with page.expect_download(timeout=45000) as download_info:
-                        page.goto(url, timeout=45000)
+                    # Handle download with increased timeout (120 seconds)
+                    with page.expect_download(timeout=120000) as download_info:
+                        page.goto(url, timeout=120000)
 
                     download = download_info.value
 

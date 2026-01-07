@@ -71,7 +71,7 @@ class EClaimDownloader:
 
         try:
             # First, get the login page to establish session
-            response = self.session.get(self.login_url, timeout=30)
+            response = self.session.get(self.login_url, timeout=120)
             response.raise_for_status()
 
             # Prepare login data
@@ -84,7 +84,7 @@ class EClaimDownloader:
             response = self.session.post(
                 self.login_url,
                 data=login_data,
-                timeout=30,
+                timeout=120,
                 allow_redirects=True
             )
             response.raise_for_status()
@@ -105,7 +105,7 @@ class EClaimDownloader:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetching validation page...")
 
         try:
-            response = self.session.get(self.validation_url, timeout=30)
+            response = self.session.get(self.validation_url, timeout=120)
             response.raise_for_status()
 
             # Parse HTML
@@ -203,8 +203,8 @@ class EClaimDownloader:
                     else:
                         print(f"[{idx}/{len(download_links)}] Downloading {filename}...")
 
-                    # Download file with shorter timeout
-                    response = self.session.get(url, timeout=30, stream=True)
+                    # Download file with increased timeout
+                    response = self.session.get(url, timeout=120, stream=True)
                     response.raise_for_status()
 
                     # Save file
