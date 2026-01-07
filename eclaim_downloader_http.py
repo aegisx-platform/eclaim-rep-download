@@ -135,6 +135,9 @@ class EClaimDownloader:
                             filename = None
                             if 'fn' in params:
                                 filename = params['fn'][0]
+                            elif 'filename' in params:
+                                # Extract filename from 'filename' parameter and replace .ecd with .xls
+                                filename = params['filename'][0].replace('.ecd', '.xls')
                             elif 'file' in params:
                                 filename = params['file'][0]
 
