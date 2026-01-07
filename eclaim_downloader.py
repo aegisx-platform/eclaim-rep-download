@@ -51,31 +51,31 @@ class EClaimDownloader:
 
     def login(self, page):
         """Login to e-claim system"""
-        print(f"[{datetime.now()}] Navigating to login page...")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Navigating to login page...")
         page.goto(self.login_url, wait_until='networkidle')
 
-        print(f"[{datetime.now()}] Filling login form...")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Filling login form...")
         # Fill username and password
         page.fill('input[name="user"]', self.username)
         page.fill('input[name="pass"]', self.password)
 
         # Submit login
-        print(f"[{datetime.now()}] Submitting login...")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Submitting login...")
         page.click('input[type="submit"]')
 
         # Wait for navigation after login
         page.wait_for_load_state('networkidle')
-        print(f"[{datetime.now()}] Login successful!")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Login successful!")
 
     def get_download_links(self, page):
         """Get all download Excel links from validation page"""
-        print(f"[{datetime.now()}] Navigating to validation page...")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Navigating to validation page...")
         page.goto(self.validation_url, wait_until='networkidle')
 
         # Wait for table to load
-        time.sleep(2)
+        time.sleep(3)
 
-        print(f"[{datetime.now()}] Extracting download links...")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Extracting download links...")
 
         # Get all download excel links
         download_links = []
@@ -89,30 +89,53 @@ class EClaimDownloader:
                 excel_link = row.locator('a:has-text("download excel")').first
                 if excel_link.is_visible():
                     href = excel_link.get_attribute('href')
-                    # Get the corresponding rep file link for filename reference
-                    rep_link = row.locator('a:has-text("rep_eclaim")').first
-                    if rep_link.is_visible():
-                        rep_href = rep_link.get_attribute('href')
-                        # Extract filename from rep link
-                        filename = rep_href.split('/')[-1] if rep_href else None
 
-                        if href and filename:
-                            download_links.append({
-                                'url': href if href.startswith('http') else f"https://eclaim.nhso.go.th{href}",
-                                'filename': filename.replace('.ecd', '.xls'),  # Excel extension
-                                'row_data': row.inner_text()
-                            })
+                    # Extract filename from URL parameter 'fn'
+                    from urllib.parse import urlparse, parse_qs
+                    parsed = urlparse(href) if href else None
+                    filename = None
+
+                    if parsed:
+                        params = parse_qs(parsed.query)
+                        if 'fn' in params:
+                            filename = params['fn'][0]
+                        elif 'file' in params:
+                            filename = params['file'][0]
+
+                    # If no filename from URL, try rep link
+                    if not filename:
+                        rep_link = row.locator('a:has-text("rep_eclaim")').first
+                        if rep_link.is_visible():
+                            rep_href = rep_link.get_attribute('href')
+                            if rep_href:
+                                filename = rep_href.split('/')[-1].replace('.ecd', '.xls')
+
+                    if href and filename:
+                        full_url = href if href.startswith('http') else f"https://eclaim.nhso.go.th{href}"
+                        download_links.append({
+                            'url': full_url,
+                            'filename': filename
+                        })
             except Exception as e:
                 # Skip rows that don't have download links
                 continue
 
-        print(f"[{datetime.now()}] Found {len(download_links)} download links")
-        return download_links
+        # Remove duplicates
+        unique_links = []
+        seen_filenames = set()
+        for link in download_links:
+            if link['filename'] not in seen_filenames:
+                unique_links.append(link)
+                seen_filenames.add(link['filename'])
+
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Found {len(unique_links)} unique download links")
+        return unique_links
 
     def download_files(self, page, download_links):
         """Download Excel files"""
         downloaded_count = 0
         skipped_count = 0
+        error_count = 0
 
         for idx, link_info in enumerate(download_links, 1):
             filename = link_info['filename']
@@ -124,45 +147,66 @@ class EClaimDownloader:
                 skipped_count += 1
                 continue
 
-            try:
-                print(f"[{idx}/{len(download_links)}] Downloading {filename}...")
+            # Retry logic
+            max_retries = 2
+            retry_count = 0
+            success = False
 
-                # Handle download
-                with page.expect_download() as download_info:
-                    page.goto(url)
+            while retry_count <= max_retries and not success:
+                try:
+                    if retry_count > 0:
+                        print(f"[{idx}/{len(download_links)}] Retry {retry_count}/{max_retries} for {filename}...")
+                        time.sleep(2)
+                    else:
+                        print(f"[{idx}/{len(download_links)}] Downloading {filename}...")
 
-                download = download_info.value
+                    # Handle download with timeout
+                    with page.expect_download(timeout=45000) as download_info:
+                        page.goto(url, timeout=45000)
 
-                # Save file
-                file_path = self.download_dir / filename
-                download.save_as(file_path)
+                    download = download_info.value
 
-                # Record download
-                self.download_history['downloads'].append({
-                    'filename': filename,
-                    'download_date': datetime.now().isoformat(),
-                    'file_path': str(file_path),
-                    'url': url
-                })
+                    # Save file
+                    file_path = self.download_dir / filename
+                    download.save_as(file_path)
 
-                downloaded_count += 1
-                print(f"[{idx}/{len(download_links)}] ✓ Downloaded: {filename}")
+                    # Check file size
+                    file_size = file_path.stat().st_size
+                    if file_size < 100:
+                        raise Exception(f"Downloaded file too small ({file_size} bytes)")
 
-                # Small delay to avoid overwhelming server
-                time.sleep(1)
+                    # Record download
+                    self.download_history['downloads'].append({
+                        'filename': filename,
+                        'download_date': datetime.now().isoformat(),
+                        'file_path': str(file_path),
+                        'file_size': file_size,
+                        'url': url
+                    })
 
-            except Exception as e:
-                print(f"[{idx}/{len(download_links)}] ✗ Error downloading {filename}: {str(e)}")
-                continue
+                    downloaded_count += 1
+                    print(f"[{idx}/{len(download_links)}] ✓ Downloaded: {filename} ({file_size:,} bytes)")
+                    success = True
 
-        return downloaded_count, skipped_count
+                    # Delay to avoid overwhelming server
+                    time.sleep(1)
+
+                except Exception as e:
+                    retry_count += 1
+                    if retry_count > max_retries:
+                        print(f"[{idx}/{len(download_links)}] ✗ Failed after {max_retries} retries: {filename}")
+                        print(f"    Error: {str(e)}")
+                        error_count += 1
+                    continue
+
+        return downloaded_count, skipped_count, error_count
 
     def run(self):
         """Main execution"""
         print("="*60)
-        print("E-Claim Excel File Downloader")
+        print("E-Claim Excel File Downloader (Playwright)")
         print("="*60)
-        print(f"Started at: {datetime.now()}")
+        print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print()
 
         with sync_playwright() as p:
@@ -186,7 +230,7 @@ class EClaimDownloader:
                     return
 
                 # Download files
-                downloaded, skipped = self.download_files(page, download_links)
+                downloaded, skipped, errors = self.download_files(page, download_links)
 
                 # Update last run time
                 self.download_history['last_run'] = datetime.now().isoformat()
@@ -200,14 +244,18 @@ class EClaimDownloader:
                 print("Download Summary")
                 print("="*60)
                 print(f"Total files found: {len(download_links)}")
-                print(f"Downloaded: {downloaded}")
-                print(f"Skipped (already downloaded): {skipped}")
+                print(f"✓ Downloaded: {downloaded}")
+                print(f"⊘ Skipped (already downloaded): {skipped}")
+                print(f"✗ Errors: {errors}")
+                print(f"Total downloads in history: {len(self.download_history['downloads'])}")
                 print(f"Download directory: {self.download_dir.absolute()}")
-                print(f"Completed at: {datetime.now()}")
+                print(f"Completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                 print("="*60)
 
             except Exception as e:
                 print(f"\n✗ Error: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 raise
 
             finally:
