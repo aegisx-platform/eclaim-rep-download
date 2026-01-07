@@ -218,6 +218,7 @@ class EClaimFileParser:
 
         records = []
         column_mapping = self.get_column_mapping()
+        skipped_rows = 0
 
         for idx, row in self.df.iterrows():
             record = {
@@ -236,7 +237,15 @@ class EClaimFileParser:
 
                     record[db_field] = value
 
+            # Skip rows without TRAN_ID (empty rows or invalid data)
+            if not record.get('tran_id') or pd.isna(record.get('tran_id')):
+                skipped_rows += 1
+                continue
+
             records.append(record)
+
+        if skipped_rows > 0:
+            logger.info(f"Skipped {skipped_rows} empty/invalid rows")
 
         return records
 
