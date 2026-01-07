@@ -68,6 +68,43 @@ class EClaimFileParser:
         }
 
     @staticmethod
+    def _parse_thai_date(date_str: str) -> Optional[str]:
+        """
+        Parse Thai date format to ISO format for PostgreSQL
+
+        Handles formats:
+        - DD/MM/YYYY HH:MM:SS -> YYYY-MM-DD HH:MM:SS
+        - DD/MM/YYYY -> YYYY-MM-DD
+        - "-" -> None
+
+        Args:
+            date_str: Date string from Excel
+
+        Returns:
+            ISO formatted date string or None
+        """
+        if not date_str or date_str == '-' or pd.isna(date_str):
+            return None
+
+        try:
+            date_str = str(date_str).strip()
+
+            # Try DD/MM/YYYY HH:MM:SS format
+            if ' ' in date_str:
+                date_part, time_part = date_str.split(' ', 1)
+                day, month, year = date_part.split('/')
+                return f"{year}-{month.zfill(2)}-{day.zfill(2)} {time_part}"
+            # Try DD/MM/YYYY format
+            elif '/' in date_str:
+                day, month, year = date_str.split('/')
+                return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+            else:
+                return None
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Could not parse date: {date_str} - {e}")
+            return None
+
+    @staticmethod
     def _parse_be_date(date_str: str) -> Optional[datetime]:
         """
         Convert Buddhist Era date to CE date
@@ -234,6 +271,9 @@ class EClaimFileParser:
                     # Handle NaN/None
                     if pd.isna(value):
                         value = None
+                    # Convert date strings to ISO format for PostgreSQL
+                    elif db_field in ['admission_date', 'discharge_date'] and value:
+                        value = self._parse_thai_date(value)
 
                     record[db_field] = value
 
