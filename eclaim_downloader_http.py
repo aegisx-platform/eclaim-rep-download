@@ -255,6 +255,9 @@ class EClaimDownloader:
                     print(f"[{idx}/{len(download_links)}] ✓ Downloaded: {filename} ({file_size:,} bytes)")
                     success = True
 
+                    # Save history after each download for real-time tracking
+                    self._save_history()
+
                     # Delay to avoid overwhelming server
                     time.sleep(1)
 
