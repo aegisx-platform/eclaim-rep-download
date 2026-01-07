@@ -6,6 +6,7 @@ Bulk Downloader - Orchestrate sequential downloads across multiple months/years
 import json
 import sys
 import time
+import threading
 from datetime import datetime
 from pathlib import Path
 import subprocess
@@ -18,6 +19,7 @@ class BulkDownloader:
     def __init__(self):
         self.progress_file = Path('bulk_download_progress.json')
         self.delay_between_months = 10  # seconds between each month download
+        self.stop_monitoring = False  # Flag to stop monitoring thread
 
     def generate_date_range(self, start_month, start_year, end_month, end_year):
         """
@@ -71,6 +73,39 @@ class BulkDownloader:
         with open(self.progress_file, 'w', encoding='utf-8') as f:
             json.dump(progress, f, ensure_ascii=False, indent=2)
 
+    def monitor_file_count(self, month, year, progress):
+        """
+        Background thread to update file count while downloading
+
+        Args:
+            month (int): Current month being downloaded
+            year (int): Current year being downloaded
+            progress (dict): Progress dictionary to update
+        """
+        from utils.history_manager import HistoryManager
+
+        while not self.stop_monitoring:
+            try:
+                # Count files for current month/year
+                history_mgr = HistoryManager()
+                current_files = len([
+                    d for d in history_mgr.get_all_downloads()
+                    if d.get('month') == month and d.get('year') == year
+                ])
+
+                # Update progress
+                progress['current_files'] = current_files
+
+                # Save progress (this will make UI update)
+                self.save_progress(progress)
+
+                # Sleep before next check
+                time.sleep(5)  # Update every 5 seconds
+
+            except Exception as e:
+                print(f"Monitor error: {e}", flush=True)
+                break
+
     def run_bulk_download(self, start_month, start_year, end_month, end_year):
         """
         Execute downloads sequentially for each month in the date range
@@ -117,6 +152,7 @@ class BulkDownloader:
             # Update current month in progress
             progress['current_month'] = {'month': month, 'year': year}
             progress['completed_months'] = idx - 1  # Update to show we're starting this month
+            progress['current_files'] = 0  # Reset file count for new month
             self.save_progress(progress)
 
             monthly_result = {
@@ -128,19 +164,42 @@ class BulkDownloader:
             }
 
             try:
+                # Start monitoring thread to update file count in real-time
+                self.stop_monitoring = False
+                monitor_thread = threading.Thread(
+                    target=self.monitor_file_count,
+                    args=(month, year, progress),
+                    daemon=True
+                )
+                monitor_thread.start()
+
                 # Create downloader for this specific month/year
                 downloader = EClaimDownloader(month=month, year=year)
+
+                # Get initial file count for this month
+                from utils.history_manager import HistoryManager
+                history_mgr = HistoryManager()
+                initial_count = len([d for d in history_mgr.get_all_downloads()
+                                    if d.get('month') == month and d.get('year') == year])
 
                 # Run the download
                 downloader.run()
 
+                # Stop monitoring thread
+                self.stop_monitoring = True
+                monitor_thread.join(timeout=2)
+
+                # Get final file count
+                final_count = len([d for d in history_mgr.get_all_downloads()
+                                  if d.get('month') == month and d.get('year') == year])
+                files_downloaded = final_count - initial_count
+
                 # Mark as completed
                 monthly_result['status'] = 'completed'
                 monthly_result['completed_at'] = datetime.now().isoformat()
+                monthly_result['files'] = files_downloaded
 
-                # Count files for this month (approximate - could enhance later)
-                # For now, we'll mark it as completed without counting
-                print(f"✓ Month {month}/{year} completed successfully", flush=True)
+                print(f"✓ Month {month}/{year} completed successfully ({files_downloaded} files)", flush=True)
 
             except Exception as e:
                 # Handle error but continue with next month

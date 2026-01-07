@@ -351,8 +351,9 @@ function startBulkProgressPolling() {
             const progress = await response.json();
 
             if (progress.running && progress.current_month) {
-                // Update current month
-                currentMonthSpan.textContent = `Month ${progress.current_month.month}/${progress.current_month.year}`;
+                // Update current month with file count
+                const fileCount = progress.current_files || 0;
+                currentMonthSpan.textContent = `Month ${progress.current_month.month}/${progress.current_month.year} (${fileCount} files)`;
 
                 // Update progress count
                 progressCountSpan.textContent = `${progress.completed_months} / ${progress.total_months} months`;
@@ -362,9 +363,15 @@ function startBulkProgressPolling() {
                 const completedPercentage = (progress.completed_months / progress.total_months) * 100;
                 const percentage = progress.completed_months === 0 ? 5 : completedPercentage;
                 progressBar.style.width = `${percentage}%`;
-                progressPercentage.textContent = progress.completed_months === 0
-                    ? 'Downloading...'
-                    : `${Math.round(completedPercentage)}%`;
+
+                // Show file count when downloading first month
+                if (progress.completed_months === 0 && fileCount > 0) {
+                    progressPercentage.textContent = `${fileCount} files`;
+                } else if (progress.completed_months === 0) {
+                    progressPercentage.textContent = 'Starting...';
+                } else {
+                    progressPercentage.textContent = `${Math.round(completedPercentage)}%`;
+                }
             }
 
             if (progress.status === 'completed') {
