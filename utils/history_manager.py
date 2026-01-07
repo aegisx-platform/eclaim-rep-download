@@ -118,3 +118,76 @@ class HistoryManager:
         )
 
         return sorted_downloads[:n]
+
+    def get_date_range_statistics(self):
+        """
+        Get statistics grouped by month/year
+
+        Returns:
+            dict: Statistics organized by year and month
+                {
+                  "2568": {
+                    "1": {"files": 15, "size": 1234567},
+                    "12": {"files": 23, "size": 987654}
+                  }
+                }
+        """
+        downloads = self.get_all_downloads()
+        stats = {}
+
+        for download in downloads:
+            # Get month and year from record (if available)
+            month = download.get('month')
+            year = download.get('year')
+
+            # If month/year not in record, try to extract from filename or skip
+            if not month or not year:
+                continue
+
+            # Ensure year key exists
+            year_str = str(year)
+            if year_str not in stats:
+                stats[year_str] = {}
+
+            # Ensure month key exists
+            month_str = str(month)
+            if month_str not in stats[year_str]:
+                stats[year_str][month_str] = {
+                    'files': 0,
+                    'size': 0
+                }
+
+            # Add to statistics
+            stats[year_str][month_str]['files'] += 1
+            stats[year_str][month_str]['size'] += download.get('file_size', 0)
+
+        # Format sizes
+        for year in stats:
+            for month in stats[year]:
+                stats[year][month]['size_formatted'] = humanize.naturalsize(stats[year][month]['size'])
+
+        return stats
+
+    def get_downloads_by_date(self, month, year):
+        """
+        Get all downloads for specific month/year
+
+        Args:
+            month (int): Month (1-12)
+            year (int): Year in Buddhist Era
+
+        Returns:
+            list: List of download records for the specified month/year
+        """
+        downloads = self.get_all_downloads()
+
+        # Filter by month and year
+        filtered = [
+            d for d in downloads
+            if d.get('month') == month and d.get('year') == year
+        ]
+
+        # Sort by download date
+        filtered.sort(key=lambda d: d.get('download_date', ''), reverse=True)
+
+        return filtered

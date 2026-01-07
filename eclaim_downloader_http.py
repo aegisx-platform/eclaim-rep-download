@@ -19,16 +19,31 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class EClaimDownloader:
-    def __init__(self):
+    def __init__(self, month=None, year=None):
+        """
+        Initialize E-Claim Downloader
+
+        Args:
+            month (int, optional): Month (1-12). Defaults to current month.
+            year (int, optional): Year in Buddhist Era. Defaults to current year + 543.
+        """
         self.username = os.getenv('ECLAIM_USERNAME')
         self.password = os.getenv('ECLAIM_PASSWORD')
         self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads'))
         self.tracking_file = Path('download_history.json')
 
+        # Set month and year (default to current date in Buddhist Era)
+        now = datetime.now()
+        self.month = month if month is not None else now.month
+        self.year = year if year is not None else (now.year + 543)  # Convert to Buddhist Era
+
         # URLs
         self.base_url = 'https://eclaim.nhso.go.th'
         self.login_url = f'{self.base_url}/webComponent/login/LoginAction.do'
-        self.validation_url = f'{self.base_url}/webComponent/validation/ValidationMainAction.do?maininscl=ucs'
+        self.validation_url = (
+            f'{self.base_url}/webComponent/validation/ValidationMainAction.do?'
+            f'mo={self.month}&ye={self.year}&maininscl=ucs'
+        )
 
         # Create session with cookies
         self.session = requests.Session()
@@ -231,7 +246,9 @@ class EClaimDownloader:
                         'download_date': datetime.now().isoformat(),
                         'file_path': str(file_path),
                         'file_size': file_size,
-                        'url': url
+                        'url': url,
+                        'month': self.month,
+                        'year': self.year
                     })
 
                     downloaded_count += 1
@@ -301,7 +318,41 @@ class EClaimDownloader:
 
 def main():
     """Entry point"""
-    downloader = EClaimDownloader()
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='E-Claim Excel File Downloader',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Download current month (default)
+  python eclaim_downloader_http.py
+
+  # Download specific month and year (Buddhist Era)
+  python eclaim_downloader_http.py --month 12 --year 2568
+
+  # Download January 2025 (2568 BE)
+  python eclaim_downloader_http.py --month 1 --year 2568
+        """
+    )
+
+    parser.add_argument(
+        '--month',
+        type=int,
+        choices=range(1, 13),
+        help='Month to download (1-12). Defaults to current month.'
+    )
+
+    parser.add_argument(
+        '--year',
+        type=int,
+        help='Year in Buddhist Era (BE = Gregorian + 543). Defaults to current year.'
+    )
+
+    args = parser.parse_args()
+
+    # Create downloader with specified month/year (or defaults)
+    downloader = EClaimDownloader(month=args.month, year=args.year)
     downloader.run()
 
 if __name__ == '__main__':

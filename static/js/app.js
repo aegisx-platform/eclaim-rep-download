@@ -240,6 +240,162 @@ function showToast(message, type = 'info') {
 }
 
 /**
+ * Calculate number of months between two dates
+ */
+function calculateMonthsBetween(m1, y1, m2, y2) {
+    return ((y2 - y1) * 12) + (m2 - m1) + 1;
+}
+
+/**
+ * Download single month
+ */
+async function downloadSingleMonth() {
+    const month = parseInt(document.getElementById('single-month').value);
+    const year = parseInt(document.getElementById('single-year').value);
+
+    try {
+        const response = await fetch('/download/trigger/single', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ month, year })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(`Download started for month ${month}/${year}`, 'success');
+            startStatusPolling();
+        } else {
+            showToast(data.error || 'Failed to start download', 'error');
+        }
+    } catch (error) {
+        console.error('Error starting single month download:', error);
+        showToast('Error starting download', 'error');
+    }
+}
+
+/**
+ * Download bulk (date range)
+ */
+async function downloadBulk() {
+    const startMonth = parseInt(document.getElementById('bulk-start-month').value);
+    const startYear = parseInt(document.getElementById('bulk-start-year').value);
+    const endMonth = parseInt(document.getElementById('bulk-end-month').value);
+    const endYear = parseInt(document.getElementById('bulk-end-year').value);
+
+    // Calculate total months
+    const totalMonths = calculateMonthsBetween(startMonth, startYear, endMonth, endYear);
+
+    // Confirm with user
+    if (!confirm(
+        `Download ${totalMonths} month${totalMonths !== 1 ? 's' : ''} of data?\n\n` +
+        `From: ${startMonth}/${startYear} to ${endMonth}/${endYear}\n` +
+        `Estimated time: ~${totalMonths} minute${totalMonths !== 1 ? 's' : ''}\n\n` +
+        `Downloads will be processed sequentially.`
+    )) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/download/trigger/bulk', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                start_month: startMonth,
+                start_year: startYear,
+                end_month: endMonth,
+                end_year: endYear
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('Bulk download started!', 'success');
+            startBulkProgressPolling();
+        } else {
+            showToast(data.error || 'Failed to start bulk download', 'error');
+        }
+    } catch (error) {
+        console.error('Error starting bulk download:', error);
+        showToast('Error starting bulk download', 'error');
+    }
+}
+
+/**
+ * Start polling bulk download progress
+ */
+function startBulkProgressPolling() {
+    const progressDiv = document.getElementById('bulk-progress');
+    const currentMonthSpan = document.getElementById('current-month');
+    const progressCountSpan = document.getElementById('progress-count');
+    const progressBar = document.getElementById('progress-bar');
+    const progressPercentage = document.getElementById('progress-percentage');
+
+    // Show progress display
+    progressDiv.classList.remove('hidden');
+
+    // Clear any existing interval
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+    }
+
+    // Poll every 3 seconds
+    pollingInterval = setInterval(async () => {
+        try {
+            const response = await fetch('/download/bulk/progress');
+            const progress = await response.json();
+
+            if (progress.running && progress.current_month) {
+                // Update current month
+                currentMonthSpan.textContent = `Month ${progress.current_month.month}/${progress.current_month.year}`;
+
+                // Update progress count
+                progressCountSpan.textContent = `${progress.completed_months} / ${progress.total_months} months`;
+
+                // Update progress bar
+                const percentage = (progress.completed_months / progress.total_months) * 100;
+                progressBar.style.width = `${percentage}%`;
+                progressPercentage.textContent = `${Math.round(percentage)}%`;
+            }
+
+            if (progress.status === 'completed') {
+                // Bulk download completed
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+
+                progressBar.style.width = '100%';
+                progressPercentage.textContent = '100%';
+
+                showToast('Bulk download completed!', 'success');
+
+                // Refresh page after 2 seconds
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else if (progress.status === 'failed') {
+                // Bulk download failed
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+
+                showToast('Bulk download failed. Check logs for details.', 'error');
+
+                // Hide progress after 3 seconds
+                setTimeout(() => {
+                    progressDiv.classList.add('hidden');
+                }, 3000);
+            }
+        } catch (error) {
+            console.error('Error polling bulk progress:', error);
+        }
+    }, 3000);
+}
+
+/**
  * Check initial download status on page load
  */
 document.addEventListener('DOMContentLoaded', async () => {
@@ -250,6 +406,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (status.running) {
             // Start polling if already running
             startStatusPolling();
+        }
+
+        // Check for bulk download in progress
+        const bulkResponse = await fetch('/download/bulk/progress');
+        const bulkProgress = await bulkResponse.json();
+
+        if (bulkProgress.running && bulkProgress.status === 'running') {
+            // Resume bulk progress polling
+            startBulkProgressPolling();
         }
     } catch (error) {
         console.error('Error checking initial status:', error);

@@ -141,6 +141,112 @@ def api_stats():
     })
 
 
+@app.route('/download-config')
+def download_config():
+    """Download configuration page with date selection"""
+    return render_template('download_config.html')
+
+
+@app.route('/download/trigger/single', methods=['POST'])
+def trigger_single_download():
+    """Trigger download for specific month/year"""
+    try:
+        data = request.get_json()
+        month = data.get('month')
+        year = data.get('year')
+
+        # Validate inputs
+        if not month or not year:
+            return jsonify({'success': False, 'error': 'Month and year are required'}), 400
+
+        month = int(month)
+        year = int(year)
+
+        if not (1 <= month <= 12):
+            return jsonify({'success': False, 'error': 'Invalid month (must be 1-12)'}), 400
+
+        if not (2561 <= year <= 2570):
+            return jsonify({'success': False, 'error': 'Invalid year (must be 2561-2570 BE)'}), 400
+
+        # Start downloader with parameters
+        result = downloader_runner.start(month=month, year=year)
+
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            status_code = 409 if 'already running' in result.get('error', '').lower() else 500
+            return jsonify(result), status_code
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/download/trigger/bulk', methods=['POST'])
+def trigger_bulk_download():
+    """Trigger bulk download for date range"""
+    try:
+        data = request.get_json()
+
+        start_month = data.get('start_month')
+        start_year = data.get('start_year')
+        end_month = data.get('end_month')
+        end_year = data.get('end_year')
+
+        # Validate inputs
+        if not all([start_month, start_year, end_month, end_year]):
+            return jsonify({'success': False, 'error': 'All date fields are required'}), 400
+
+        start_month = int(start_month)
+        start_year = int(start_year)
+        end_month = int(end_month)
+        end_year = int(end_year)
+
+        # Validate ranges
+        if not (1 <= start_month <= 12) or not (1 <= end_month <= 12):
+            return jsonify({'success': False, 'error': 'Invalid month (must be 1-12)'}), 400
+
+        if not (2561 <= start_year <= 2570) or not (2561 <= end_year <= 2570):
+            return jsonify({'success': False, 'error': 'Invalid year (must be 2561-2570 BE)'}), 400
+
+        # Validate date order
+        if start_year > end_year or (start_year == end_year and start_month > end_month):
+            return jsonify({'success': False, 'error': 'Start date must be before or equal to end date'}), 400
+
+        # Start bulk downloader
+        result = downloader_runner.start_bulk(start_month, start_year, end_month, end_year)
+
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            status_code = 409 if 'already running' in result.get('error', '').lower() else 500
+            return jsonify(result), status_code
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/download/bulk/progress')
+def bulk_progress():
+    """Get real-time bulk download progress"""
+    try:
+        progress = downloader_runner.get_bulk_progress()
+        return jsonify(progress)
+
+    except Exception as e:
+        return jsonify({'running': False, 'error': str(e)}), 500
+
+
+@app.route('/api/date-range-stats')
+def date_range_stats():
+    """Get statistics grouped by month/year"""
+    try:
+        stats = history_manager.get_date_range_statistics()
+        return jsonify(stats)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.template_filter('naturalsize')
 def naturalsize_filter(value):
     """Template filter for human-readable file sizes"""
