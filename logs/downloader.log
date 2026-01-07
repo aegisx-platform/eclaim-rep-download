@@ -1,0 +1,48 @@
+
+============================================================
+Started at: 2026-01-07 18:42:52
+============================================================
+============================================================
+E-Claim Excel File Downloader (HTTP Client)
+============================================================
+Started at: 2026-01-07 18:42:53
+
+[2026-01-07 18:42:53] Logging in...
+[2026-01-07 18:42:54] Login successful!
+[2026-01-07 18:42:54] Fetching validation page...
+[2026-01-07 18:42:55] Found 23 unique download links
+[1/23] Skipping eclaim_10670_OP_25690105_201501885.xls (already downloaded)
+[2/23] Skipping eclaim_10670_OP_25690105_200503843.xls (already downloaded)
+[3/23] Skipping eclaim_10670_OP_25690105_200006391.xls (already downloaded)
+[4/23] Skipping eclaim_10670_OP_25690105_195044871.xls (already downloaded)
+[5/23] Skipping eclaim_10670_ORF_25690105_185102386.xls (already downloaded)
+[6/23] Skipping eclaim_10670_OP_25690105_185100296.xls (already downloaded)
+[7/23] Skipping eclaim_10670_ORF_25690105_173629508.xls (already downloaded)
+[8/23] Skipping eclaim_10670_OP_25690105_173627985.xls (already downloaded)
+[9/23] Skipping eclaim_10670_OP_25690104_173003709.xls (already downloaded)
+[10/23] Skipping eclaim_10670_OP_25690104_172502382.xls (already downloaded)
+[11/23] Skipping eclaim_10670_ORF_25690104_172004014.xls (already downloaded)
+[12/23] Skipping eclaim_10670_OP_25690104_172003509.xls (already downloaded)
+[13/23] Skipping eclaim_10670_ORF_25690104_171010468.xls (already downloaded)
+[14/23] Skipping eclaim_10670_OP_25690104_171007919.xls (already downloaded)
+[15/23] Skipping eclaim_10670_IP_25690103_170012003.xls (already downloaded)
+[16/23] Skipping eclaim_10670_OP_25690103_170010460.xls (already downloaded)
+[17/23] Skipping eclaim_10670_OP_25690101_180002798.xls (already downloaded)
+[18/23] Skipping eclaim_10670_OP_25690101_175502598.xls (already downloaded)
+[19/23] Skipping eclaim_10670_OP_25690101_175003549.xls (already downloaded)
+[20/23] Skipping eclaim_10670_ORF_25690101_174507525.xls (already downloaded)
+[21/23] Skipping eclaim_10670_OP_25690101_174506467.xls (already downloaded)
+[22/23] Skipping eclaim_10670_ORF_25690101_173510734.xls (already downloaded)
+[23/23] Skipping eclaim_10670_OP_25690101_173510126.xls (already downloaded)
+
+============================================================
+Download Summary
+============================================================
+Total files found: 23
+✓ Downloaded: 0
+⊘ Skipped (already downloaded): 23
+✗ Errors: 0
+Total downloads in history: 24
+Download directory: /Users/sathitseethaphon/projects/kkh/eclaim-req-download/downloads
+Completed at: 2026-01-07 18:42:55
+============================================================

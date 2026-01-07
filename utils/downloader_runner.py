@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 from datetime import datetime
+import psutil
 
 
 class DownloaderRunner:
@@ -25,11 +26,19 @@ class DownloaderRunner:
         try:
             pid = int(self.pid_file.read_text().strip())
 
-            # Check if process with this PID exists
+            # Check if process exists and is running (not zombie)
             try:
-                os.kill(pid, 0)  # Signal 0 just checks if process exists
-                return True
-            except OSError:
+                process = psutil.Process(pid)
+
+                # Check if process is still alive and not a zombie
+                if process.is_running() and process.status() != psutil.STATUS_ZOMBIE:
+                    return True
+                else:
+                    # Process is zombie or terminated, cleanup PID file
+                    self.pid_file.unlink()
+                    return False
+
+            except psutil.NoSuchProcess:
                 # Process doesn't exist, cleanup stale PID file
                 self.pid_file.unlink()
                 return False
