@@ -1,0 +1,57 @@
+/**
+ * Custom CSS for E-Claim Downloader Web UI
+ */
+
+/* Smooth transitions */
+* {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Toast animations */
+.toast-enter {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.toast-enter-active {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Loading spinner */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Hover effects */
+.hover-scale:hover {
+    transform: scale(1.02);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

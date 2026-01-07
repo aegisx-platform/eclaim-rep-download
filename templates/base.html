@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}E-Claim Downloader{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <!-- Logo/Brand -->
+                <div class="flex items-center space-x-3">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                    </svg>
+                    <h1 class="text-2xl font-bold text-gray-800">E-Claim Downloader</h1>
+                </div>
+
+                <!-- Navigation Links -->
+                <div class="flex items-center space-x-6">
+                    <a href="{{ url_for('dashboard') }}" class="text-gray-700 hover:text-blue-600 font-medium transition-colors {% if request.endpoint == 'dashboard' %}text-blue-600{% endif %}">
+                        Dashboard
+                    </a>
+                    <a href="{{ url_for('files') }}" class="text-gray-700 hover:text-blue-600 font-medium transition-colors {% if request.endpoint == 'files' %}text-blue-600{% endif %}">
+                        Files
+                    </a>
+
+                    <!-- Trigger Download Button -->
+                    <button onclick="triggerDownload()" id="trigger-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                        <span id="trigger-text">Trigger Download</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-12">
+        <div class="container mx-auto px-4 py-6 text-center text-gray-600">
+            <p>E-Claim Excel File Downloader &copy; 2026</p>
+        </div>
+    </footer>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

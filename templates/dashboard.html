@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - E-Claim Downloader{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="mb-8">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">Dashboard</h2>
+    <p class="text-gray-600">ภาพรวมการ download ไฟล์จากระบบ e-claim</p>
+</div>
+
+<!-- Statistics Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Files -->
+    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium opacity-90">Total Files</h3>
+            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+        </div>
+        <p class="text-4xl font-bold">{{ stats.total_files }}</p>
+        <p class="text-sm opacity-80 mt-1">ไฟล์ทั้งหมด</p>
+    </div>
+
+    <!-- Total Size -->
+    <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium opacity-90">Total Size</h3>
+            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+            </svg>
+        </div>
+        <p class="text-4xl font-bold">{{ stats.total_size }}</p>
+        <p class="text-sm opacity-80 mt-1">ขนาดรวม</p>
+    </div>
+
+    <!-- Last Run -->
+    <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium opacity-90">Last Run</h3>
+            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+        <p class="text-2xl font-bold">{{ stats.last_run }}</p>
+        <p class="text-sm opacity-80 mt-1">ครั้งล่าสุด</p>
+    </div>
+
+    <!-- File Types -->
+    <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium opacity-90">File Types</h3>
+            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+            </svg>
+        </div>
+        <div class="space-y-1">
+            {% for type, count in stats.file_types.items() %}
+            <div class="flex justify-between text-sm">
+                <span class="opacity-90">{{ type }}:</span>
+                <span class="font-bold">{{ count }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Downloader Status -->
+{% if downloader_running %}
+<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8 rounded-r-lg">
+    <div class="flex items-center">
+        <svg class="w-6 h-6 text-yellow-400 mr-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <div>
+            <p class="font-semibold text-yellow-800">Downloader กำลังทำงานอยู่...</p>
+            <p class="text-sm text-yellow-700">กรุณารอจนกว่าจะเสร็จสิ้น</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Latest Files Section -->
+<div class="bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+        <h3 class="text-xl font-bold text-gray-800">Latest Files</h3>
+        <a href="{{ url_for('files') }}" class="text-blue-600 hover:text-blue-700 font-medium text-sm">
+            View All →
+        </a>
+    </div>
+
+    {% if latest_files %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filename</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for file in latest_files %}
+                <tr class="hover:bg-gray-50 transition-colors" data-file="{{ file.filename }}">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span class="text-sm text-gray-900 font-medium">{{ file.filename }}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ file.date_formatted }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ file.size_formatted }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="{{ url_for('download_file', filename=file.filename) }}" class="text-blue-600 hover:text-blue-900 mr-3">Download</a>
+                        <button onclick="deleteFile('{{ file.filename }}')" class="text-red-600 hover:text-red-900">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="px-6 py-12 text-center">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <p class="text-gray-500">No files downloaded yet</p>
+        <button onclick="triggerDownload()" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg">
+            Download Now
+        </button>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
