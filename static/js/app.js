@@ -358,9 +358,13 @@ function startBulkProgressPolling() {
                 progressCountSpan.textContent = `${progress.completed_months} / ${progress.total_months} months`;
 
                 // Update progress bar
-                const percentage = (progress.completed_months / progress.total_months) * 100;
+                // Show at least 5% progress when downloading to indicate activity
+                const completedPercentage = (progress.completed_months / progress.total_months) * 100;
+                const percentage = progress.completed_months === 0 ? 5 : completedPercentage;
                 progressBar.style.width = `${percentage}%`;
-                progressPercentage.textContent = `${Math.round(percentage)}%`;
+                progressPercentage.textContent = progress.completed_months === 0
+                    ? 'Downloading...'
+                    : `${Math.round(completedPercentage)}%`;
             }
 
             if (progress.status === 'completed') {

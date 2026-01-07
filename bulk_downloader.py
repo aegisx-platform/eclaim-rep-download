@@ -111,11 +111,12 @@ class BulkDownloader:
 
         # Process each month
         for idx, (month, year) in enumerate(date_range, 1):
-            print(f"\n[{idx}/{len(date_range)}] Processing month {month}/{year}...")
-            print("-"*60)
+            print(f"\n[{idx}/{len(date_range)}] Processing month {month}/{year}...", flush=True)
+            print("-"*60, flush=True)
 
             # Update current month in progress
             progress['current_month'] = {'month': month, 'year': year}
+            progress['completed_months'] = idx - 1  # Update to show we're starting this month
             self.save_progress(progress)
 
             monthly_result = {
@@ -139,11 +140,11 @@ class BulkDownloader:
 
                 # Count files for this month (approximate - could enhance later)
                 # For now, we'll mark it as completed without counting
-                print(f"✓ Month {month}/{year} completed successfully")
+                print(f"✓ Month {month}/{year} completed successfully", flush=True)
 
             except Exception as e:
                 # Handle error but continue with next month
-                print(f"✗ Error processing month {month}/{year}: {str(e)}")
+                print(f"✗ Error processing month {month}/{year}: {str(e)}", flush=True)
                 monthly_result['status'] = 'failed'
                 monthly_result['error'] = str(e)
                 monthly_result['completed_at'] = datetime.now().isoformat()
@@ -155,7 +156,7 @@ class BulkDownloader:
 
             # Delay before next month (except for the last one)
             if idx < len(date_range):
-                print(f"\nWaiting {self.delay_between_months} seconds before next month...")
+                print(f"\nWaiting {self.delay_between_months} seconds before next month...", flush=True)
                 time.sleep(self.delay_between_months)
 
         # Mark bulk operation as completed
