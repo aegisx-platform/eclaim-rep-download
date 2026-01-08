@@ -2,5 +2,8 @@
   "eclaim_username": "your_username",
   "eclaim_password": "your_password",
   "download_dir": "downloads",
-  "auto_import_default": false
+  "auto_import_default": false,
+  "schedule_enabled": false,
+  "schedule_times": [],
+  "schedule_auto_import": true
 }

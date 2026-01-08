@@ -12,6 +12,7 @@ from utils import HistoryManager, FileManager, DownloaderRunner
 from utils.import_runner import ImportRunner
 from utils.log_stream import log_streamer
 from utils.settings_manager import SettingsManager
+from utils.scheduler import download_scheduler
 from config.database import get_db_config
 
 # Thailand timezone
@@ -26,6 +27,31 @@ file_manager = FileManager()
 downloader_runner = DownloaderRunner()
 import_runner = ImportRunner()
 settings_manager = SettingsManager()
+
+
+def init_scheduler():
+    """Initialize scheduler with saved settings"""
+    try:
+        schedule_settings = settings_manager.get_schedule_settings()
+
+        if schedule_settings['schedule_enabled']:
+            # Clear existing jobs
+            download_scheduler.clear_all_jobs()
+
+            # Add scheduled jobs
+            auto_import = schedule_settings['schedule_auto_import']
+            for time_config in schedule_settings['schedule_times']:
+                hour = time_config.get('hour', 0)
+                minute = time_config.get('minute', 0)
+                download_scheduler.add_scheduled_download(hour, minute, auto_import)
+
+            log_streamer.write_log(
+                f"✓ Scheduler initialized with {len(schedule_settings['schedule_times'])} jobs",
+                'success',
+                'system'
+            )
+    except Exception as e:
+        app.logger.error(f"Error initializing scheduler: {e}")
 
 
 def get_db_connection():
@@ -620,5 +646,85 @@ def clear_logs():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/schedule', methods=['GET', 'POST'])
+def api_schedule():
+    """Get or update schedule settings"""
+    if request.method == 'GET':
+        # Get current schedule settings
+        schedule_settings = settings_manager.get_schedule_settings()
+
+        # Get scheduled jobs info
+        jobs = download_scheduler.get_all_jobs()
+
+        return jsonify({
+            'success': True,
+            'settings': schedule_settings,
+            'jobs': jobs
+        })
+
+    elif request.method == 'POST':
+        # Update schedule settings
+        try:
+            data = request.get_json()
+
+            enabled = data.get('schedule_enabled', False)
+            times = data.get('schedule_times', [])
+            auto_import = data.get('schedule_auto_import', True)
+
+            # Validate times format
+            for time_config in times:
+                if not isinstance(time_config, dict):
+                    return jsonify({'success': False, 'error': 'Invalid time format'}), 400
+
+                hour = time_config.get('hour')
+                minute = time_config.get('minute')
+
+                if hour is None or minute is None:
+                    return jsonify({'success': False, 'error': 'Missing hour or minute'}), 400
+
+                if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+                    return jsonify({'success': False, 'error': 'Invalid hour or minute value'}), 400
+
+            # Save settings
+            success = settings_manager.update_schedule_settings(enabled, times, auto_import)
+
+            if not success:
+                return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
+
+            # Reinitialize scheduler
+            init_scheduler()
+
+            log_streamer.write_log(
+                f"✓ Schedule updated: {len(times)} times, enabled={enabled}",
+                'success',
+                'system'
+            )
+
+            return jsonify({'success': True, 'message': 'Schedule settings updated'})
+
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/schedule/test', methods=['POST'])
+def test_schedule():
+    """Trigger a test run of the scheduled download"""
+    try:
+        schedule_settings = settings_manager.get_schedule_settings()
+        auto_import = schedule_settings.get('schedule_auto_import', True)
+
+        # Run download manually
+        download_scheduler._run_download(auto_import)
+
+        return jsonify({
+            'success': True,
+            'message': 'Test download initiated'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
+    # Initialize scheduler on startup
+    init_scheduler()
     app.run(host='0.0.0.0', port=5001, debug=True)

@@ -20,7 +20,10 @@ class SettingsManager:
             'eclaim_username': '',
             'eclaim_password': '',
             'download_dir': 'downloads',
-            'auto_import_default': False
+            'auto_import_default': False,
+            'schedule_enabled': False,
+            'schedule_times': [],
+            'schedule_auto_import': True
         }
 
     def load_settings(self) -> Dict:
@@ -87,3 +90,35 @@ class SettingsManager:
         """Check if credentials are configured"""
         username, password = self.get_eclaim_credentials()
         return bool(username and password)
+
+    def get_schedule_settings(self) -> Dict:
+        """
+        Get schedule settings
+
+        Returns:
+            Dict with schedule_enabled, schedule_times, schedule_auto_import
+        """
+        settings = self.load_settings()
+        return {
+            'schedule_enabled': settings.get('schedule_enabled', False),
+            'schedule_times': settings.get('schedule_times', []),
+            'schedule_auto_import': settings.get('schedule_auto_import', True)
+        }
+
+    def update_schedule_settings(self, enabled: bool, times: list, auto_import: bool) -> bool:
+        """
+        Update schedule settings
+
+        Args:
+            enabled: Whether scheduling is enabled
+            times: List of time dicts like [{"hour": 9, "minute": 0}, ...]
+            auto_import: Whether to auto-import after download
+
+        Returns:
+            True if successful
+        """
+        settings = self.load_settings()
+        settings['schedule_enabled'] = enabled
+        settings['schedule_times'] = times
+        settings['schedule_auto_import'] = auto_import
+        return self.save_settings(settings)

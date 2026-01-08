@@ -100,7 +100,93 @@
     </div>
 </div>
 
+<!-- Schedule Configuration -->
+<div class="bg-white rounded-lg shadow-md overflow-hidden max-w-2xl mt-6">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-xl font-bold text-gray-800">Auto Download Schedule</h3>
+                <p class="text-sm text-gray-600 mt-1">ตั้งเวลาให้ระบบ download อัตโนมัติ</p>
+            </div>
+            <div class="flex items-center">
+                <span class="mr-3 text-sm text-gray-700">Enable Schedule</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="schedule-enabled" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="p-6">
+        <!-- Schedule Times List -->
+        <div id="schedule-times-container" class="space-y-3 mb-4">
+            <p class="text-sm text-gray-500" id="no-schedules-message">ยังไม่มีเวลาที่ตั้งไว้ กดปุ่ม "Add Schedule" เพื่อเพิ่ม</p>
+        </div>
+
+        <!-- Add Schedule Button -->
+        <button
+            type="button"
+            onclick="addScheduleTime()"
+            class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all"
+        >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            Add Schedule
+        </button>
+
+        <!-- Auto Import Toggle -->
+        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+            <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="schedule-auto-import" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                <span class="ml-3 text-sm font-medium text-gray-700">Auto-import files after download</span>
+            </label>
+            <p class="ml-7 mt-1 text-xs text-gray-500">เมื่อเปิดใช้งาน ระบบจะ import ไฟล์ลง database อัตโนมัติหลังจาก download เสร็จ</p>
+        </div>
+
+        <!-- Current Schedule Status -->
+        <div class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg">
+            <div class="flex">
+                <svg class="w-5 h-5 text-blue-400 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path>
+                </svg>
+                <div class="text-sm text-blue-700">
+                    <p class="font-medium mb-2">Scheduled Jobs:</p>
+                    <div id="schedule-status">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="mt-6 flex items-center gap-3">
+            <button
+                type="button"
+                onclick="saveScheduleSettings()"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:shadow-lg transition-all"
+            >
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Save Schedule
+            </button>
+            <button
+                type="button"
+                onclick="testSchedule()"
+                class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:shadow-lg transition-all"
+            >
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Test Run Now
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
+let scheduleTimes = [];
 function togglePasswordVisibility() {
     const passwordInput = document.getElementById('password');
 
@@ -143,6 +229,168 @@ document.getElementById('settings-form').addEventListener('submit', async (e) =>
         console.error('Error saving settings:', error);
         showToast('Error saving settings', 'error');
     }
+});
+
+// Schedule Management Functions
+async function loadScheduleSettings() {
+    try {
+        const response = await fetch('/api/schedule');
+        const data = await response.json();
+
+        if (data.success) {
+            const settings = data.settings;
+            const jobs = data.jobs;
+
+            // Set enabled toggle
+            document.getElementById('schedule-enabled').checked = settings.schedule_enabled;
+
+            // Set auto-import checkbox
+            document.getElementById('schedule-auto-import').checked = settings.schedule_auto_import;
+
+            // Load schedule times
+            scheduleTimes = settings.schedule_times || [];
+            renderScheduleTimes();
+
+            // Display job status
+            displayScheduleStatus(jobs);
+        }
+    } catch (error) {
+        console.error('Error loading schedule settings:', error);
+    }
+}
+
+function renderScheduleTimes() {
+    const container = document.getElementById('schedule-times-container');
+    const noSchedulesMsg = document.getElementById('no-schedules-message');
+
+    if (scheduleTimes.length === 0) {
+        noSchedulesMsg.style.display = 'block';
+        container.querySelectorAll('.schedule-time-item').forEach(el => el.remove());
+        return;
+    }
+
+    noSchedulesMsg.style.display = 'none';
+
+    // Remove existing items
+    container.querySelectorAll('.schedule-time-item').forEach(el => el.remove());
+
+    // Add schedule items
+    scheduleTimes.forEach((time, index) => {
+        const item = document.createElement('div');
+        item.className = 'schedule-time-item flex items-center gap-3 p-3 bg-gray-50 rounded-lg';
+        item.innerHTML = `
+            <div class="flex items-center gap-2 flex-1">
+                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <input type="number" min="0" max="23" value="${time.hour}"
+                       onchange="updateScheduleTime(${index}, 'hour', this.value)"
+                       class="w-16 px-2 py-1 border border-gray-300 rounded text-center">
+                <span class="text-gray-600">:</span>
+                <input type="number" min="0" max="59" value="${String(time.minute).padStart(2, '0')}"
+                       onchange="updateScheduleTime(${index}, 'minute', this.value)"
+                       class="w-16 px-2 py-1 border border-gray-300 rounded text-center">
+                <span class="text-sm text-gray-600">(${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')})</span>
+            </div>
+            <button type="button" onclick="removeScheduleTime(${index})"
+                    class="text-red-600 hover:text-red-800">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+            </button>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function addScheduleTime() {
+    scheduleTimes.push({ hour: 9, minute: 0 });
+    renderScheduleTimes();
+}
+
+function removeScheduleTime(index) {
+    scheduleTimes.splice(index, 1);
+    renderScheduleTimes();
+}
+
+function updateScheduleTime(index, field, value) {
+    scheduleTimes[index][field] = parseInt(value);
+}
+
+async function saveScheduleSettings() {
+    try {
+        const enabled = document.getElementById('schedule-enabled').checked;
+        const autoImport = document.getElementById('schedule-auto-import').checked;
+
+        const response = await fetch('/api/schedule', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                schedule_enabled: enabled,
+                schedule_times: scheduleTimes,
+                schedule_auto_import: autoImport
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('Schedule settings saved!', 'success');
+            // Reload to get updated job status
+            setTimeout(() => loadScheduleSettings(), 1000);
+        } else {
+            showToast(result.error || 'Failed to save schedule', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving schedule:', error);
+        showToast('Error saving schedule settings', 'error');
+    }
+}
+
+async function testSchedule() {
+    if (!confirm('This will trigger a download immediately. Continue?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/schedule/test', {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('Test download started! Check logs for progress.', 'success');
+        } else {
+            showToast(result.error || 'Failed to start test download', 'error');
+        }
+    } catch (error) {
+        console.error('Error testing schedule:', error);
+        showToast('Error starting test download', 'error');
+    }
+}
+
+function displayScheduleStatus(jobs) {
+    const statusDiv = document.getElementById('schedule-status');
+
+    if (!jobs || jobs.length === 0) {
+        statusDiv.textContent = 'No scheduled jobs';
+        return;
+    }
+
+    const jobsList = jobs.map(job => {
+        const nextRun = job.next_run_time ? new Date(job.next_run_time).toLocaleString('th-TH') : 'N/A';
+        return `<div class="mb-1">• ${job.name} - Next run: ${nextRun}</div>`;
+    }).join('');
+
+    statusDiv.innerHTML = jobsList;
+}
+
+// Load schedule settings on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadScheduleSettings();
 });
 </script>
 {% endblock %}
