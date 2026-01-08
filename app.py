@@ -139,11 +139,17 @@ def dashboard():
     # Check if downloader is running
     downloader_status = downloader_runner.get_status()
 
+    # Get schedule settings and jobs
+    schedule_settings = settings_manager.get_schedule_settings()
+    schedule_jobs = download_scheduler.get_all_jobs()
+
     return render_template(
         'dashboard.html',
         stats=stats,
         latest_files=latest_files,
-        downloader_running=downloader_status['running']
+        downloader_running=downloader_status['running'],
+        schedule_settings=schedule_settings,
+        schedule_jobs=schedule_jobs
     )
 
 
@@ -238,6 +244,10 @@ def files():
     # Get available months/years for filter dropdown
     available_dates = history_manager.get_available_dates()
 
+    # Get schedule settings and jobs
+    schedule_settings = settings_manager.get_schedule_settings()
+    schedule_jobs = download_scheduler.get_all_jobs()
+
     return render_template(
         'files.html',
         files=paginated_files,
@@ -249,7 +259,9 @@ def files():
         total_files=total_files,
         filter_month=filter_month,
         filter_year=filter_year,
-        available_dates=available_dates
+        available_dates=available_dates,
+        schedule_settings=schedule_settings,
+        schedule_jobs=schedule_jobs
     )
 
 

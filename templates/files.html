@@ -24,6 +24,57 @@
     </div>
 </div>
 
+<!-- Schedule Status Banner -->
+{% if schedule_settings.schedule_enabled %}
+<div class="bg-green-50 border-l-4 border-green-400 p-4 mb-6 rounded-r-lg">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center">
+            <svg class="w-5 h-5 text-green-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+            </svg>
+            <div>
+                <p class="font-medium text-green-800">Auto Download: <span class="text-green-900">Active</span></p>
+                <p class="text-sm text-green-700">
+                    Scheduled at:
+                    {% for time in schedule_settings.schedule_times %}
+                        <span class="font-semibold">{{ "%02d"|format(time.hour) }}:{{ "%02d"|format(time.minute) }}</span>{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                    {% if schedule_settings.schedule_auto_import %}
+                    • <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Auto-import ON</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        {% if schedule_jobs and schedule_jobs|length > 0 %}
+        <div class="text-right">
+            <p class="text-xs text-green-600">Next run:</p>
+            {% set next_job = schedule_jobs[0] %}
+            {% if next_job.next_run_time %}
+            <p class="text-sm font-semibold text-green-800">{{ next_job.next_run_time[:19]|replace('T', ' ') }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="bg-gray-50 border-l-4 border-gray-300 p-4 mb-6 rounded-r-lg">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center">
+            <svg class="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <div>
+                <p class="font-medium text-gray-700">Auto Download: <span class="text-gray-900">Inactive</span></p>
+                <p class="text-sm text-gray-600">Enable schedule in settings for automatic downloads</p>
+            </div>
+        </div>
+        <a href="{{ url_for('settings') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+            Configure →
+        </a>
+    </div>
+</div>
+{% endif %}
+
 <!-- Import Progress Modal -->
 <div id="import-progress-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
     <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
