@@ -426,6 +426,7 @@ def trigger_single_download():
         data = request.get_json()
         month = data.get('month')
         year = data.get('year')
+        auto_import = data.get('auto_import', False)
 
         # Validate inputs
         if not month or not year:
@@ -441,7 +442,7 @@ def trigger_single_download():
             return jsonify({'success': False, 'error': 'Invalid year (must be 2561-2570 BE)'}), 400
 
         # Start downloader with parameters
-        result = downloader_runner.start(month=month, year=year)
+        result = downloader_runner.start(month=month, year=year, auto_import=auto_import)
 
         if result['success']:
             return jsonify(result), 200
@@ -463,6 +464,7 @@ def trigger_bulk_download():
         start_year = data.get('start_year')
         end_month = data.get('end_month')
         end_year = data.get('end_year')
+        auto_import = data.get('auto_import', False)
 
         # Validate inputs
         if not all([start_month, start_year, end_month, end_year]):
@@ -485,7 +487,7 @@ def trigger_bulk_download():
             return jsonify({'success': False, 'error': 'Start date must be before or equal to end date'}), 400
 
         # Start bulk downloader
-        result = downloader_runner.start_bulk(start_month, start_year, end_month, end_year)
+        result = downloader_runner.start_bulk(start_month, start_year, end_month, end_year, auto_import)
 
         if result['success']:
             return jsonify(result), 200

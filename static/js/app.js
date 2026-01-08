@@ -253,6 +253,7 @@ function calculateMonthsBetween(m1, y1, m2, y2) {
 async function downloadSingleMonth() {
     const month = parseInt(document.getElementById('single-month').value);
     const year = parseInt(document.getElementById('single-year').value);
+    const autoImport = document.getElementById('single-auto-import')?.checked || false;
 
     try {
         const response = await fetch('/download/trigger/single', {
@@ -260,13 +261,13 @@ async function downloadSingleMonth() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ month, year })
+            body: JSON.stringify({ month, year, auto_import: autoImport })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            showToast(`Download started for month ${month}/${year}`, 'success');
+            showToast(`Download started for month ${month}/${year}${autoImport ? ' (with auto-import)' : ''}`, 'success');
             startStatusPolling();
         } else {
             showToast(data.error || 'Failed to start download', 'error');
@@ -285,6 +286,7 @@ async function downloadBulk() {
     const startYear = parseInt(document.getElementById('bulk-start-year').value);
     const endMonth = parseInt(document.getElementById('bulk-end-month').value);
     const endYear = parseInt(document.getElementById('bulk-end-year').value);
+    const autoImport = document.getElementById('bulk-auto-import')?.checked || false;
 
     // Calculate total months
     const totalMonths = calculateMonthsBetween(startMonth, startYear, endMonth, endYear);
@@ -293,7 +295,8 @@ async function downloadBulk() {
     if (!confirm(
         `Download ${totalMonths} month${totalMonths !== 1 ? 's' : ''} of data?\n\n` +
         `From: ${startMonth}/${startYear} to ${endMonth}/${endYear}\n` +
-        `Estimated time: ~${totalMonths} minute${totalMonths !== 1 ? 's' : ''}\n\n` +
+        `Estimated time: ~${totalMonths} minute${totalMonths !== 1 ? 's' : ''}\n` +
+        `Auto-import: ${autoImport ? 'YES' : 'NO'}\n\n` +
         `Downloads will be processed sequentially.`
     )) {
         return;
@@ -309,14 +312,15 @@ async function downloadBulk() {
                 start_month: startMonth,
                 start_year: startYear,
                 end_month: endMonth,
-                end_year: endYear
+                end_year: endYear,
+                auto_import: autoImport
             })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            showToast('Bulk download started!', 'success');
+            showToast(`Bulk download started!${autoImport ? ' (with auto-import)' : ''}`, 'success');
             startBulkProgressPolling();
         } else {
             showToast(data.error || 'Failed to start bulk download', 'error');

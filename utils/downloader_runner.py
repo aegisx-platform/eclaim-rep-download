@@ -177,7 +177,7 @@ class DownloaderRunner:
             print(f"Error reading log: {e}")
             return []
 
-    def start_bulk(self, start_month, start_year, end_month, end_year):
+    def start_bulk(self, start_month, start_year, end_month, end_year, auto_import=False):
         """
         Start bulk downloader for date range
 
@@ -186,6 +186,7 @@ class DownloaderRunner:
             start_year (int): Starting year in BE
             end_month (int): Ending month (1-12)
             end_year (int): Ending year in BE
+            auto_import (bool): Whether to auto-import files after download
         """
         # Check if already running (check both regular and bulk)
         if self.is_running():
@@ -211,12 +212,17 @@ class DownloaderRunner:
                 f'{end_month},{end_year}'
             ]
 
+            # Add auto-import flag if enabled
+            if auto_import:
+                cmd.append('--auto-import')
+
             # Open log file
             bulk_log_file = self.log_dir / 'bulk_downloader.log'
             with open(bulk_log_file, 'a', encoding='utf-8') as log:
                 log.write(f"\n{'='*60}\n")
                 log.write(f"Bulk Download Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 log.write(f"Date range: {start_month}/{start_year} to {end_month}/{end_year}\n")
+                log.write(f"Auto-import: {auto_import}\n")
                 log.write(f"{'='*60}\n")
 
                 # Start subprocess in detached mode
