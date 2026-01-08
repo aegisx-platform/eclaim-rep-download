@@ -9,6 +9,7 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 import logging
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -443,6 +444,26 @@ class EClaimImporterV2:
         Returns:
             Mapped dict
         """
+        # Date columns that need parsing
+        date_columns = ['dateadm', 'datedsc', 'service_date', 'inp_date']
+
+        # String field max lengths (from schema)
+        max_lengths = {
+            'chk_refer': 1, 'chk_right': 1, 'chk_use_right': 1, 'chk': 1,
+            'da': 1, 'pa': 1, 'ps_chk': 1, 'ps': 1,
+            'service_type': 2, 'ca_type': 5, 'ptype': 5,
+            'main_inscl': 5, 'sub_inscl': 5, 'prov1': 5, 'rg1': 5,
+            'prov2': 5, 'rg2': 5, 'ps_percent': 5, 'salary_rate': 5,
+            'htype1': 5, 'htype2': 5,
+            'href': 10, 'hcode': 10, 'hmain': 10, 'hmain2': 10, 'hmain3': 10,
+            'drg': 10, 'dx': 10, 'proc': 10, 'deny_hc': 10, 'deny_ae': 10,
+            'deny_inst': 10, 'deny_ip': 10, 'deny_dmis': 10,
+            'rep_no': 15, 'tran_id': 15, 'hn': 15, 'an': 15, 'seq_no': 15,
+            'pid': 20, 'invoice_no': 20, 'invoice_lt': 20, 'his_vn': 20,
+            'reconcile_status': 20, 'refer_no': 20, 'central_reimb_case': 20,
+            'claim_from': 50, 'pay_by': 50
+        }
+
         mapped = {
             'file_id': file_id,
             'row_number': row_number
@@ -454,8 +475,28 @@ class EClaimImporterV2:
                 # Convert NaN to None
                 if pd.isna(value):
                     mapped[db_col] = None
+                # Handle empty strings and "-" as NULL
+                elif isinstance(value, str) and value.strip() in ['', '-', 'N/A', 'n/a']:
+                    mapped[db_col] = None
                 else:
-                    mapped[db_col] = value
+                    # Handle date parsing for date columns
+                    if db_col in date_columns and isinstance(value, str):
+                        try:
+                            # Try to parse Thai date format: dd/mm/yyyy hh:mm:ss
+                            parsed_date = pd.to_datetime(value, format='%d/%m/%Y %H:%M:%S', errors='coerce')
+                            if pd.isna(parsed_date):
+                                # Try without time
+                                parsed_date = pd.to_datetime(value, format='%d/%m/%Y', errors='coerce')
+                            mapped[db_col] = parsed_date if not pd.isna(parsed_date) else None
+                        except:
+                            mapped[db_col] = None
+                    # Truncate strings to max length
+                    elif db_col in max_lengths:
+                        # Convert to string first if needed
+                        str_value = str(value) if not isinstance(value, str) else value
+                        mapped[db_col] = str_value[:max_lengths[db_col]]
+                    else:
+                        mapped[db_col] = value
             else:
                 mapped[db_col] = None
 
@@ -630,7 +671,8 @@ class EClaimImporterV2:
             file_id = self.create_import_record(metadata)
 
             # Read Excel file
-            df = pd.read_excel(filepath, engine='xlrd')
+            # Skip first 5 rows (report header), then skip 2 empty rows after column headers
+            df = pd.read_excel(filepath, engine='xlrd', skiprows=list(range(0,5)) + [6,7])
 
             total_records = len(df)
 
