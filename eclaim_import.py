@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import List
 from datetime import datetime
 
-from config.database import get_db_config, DOWNLOADS_DIR
-from utils.eclaim.importer import import_eclaim_file
+from config.database import get_db_config, DOWNLOADS_DIR, DB_TYPE
+from utils.eclaim.importer_v2 import import_eclaim_file
 from utils.eclaim.parser import EClaimFileParser
 
 # Configure logging
@@ -54,7 +54,7 @@ def import_single_file(filepath: str, db_config: dict) -> dict:
     """
     try:
         logger.info(f"Importing file: {filepath}")
-        result = import_eclaim_file(filepath, db_config)
+        result = import_eclaim_file(filepath, db_config, DB_TYPE)
 
         if result['success']:
             logger.info(f"✓ Import successful: {result['imported_records']}/{result['total_records']} records")

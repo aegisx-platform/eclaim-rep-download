@@ -599,7 +599,7 @@ def clear_all_data():
         if conn:
             try:
                 cursor = conn.cursor()
-                cursor.execute("TRUNCATE TABLE eclaim_claims, eclaim_op_refer, eclaim_imported_files RESTART IDENTITY CASCADE;")
+                cursor.execute("TRUNCATE TABLE claim_rep_opip_nhso_item, claim_rep_orf_nhso_item, eclaim_imported_files RESTART IDENTITY CASCADE;")
                 conn.commit()
                 cursor.close()
                 conn.close()

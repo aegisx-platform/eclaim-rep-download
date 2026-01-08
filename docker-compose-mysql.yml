@@ -14,7 +14,7 @@ services:
       TZ: ${TZ:-Asia/Bangkok}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./database/schema-mysql.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/schema-mysql-merged.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     ports:
       - "3306:3306"
     networks:
