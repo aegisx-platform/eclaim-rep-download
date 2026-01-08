@@ -1,212 +1,262 @@
 # E-Claim Downloader & Data Import System
 
-> โปรแกรมสำหรับ download และ import ข้อมูล e-claim จาก NHSO อัตโนมัติ พร้อม Web UI สำหรับจัดการไฟล์และนำเข้าฐานข้อมูล
+> ระบบ download และ import ข้อมูล e-claim จาก NHSO อัตโนมัติ พร้อม Web UI สำหรับจัดการไฟล์และนำเข้าฐานข้อมูล
 
 ![Dashboard](screenshots/dashboard.jpeg)
 
-## ✨ Features
+---
 
-### 📥 E-Claim Downloader
-- ✅ Login อัตโนมัติเข้าระบบ e-claim
-- ✅ Download Excel files ทั้งหมดจากหน้า validation
-- ✅ เลือก download ตามช่วงเดือน/ปี (Date Range Selection)
-- ✅ Bulk download หลายเดือนพร้อมกัน
-- ✅ เก็บประวัติการ download (ไม่ download ซ้ำ)
-- ✅ ใช้ HTTP Client (requests) - เร็วและเบา ไม่ต้องเปิด browser
-- ✅ Real-time progress tracking
+## ☕ Support This Project
 
-### 🌐 Web UI Dashboard
-- ✅ ดู dashboard สถิติไฟล์ที่ download
-- ✅ จัดการไฟล์ (view, download, delete) พร้อม pagination
-- ✅ Trigger download จาก Web UI
-- ✅ เลือกช่วงวันที่สำหรับ bulk download
-- ✅ Real-time progress และ log streaming
-- ✅ Auto-import toggle สำหรับแต่ละการ download
-- ✅ Filter files ตาม month/year
-- ✅ Settings page สำหรับ credentials management
+If you find this project helpful, consider buying me a coffee!
 
-### ⏰ Automated Scheduling
-- ✅ ตั้งเวลา download อัตโนมัติได้หลายช่วงต่อวัน
-- ✅ Enable/Disable scheduler จาก Web UI
-- ✅ Auto-import option สำหรับ scheduled downloads
-- ✅ แสดงสถานะ scheduler และ next run time
-- ✅ Test run สำหรับทดสอบทันที
+<a href="https://www.buymeacoffee.com/sathit" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
-### 💾 Database Import System
-- ✅ Import ข้อมูล e-claim เข้า PostgreSQL/MySQL
-- ✅ รองรับไฟล์ทุกประเภท: OP, IP, ORF, IP_APPEAL, IP_APPEAL_NHSO
-- ✅ Auto-detect header row และ column mapping
-- ✅ แปลงวันที่ไทย (BE) เป็น Gregorian calendar
-- ✅ UPSERT support (ป้องกัน duplicate)
-- ✅ HIS reconciliation fields (สำหรับ reconcile กับระบบโรงพยาบาล)
-- ✅ CLI tool สำหรับ import file เดี่ยวหรือทั้ง directory
-- ✅ Track import status (pending/processing/completed/failed)
-- ✅ Auto-import ทันทีหลัง download (configurable)
-
-### 🐳 Docker Support
-- ✅ Docker Compose แบบมี Database (PostgreSQL + pgAdmin)
-- ✅ Docker Compose แบบไม่มี Database (Download อย่างเดียว)
-- ✅ Health checks และ auto-restart
-- ✅ Volume persistence สำหรับข้อมูล
-- ✅ Environment-based configuration
-- ✅ One-command deployment
+**Developer:** Sathit Seethaphon | [aegisx platform](https://github.com/aegisx-platform)
 
 ---
 
-## 🚀 Quick Start (Docker)
+## ✨ Features
 
-### แบบที่ 1: มี Database (Full Features)
+### 🌐 Web UI Dashboard
+- ✅ **Dashboard** - สถิติไฟล์ที่ download พร้อม charts
+- ✅ **Files Management** - จัดการไฟล์ (view, download, delete)
+- ✅ **Pagination** - แสดง 50 ไฟล์ต่อหน้า พร้อม smart navigation
+- ✅ **Month/Year Filter** - กรองไฟล์ตามเดือน/ปี (default: เดือนปัจจุบัน)
+- ✅ **Import Status** - แสดงสถานะ imported/pending ของแต่ละไฟล์
+- ✅ **Import All** - import ไฟล์ทั้งหมดที่ pending ได้ครั้งเดียว
+- ✅ **Clear All Data** - ลบข้อมูลทั้งหมด (with triple confirmation)
+- ✅ **Settings Page** - ตั้งค่า username/password จาก UI
+- ✅ **Real-time Log Viewer** - ดู download/import progress แบบ real-time
 
-เหมาะสำหรับใช้งานจริง มีทั้ง download และ import เข้า database
+### 📥 Download System
+- ✅ **Auto Login** - เข้าสู่ระบบ e-claim อัตโนมัติ
+- ✅ **HTTP Client** - ใช้ requests library (เร็ว ไม่ต้องเปิด browser)
+- ✅ **Single Month Download** - download เดือน/ปีที่ต้องการ
+- ✅ **Bulk Download** - download หลายเดือนพร้อมกัน (sequential processing)
+- ✅ **Date Range Selection** - เลือกช่วงเวลา start/end date
+- ✅ **Auto-Import Toggle** - เลือกว่าจะ import หลัง download หรือไม่
+- ✅ **Duplicate Prevention** - ไม่ download ซ้ำ (check history)
+- ✅ **Progress Tracking** - แสดง progress bar แบบ real-time
+- ✅ **Download History** - เก็บประวัติการ download ทั้งหมด
+
+### ⏰ Automated Scheduling
+- ✅ **Multiple Schedules** - ตั้งเวลา download ได้หลายช่วงต่อวัน (เช่น 09:00, 14:00, 20:00)
+- ✅ **Enable/Disable Toggle** - เปิด/ปิด scheduler จาก Web UI
+- ✅ **Auto-Import Option** - เลือกให้ import อัตโนมัติหลัง scheduled download
+- ✅ **Schedule Status Display** - แสดงสถานะ scheduler บน Dashboard และ Files page
+- ✅ **Next Run Time** - แสดงเวลาที่จะ download ครั้งถัดไป
+- ✅ **Test Run** - ทดสอบ download ทันทีโดยไม่ต้องรอถึงเวลา
+- ✅ **Background Execution** - รันใน background ไม่กระทบการใช้งาน
+- ✅ **Persistent Settings** - บันทึกการตั้งค่าใน config/settings.json
+
+### 💾 Database Import System
+- ✅ **Multi-Database Support** - รองรับ PostgreSQL และ MySQL
+- ✅ **All File Types** - OP, IP, ORF, IP_APPEAL, IP_APPEAL_NHSO
+- ✅ **Smart Header Detection** - หา header row อัตโนมัติ
+- ✅ **Column Auto-Mapping** - map columns ตาม field names
+- ✅ **Date Conversion** - แปลงวันที่ไทย (BE) เป็น Gregorian (AD)
+- ✅ **UPSERT Logic** - ป้องกัน duplicate records
+- ✅ **Concurrent Import** - import ทันทีหลัง download แต่ละไฟล์
+- ✅ **Import Tracking** - track สถานะการ import ของแต่ละไฟล์
+- ✅ **HIS Reconciliation Fields** - fields สำหรับ reconcile กับระบบ HIS
+- ✅ **CLI Tool** - import จาก command line ได้
+
+### 🐳 Docker Deployment
+- ✅ **Two Deployment Modes:**
+  - `docker-compose.yml` - Full stack (Web + PostgreSQL + pgAdmin)
+  - `docker-compose-no-db.yml` - Download only (ไม่มี database)
+- ✅ **Optimized Dockerfile** - Python 3.12 with multi-stage builds
+- ✅ **Health Checks** - ตรวจสอบสถานะ services อัตโนมัติ
+- ✅ **Auto-Restart** - restart service เมื่อมีปัญหา
+- ✅ **Volume Persistence** - เก็บข้อมูลถาวร (downloads, logs, database)
+- ✅ **Environment Configuration** - ตั้งค่าผ่าน .env file
+- ✅ **Timezone Support** - Bangkok timezone (GMT+7)
+- ✅ **One-Command Deploy** - `docker-compose up -d`
+
+---
+
+## 🚀 Quick Start
+
+### Docker Deployment (แนะนำ)
+
+#### แบบที่ 1: Full Stack (มี Database) 🏥
+
+เหมาะสำหรับใช้งานจริงในโรงพยาบาล มีทั้ง download และ import เข้า database
 
 ```bash
 # 1. Clone repository
 git clone https://github.com/aegisx-platform/eclaim-req-download.git
 cd eclaim-req-download
 
-# 2. Copy environment file
+# 2. Setup environment
 cp .env.example .env
+nano .env  # แก้ไข ECLAIM_USERNAME และ ECLAIM_PASSWORD
 
-# 3. Edit credentials
-nano .env  # Update ECLAIM_USERNAME and ECLAIM_PASSWORD
-
-# 4. Start services (Web + Database + pgAdmin)
+# 3. Start all services
 docker-compose up -d
 
-# 5. View logs
+# 4. Check logs
 docker-compose logs -f
 ```
 
-**Access:**
-- **Web UI**: http://localhost:5001
-- **Database**: postgresql://eclaim:eclaim_password@localhost:5432/eclaim_db
-- **pgAdmin**: http://localhost:5050 (admin@eclaim.local / admin)
+**เข้าใช้งาน:**
+- 🌐 **Web UI**: http://localhost:5001
+- 🗄️ **Database**: postgresql://eclaim:eclaim_password@localhost:5432/eclaim_db
+- 🔧 **pgAdmin**: http://localhost:5050 (admin@eclaim.local / admin)
 
-### แบบที่ 2: ไม่มี Database (Download Only)
+#### แบบที่ 2: Download Only (ไม่มี Database) 📥
 
-เหมาะสำหรับ download ไฟล์อย่างเดียว ไม่ต้องการ import
+เหมาะสำหรับ download ไฟล์อย่างเดียว ไม่ต้องการ import เข้า database
 
 ```bash
-# 1-3. เหมือนแบบที่ 1
+# 1-2. เหมือนแบบที่ 1
 
-# 4. Start services (Web Only - No Database)
+# 3. Start web service only
 docker-compose -f docker-compose-no-db.yml up -d
 
-# 5. View logs
+# 4. Check logs
 docker-compose -f docker-compose-no-db.yml logs -f
 ```
 
-**Access:**
-- **Web UI**: http://localhost:5001
+**เข้าใช้งาน:**
+- 🌐 **Web UI**: http://localhost:5001
 
----
+### Manual Installation (Without Docker)
 
-## 📖 Manual Installation (Without Docker)
+<details>
+<summary>คลิกเพื่อดูวิธี install แบบ manual</summary>
 
-### Prerequisites
+**Prerequisites:**
+- Python 3.12+
+- PostgreSQL 13+ (optional)
 
-- Python 3.9+
-- PostgreSQL 13+ (optional, for database import)
-
-### Installation
-
-1. Install Python dependencies:
+**Installation:**
 
 ```bash
+# 1. Clone repository
+git clone https://github.com/aegisx-platform/eclaim-req-download.git
+cd eclaim-req-download
+
+# 2. Create virtual environment
+python3.12 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 3. Install dependencies
 pip install -r requirements.txt
-```
 
-2. Configure credentials:
-
-```bash
+# 4. Configure credentials
 cp .env.example .env
-# Edit .env with your credentials
-```
+nano .env  # Update credentials
 
-3. Setup database (optional):
-
-```bash
-# Create database
+# 5. (Optional) Setup database
 createdb eclaim_db
-
-# Import schema
 psql -U postgres -d eclaim_db -f database/schema.sql
+
+# 6. Run Flask app
+python app.py
 ```
 
-### Run Web UI
+**Access:** http://localhost:5001
 
-```bash
-export FLASK_APP=app.py
-export FLASK_ENV=development
-flask run --host=0.0.0.0 --port=5001
-```
-
-### Run Downloader CLI
-
-```bash
-# Download current month
-python eclaim_downloader_http.py
-
-# Download specific month/year
-python eclaim_downloader_http.py --month 12 --year 2568
-
-# Bulk download (multiple months)
-python bulk_downloader.py 1,2568 12,2568
-```
-
-### Import to Database
-
-```bash
-# Import single file
-python eclaim_import.py downloads/eclaim_10670_OP_25680122_205506156.xls
-
-# Import all files in directory
-python eclaim_import.py
-
-# Analyze file structure
-python eclaim_import.py --analyze downloads/file.xls
-```
+</details>
 
 ---
 
-## 🐳 Docker Commands
+## 📱 Web UI Guide
 
-For detailed Docker usage, see [DOCKER.md](DOCKER.md)
+### 1. Dashboard Page
+- ดูสถิติการ download (Total files, size, last run, file types)
+- แสดงสถานะ **Auto Download Schedule** (Active/Inactive)
+- แสดง **Next Download Time** ถ้าเปิด scheduler
+- ดูไฟล์ล่าสุด 5 ไฟล์
 
-### Quick Commands
+### 2. Files Page
+- ดูรายการไฟล์ทั้งหมด (pagination 50 ต่อหน้า)
+- กรองตามเดือน/ปี (default: เดือนปัจจุบัน)
+- แสดงสถานะ import (Imported/Pending)
+- Download ไฟล์แต่ละไฟล์
+- Import file เดี่ยว หรือ Import All
+- Delete ไฟล์
 
-```bash
-make setup      # Initial setup
-make up         # Start services
-make down       # Stop services
-make logs       # View logs
-make shell      # Access web container
-make db-shell   # Access PostgreSQL
-make import     # Import all files
-make db-backup  # Backup database
-```
+### 3. Date Range Page
+- **Single Month Download** - เลือก month/year และ download
+- **Bulk Download** - เลือกช่วงเวลา start/end แล้ว download ทั้งหมด
+- **Auto-Import Checkbox** - เลือกว่าจะ import หรือไม่
+- ดู estimated time
+
+### 4. Settings Page
+- **E-Claim Credentials** - ตั้งค่า username/password
+- **Auto Download Schedule:**
+  - Add/Remove scheduled times
+  - Enable/Disable scheduler
+  - Auto-import toggle สำหรับ scheduled downloads
+  - ดูสถานะ scheduled jobs
+  - Test Run Now button
 
 ---
 
-## 📊 Database Schema
+## ⏰ Using Auto Download Schedule
 
-ระบบใช้ 3 ตารางหลัก:
+### ตั้งค่า Scheduler
 
-1. **eclaim_imported_files** - Track import status
-2. **eclaim_claims** - ข้อมูล OP/IP/Appeal claims
-3. **eclaim_op_refer** - ข้อมูล OP Refer (ORF)
+1. ไปที่ **Settings** page
+2. เลื่อนลงไปส่วน "Auto Download Schedule"
+3. กด **"Add Schedule"** และตั้งเวลา (เช่น 09:00)
+4. เพิ่มเวลาอื่นๆ ได้ (เช่น 14:00, 20:00)
+5. เลือก **"Auto-import files after download"** ถ้าต้องการ
+6. เปิด **"Enable Schedule"** toggle
+7. กด **"Save Schedule"**
 
-ดูรายละเอียดเพิ่มเติมใน [database/schema.sql](database/schema.sql)
+**ตัวอย่าง:** ตั้งให้ download วันละ 2 ครั้ง
+- 09:00 น. - download เช้า
+- 20:00 น. - download เย็น
 
-### HIS Reconciliation
+### ตรวจสอบสถานะ
 
-ระบบมี fields สำหรับ reconcile กับระบบโรงพยาบาล:
+- **Dashboard Page** - ดูสถานะ scheduler และ next run time
+- **Files Page** - แสดง banner บอกสถานะ scheduler
+- **Settings Page** - ดู scheduled jobs ทั้งหมด
 
-- `his_matched` - สถานะการ match
-- `his_matched_at` - วันที่ match
-- `his_vn` - Visit Number จากระบบ HIS
-- `reconcile_status` - สถานะการ reconcile
-- `reconcile_amount_diff` - ผลต่างยอดเงิน
+---
+
+## 🔧 Configuration
+
+### Settings File (config/settings.json)
+
+ระบบใช้ไฟล์ `config/settings.json` เก็บการตั้งค่า (สามารถแก้ไขผ่าน Web UI ได้):
+
+```json
+{
+  "eclaim_username": "your_username",
+  "eclaim_password": "your_password",
+  "download_dir": "downloads",
+  "auto_import_default": false,
+  "schedule_enabled": true,
+  "schedule_times": [
+    {"hour": 9, "minute": 0},
+    {"hour": 20, "minute": 0}
+  ],
+  "schedule_auto_import": true
+}
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ECLAIM_USERNAME` | - | E-Claim login username |
+| `ECLAIM_PASSWORD` | - | E-Claim login password |
+| `DB_TYPE` | postgresql | Database type (postgresql/mysql/none) |
+| `DB_HOST` | db | Database host |
+| `DB_PORT` | 5432 | Database port |
+| `DB_NAME` | eclaim_db | Database name |
+| `DB_USER` | eclaim | Database user |
+| `DB_PASSWORD` | eclaim_password | Database password |
+| `TZ` | Asia/Bangkok | Timezone |
+| `FLASK_ENV` | production | Flask environment |
+
+**Priority:** `config/settings.json` > Environment Variables
 
 ---
 
@@ -217,220 +267,156 @@ eclaim-req-download/
 ├── app.py                          # Flask web application
 ├── eclaim_downloader_http.py       # HTTP Client downloader
 ├── bulk_downloader.py              # Bulk download orchestrator
+├── download_with_import.py         # Download wrapper with import
 ├── eclaim_import.py                # CLI import tool
-├── docker-compose.yml              # Docker setup
-├── Dockerfile                      # Docker image
-├── Makefile                        # Easy commands
+├── Dockerfile                      # Docker image definition
+├── docker-compose.yml              # Full stack deployment
+├── docker-compose-no-db.yml        # Download-only deployment
+├── .env.example                    # Environment template
+├── .dockerignore                   # Docker build optimization
 ├── requirements.txt                # Python dependencies
 │
 ├── config/
-│   └── database.py                 # Database configuration
+│   ├── database.py                 # Database configuration
+│   ├── settings.json.example       # Settings template
+│   └── settings.json               # User settings (gitignored)
 │
 ├── database/
 │   ├── schema.sql                  # PostgreSQL schema
 │   └── IMPORT_GUIDE.md             # Import documentation
 │
 ├── utils/
-│   ├── history_manager.py          # Download history
-│   ├── file_manager.py             # File operations
-│   ├── downloader_runner.py        # Background tasks
+│   ├── __init__.py
+│   ├── history_manager.py          # Download history CRUD
+│   ├── file_manager.py             # Safe file operations
+│   ├── downloader_runner.py        # Background process management
+│   ├── import_runner.py            # Import process management
+│   ├── log_stream.py               # Real-time log streaming (SSE)
+│   ├── settings_manager.py         # Settings CRUD
+│   ├── scheduler.py                # APScheduler integration
 │   └── eclaim/
 │       ├── parser.py               # XLS file parser
 │       └── importer.py             # Database importer
 │
-├── templates/                      # HTML templates
-│   ├── base.html
-│   ├── dashboard.html
-│   ├── files.html
-│   └── download_config.html
+├── templates/                      # Jinja2 HTML templates
+│   ├── base.html                   # Base template with navbar
+│   ├── dashboard.html              # Dashboard with stats
+│   ├── files.html                  # File list with pagination
+│   ├── download_config.html        # Date range selection
+│   ├── settings.html               # Settings configuration
+│   └── components/
+│       └── log_viewer.html         # Real-time log component
 │
-├── static/                         # Static files
-│   ├── css/
-│   └── js/
+├── static/                         # Static assets
+│   ├── js/
+│   │   └── app.js                  # Frontend JavaScript
+│   └── css/
+│       └── custom.css              # Custom styles
 │
-├── downloads/                      # Downloaded files
+├── downloads/                      # Downloaded Excel files
 ├── logs/                           # Application logs
 └── backups/                        # Database backups
 ```
 
 ---
 
-## 🔧 Configuration
+## 📊 Database Schema
 
-### Environment Variables
+### Tables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ECLAIM_USERNAME` | - | E-Claim login username |
-| `ECLAIM_PASSWORD` | - | E-Claim login password |
-| `DB_TYPE` | postgresql | Database type |
-| `DB_HOST` | db | Database host |
-| `DB_PORT` | 5432 | Database port |
-| `DB_NAME` | eclaim_db | Database name |
-| `DB_USER` | eclaim | Database user |
-| `DB_PASSWORD` | eclaim_password | Database password |
+1. **eclaim_imported_files**
+   - Track import status ของแต่ละไฟล์
+   - Fields: file_id, filename, file_hash, imported_at, import_status
 
----
+2. **eclaim_claims**
+   - ข้อมูล claims ทุกประเภท (OP, IP, IP_APPEAL, IP_APPEAL_NHSO)
+   - Fields: claim_id, claim_type, hn, pid, vn, admission_date, discharge_date, total_amount
+   - HIS reconciliation fields: his_matched, his_vn, reconcile_status
 
-## 📅 Automated Scheduling
+3. **eclaim_op_refer**
+   - ข้อมูล OP Refer (ORF)
+   - Fields: refer_id, hn, pid, refer_date, refer_to_hcode
 
-### Linux/macOS - Cron Job
+### HIS Reconciliation Fields
 
-```bash
-crontab -e
-```
+ระบบมี fields สำหรับ reconcile กับระบบโรงพยาบาล:
+- `his_matched` - สถานะการ match (boolean)
+- `his_matched_at` - วันเวลาที่ match
+- `his_vn` - Visit Number จากระบบ HIS
+- `reconcile_status` - สถานะ (matched/unmatched/conflict)
+- `reconcile_amount_diff` - ผลต่างยอดเงิน (e-claim vs HIS)
 
-Run ทุกวันเวลา 9:00 น.:
-```
-0 9 * * * cd /path/to/eclaim-req-download && /usr/bin/python3 eclaim_downloader_http.py >> logs/cron.log 2>&1
-```
-
-### Windows - Task Scheduler
-
-1. เปิด Task Scheduler
-2. สร้าง Basic Task
-3. ตั้งค่า Trigger (เช่น Daily 9:00 AM)
-4. Action: Start a program
-   - Program: `python.exe`
-   - Arguments: `eclaim_downloader_http.py`
-   - Start in: `C:\path\to\eclaim-req-download`
+ดูรายละเอียดเพิ่มเติม: [database/schema.sql](database/schema.sql)
 
 ---
 
-## 🧪 Testing
+## ⚖️ Legal & Compliance
 
-### Import Statistics (Sample)
-
-- **Total Files**: 382 files
-- **Total Records**: 40,006 records
-- **Total Reimbursement**: ~141.6 million THB
-
-**By Type:**
-- OP: 252 files, 32,553 records (14.1M THB)
-- IP: 82 files, 6,217 records (123.6M THB)
-- ORF: 45 files, 260 records
-- IP_APPEAL_NHSO: 2 files, 974 records (3.8M THB)
-- IP_APPEAL: 1 file, 2 records (81K THB)
-
----
-
-## 🐛 Troubleshooting
-
-### Web UI Not Loading
-
-```bash
-# Check if containers are running
-docker-compose ps
-
-# Restart services
-docker-compose restart
-
-# View logs
-docker-compose logs -f web
-```
-
-### Database Connection Failed
-
-```bash
-# Check database status
-docker-compose ps db
-
-# Restart database
-docker-compose restart db
-```
-
-### Import Errors
-
-```bash
-# Check file structure
-python eclaim_import.py --analyze downloads/file.xls
-
-# View detailed logs
-docker-compose logs -f web
-```
-
-For more details, see [DOCKER.md](DOCKER.md)
-
----
-
-## 🔐 Security Notes
-
-- ⚠️ **ห้าม commit `.env`** file ที่มี credentials
-- ⚠️ เปลี่ยน default passwords ใน production
-- ⚠️ ตั้งค่า file permissions ให้เหมาะสม
-- ⚠️ ใช้ HTTPS สำหรับ production deployment
-- ⚠️ จำกัดการเข้าถึง Web UI เฉพาะเครือข่ายภายใน
-- ⚠️ Encrypt database backups
-- ⚠️ ตรวจสอบ logs เป็นประจำ
-
----
-
-## ⚖️ Legal & Compliance (ข้อกฎหมายและการปฏิบัติตาม)
-
-### การใช้งานที่ถูกต้องตามกฎหมาย ✅
+### ✅ การใช้งานที่ถูกต้องตามกฎหมาย
 
 โปรแกรมนี้**ไม่ผิดกฎหมาย** เมื่อใช้งานอย่างถูกต้อง เพราะ:
 
-1. **ใช้ Credentials ที่ถูกต้อง**
-   - โรงพยาบาลได้รับ username/password จาก NHSO อย่างถูกต้องตามกฎหมาย
+1. **ใช้ Credentials ที่ได้รับอนุญาต**
+   - โรงพยาบาลได้รับ username/password จาก NHSO อย่างถูกต้อง
    - ไม่มีการ hack หรือเข้าถึงระบบโดยไม่ได้รับอนุญาต
 
 2. **เข้าถึงข้อมูลที่มีสิทธิ์**
-   - ดึงเฉพาะข้อมูลที่โรงพยาบาลสามารถเข้าถึงได้อยู่แล้วผ่านระบบ e-claim
+   - ดึงเฉพาะข้อมูลที่โรงพยาบาลสามารถเข้าถึงได้ผ่าน e-claim
    - ไม่มีการ bypass security หรือเข้าถึงข้อมูลของหน่วยงานอื่น
 
-3. **ใช้งานตามวัตถุประสงค์ที่ถูกต้อง**
+3. **ใช้ตามวัตถุประสงค์ที่ถูกต้อง**
    - จัดการข้อมูลการเบิกจ่ายของโรงพยาบาลเอง
-   - ใช้ในการ reconcile กับระบบ HIS
-   - ใช้ในการตรวจสอบและ audit
+   - Reconcile กับระบบ HIS
+   - Audit และ reporting
 
-### พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล (PDPA) ⚠️
+### ⚠️ พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล (PDPA)
 
 ข้อมูล e-claim มี**ข้อมูลส่วนบุคคลของผู้ป่วย** (HN, CID, ชื่อ-นามสกุล, การวินิจฉัย)
 
-**ข้อปฏิบัติที่ต้องทำ:**
+**ข้อปฏิบัติที่ต้อง comply:**
 
-1. ✅ **ฐานกฎหมายในการประมวลผล**
-   - โรงพยาบาลมีฐานกฎหมายในการประมวลผลข้อมูล (ปฏิบัติตามสัญญา, หน้าที่ตามกฎหมาย)
+1. **ฐานกฎหมายในการประมวลผล**
+   - โรงพยาบาลมีฐานกฎหมาย (ปฏิบัติตามสัญญา, หน้าที่ตามกฎหมาย)
    - ใช้เพื่อการรักษาพยาบาล บริหารจัดการ และการเบิกจ่าย
 
-2. ⚠️ **รักษาความมั่นคงปลอดภัย**
+2. **รักษาความมั่นคงปลอดภัย**
    - ตั้งรหัสผ่าน database ที่แข็งแรง
    - เข้าถึงได้เฉพาะบุคลากรที่ได้รับอนุญาต
    - ใช้ VPN หรือ private network เท่านั้น
-   - **ห้ามเปิด public internet** โดยเด็ดขาด
+   - **ห้ามเปิด public internet โดยเด็ดขาด**
 
-3. ⚠️ **จำกัดการเข้าถึง (Access Control)**
+3. **จำกัดการเข้าถึง (Access Control)**
    - ตั้งค่า firewall ให้เข้าถึงได้เฉพาะ IP ภายในโรงพยาบาล
    - พิจารณาเพิ่ม authentication (username/password login)
-   - จำกัด user permissions ตามความจำเป็น
+   - Audit logs ทุกการเข้าถึง
 
-4. ⚠️ **การเก็บรักษาและลบทิ้ง**
-   - เก็บข้อมูลเท่าที่จำเป็น (ตามระเบียบของ NHSO)
+4. **การเก็บรักษาและลบทิ้ง**
+   - เก็บข้อมูลเท่าที่จำเป็น (ตามระเบียบ NHSO)
    - ลบข้อมูลเมื่อหมดความจำเป็น
    - Backup ต้องเข้ารหัส
 
-5. ⚠️ **ห้ามแชร์หรือเปิดเผย**
+5. **ห้ามแชร์หรือเปิดเผย**
    - ห้ามส่งข้อมูลออกนอกโรงพยาบาล
    - ห้ามแชร์ไฟล์ผ่าน cloud storage สาธารณะ
    - ห้าม export ข้อมูลผู้ป่วยไปใช้นอกวัตถุประสงค์
 
-### การใช้งานที่ไม่เหมาะสม ❌
+### ❌ การใช้งานที่ไม่เหมาะสม
 
 **ห้าม** ใช้โปรแกรมนี้เพื่อ:
 - ❌ ขายหรือแชร์ข้อมูลผู้ป่วยให้บุคคลภายนอก
-- ❌ ใช้ข้อมูลนอกวัตถุประสงค์ (เช่น การตลาด, วิจัยโดยไม่ได้รับความยินยอม)
+- ❌ ใช้ข้อมูลนอกวัตถุประสงค์ (การตลาด, วิจัยโดยไม่ได้รับความยินยอม)
 - ❌ เปิดเผยข้อมูลส่วนบุคคลโดยไม่ได้รับอนุญาต
 - ❌ Deploy บน public cloud โดยไม่มีมาตรการรักษาความปลอดภัย
 
-### Disclaimer (ข้อจำกัดความรับผิด)
+### Disclaimer
 
 ```
 โปรแกรมนี้พัฒนาเพื่อช่วยโรงพยาบาลในการจัดการข้อมูล e-claim
+
 ผู้พัฒนาไม่รับผิดชอบต่อ:
 - การใช้งานที่ไม่ถูกต้องตามกฎหมาย
-- ความเสียหายที่เกิดจากการรั่วไหลของข้อมูล
-- การละเมิด PDPA หรือกฎหมายอื่นๆ จากการใช้งาน
+- ความเสียหายจากการรั่วไหลของข้อมูล
+- การละเมิด PDPA หรือกฎหมายอื่นๆ
 
 ผู้ใช้งานต้องรับผิดชอบในการ:
 - ตรวจสอบความถูกต้องของข้อมูล
@@ -438,52 +424,128 @@ For more details, see [DOCKER.md](DOCKER.md)
 - รักษาความปลอดภัยของข้อมูลผู้ป่วย
 ```
 
-### แนะนำสำหรับ Production 🏥
+---
 
-1. **Network Security**
-   ```bash
-   # ใช้ internal network เท่านั้น
-   # ตั้งค่า firewall
-   ufw allow from 192.168.1.0/24 to any port 5001
-   ```
+## 🔐 Security Best Practices
 
-2. **Authentication** (พิจารณาเพิ่ม)
-   - เพิ่ม login system สำหรับ Web UI
-   - ใช้ OAuth/LDAP integrate กับระบบโรงพยาบาล
-   - Two-factor authentication (2FA)
+### Production Deployment Checklist
 
-3. **Audit Logging**
-   - บันทึก log ทุกการเข้าถึง
-   - Monitor การ download และ export
-   - ตั้ง alert สำหรับกิจกรรมผิดปกติ
+- [ ] เปลี่ยน default passwords ทั้งหมด
+- [ ] ตั้งค่า firewall จำกัดการเข้าถึง
+- [ ] ใช้ VPN สำหรับ remote access
+- [ ] เปิด HTTPS (SSL/TLS certificate)
+- [ ] เพิ่ม authentication สำหรับ Web UI
+- [ ] เข้ารหัส database backups
+- [ ] ตั้งค่า audit logging
+- [ ] Monitor logs เป็นประจำ
+- [ ] Update security patches สม่ำเสมอ
 
-4. **Data Encryption**
-   - เข้ารหัส database (PostgreSQL encryption)
-   - เข้ารหัส backups
-   - ใช้ SSL/TLS สำหรับ database connection
+### Network Security
 
-5. **Regular Updates**
-   - อัพเดท security patches
-   - ตรวจสอบ dependencies ที่มีช่องโหว่
-   - Backup ข้อมูลสม่ำเสมอ
+```bash
+# Allow access only from hospital network
+ufw allow from 192.168.1.0/24 to any port 5001
+
+# Block all other access
+ufw deny 5001
+```
+
+### Authentication (Recommended)
+
+พิจารณาเพิ่ม:
+- Login system สำหรับ Web UI
+- OAuth/LDAP integration กับระบบโรงพยาบาล
+- Two-factor authentication (2FA)
+- Session timeout
+- Role-based access control (RBAC)
+
+### Data Encryption
+
+- **Database**: ใช้ PostgreSQL encryption at rest
+- **Backups**: เข้ารหัส backup files
+- **Connection**: ใช้ SSL/TLS สำหรับ database connection
+- **Credentials**: ไม่เก็บ plain text passwords
+
+---
+
+## 🐛 Troubleshooting
+
+### Web UI ไม่โหลด
+
+```bash
+# ตรวจสอบ containers
+docker-compose ps
+
+# Restart services
+docker-compose restart
+
+# ดู logs
+docker-compose logs -f web
+```
+
+### Database เชื่อมต่อไม่ได้
+
+```bash
+# ตรวจสอบ database
+docker-compose ps db
+
+# Restart database
+docker-compose restart db
+
+# ทดสอบ connection
+docker-compose exec web python -c "from config.database import get_db_config; print(get_db_config())"
+```
+
+### Import มีปัญหา
+
+```bash
+# วิเคราะห์โครงสร้างไฟล์
+python eclaim_import.py --analyze downloads/file.xls
+
+# ดู logs
+docker-compose logs -f web
+
+# ตรวจสอบ database schema
+docker-compose exec db psql -U eclaim -d eclaim_db -c "\dt"
+```
+
+### Scheduler ไม่ทำงาน
+
+```bash
+# ตรวจสอบ settings
+curl http://localhost:5001/api/schedule | python3 -m json.tool
+
+# Restart web service
+docker-compose restart web
+
+# ดู logs
+docker-compose logs -f web | grep scheduler
+```
+
+---
+
+## 🧪 Sample Statistics
+
+จากการทดสอบจริง:
+
+- **Total Files**: 382 ไฟล์
+- **Total Records**: 40,006 records
+- **Total Reimbursement**: ~141.6 million THB
+
+**By Type:**
+- **OP**: 252 files, 32,553 records (14.1M THB)
+- **IP**: 82 files, 6,217 records (123.6M THB)
+- **ORF**: 45 files, 260 records
+- **IP_APPEAL_NHSO**: 2 files, 974 records (3.8M THB)
+- **IP_APPEAL**: 1 file, 2 records (81K THB)
 
 ---
 
 ## 📚 Documentation
 
-- [Docker Setup Guide](DOCKER.md) - Complete Docker documentation
-- [Database Import Guide](database/IMPORT_GUIDE.md) - Import system documentation
-- [E-Claim Analysis Report](ECLAIM_ANALYSIS_REPORT.md) - File structure analysis
-
----
-
-## 👨‍💻 Developer
-
-**Sathit Seethaphon**
-
-If you find this project helpful, consider buying me a coffee! ☕
-
-<a href="https://www.buymeacoffee.com/sathit" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+- 🐳 [Docker Setup Guide](DOCKER.md) - Complete Docker documentation
+- 💾 [Database Import Guide](database/IMPORT_GUIDE.md) - Import system documentation
+- 📊 [E-Claim Analysis Report](ECLAIM_ANALYSIS_REPORT.md) - File structure analysis
 
 ---
 
@@ -510,7 +572,29 @@ MIT License - see [LICENSE](LICENSE) file for details
 - NHSO E-Claim System
 - Flask Framework
 - PostgreSQL Database
+- APScheduler Library
+- Tailwind CSS
 - Docker Community
+
+---
+
+## 🏷️ Version History
+
+### v1.1.0 (2026-01-08)
+- ✨ Auto Download Scheduling with APScheduler
+- ✨ Settings Page (Credentials + Schedule Management)
+- ✨ Pagination & Month/Year Filtering
+- ✨ Real-time Log Streaming (Server-Sent Events)
+- ✨ Schedule Status Display
+- ✨ Auto-Import Toggles
+- 🐳 Docker Compose (with/without DB)
+- 📚 Legal & Compliance Documentation
+
+### v1.0.0 (Initial Release)
+- 📥 E-Claim Downloader (HTTP Client)
+- 🌐 Web UI Dashboard
+- 💾 Database Import System
+- 🐳 Docker Support
 
 ---
 
