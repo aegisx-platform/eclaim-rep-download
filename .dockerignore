@@ -1,70 +1,70 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
 # Python
-__pycache__/
+__pycache__
 *.py[cod]
 *$py.class
 *.so
 .Python
-venv/
-env/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
 *.egg
+*.egg-info
+dist
+build
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov
+.tox
+venv
+env
+ENV
 
 # IDE
-.vscode/
-.idea/
+.vscode
+.idea
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
-Thumbs.db
 
-# Logs
+# Project specific
+downloads/*
+!downloads/.gitkeep
 logs/*.log
-*.log
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# E-Claim specific
-bulk_download_progress.json
-/tmp/
-
-# Git
-.git/
-.gitignore
-
-# Docker
-docker-compose.yml
-Dockerfile
-.dockerignore
-
-# Documentation (but include in build)
-!README.md
-!database/*.md
+logs/*.log.*
+backups/*
+!backups/.gitkeep
+*.backup
+*_progress.json
+download_history.json
 
 # Environment
 .env
 .env.local
+.env.*.local
+config/settings.json
 
-# Temporary files
+# Documentation
+*.md
+!README.md
+docs/
+screenshots/
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Tests
+tests/
+test_*.py
+*.test.py
+
+# Temporary
 *.tmp
 *.temp
-*.pid
+tmp/
+temp/

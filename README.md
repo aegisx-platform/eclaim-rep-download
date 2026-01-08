@@ -17,10 +17,20 @@
 
 ### 🌐 Web UI Dashboard
 - ✅ ดู dashboard สถิติไฟล์ที่ download
-- ✅ จัดการไฟล์ (view, download, delete)
+- ✅ จัดการไฟล์ (view, download, delete) พร้อม pagination
 - ✅ Trigger download จาก Web UI
 - ✅ เลือกช่วงวันที่สำหรับ bulk download
-- ✅ Real-time progress แสดงสถานะการ download
+- ✅ Real-time progress และ log streaming
+- ✅ Auto-import toggle สำหรับแต่ละการ download
+- ✅ Filter files ตาม month/year
+- ✅ Settings page สำหรับ credentials management
+
+### ⏰ Automated Scheduling
+- ✅ ตั้งเวลา download อัตโนมัติได้หลายช่วงต่อวัน
+- ✅ Enable/Disable scheduler จาก Web UI
+- ✅ Auto-import option สำหรับ scheduled downloads
+- ✅ แสดงสถานะ scheduler และ next run time
+- ✅ Test run สำหรับทดสอบทันที
 
 ### 💾 Database Import System
 - ✅ Import ข้อมูล e-claim เข้า PostgreSQL/MySQL
@@ -31,47 +41,63 @@
 - ✅ HIS reconciliation fields (สำหรับ reconcile กับระบบโรงพยาบาล)
 - ✅ CLI tool สำหรับ import file เดี่ยวหรือทั้ง directory
 - ✅ Track import status (pending/processing/completed/failed)
+- ✅ Auto-import ทันทีหลัง download (configurable)
 
 ### 🐳 Docker Support
-- ✅ Docker Compose setup พร้อม PostgreSQL
-- ✅ pgAdmin GUI สำหรับจัดการฐานข้อมูล
+- ✅ Docker Compose แบบมี Database (PostgreSQL + pgAdmin)
+- ✅ Docker Compose แบบไม่มี Database (Download อย่างเดียว)
 - ✅ Health checks และ auto-restart
 - ✅ Volume persistence สำหรับข้อมูล
-- ✅ Makefile สำหรับ commands ที่ง่ายต่อการใช้งาน
+- ✅ Environment-based configuration
+- ✅ One-command deployment
 
 ---
 
 ## 🚀 Quick Start (Docker)
 
-### 1. Clone และ Setup
+### แบบที่ 1: มี Database (Full Features)
+
+เหมาะสำหรับใช้งานจริง มีทั้ง download และ import เข้า database
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/eclaim-req-download.git
+# 1. Clone repository
+git clone https://github.com/aegisx-platform/eclaim-req-download.git
 cd eclaim-req-download
 
-# Setup environment
-make setup
+# 2. Copy environment file
+cp .env.example .env
 
-# Edit .env file
+# 3. Edit credentials
 nano .env  # Update ECLAIM_USERNAME and ECLAIM_PASSWORD
+
+# 4. Start services (Web + Database + pgAdmin)
+docker-compose up -d
+
+# 5. View logs
+docker-compose logs -f
 ```
 
-### 2. Start Services
-
-```bash
-# Start all services (Flask + PostgreSQL + pgAdmin)
-make up
-
-# View logs
-make logs
-```
-
-### 3. Access Services
-
+**Access:**
 - **Web UI**: http://localhost:5001
 - **Database**: postgresql://eclaim:eclaim_password@localhost:5432/eclaim_db
 - **pgAdmin**: http://localhost:5050 (admin@eclaim.local / admin)
+
+### แบบที่ 2: ไม่มี Database (Download Only)
+
+เหมาะสำหรับ download ไฟล์อย่างเดียว ไม่ต้องการ import
+
+```bash
+# 1-3. เหมือนแบบที่ 1
+
+# 4. Start services (Web Only - No Database)
+docker-compose -f docker-compose-no-db.yml up -d
+
+# 5. View logs
+docker-compose -f docker-compose-no-db.yml logs -f
+```
+
+**Access:**
+- **Web UI**: http://localhost:5001
 
 ---
 

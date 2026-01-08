@@ -1,0 +1,41 @@
+# Docker Compose - Download Only (No Database)
+# Use this if you only want to download files without importing to database
+version: '3.8'
+
+services:
+  # Flask Web Application (Download Only)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eclaim-web
+    restart: unless-stopped
+    environment:
+      # Flask configuration
+      FLASK_APP: app.py
+      FLASK_ENV: ${FLASK_ENV:-production}
+      TZ: ${TZ:-Asia/Bangkok}
+
+      # E-Claim credentials (update these!)
+      ECLAIM_USERNAME: ${ECLAIM_USERNAME:-your_username}
+      ECLAIM_PASSWORD: ${ECLAIM_PASSWORD:-your_password}
+      
+      # Disable database features
+      DB_TYPE: none
+    volumes:
+      # Mount downloads directory for persistence
+      - ./downloads:/app/downloads
+      # Mount logs directory
+      - ./logs:/app/logs
+      # Mount config directory for settings
+      - ./config:/app/config
+      # Mount download history
+      - ./download_history.json:/app/download_history.json
+    ports:
+      - "5001:5001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
