@@ -5,3 +5,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 venv/
+config/settings.json
+logs/*.log
+*_progress.json
+*.backup

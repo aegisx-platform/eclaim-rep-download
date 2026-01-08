@@ -1,0 +1,6 @@
+{
+  "eclaim_username": "your_username",
+  "eclaim_password": "your_password",
+  "download_dir": "downloads",
+  "auto_import_default": false
+}
