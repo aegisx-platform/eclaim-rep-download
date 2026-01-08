@@ -668,6 +668,67 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /**
+ * Toggle download menu dropdown
+ */
+function toggleDownloadMenu() {
+    const menu = document.getElementById('download-menu');
+    menu.classList.toggle('hidden');
+}
+
+/**
+ * Close download menu when clicking outside
+ */
+document.addEventListener('click', (event) => {
+    const container = document.getElementById('download-menu-container');
+    const menu = document.getElementById('download-menu');
+
+    if (container && menu && !container.contains(event.target)) {
+        menu.classList.add('hidden');
+    }
+});
+
+/**
+ * Start download with optional auto-import
+ */
+async function startDownload() {
+    const autoImport = document.getElementById('auto-import-checkbox').checked;
+    const menu = document.getElementById('download-menu');
+
+    // Close menu
+    menu.classList.add('hidden');
+
+    // Show log viewer
+    if (!isLogViewerExpanded) {
+        toggleLogViewer();
+    }
+
+    try {
+        const response = await fetch('/download/trigger', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ auto_import: autoImport })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const message = autoImport
+                ? 'Download started with auto-import enabled!'
+                : 'Download started!';
+            showToast(message, 'success');
+            startStatusPolling();
+        } else {
+            showToast(data.error || 'Failed to start download', 'error');
+        }
+    } catch (error) {
+        console.error('Error starting download:', error);
+        showToast('Error starting download', 'error');
+    }
+}
+
+/**
  * Clear all data (files, history, database) with confirmation
  */
 async function clearAllData() {

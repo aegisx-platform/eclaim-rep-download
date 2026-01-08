@@ -1,0 +1,288 @@
+<!-- Real-time Log Viewer Component -->
+<div id="log-viewer" class="fixed bottom-4 right-4 w-[600px] bg-gray-900 rounded-lg shadow-2xl border border-gray-700 z-50 hidden">
+    <!-- Header -->
+    <div class="bg-gray-800 px-4 py-3 rounded-t-lg flex items-center justify-between border-b border-gray-700">
+        <div class="flex items-center gap-2">
+            <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse" id="log-status-indicator"></div>
+            <span class="text-white font-semibold">Real-time Logs</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="clearLogs()" class="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700 transition-colors" title="Clear logs">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+            </button>
+            <button onclick="toggleLogViewer()" class="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700 transition-colors" title="Minimize">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Log Content -->
+    <div id="log-content" class="bg-gray-900 p-4 font-mono text-xs text-gray-300 overflow-y-auto max-h-[400px] min-h-[300px]">
+        <div class="text-gray-500 italic">Connecting to log stream...</div>
+    </div>
+
+    <!-- Footer -->
+    <div class="bg-gray-800 px-4 py-2 rounded-b-lg border-t border-gray-700 text-xs text-gray-400">
+        <span id="log-count">0 entries</span>
+    </div>
+</div>
+
+<!-- Floating Log Button (when minimized) -->
+<button id="log-viewer-btn" onclick="toggleLogViewer()" class="fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg border border-gray-700 hover:bg-gray-800 transition-all z-40 flex items-center gap-2">
+    <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse" id="log-btn-indicator"></div>
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+    </svg>
+    <span>Logs</span>
+</button>
+
+<style>
+#log-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+#log-content::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+
+#log-content::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 4px;
+}
+
+#log-content::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+.log-entry {
+    padding: 4px 0;
+    border-bottom: 1px solid #374151;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.log-timestamp {
+    color: #9ca3af;
+}
+
+.log-source {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: bold;
+    margin-right: 6px;
+}
+
+.log-source-download {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.log-source-import {
+    background-color: #8b5cf6;
+    color: white;
+}
+
+.log-source-system {
+    background-color: #6b7280;
+    color: white;
+}
+
+.log-level-info {
+    color: #d1d5db;
+}
+
+.log-level-success {
+    color: #10b981;
+}
+
+.log-level-error {
+    color: #ef4444;
+}
+
+.log-level-warning {
+    color: #f59e0b;
+}
+</style>
+
+<script>
+let logEventSource = null;
+let logCount = 0;
+let isLogViewerExpanded = false;
+let autoScroll = true;
+
+function initLogViewer() {
+    // Initially show the button, hide the viewer
+    document.getElementById('log-viewer').classList.add('hidden');
+    document.getElementById('log-viewer-btn').classList.remove('hidden');
+
+    // Connect to log stream
+    connectToLogStream();
+}
+
+function connectToLogStream() {
+    if (logEventSource) {
+        logEventSource.close();
+    }
+
+    logEventSource = new EventSource('/api/logs/stream');
+
+    logEventSource.onopen = () => {
+        console.log('Log stream connected');
+        updateConnectionStatus(true);
+    };
+
+    logEventSource.onmessage = (event) => {
+        try {
+            const logEntry = JSON.parse(event.data);
+
+            // Skip heartbeat messages
+            if (logEntry.type === 'heartbeat') {
+                return;
+            }
+
+            appendLogEntry(logEntry);
+        } catch (e) {
+            console.error('Error parsing log entry:', e);
+        }
+    };
+
+    logEventSource.onerror = () => {
+        console.error('Log stream error');
+        updateConnectionStatus(false);
+
+        // Reconnect after 5 seconds
+        setTimeout(() => {
+            connectToLogStream();
+        }, 5000);
+    };
+}
+
+function appendLogEntry(entry) {
+    const logContent = document.getElementById('log-content');
+
+    // Remove "connecting" message if present
+    if (logCount === 0) {
+        logContent.innerHTML = '';
+    }
+
+    // Create log entry using safe DOM methods
+    const logDiv = document.createElement('div');
+    logDiv.className = 'log-entry';
+
+    const logLine = document.createElement('div');
+    const level = entry.level || 'info';
+    const source = entry.source || 'system';
+    logLine.className = `log-level-${level}`;
+
+    // Timestamp
+    const timestampSpan = document.createElement('span');
+    timestampSpan.className = 'log-timestamp';
+    const timestamp = new Date(entry.timestamp).toLocaleTimeString('en-GB');
+    timestampSpan.textContent = `[${timestamp}]`;
+    logLine.appendChild(timestampSpan);
+
+    // Space
+    logLine.appendChild(document.createTextNode(' '));
+
+    // Source badge
+    const sourceSpan = document.createElement('span');
+    sourceSpan.className = `log-source log-source-${source}`;
+    sourceSpan.textContent = source.toUpperCase();
+    logLine.appendChild(sourceSpan);
+
+    // Space
+    logLine.appendChild(document.createTextNode(' '));
+
+    // Message (using textContent to prevent XSS)
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = entry.message || '';
+    logLine.appendChild(messageSpan);
+
+    logDiv.appendChild(logLine);
+    logContent.appendChild(logDiv);
+    logCount++;
+
+    // Update counter
+    document.getElementById('log-count').textContent = `${logCount} entries`;
+
+    // Auto-scroll to bottom if enabled
+    if (autoScroll) {
+        logContent.scrollTop = logContent.scrollHeight;
+    }
+}
+
+function toggleLogViewer() {
+    const viewer = document.getElementById('log-viewer');
+    const button = document.getElementById('log-viewer-btn');
+
+    isLogViewerExpanded = !isLogViewerExpanded;
+
+    if (isLogViewerExpanded) {
+        viewer.classList.remove('hidden');
+        button.classList.add('hidden');
+    } else {
+        viewer.classList.add('hidden');
+        button.classList.remove('hidden');
+    }
+}
+
+async function clearLogs() {
+    if (!confirm('Clear all logs?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/logs/clear', {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            const logContent = document.getElementById('log-content');
+            logContent.textContent = '';
+            const clearMsg = document.createElement('div');
+            clearMsg.className = 'text-gray-500 italic';
+            clearMsg.textContent = 'Logs cleared';
+            logContent.appendChild(clearMsg);
+            logCount = 0;
+            document.getElementById('log-count').textContent = '0 entries';
+        }
+    } catch (error) {
+        console.error('Error clearing logs:', error);
+    }
+}
+
+function updateConnectionStatus(connected) {
+    const indicators = [
+        document.getElementById('log-status-indicator'),
+        document.getElementById('log-btn-indicator')
+    ];
+
+    indicators.forEach(indicator => {
+        if (connected) {
+            indicator.classList.add('bg-green-500');
+            indicator.classList.remove('bg-red-500');
+        } else {
+            indicator.classList.add('bg-red-500');
+            indicator.classList.remove('bg-green-500');
+        }
+    });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', initLogViewer);
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (logEventSource) {
+        logEventSource.close();
+    }
+});
+</script>

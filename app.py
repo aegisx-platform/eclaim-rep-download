@@ -1,6 +1,6 @@
 """Flask Web UI for E-Claim Downloader"""
 
-from flask import Flask, render_template, jsonify, request, send_from_directory, redirect, url_for
+from flask import Flask, render_template, jsonify, request, send_from_directory, redirect, url_for, Response, stream_with_context
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import humanize
@@ -10,6 +10,7 @@ import subprocess
 import sys
 from utils import HistoryManager, FileManager, DownloaderRunner
 from utils.import_runner import ImportRunner
+from utils.log_stream import log_streamer
 from config.database import get_db_config
 
 # Thailand timezone
@@ -174,7 +175,10 @@ def files():
 @app.route('/download/trigger', methods=['POST'])
 def trigger_download():
     """Trigger downloader as background process"""
-    result = downloader_runner.start()
+    data = request.get_json() or {}
+    auto_import = data.get('auto_import', False)
+
+    result = downloader_runner.start(auto_import=auto_import)
 
     if result['success']:
         return jsonify(result), 200
@@ -471,6 +475,9 @@ def clear_all_data():
                     'error': f'Database clear failed: {str(e)}'
                 }), 500
 
+        # 4. Clear realtime logs
+        log_streamer.clear_logs()
+
         return jsonify({
             'success': True,
             'deleted_files': deleted_files,
@@ -483,6 +490,37 @@ def clear_all_data():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route('/api/logs/stream')
+def stream_logs():
+    """Stream real-time logs via Server-Sent Events (SSE)"""
+    def generate():
+        try:
+            for log_entry in log_streamer.stream_logs(tail=50):
+                yield log_entry
+        except GeneratorExit:
+            pass
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive'
+        }
+    )
+
+
+@app.route('/api/logs/clear', methods=['POST'])
+def clear_logs():
+    """Clear realtime log file"""
+    try:
+        log_streamer.clear_logs()
+        return jsonify({'success': True, 'message': 'Logs cleared'}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 if __name__ == '__main__':

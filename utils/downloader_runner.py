@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 import psutil
+from utils.log_stream import log_streamer
 
 
 class DownloaderRunner:
@@ -49,13 +50,14 @@ class DownloaderRunner:
                 self.pid_file.unlink()
             return False
 
-    def start(self, month=None, year=None):
+    def start(self, month=None, year=None, auto_import=False):
         """
         Start the downloader as a background process
 
         Args:
             month (int, optional): Month (1-12) to download. None = current month
             year (int, optional): Year in Buddhist Era. None = current year
+            auto_import (bool): Auto-import files after download completes
         """
         if self.is_running():
             return {
@@ -63,20 +65,42 @@ class DownloaderRunner:
                 'error': 'Downloader is already running'
             }
 
-        if not self.script_path.exists():
-            return {
-                'success': False,
-                'error': f'Downloader script not found: {self.script_path}'
-            }
+        # Use wrapper script if auto-import is enabled
+        if auto_import:
+            wrapper_script = self.script_path.parent / 'download_with_import.py'
+            if not wrapper_script.exists():
+                return {
+                    'success': False,
+                    'error': f'Wrapper script not found: {wrapper_script}'
+                }
+            script_to_run = wrapper_script
+        else:
+            if not self.script_path.exists():
+                return {
+                    'success': False,
+                    'error': f'Downloader script not found: {self.script_path}'
+                }
+            script_to_run = self.script_path
 
         try:
             # Build command with optional month/year parameters
-            cmd = [sys.executable, str(self.script_path)]
+            cmd = [sys.executable, str(script_to_run)]
 
             if month is not None:
                 cmd.extend(['--month', str(month)])
             if year is not None:
                 cmd.extend(['--year', str(year)])
+            if auto_import:
+                cmd.append('--auto-import')
+
+            # Log to realtime log
+            log_streamer.write_log('='*60, 'info', 'system')
+            log_streamer.write_log(f'Started at: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 'info', 'system')
+            if month and year:
+                log_streamer.write_log(f'Download for: Month {month}, Year {year} BE', 'info', 'system')
+            if auto_import:
+                log_streamer.write_log('Auto-import: ENABLED', 'info', 'system')
+            log_streamer.write_log('='*60, 'info', 'system')
 
             # Open log file
             with open(self.log_file, 'a', encoding='utf-8') as log:
@@ -84,6 +108,8 @@ class DownloaderRunner:
                 log.write(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 if month and year:
                     log.write(f"Download for: Month {month}, Year {year} BE\n")
+                if auto_import:
+                    log.write(f"Auto-import: ENABLED\n")
                 log.write(f"{'='*60}\n")
 
                 # Start subprocess in detached mode
@@ -102,7 +128,8 @@ class DownloaderRunner:
             result = {
                 'success': True,
                 'pid': process.pid,
-                'start_time': datetime.now().isoformat()
+                'start_time': datetime.now().isoformat(),
+                'auto_import': auto_import
             }
 
             if month and year:
