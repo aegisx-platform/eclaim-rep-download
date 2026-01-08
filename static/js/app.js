@@ -4,6 +4,7 @@
 
 // State
 let pollingInterval = null;
+let importPollingInterval = null;
 
 /**
  * Trigger download and start polling for status
@@ -416,13 +417,8 @@ async function importFile(filename) {
     }
 
     try {
-        // Show loading state
-        const row = document.querySelector(`[data-file="${filename}"]`);
-        const importButton = row.querySelector('button[onclick*="importFile"]');
-        if (importButton) {
-            importButton.disabled = true;
-            importButton.textContent = 'Importing...';
-        }
+        // Show import progress modal
+        showImportModal();
 
         const response = await fetch(`/import/file/${encodeURIComponent(filename)}`, {
             method: 'POST',
@@ -434,32 +430,18 @@ async function importFile(filename) {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            showToast(`Successfully imported ${filename}`, 'success');
+            showToast(`Import started for ${filename}`, 'success');
 
-            // Reload page after 1 second to show updated status
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
+            // Start polling import progress
+            startImportProgressPolling();
         } else {
-            showToast(data.error || 'Failed to import file', 'error');
-
-            // Reset button state
-            if (importButton) {
-                importButton.disabled = false;
-                importButton.textContent = 'Import';
-            }
+            closeImportModal();
+            showToast(data.error || 'Failed to start import', 'error');
         }
     } catch (error) {
         console.error('Error importing file:', error);
-        showToast('Error importing file', 'error');
-
-        // Reset button state
-        const row = document.querySelector(`[data-file="${filename}"]`);
-        const importButton = row.querySelector('button[onclick*="importFile"]');
-        if (importButton) {
-            importButton.disabled = false;
-            importButton.textContent = 'Import';
-        }
+        closeImportModal();
+        showToast('Error starting import', 'error');
     }
 }
 
@@ -468,18 +450,19 @@ async function importFile(filename) {
  */
 async function importAllFiles() {
     // Confirm bulk import
-    const pendingCount = document.querySelectorAll('[onclick*="importFile"]').length;
+    const pendingCount = document.querySelectorAll('[data-import-status="pending"]').length;
 
     if (!confirm(
         `Import all ${pendingCount} pending files to database?\n\n` +
         `This may take several minutes depending on file size and count.\n\n` +
-        `The page will refresh when import is complete.`
+        `Progress will be shown in real-time.`
     )) {
         return;
     }
 
     try {
-        showToast('Starting import of all files...', 'info');
+        // Show import progress modal
+        showImportModal();
 
         const response = await fetch('/import/all', {
             method: 'POST',
@@ -491,26 +474,168 @@ async function importAllFiles() {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            showToast(`Import completed! Processed ${data.total || 0} files`, 'success');
+            showToast('Import started!', 'success');
 
-            // Reload page after 2 seconds
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
+            // Start polling import progress
+            startImportProgressPolling();
         } else {
-            showToast(data.error || 'Import failed', 'error');
+            closeImportModal();
+            showToast(data.error || 'Failed to start import', 'error');
         }
     } catch (error) {
         console.error('Error importing all files:', error);
-        showToast('Error importing files', 'error');
+        closeImportModal();
+        showToast('Error starting import', 'error');
     }
 }
 
 /**
- * Check initial download status on page load
+ * Show import progress modal
+ */
+function showImportModal() {
+    const modal = document.getElementById('import-progress-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+
+        // Reset progress
+        document.getElementById('import-progress-bar').style.width = '0%';
+        document.getElementById('import-progress-percentage').textContent = '0%';
+        document.getElementById('import-progress-text').textContent = 'Preparing...';
+        document.getElementById('import-file-count').textContent = '0 / 0 files';
+        document.getElementById('import-record-count').textContent = '0 records imported';
+        document.getElementById('import-current-file').textContent = '-';
+    }
+}
+
+/**
+ * Close import progress modal
+ */
+function closeImportModal() {
+    const modal = document.getElementById('import-progress-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+
+    // Stop polling
+    if (importPollingInterval) {
+        clearInterval(importPollingInterval);
+        importPollingInterval = null;
+    }
+}
+
+/**
+ * Start polling import progress
+ */
+function startImportProgressPolling() {
+    // Clear any existing interval
+    if (importPollingInterval) {
+        clearInterval(importPollingInterval);
+    }
+
+    // Poll every 2 seconds
+    importPollingInterval = setInterval(async () => {
+        try {
+            const response = await fetch('/import/progress');
+            const progress = await response.json();
+
+            updateImportProgressUI(progress);
+
+            if (!progress.running || progress.status === 'completed') {
+                // Import completed
+                clearInterval(importPollingInterval);
+                importPollingInterval = null;
+
+                // Update to 100%
+                document.getElementById('import-progress-bar').style.width = '100%';
+                document.getElementById('import-progress-percentage').textContent = '100%';
+                document.getElementById('import-progress-text').textContent = 'Import completed!';
+
+                showToast('Import completed successfully!', 'success');
+
+                // Close modal and refresh after 2 seconds
+                setTimeout(() => {
+                    closeImportModal();
+                    location.reload();
+                }, 2000);
+            }
+        } catch (error) {
+            console.error('Error polling import progress:', error);
+        }
+    }, 2000);
+}
+
+/**
+ * Update import progress UI
+ */
+function updateImportProgressUI(progress) {
+    if (!progress || !progress.running) return;
+
+    const completed = progress.completed_files || 0;
+    const total = progress.total_files || 1;
+    const percentage = Math.round((completed / total) * 100);
+
+    // Update progress bar
+    document.getElementById('import-progress-bar').style.width = `${percentage}%`;
+    document.getElementById('import-progress-percentage').textContent = `${percentage}%`;
+
+    // Update file count
+    document.getElementById('import-file-count').textContent = `${completed} / ${total} files`;
+
+    // Update record count
+    const records = progress.total_records_imported || 0;
+    document.getElementById('import-record-count').textContent = `${records.toLocaleString()} records imported`;
+
+    // Update current file
+    const currentFile = progress.current_file || '-';
+    document.getElementById('import-current-file').textContent = currentFile;
+
+    // Update progress text
+    if (progress.current_file) {
+        document.getElementById('import-progress-text').textContent = `Importing file ${completed + 1} of ${total}...`;
+    } else {
+        document.getElementById('import-progress-text').textContent = 'Processing...';
+    }
+}
+
+/**
+ * Filter files by import status
+ */
+function filterFiles(status) {
+    const rows = document.querySelectorAll('.file-row');
+    const filterButtons = document.querySelectorAll('.filter-btn');
+
+    // Update button styles
+    filterButtons.forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+    });
+
+    const activeButton = document.getElementById(`filter-${status}`);
+    if (activeButton) {
+        activeButton.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+        activeButton.classList.add('bg-blue-600', 'text-white');
+    }
+
+    // Filter rows
+    rows.forEach(row => {
+        const rowStatus = row.getAttribute('data-import-status');
+
+        if (status === 'all') {
+            row.style.display = '';
+        } else if (status === rowStatus) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+/**
+ * Check initial download and import status on page load
  */
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        // Check download status
         const response = await fetch('/download/status');
         const status = await response.json();
 
@@ -526,6 +651,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (bulkProgress.running && bulkProgress.status === 'running') {
             // Resume bulk progress polling
             startBulkProgressPolling();
+        }
+
+        // Check for import in progress
+        const importResponse = await fetch('/import/progress');
+        const importProgress = await importResponse.json();
+
+        if (importProgress.running && importProgress.status === 'running') {
+            // Resume import progress polling
+            showImportModal();
+            startImportProgressPolling();
         }
     } catch (error) {
         console.error('Error checking initial status:', error);

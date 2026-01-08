@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 from utils import HistoryManager, FileManager, DownloaderRunner
+from utils.import_runner import ImportRunner
 from config.database import get_db_config
 
 app = Flask(__name__)
@@ -17,6 +18,7 @@ app.config['SECRET_KEY'] = 'eclaim-downloader-secret-key-change-in-production'
 history_manager = HistoryManager()
 file_manager = FileManager()
 downloader_runner = DownloaderRunner()
+import_runner = ImportRunner()
 
 
 def get_db_connection():
@@ -229,36 +231,14 @@ def import_file(filename):
                 'file_id': import_status_map[filename]['file_id']
             }), 409
 
-        # Run import command
-        cmd = [
-            sys.executable,
-            'eclaim_import.py',
-            str(file_path)
-        ]
+        # Start import process in background
+        result = import_runner.start_single_import(str(file_path))
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300  # 5 minutes timeout
-        )
-
-        if result.returncode == 0:
-            # Get import results from output
-            return jsonify({
-                'success': True,
-                'message': f'Successfully imported {filename}',
-                'output': result.stdout
-            }), 200
+        if result['success']:
+            return jsonify(result), 200
         else:
-            return jsonify({
-                'success': False,
-                'error': f'Import failed: {result.stderr}',
-                'output': result.stdout
-            }), 500
+            return jsonify(result), 409 if 'already running' in result.get('error', '').lower() else 500
 
-    except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'error': 'Import timeout (5 minutes)'}), 500
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -284,39 +264,28 @@ def import_all_files():
                 'skipped': len(all_files)
             }), 200
 
-        # Run import command for all files in directory
+        # Start bulk import process in background
         downloads_dir = Path('downloads')
-        cmd = [
-            sys.executable,
-            'eclaim_import.py',
-            '--directory', str(downloads_dir)
-        ]
+        result = import_runner.start_bulk_import(str(downloads_dir))
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=1800  # 30 minutes timeout
-        )
-
-        if result.returncode == 0:
-            return jsonify({
-                'success': True,
-                'message': f'Import completed for {len(not_imported)} files',
-                'total': len(not_imported),
-                'output': result.stdout
-            }), 200
+        if result['success']:
+            return jsonify(result), 200
         else:
-            return jsonify({
-                'success': False,
-                'error': f'Import failed: {result.stderr}',
-                'output': result.stdout
-            }), 500
+            return jsonify(result), 409 if 'already running' in result.get('error', '').lower() else 500
 
-    except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'error': 'Import timeout (30 minutes)'}), 500
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/import/progress')
+def import_progress():
+    """Get real-time import progress"""
+    try:
+        progress = import_runner.get_progress()
+        return jsonify(progress)
+
+    except Exception as e:
+        return jsonify({'running': False, 'error': str(e)}), 500
 
 
 @app.route('/api/stats')

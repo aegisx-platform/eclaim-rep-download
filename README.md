@@ -381,4 +381,4 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ---
 
-**Made with ❤️ in Thailand 🇹🇭**
+**Made with ❤️ by [aegisx platform](https://github.com/aegisx-platform)**

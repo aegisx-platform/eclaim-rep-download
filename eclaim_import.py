@@ -7,8 +7,10 @@ Command-line tool to import E-Claim XLS files to database
 import argparse
 import logging
 import sys
+import json
 from pathlib import Path
 from typing import List
+from datetime import datetime
 
 from config.database import get_db_config, DOWNLOADS_DIR
 from utils.eclaim.importer import import_eclaim_file
@@ -20,6 +22,23 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Progress file for real-time tracking
+PROGRESS_FILE = Path('import_progress.json')
+
+
+def update_progress(progress_data: dict):
+    """
+    Update import progress file for real-time tracking
+
+    Args:
+        progress_data: Progress dict to save
+    """
+    try:
+        with open(PROGRESS_FILE, 'w') as f:
+            json.dump(progress_data, f, indent=2)
+    except Exception as e:
+        logger.warning(f"Could not update progress file: {e}")
 
 
 def import_single_file(filepath: str, db_config: dict) -> dict:
@@ -83,14 +102,42 @@ def import_directory(directory: str, db_config: dict, file_pattern: str = '*.xls
         'details': []
     }
 
-    for filepath in xls_files:
+    # Initialize progress tracking
+    progress = {
+        'import_id': f"import_bulk_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+        'type': 'bulk',
+        'status': 'running',
+        'total_files': len(xls_files),
+        'completed_files': 0,
+        'current_file': None,
+        'current_file_index': 0,
+        'started_at': datetime.now().isoformat(),
+        'total_records_imported': 0,
+        'failed_files': []
+    }
+    update_progress(progress)
+
+    for idx, filepath in enumerate(xls_files, 1):
         logger.info(f"\n{'='*60}")
+        logger.info(f"[{idx}/{len(xls_files)}] Importing: {filepath.name}")
+
+        # Update progress
+        progress['current_file'] = filepath.name
+        progress['current_file_index'] = idx
+        progress['completed_files'] = idx - 1
+        update_progress(progress)
+
         result = import_single_file(str(filepath), db_config)
 
         if result['success']:
             results['success'] += 1
+            progress['total_records_imported'] += result.get('imported_records', 0)
         else:
             results['failed'] += 1
+            progress['failed_files'].append({
+                'filename': filepath.name,
+                'error': result.get('error')
+            })
 
         results['details'].append({
             'filename': filepath.name,
@@ -98,6 +145,16 @@ def import_directory(directory: str, db_config: dict, file_pattern: str = '*.xls
             'imported_records': result.get('imported_records', 0),
             'error': result.get('error')
         })
+
+        # Update progress after each file
+        progress['completed_files'] = idx
+        update_progress(progress)
+
+    # Mark as completed
+    progress['status'] = 'completed'
+    progress['completed_at'] = datetime.now().isoformat()
+    progress['current_file'] = None
+    update_progress(progress)
 
     return results
 
