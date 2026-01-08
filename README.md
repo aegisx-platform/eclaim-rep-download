@@ -1,16 +1,88 @@
-# E-Claim Excel File Downloader
+# E-Claim Downloader & Data Import System
 
-โปรแกรมสำหรับ download Excel files อัตโนมัติจากระบบ NHSO e-claim validation page
+> โปรแกรมสำหรับ download และ import ข้อมูล e-claim จาก NHSO อัตโนมัติ พร้อม Web UI สำหรับจัดการไฟล์และนำเข้าฐานข้อมูล
 
-## Features
+![Dashboard](screenshots/dashboard.png)
 
+## ✨ Features
+
+### 📥 E-Claim Downloader
 - ✅ Login อัตโนมัติเข้าระบบ e-claim
 - ✅ Download Excel files ทั้งหมดจากหน้า validation
+- ✅ เลือก download ตามช่วงเดือน/ปี (Date Range Selection)
+- ✅ Bulk download หลายเดือนพร้อมกัน
 - ✅ เก็บประวัติการ download (ไม่ download ซ้ำ)
 - ✅ ใช้ HTTP Client (requests) - เร็วและเบา ไม่ต้องเปิด browser
-- ✅ พร้อม run เป็น cron job หรือ scheduled task
+- ✅ Real-time progress tracking
 
-## Installation
+### 🌐 Web UI Dashboard
+- ✅ ดู dashboard สถิติไฟล์ที่ download
+- ✅ จัดการไฟล์ (view, download, delete)
+- ✅ Trigger download จาก Web UI
+- ✅ เลือกช่วงวันที่สำหรับ bulk download
+- ✅ Real-time progress แสดงสถานะการ download
+
+### 💾 Database Import System
+- ✅ Import ข้อมูล e-claim เข้า PostgreSQL/MySQL
+- ✅ รองรับไฟล์ทุกประเภท: OP, IP, ORF, IP_APPEAL, IP_APPEAL_NHSO
+- ✅ Auto-detect header row และ column mapping
+- ✅ แปลงวันที่ไทย (BE) เป็น Gregorian calendar
+- ✅ UPSERT support (ป้องกัน duplicate)
+- ✅ HIS reconciliation fields (สำหรับ reconcile กับระบบโรงพยาบาล)
+- ✅ CLI tool สำหรับ import file เดี่ยวหรือทั้ง directory
+- ✅ Track import status (pending/processing/completed/failed)
+
+### 🐳 Docker Support
+- ✅ Docker Compose setup พร้อม PostgreSQL
+- ✅ pgAdmin GUI สำหรับจัดการฐานข้อมูล
+- ✅ Health checks และ auto-restart
+- ✅ Volume persistence สำหรับข้อมูล
+- ✅ Makefile สำหรับ commands ที่ง่ายต่อการใช้งาน
+
+---
+
+## 🚀 Quick Start (Docker)
+
+### 1. Clone และ Setup
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/eclaim-req-download.git
+cd eclaim-req-download
+
+# Setup environment
+make setup
+
+# Edit .env file
+nano .env  # Update ECLAIM_USERNAME and ECLAIM_PASSWORD
+```
+
+### 2. Start Services
+
+```bash
+# Start all services (Flask + PostgreSQL + pgAdmin)
+make up
+
+# View logs
+make logs
+```
+
+### 3. Access Services
+
+- **Web UI**: http://localhost:5001
+- **Database**: postgresql://eclaim:eclaim_password@localhost:5432/eclaim_db
+- **pgAdmin**: http://localhost:5050 (admin@eclaim.local / admin)
+
+---
+
+## 📖 Manual Installation (Without Docker)
+
+### Prerequisites
+
+- Python 3.9+
+- PostgreSQL 13+ (optional, for database import)
+
+### Installation
 
 1. Install Python dependencies:
 
@@ -20,75 +92,169 @@ pip install -r requirements.txt
 
 2. Configure credentials:
 
-Copy `.env.example` to `.env` and update with your credentials:
-
 ```bash
 cp .env.example .env
+# Edit .env with your credentials
 ```
 
-Edit `.env`:
-```
-ECLAIM_USERNAME=your_username
-ECLAIM_PASSWORD=your_password
-DOWNLOAD_DIR=./downloads
-```
-
-## Usage
-
-### วิธีที่ 1: HTTP Client Version (แนะนำ - เร็วกว่า)
+3. Setup database (optional):
 
 ```bash
+# Create database
+createdb eclaim_db
+
+# Import schema
+psql -U postgres -d eclaim_db -f database/schema.sql
+```
+
+### Run Web UI
+
+```bash
+export FLASK_APP=app.py
+export FLASK_ENV=development
+flask run --host=0.0.0.0 --port=5001
+```
+
+### Run Downloader CLI
+
+```bash
+# Download current month
 python eclaim_downloader_http.py
+
+# Download specific month/year
+python eclaim_downloader_http.py --month 12 --year 2568
+
+# Bulk download (multiple months)
+python bulk_downloader.py 1,2568 12,2568
 ```
 
-### วิธีที่ 2: Browser Automation Version (ถ้า HTTP Client ไม่ทำงาน)
+### Import to Database
 
-ต้อง install playwright browsers ก่อน:
 ```bash
-pip install playwright
-playwright install chromium
+# Import single file
+python eclaim_import.py downloads/eclaim_10670_OP_25680122_205506156.xls
+
+# Import all files in directory
+python eclaim_import.py
+
+# Analyze file structure
+python eclaim_import.py --analyze downloads/file.xls
 ```
 
-จากนั้นรัน:
+---
+
+## 🐳 Docker Commands
+
+For detailed Docker usage, see [DOCKER.md](DOCKER.md)
+
+### Quick Commands
+
 ```bash
-python eclaim_downloader.py
+make setup      # Initial setup
+make up         # Start services
+make down       # Stop services
+make logs       # View logs
+make shell      # Access web container
+make db-shell   # Access PostgreSQL
+make import     # Import all files
+make db-backup  # Backup database
 ```
 
-## Output
+---
 
-### Downloaded Files
+## 📊 Database Schema
 
-ไฟล์ที่ download จะถูกเก็บใน directory ที่กำหนดใน `.env` (default: `./downloads/`)
+ระบบใช้ 3 ตารางหลัก:
 
-### Download History
+1. **eclaim_imported_files** - Track import status
+2. **eclaim_claims** - ข้อมูล OP/IP/Appeal claims
+3. **eclaim_op_refer** - ข้อมูล OP Refer (ORF)
 
-ประวัติการ download จะถูกเก็บใน `download_history.json`:
+ดูรายละเอียดเพิ่มเติมใน [database/schema.sql](database/schema.sql)
 
-```json
-{
-  "last_run": "2026-01-07T14:30:00.123456",
-  "downloads": [
-    {
-      "filename": "rep_eclaim_10670_OP_25690105_20150185.xls",
-      "download_date": "2026-01-07T14:30:05.123456",
-      "file_path": "./downloads/rep_eclaim_10670_OP_25690105_20150185.xls",
-      "file_size": 51200,
-      "url": "https://eclaim.nhso.go.th/..."
-    }
-  ]
-}
+### HIS Reconciliation
+
+ระบบมี fields สำหรับ reconcile กับระบบโรงพยาบาล:
+
+- `his_matched` - สถานะการ match
+- `his_matched_at` - วันที่ match
+- `his_vn` - Visit Number จากระบบ HIS
+- `reconcile_status` - สถานะการ reconcile
+- `reconcile_amount_diff` - ผลต่างยอดเงิน
+
+---
+
+## 📁 Project Structure
+
+```
+eclaim-req-download/
+├── app.py                          # Flask web application
+├── eclaim_downloader_http.py       # HTTP Client downloader
+├── bulk_downloader.py              # Bulk download orchestrator
+├── eclaim_import.py                # CLI import tool
+├── docker-compose.yml              # Docker setup
+├── Dockerfile                      # Docker image
+├── Makefile                        # Easy commands
+├── requirements.txt                # Python dependencies
+│
+├── config/
+│   └── database.py                 # Database configuration
+│
+├── database/
+│   ├── schema.sql                  # PostgreSQL schema
+│   └── IMPORT_GUIDE.md             # Import documentation
+│
+├── utils/
+│   ├── history_manager.py          # Download history
+│   ├── file_manager.py             # File operations
+│   ├── downloader_runner.py        # Background tasks
+│   └── eclaim/
+│       ├── parser.py               # XLS file parser
+│       └── importer.py             # Database importer
+│
+├── templates/                      # HTML templates
+│   ├── base.html
+│   ├── dashboard.html
+│   ├── files.html
+│   └── download_config.html
+│
+├── static/                         # Static files
+│   ├── css/
+│   └── js/
+│
+├── downloads/                      # Downloaded files
+├── logs/                           # Application logs
+└── backups/                        # Database backups
 ```
 
-## Automated Scheduling
+---
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ECLAIM_USERNAME` | - | E-Claim login username |
+| `ECLAIM_PASSWORD` | - | E-Claim login password |
+| `DB_TYPE` | postgresql | Database type |
+| `DB_HOST` | db | Database host |
+| `DB_PORT` | 5432 | Database port |
+| `DB_NAME` | eclaim_db | Database name |
+| `DB_USER` | eclaim | Database user |
+| `DB_PASSWORD` | eclaim_password | Database password |
+
+---
+
+## 📅 Automated Scheduling
 
 ### Linux/macOS - Cron Job
 
-Edit crontab:
 ```bash
 crontab -e
 ```
 
-Add line สำหรับ run ทุกวันเวลา 9:00 น.:
+Run ทุกวันเวลา 9:00 น.:
 ```
 0 9 * * * cd /path/to/eclaim-req-download && /usr/bin/python3 eclaim_downloader_http.py >> logs/cron.log 2>&1
 ```
@@ -103,44 +269,116 @@ Add line สำหรับ run ทุกวันเวลา 9:00 น.:
    - Arguments: `eclaim_downloader_http.py`
    - Start in: `C:\path\to\eclaim-req-download`
 
-## Troubleshooting
+---
 
-### ถ้า HTTP Client ไม่ทำงาน
+## 🧪 Testing
 
-อาจเป็นเพราะ:
-- Website มี CSRF token protection
-- ต้องการ JavaScript execution
-- มี CAPTCHA
+### Import Statistics (Sample)
 
-แก้ไข: ใช้ `eclaim_downloader.py` (browser version) แทน
+- **Total Files**: 382 files
+- **Total Records**: 40,006 records
+- **Total Reimbursement**: ~141.6 million THB
 
-### ถ้า download ไม่สำเร็จ
+**By Type:**
+- OP: 252 files, 32,553 records (14.1M THB)
+- IP: 82 files, 6,217 records (123.6M THB)
+- ORF: 45 files, 260 records
+- IP_APPEAL_NHSO: 2 files, 974 records (3.8M THB)
+- IP_APPEAL: 1 file, 2 records (81K THB)
 
-- ตรวจสอบ internet connection
-- ตรวจสอบ username/password
-- ตรวจสอบว่าระบบ e-claim ทำงานปกติ
+---
 
-## Files Structure
+## 🐛 Troubleshooting
 
+### Web UI Not Loading
+
+```bash
+# Check if containers are running
+docker-compose ps
+
+# Restart services
+docker-compose restart
+
+# View logs
+docker-compose logs -f web
 ```
-eclaim-req-download/
-├── .env                          # Configuration (ห้าม commit)
-├── .env.example                  # Template
-├── .gitignore                    # Git ignore
-├── requirements.txt              # Python dependencies
-├── eclaim_downloader_http.py     # HTTP Client version (แนะนำ)
-├── eclaim_downloader.py          # Browser automation version
-├── download_history.json         # Download tracking (auto-generated)
-├── downloads/                    # Downloaded files (auto-created)
-└── README.md                     # This file
+
+### Database Connection Failed
+
+```bash
+# Check database status
+docker-compose ps db
+
+# Restart database
+docker-compose restart db
 ```
 
-## Security Notes
+### Import Errors
+
+```bash
+# Check file structure
+python eclaim_import.py --analyze downloads/file.xls
+
+# View detailed logs
+docker-compose logs -f web
+```
+
+For more details, see [DOCKER.md](DOCKER.md)
+
+---
+
+## 🔐 Security Notes
 
 - ⚠️ **ห้าม commit `.env`** file ที่มี credentials
-- ⚠️ เก็บ credentials ให้ปลอดภัย
+- ⚠️ เปลี่ยน default passwords ใน production
 - ⚠️ ตั้งค่า file permissions ให้เหมาะสม
+- ⚠️ ใช้ HTTPS สำหรับ production deployment
 
-## License
+---
 
-MIT
+## 📚 Documentation
+
+- [Docker Setup Guide](DOCKER.md) - Complete Docker documentation
+- [Database Import Guide](database/IMPORT_GUIDE.md) - Import system documentation
+- [E-Claim Analysis Report](ECLAIM_ANALYSIS_REPORT.md) - File structure analysis
+
+---
+
+## 👨‍💻 Developer
+
+**Sathit Seethaphon**
+
+If you find this project helpful, consider buying me a coffee! ☕
+
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="sathit" data-color="#FFDD00" data-emoji="☕"  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## 📝 License
+
+MIT License - see [LICENSE](LICENSE) file for details
+
+---
+
+## 🙏 Acknowledgments
+
+- NHSO E-Claim System
+- Flask Framework
+- PostgreSQL Database
+- Docker Community
+
+---
+
+**Made with ❤️ in Thailand 🇹🇭**

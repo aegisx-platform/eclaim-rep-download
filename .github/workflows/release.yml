@@ -1,0 +1,102 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (v1.0.0, v1.0.1, etc.)
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for changelog
+
+      - name: Get version from tag
+        id: version
+        env:
+          GITHUB_REF_VALUE: ${{ github.ref }}
+        run: echo "VERSION=${GITHUB_REF_VALUE#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        env:
+          REPO_NAME: ${{ github.repository }}
+          VERSION_TAG: ${{ steps.version.outputs.VERSION }}
+        run: |
+          # Get previous tag (safely)
+          PREVIOUS_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+
+          # Create changelog file
+          cat > CHANGELOG.md << 'CHANGELOG_MARKER'
+          ## What's Changed
+
+          See the full list of changes in the commits since the previous release.
+
+          ## Docker Image
+
+          Pull the Docker image:
+          ```bash
+          CHANGELOG_MARKER
+
+          echo "docker pull ghcr.io/${REPO_NAME}:${VERSION_TAG}" >> CHANGELOG.md
+
+          cat >> CHANGELOG.md << 'CHANGELOG_MARKER'
+          ```
+
+          Or use the latest tag:
+          ```bash
+          CHANGELOG_MARKER
+
+          echo "docker pull ghcr.io/${REPO_NAME}:latest" >> CHANGELOG.md
+
+          cat >> CHANGELOG.md << 'CHANGELOG_MARKER'
+          ```
+
+          ## Installation
+
+          See [README.md] for installation instructions.
+
+          ## Quick Start
+
+          ```bash
+          # Clone and setup
+          git clone https://github.com/${REPO_NAME}.git
+          cd eclaim-req-download
+          make setup
+
+          # Edit .env with your credentials
+          nano .env
+
+          # Start services
+          make up
+          ```
+
+          ## Features
+
+          - E-Claim file downloader with Web UI
+          - Database import system (PostgreSQL)
+          - Docker support with PostgreSQL and pgAdmin
+          - Date range selection for bulk downloads
+          - Real-time progress tracking
+          - HIS reconciliation support
+
+          **Full Changelog**: See commits below
+          CHANGELOG_MARKER
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
