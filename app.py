@@ -11,6 +11,7 @@ import sys
 from utils import HistoryManager, FileManager, DownloaderRunner
 from utils.import_runner import ImportRunner
 from utils.log_stream import log_streamer
+from utils.settings_manager import SettingsManager
 from config.database import get_db_config
 
 # Thailand timezone
@@ -24,6 +25,7 @@ history_manager = HistoryManager()
 file_manager = FileManager()
 downloader_runner = DownloaderRunner()
 import_runner = ImportRunner()
+settings_manager = SettingsManager()
 
 
 def get_db_connection():
@@ -424,6 +426,48 @@ def date_range_stats():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/settings')
+def settings():
+    """Settings page"""
+    current_settings = settings_manager.load_settings()
+    return render_template('settings.html', settings=current_settings)
+
+
+@app.route('/api/settings', methods=['GET', 'POST'])
+def api_settings():
+    """Get or update settings"""
+    if request.method == 'GET':
+        settings = settings_manager.load_settings()
+        # Don't send password to frontend
+        settings['eclaim_password'] = '********' if settings.get('eclaim_password') else ''
+        return jsonify(settings)
+
+    elif request.method == 'POST':
+        data = request.get_json()
+
+        # Validate required fields
+        username = data.get('eclaim_username', '').strip()
+        password = data.get('eclaim_password', '').strip()
+
+        if not username:
+            return jsonify({'success': False, 'error': 'Username is required'}), 400
+
+        # Don't update password if it's the placeholder
+        current_settings = settings_manager.load_settings()
+        if password == '********':
+            password = current_settings.get('eclaim_password', '')
+        elif not password:
+            return jsonify({'success': False, 'error': 'Password is required'}), 400
+
+        # Update settings
+        success = settings_manager.update_credentials(username, password)
+
+        if success:
+            return jsonify({'success': True, 'message': 'Settings updated successfully'}), 200
+        else:
+            return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
 
 
 @app.template_filter('naturalsize')

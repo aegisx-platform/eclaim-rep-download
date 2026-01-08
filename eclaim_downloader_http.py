@@ -28,8 +28,8 @@ class EClaimDownloader:
             year (int, optional): Year in Buddhist Era. Defaults to current year + 543.
             import_each (bool, optional): Import each file immediately after download. Defaults to False.
         """
-        self.username = os.getenv('ECLAIM_USERNAME')
-        self.password = os.getenv('ECLAIM_PASSWORD')
+        # Load credentials from settings file first, fallback to env vars
+        self.username, self.password = self._load_credentials()
         self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads'))
         self.tracking_file = Path('download_history.json')
         self.import_each = import_each
@@ -62,6 +62,40 @@ class EClaimDownloader:
 
         # Load download history
         self.download_history = self._load_history()
+
+    def _load_credentials(self):
+        """
+        Load credentials from settings file or environment variables
+
+        Returns:
+            (username, password) tuple
+        """
+        # Try to load from settings file first
+        settings_file = Path('config/settings.json')
+        if settings_file.exists():
+            try:
+                with open(settings_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                    username = settings.get('eclaim_username', '').strip()
+                    password = settings.get('eclaim_password', '').strip()
+                    if username and password:
+                        return username, password
+            except Exception:
+                pass
+
+        # Fallback to environment variables
+        username = os.getenv('ECLAIM_USERNAME', '').strip()
+        password = os.getenv('ECLAIM_PASSWORD', '').strip()
+
+        if not username or not password:
+            raise ValueError(
+                "E-Claim credentials not configured!\n"
+                "Please configure credentials via:\n"
+                "1. Web UI Settings page (http://localhost:5001/settings), or\n"
+                "2. Environment variables: ECLAIM_USERNAME and ECLAIM_PASSWORD"
+            )
+
+        return username, password
 
     def _load_history(self):
         """Load download history from JSON file"""

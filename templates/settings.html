@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - E-Claim Downloader{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-8">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">Settings</h2>
+    <p class="text-gray-600">ตั้งค่าระบบและข้อมูลการเชื่อมต่อ</p>
+</div>
+
+<!-- Settings Form -->
+<div class="bg-white rounded-lg shadow-md overflow-hidden max-w-2xl">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+        <h3 class="text-xl font-bold text-gray-800">E-Claim Credentials</h3>
+        <p class="text-sm text-gray-600 mt-1">ข้อมูลสำหรับเข้าสู่ระบบ e-claim NHSO</p>
+    </div>
+
+    <div class="p-6">
+        <form id="settings-form" class="space-y-6">
+            <!-- Username -->
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
+                    Username <span class="text-red-500">*</span>
+                </label>
+                <input
+                    type="text"
+                    id="username"
+                    name="eclaim_username"
+                    value="{{ settings.eclaim_username }}"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter E-Claim username"
+                    required
+                >
+            </div>
+
+            <!-- Password -->
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                    Password <span class="text-red-500">*</span>
+                </label>
+                <div class="relative">
+                    <input
+                        type="password"
+                        id="password"
+                        name="eclaim_password"
+                        value="{{ settings.eclaim_password }}"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                        placeholder="Enter E-Claim password"
+                        required
+                    >
+                    <button
+                        type="button"
+                        onclick="togglePasswordVisibility()"
+                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        title="Show/Hide password"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">รหัสผ่านจะถูกบันทึกในไฟล์ config อย่างปลอดภัย</p>
+            </div>
+
+            <!-- Info Box -->
+            <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+                <div class="flex">
+                    <svg class="w-5 h-5 text-blue-400 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                    </svg>
+                    <div class="text-sm text-blue-700">
+                        <p class="font-medium mb-1">ข้อมูลสำคัญ:</p>
+                        <ul class="list-disc list-inside space-y-1">
+                            <li>ข้อมูลเข้าสู่ระบบจะถูกบันทึกในไฟล์ <code class="bg-blue-100 px-1 rounded">config/settings.json</code></li>
+                            <li>ข้อมูลจะถูกใช้ในการ login เข้าระบบ e-claim NHSO</li>
+                            <li>ตรวจสอบให้แน่ใจว่า username และ password ถูกต้อง</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="flex items-center gap-3">
+                <button
+                    type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:shadow-lg transition-all"
+                >
+                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Save Settings
+                </button>
+                <a href="{{ url_for('dashboard') }}" class="text-gray-600 hover:text-gray-800 font-medium">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function togglePasswordVisibility() {
+    const passwordInput = document.getElementById('password');
+
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+    } else {
+        passwordInput.type = 'password';
+    }
+}
+
+document.getElementById('settings-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+    const data = {
+        eclaim_username: formData.get('eclaim_username'),
+        eclaim_password: formData.get('eclaim_password')
+    };
+
+    try {
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('Settings saved successfully!', 'success');
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 1500);
+        } else {
+            showToast(result.error || 'Failed to save settings', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        showToast('Error saving settings', 'error');
+    }
+});
+</script>
+{% endblock %}
