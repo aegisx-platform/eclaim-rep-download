@@ -191,3 +191,52 @@ class HistoryManager:
         filtered.sort(key=lambda d: d.get('download_date', ''), reverse=True)
 
         return filtered
+
+    def get_available_dates(self):
+        """
+        Get list of available month/year combinations from downloads
+
+        Returns:
+            list: List of dicts with month, year, and count
+                [{'month': 1, 'year': 2569, 'count': 54, 'label': 'January 2569'}, ...]
+        """
+        downloads = self.get_all_downloads()
+        date_counts = {}
+
+        month_names = {
+            1: 'January', 2: 'February', 3: 'March', 4: 'April',
+            5: 'May', 6: 'June', 7: 'July', 8: 'August',
+            9: 'September', 10: 'October', 11: 'November', 12: 'December'
+        }
+
+        for download in downloads:
+            month = download.get('month')
+            year = download.get('year')
+
+            # Try to extract from filename if not in metadata
+            if month is None or year is None:
+                import re
+                match = re.search(r'_(\d{4})(\d{2})\d{2}_', download.get('filename', ''))
+                if match:
+                    year = int(match.group(1))
+                    month = int(match.group(2))
+
+            if month and year:
+                key = (year, month)
+                date_counts[key] = date_counts.get(key, 0) + 1
+
+        # Convert to list and sort (most recent first)
+        available_dates = [
+            {
+                'month': month,
+                'year': year,
+                'count': count,
+                'label': f"{month_names.get(month, month)} {year}"
+            }
+            for (year, month), count in date_counts.items()
+        ]
+
+        # Sort by year and month (descending)
+        available_dates.sort(key=lambda d: (d['year'], d['month']), reverse=True)
+
+        return available_dates

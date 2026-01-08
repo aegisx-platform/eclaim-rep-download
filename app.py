@@ -124,20 +124,63 @@ def dashboard():
 @app.route('/files')
 def files():
     """File list view with all downloads"""
+    # Get filter parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    filter_month = request.args.get('month', type=int)
+    filter_year = request.args.get('year', type=int)
+
+    # Default to current month/year if not specified
+    now = datetime.now(TZ_BANGKOK)
+    if filter_month is None:
+        filter_month = now.month
+    if filter_year is None:
+        filter_year = now.year + 543  # Convert to Buddhist Era
+
     all_files = history_manager.get_all_downloads()
 
     # Get import status from database
     import_status_map = get_import_status_map()
 
+    # Filter by month/year
+    filtered_files = []
+    for file in all_files:
+        file_month = file.get('month')
+        file_year = file.get('year')
+
+        # If month/year not in file metadata, try to extract from filename
+        if file_month is None or file_year is None:
+            # Filename format: eclaim_10670_OP_25690106_xxx.xls
+            # Extract year (2569) and month (01) from 25690106
+            import re
+            match = re.search(r'_(\d{4})(\d{2})\d{2}_', file.get('filename', ''))
+            if match:
+                file_year = int(match.group(1))
+                file_month = int(match.group(2))
+
+        # Apply filter
+        if file_month == filter_month and file_year == filter_year:
+            filtered_files.append(file)
+
     # Sort by download date (most recent first)
-    all_files = sorted(
-        all_files,
+    filtered_files = sorted(
+        filtered_files,
         key=lambda d: d.get('download_date', ''),
         reverse=True
     )
 
+    # Calculate pagination
+    total_files = len(filtered_files)
+    total_pages = (total_files + per_page - 1) // per_page  # Ceiling division
+    page = max(1, min(page, total_pages if total_pages > 0 else 1))
+
+    # Paginate
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated_files = filtered_files[start_idx:end_idx]
+
     # Format for display and add import status
-    for file in all_files:
+    for file in paginated_files:
         file['size_formatted'] = humanize.naturalsize(file.get('file_size', 0))
         try:
             # Parse datetime (stored as UTC in Docker container)
@@ -162,15 +205,25 @@ def files():
             file['import_status'] = None
             file['imported'] = False
 
-    # Count imported vs not imported
-    imported_count = sum(1 for f in all_files if f.get('imported', False))
-    not_imported_count = len(all_files) - imported_count
+    # Count imported vs not imported (from filtered files)
+    imported_count = sum(1 for f in filtered_files if f.get('imported', False))
+    not_imported_count = len(filtered_files) - imported_count
+
+    # Get available months/years for filter dropdown
+    available_dates = history_manager.get_available_dates()
 
     return render_template(
         'files.html',
-        files=all_files,
+        files=paginated_files,
         imported_count=imported_count,
-        not_imported_count=not_imported_count
+        not_imported_count=not_imported_count,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        total_files=total_files,
+        filter_month=filter_month,
+        filter_year=filter_year,
+        available_dates=available_dates
     )
 
 

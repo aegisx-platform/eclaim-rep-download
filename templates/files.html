@@ -5,8 +5,23 @@
 {% block content %}
 <!-- Header -->
 <div class="mb-8">
-    <h2 class="text-3xl font-bold text-gray-800 mb-2">Downloaded Files</h2>
-    <p class="text-gray-600">รายการไฟล์ทั้งหมดที่ download จากระบบ e-claim</p>
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Downloaded Files</h2>
+            <p class="text-gray-600">รายการไฟล์ทั้งหมดที่ download จากระบบ e-claim</p>
+        </div>
+        <!-- Month/Year Filter -->
+        <div class="flex items-center gap-3">
+            <label class="text-sm text-gray-700 font-medium">Filter by:</label>
+            <select id="month-filter" onchange="updateFilter()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                {% for date in available_dates %}
+                <option value="{{ date.month }},{{ date.year }}" {% if date.month == filter_month and date.year == filter_year %}selected{% endif %}>
+                    {{ date.label }} ({{ date.count }} files)
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
 </div>
 
 <!-- Import Progress Modal -->
@@ -55,9 +70,9 @@
 <div class="bg-white rounded-lg shadow-md overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
         <div>
-            <h3 class="text-xl font-bold text-gray-800 mb-1">All Files ({{ files|length }})</h3>
+            <h3 class="text-xl font-bold text-gray-800 mb-1">Files (Page {{ page }}/{{ total_pages }})</h3>
             <div class="flex items-center gap-4 text-sm">
-                <span class="text-gray-600">Total: {{ files|length }} files</span>
+                <span class="text-gray-600">Showing {{ files|length }} of {{ total_files }} files</span>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                     <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
@@ -217,5 +232,98 @@
         </button>
     </div>
     {% endif %}
+
+    <!-- Pagination Controls -->
+    {% if total_pages > 1 %}
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div class="flex items-center justify-between">
+            <div class="text-sm text-gray-700">
+                Showing <span class="font-medium">{{ (page - 1) * per_page + 1 }}</span> to <span class="font-medium">{{ [page * per_page, total_files] | min }}</span> of <span class="font-medium">{{ total_files }}</span> results
+            </div>
+            <div class="flex gap-2">
+                {% if page > 1 %}
+                <a href="?page={{ page - 1 }}&month={{ filter_month }}&year={{ filter_year }}"
+                   class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-700">
+                    Previous
+                </a>
+                {% endif %}
+
+                <!-- Page numbers -->
+                {% if total_pages <= 7 %}
+                    <!-- Show all pages if 7 or fewer -->
+                    {% for p in range(1, total_pages + 1) %}
+                    <a href="?page={{ p }}&month={{ filter_month }}&year={{ filter_year }}"
+                       class="px-4 py-2 border rounded-lg text-sm font-medium {% if p == page %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 text-gray-700 hover:bg-gray-100{% endif %}">
+                        {{ p }}
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <!-- Show condensed pagination for many pages -->
+                    {% if page <= 4 %}
+                        <!-- Show first 5 pages -->
+                        {% for p in range(1, 6) %}
+                        <a href="?page={{ p }}&month={{ filter_month }}&year={{ filter_year }}"
+                           class="px-4 py-2 border rounded-lg text-sm font-medium {% if p == page %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 text-gray-700 hover:bg-gray-100{% endif %}">
+                            {{ p }}
+                        </a>
+                        {% endfor %}
+                        <span class="px-3 py-2 text-gray-700">...</span>
+                        <a href="?page={{ total_pages }}&month={{ filter_month }}&year={{ filter_year }}"
+                           class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">
+                            {{ total_pages }}
+                        </a>
+                    {% elif page >= total_pages - 3 %}
+                        <!-- Show last 5 pages -->
+                        <a href="?page=1&month={{ filter_month }}&year={{ filter_year }}"
+                           class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">
+                            1
+                        </a>
+                        <span class="px-3 py-2 text-gray-700">...</span>
+                        {% for p in range(total_pages - 4, total_pages + 1) %}
+                        <a href="?page={{ p }}&month={{ filter_month }}&year={{ filter_year }}"
+                           class="px-4 py-2 border rounded-lg text-sm font-medium {% if p == page %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 text-gray-700 hover:bg-gray-100{% endif %}">
+                            {{ p }}
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                        <!-- Show middle pages -->
+                        <a href="?page=1&month={{ filter_month }}&year={{ filter_year }}"
+                           class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">
+                            1
+                        </a>
+                        <span class="px-3 py-2 text-gray-700">...</span>
+                        {% for p in range(page - 1, page + 2) %}
+                        <a href="?page={{ p }}&month={{ filter_month }}&year={{ filter_year }}"
+                           class="px-4 py-2 border rounded-lg text-sm font-medium {% if p == page %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 text-gray-700 hover:bg-gray-100{% endif %}">
+                            {{ p }}
+                        </a>
+                        {% endfor %}
+                        <span class="px-3 py-2 text-gray-700">...</span>
+                        <a href="?page={{ total_pages }}&month={{ filter_month }}&year={{ filter_year }}"
+                           class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">
+                            {{ total_pages }}
+                        </a>
+                    {% endif %}
+                {% endif %}
+
+                {% if page < total_pages %}
+                <a href="?page={{ page + 1 }}&month={{ filter_month }}&year={{ filter_year }}"
+                   class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-700">
+                    Next
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+<script>
+// Month/Year filter update
+function updateFilter() {
+    const select = document.getElementById('month-filter');
+    const [month, year] = select.value.split(',');
+    window.location.href = `?month=${month}&year=${year}&page=1`;
+}
+</script>
 {% endblock %}
