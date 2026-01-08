@@ -666,3 +666,71 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Error checking initial status:', error);
     }
 });
+
+/**
+ * Clear all data (files, history, database) with confirmation
+ */
+async function clearAllData() {
+    // Triple confirmation for safety
+    const confirm1 = confirm(
+        '⚠️ WARNING: This will DELETE ALL data!\n\n' +
+        'This action will:\n' +
+        '• Delete all downloaded files\n' +
+        '• Clear all import history\n' +
+        '• Remove all database records\n\n' +
+        'This CANNOT be undone!\n\n' +
+        'Are you sure you want to continue?'
+    );
+
+    if (!confirm1) {
+        return;
+    }
+
+    // Second confirmation
+    const confirm2 = confirm(
+        '🚨 FINAL WARNING!\n\n' +
+        'You are about to permanently delete ALL data.\n\n' +
+        'Type YES in the next prompt to confirm.'
+    );
+
+    if (!confirm2) {
+        return;
+    }
+
+    // Third confirmation with text input
+    const userInput = prompt(
+        'Please type "DELETE ALL" to confirm (case-sensitive):'
+    );
+
+    if (userInput !== 'DELETE ALL') {
+        showToast('Cancellation confirmed - no data was deleted', 'info');
+        return;
+    }
+
+    try {
+        showToast('Clearing all data...', 'info');
+
+        const response = await fetch('/api/clear-all', {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(
+                `All data cleared successfully! Deleted ${data.deleted_files} files.`,
+                'success'
+            );
+
+            // Reload page after 2 seconds
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            showToast(`Error: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error clearing data:', error);
+        showToast('Error clearing data', 'error');
+    }
+}

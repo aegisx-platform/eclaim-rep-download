@@ -438,5 +438,52 @@ def naturaltime_filter(value):
         return value
 
 
+@app.route('/api/clear-all', methods=['POST'])
+def clear_all_data():
+    """Clear all data: files, history, and database (DANGER!)"""
+    try:
+        # 1. Delete all files in downloads directory
+        downloads_dir = Path('downloads')
+        deleted_files = 0
+        for file in downloads_dir.glob('*.*'):
+            if file.is_file():
+                file.unlink()
+                deleted_files += 1
+
+        # 2. Reset download history
+        history_manager.save_history({'last_run': None, 'downloads': []})
+
+        # 3. Clear database tables
+        conn = get_db_connection()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("TRUNCATE TABLE eclaim_claims, eclaim_op_refer, eclaim_imported_files RESTART IDENTITY CASCADE;")
+                conn.commit()
+                cursor.close()
+                conn.close()
+            except Exception as e:
+                app.logger.error(f"Database clear error: {e}")
+                if conn:
+                    conn.close()
+                return jsonify({
+                    'success': False,
+                    'error': f'Database clear failed: {str(e)}'
+                }), 500
+
+        return jsonify({
+            'success': True,
+            'deleted_files': deleted_files,
+            'message': 'All data cleared successfully'
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Clear all data error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
