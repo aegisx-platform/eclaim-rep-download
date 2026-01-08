@@ -28,22 +28,41 @@ def main():
     if args.year:
         download_cmd.extend(['--year', str(args.year)])
 
-    # Run downloader
+    # Run downloader with real-time output streaming
     try:
         log_streamer.write_log('⬇️ Downloading files from e-claim system...', 'info', 'download')
-        result = subprocess.run(
+
+        # Use Popen to stream output in real-time
+        process = subprocess.Popen(
             download_cmd,
             cwd=Path(__file__).parent,
-            capture_output=True,
-            text=True
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,  # Line buffered
+            universal_newlines=True
         )
 
-        # Log download output line by line
-        for line in result.stdout.splitlines():
+        # Stream output line by line in real-time
+        for line in process.stdout:
             if line.strip():
-                log_streamer.write_log(line, 'info', 'download')
+                # Determine log level based on content
+                line_lower = line.lower()
+                if '✓' in line or 'success' in line_lower or 'completed' in line_lower:
+                    level = 'success'
+                elif '✗' in line or 'error' in line_lower or 'failed' in line_lower:
+                    level = 'error'
+                elif 'downloading' in line_lower or 'found' in line_lower:
+                    level = 'info'
+                else:
+                    level = 'info'
 
-        if result.returncode == 0:
+                log_streamer.write_log(line.strip(), level, 'download')
+
+        # Wait for process to complete
+        process.wait()
+
+        if process.returncode == 0:
             log_streamer.write_log('✅ Download completed successfully!', 'success', 'download')
 
             # Auto-import if requested
@@ -54,33 +73,48 @@ def main():
 
                 try:
                     log_streamer.write_log('📥 Importing files to database...', 'info', 'import')
-                    import_result = subprocess.run(
+
+                    # Use Popen to stream output in real-time
+                    import_process = subprocess.Popen(
                         import_cmd,
                         cwd=Path(__file__).parent,
-                        capture_output=True,
-                        text=True
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        bufsize=1,  # Line buffered
+                        universal_newlines=True
                     )
 
-                    # Log import output
-                    for line in import_result.stdout.splitlines():
+                    # Stream import output line by line in real-time
+                    for line in import_process.stdout:
                         if line.strip():
-                            log_streamer.write_log(line, 'info', 'import')
+                            # Determine log level based on content
+                            line_lower = line.lower()
+                            if '✓' in line or 'success' in line_lower or 'completed' in line_lower:
+                                level = 'success'
+                            elif '✗' in line or 'error' in line_lower or 'failed' in line_lower:
+                                level = 'error'
+                            elif 'importing' in line_lower or 'found' in line_lower:
+                                level = 'info'
+                            else:
+                                level = 'info'
 
-                    if import_result.returncode == 0:
+                            log_streamer.write_log(line.strip(), level, 'import')
+
+                    # Wait for import to complete
+                    import_process.wait()
+
+                    if import_process.returncode == 0:
                         log_streamer.write_log('✅ Auto-import completed successfully!', 'success', 'import')
                     else:
-                        log_streamer.write_log(f'❌ Import failed with code {import_result.returncode}', 'error', 'import')
-                        if import_result.stderr:
-                            log_streamer.write_log(import_result.stderr, 'error', 'import')
+                        log_streamer.write_log(f'❌ Import failed with code {import_process.returncode}', 'error', 'import')
 
                 except Exception as e:
                     log_streamer.write_log(f'❌ Import error: {str(e)}', 'error', 'import')
 
         else:
-            log_streamer.write_log(f'❌ Download failed with code {result.returncode}', 'error', 'download')
-            if result.stderr:
-                log_streamer.write_log(result.stderr, 'error', 'download')
-            sys.exit(result.returncode)
+            log_streamer.write_log(f'❌ Download failed with code {process.returncode}', 'error', 'download')
+            sys.exit(process.returncode)
 
     except Exception as e:
         log_streamer.write_log(f'❌ Download error: {str(e)}', 'error', 'download')
