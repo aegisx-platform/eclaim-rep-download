@@ -1,7 +1,8 @@
 """Flask Web UI for E-Claim Downloader"""
 
 from flask import Flask, render_template, jsonify, request, send_from_directory, redirect, url_for
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import humanize
 import psycopg2
 from pathlib import Path
@@ -10,6 +11,9 @@ import sys
 from utils import HistoryManager, FileManager, DownloaderRunner
 from utils.import_runner import ImportRunner
 from config.database import get_db_config
+
+# Thailand timezone
+TZ_BANGKOK = ZoneInfo('Asia/Bangkok')
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'eclaim-downloader-secret-key-change-in-production'
@@ -92,8 +96,14 @@ def dashboard():
     for file in latest_files:
         file['size_formatted'] = humanize.naturalsize(file.get('file_size', 0))
         try:
+            # Parse datetime (stored as UTC in Docker container)
             dt = datetime.fromisoformat(file.get('download_date', ''))
-            file['date_formatted'] = humanize.naturaltime(dt)
+            # If naive datetime, assume it's UTC and convert to Bangkok time
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc).astimezone(TZ_BANGKOK)
+            # Use current Bangkok time for relative time calculation
+            now = datetime.now(TZ_BANGKOK)
+            file['date_formatted'] = humanize.naturaltime(dt, when=now)
         except:
             file['date_formatted'] = file.get('download_date', 'Unknown')
 
@@ -127,9 +137,15 @@ def files():
     for file in all_files:
         file['size_formatted'] = humanize.naturalsize(file.get('file_size', 0))
         try:
+            # Parse datetime (stored as UTC in Docker container)
             dt = datetime.fromisoformat(file.get('download_date', ''))
+            # If naive datetime, assume it's UTC and convert to Bangkok time
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc).astimezone(TZ_BANGKOK)
             file['date_formatted'] = dt.strftime('%Y-%m-%d %H:%M:%S')
-            file['date_relative'] = humanize.naturaltime(dt)
+            # Use current Bangkok time for relative time calculation
+            now = datetime.now(TZ_BANGKOK)
+            file['date_relative'] = humanize.naturaltime(dt, when=now)
         except:
             file['date_formatted'] = file.get('download_date', 'Unknown')
             file['date_relative'] = 'Unknown'
