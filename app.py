@@ -3,7 +3,12 @@
 from flask import Flask, render_template, jsonify, request, send_from_directory, redirect, url_for
 from datetime import datetime
 import humanize
+import psycopg2
+from pathlib import Path
+import subprocess
+import sys
 from utils import HistoryManager, FileManager, DownloaderRunner
+from config.database import get_db_config
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'eclaim-downloader-secret-key-change-in-production'
@@ -12,6 +17,61 @@ app.config['SECRET_KEY'] = 'eclaim-downloader-secret-key-change-in-production'
 history_manager = HistoryManager()
 file_manager = FileManager()
 downloader_runner = DownloaderRunner()
+
+
+def get_db_connection():
+    """Get database connection"""
+    try:
+        db_config = get_db_config()
+        return psycopg2.connect(**db_config)
+    except Exception as e:
+        app.logger.error(f"Database connection error: {e}")
+        return None
+
+
+def get_import_status_map():
+    """
+    Get mapping of filename -> import status from database
+
+    Returns:
+        dict: {filename: {'imported': bool, 'file_id': int, 'imported_at': str}}
+    """
+    status_map = {}
+    conn = get_db_connection()
+
+    if not conn:
+        return status_map
+
+    try:
+        cursor = conn.cursor()
+        query = """
+            SELECT filename, id, status, import_completed_at, imported_records, total_records
+            FROM eclaim_imported_files
+            WHERE status = 'completed'
+            ORDER BY import_completed_at DESC
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+        for row in rows:
+            filename, file_id, status, completed_at, imported_records, total_records = row
+            status_map[filename] = {
+                'imported': True,
+                'file_id': file_id,
+                'imported_at': completed_at.isoformat() if completed_at else None,
+                'imported_records': imported_records or 0,
+                'total_records': total_records or 0
+            }
+
+        cursor.close()
+        conn.close()
+
+    except Exception as e:
+        app.logger.error(f"Error getting import status: {e}")
+        if conn:
+            conn.close()
+
+    return status_map
 
 
 @app.route('/')
@@ -51,6 +111,9 @@ def files():
     """File list view with all downloads"""
     all_files = history_manager.get_all_downloads()
 
+    # Get import status from database
+    import_status_map = get_import_status_map()
+
     # Sort by download date (most recent first)
     all_files = sorted(
         all_files,
@@ -58,7 +121,7 @@ def files():
         reverse=True
     )
 
-    # Format for display
+    # Format for display and add import status
     for file in all_files:
         file['size_formatted'] = humanize.naturalsize(file.get('file_size', 0))
         try:
@@ -69,7 +132,25 @@ def files():
             file['date_formatted'] = file.get('download_date', 'Unknown')
             file['date_relative'] = 'Unknown'
 
-    return render_template('files.html', files=all_files)
+        # Add import status
+        filename = file.get('filename', '')
+        if filename in import_status_map:
+            file['import_status'] = import_status_map[filename]
+            file['imported'] = True
+        else:
+            file['import_status'] = None
+            file['imported'] = False
+
+    # Count imported vs not imported
+    imported_count = sum(1 for f in all_files if f.get('imported', False))
+    not_imported_count = len(all_files) - imported_count
+
+    return render_template(
+        'files.html',
+        files=all_files,
+        imported_count=imported_count,
+        not_imported_count=not_imported_count
+    )
 
 
 @app.route('/download/trigger', methods=['POST'])
@@ -127,6 +208,115 @@ def download_file(filename):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': f'Error: {str(e)}'}), 500
+
+
+@app.route('/import/file/<filename>', methods=['POST'])
+def import_file(filename):
+    """Import single file to database"""
+    try:
+        # Validate filename
+        file_path = file_manager.get_file_path(filename)
+
+        if not file_path.exists():
+            return jsonify({'success': False, 'error': 'File not found'}), 404
+
+        # Check if already imported
+        import_status_map = get_import_status_map()
+        if filename in import_status_map:
+            return jsonify({
+                'success': False,
+                'error': 'File already imported',
+                'file_id': import_status_map[filename]['file_id']
+            }), 409
+
+        # Run import command
+        cmd = [
+            sys.executable,
+            'eclaim_import.py',
+            str(file_path)
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minutes timeout
+        )
+
+        if result.returncode == 0:
+            # Get import results from output
+            return jsonify({
+                'success': True,
+                'message': f'Successfully imported {filename}',
+                'output': result.stdout
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Import failed: {result.stderr}',
+                'output': result.stdout
+            }), 500
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'error': 'Import timeout (5 minutes)'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/import/all', methods=['POST'])
+def import_all_files():
+    """Import all files that haven't been imported yet"""
+    try:
+        all_files = history_manager.get_all_downloads()
+        import_status_map = get_import_status_map()
+
+        # Filter out already imported files
+        not_imported = [
+            f for f in all_files
+            if f.get('filename', '') not in import_status_map
+        ]
+
+        if not not_imported:
+            return jsonify({
+                'success': True,
+                'message': 'All files already imported',
+                'total': 0,
+                'skipped': len(all_files)
+            }), 200
+
+        # Run import command for all files in directory
+        downloads_dir = Path('downloads')
+        cmd = [
+            sys.executable,
+            'eclaim_import.py',
+            '--directory', str(downloads_dir)
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=1800  # 30 minutes timeout
+        )
+
+        if result.returncode == 0:
+            return jsonify({
+                'success': True,
+                'message': f'Import completed for {len(not_imported)} files',
+                'total': len(not_imported),
+                'output': result.stdout
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Import failed: {result.stderr}',
+                'output': result.stdout
+            }), 500
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'error': 'Import timeout (30 minutes)'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/stats')

@@ -407,6 +407,106 @@ function startBulkProgressPolling() {
 }
 
 /**
+ * Import single file to database
+ */
+async function importFile(filename) {
+    // Confirm import
+    if (!confirm(`Import "${filename}" to database?\n\nThis will parse the file and store records in the database.`)) {
+        return;
+    }
+
+    try {
+        // Show loading state
+        const row = document.querySelector(`[data-file="${filename}"]`);
+        const importButton = row.querySelector('button[onclick*="importFile"]');
+        if (importButton) {
+            importButton.disabled = true;
+            importButton.textContent = 'Importing...';
+        }
+
+        const response = await fetch(`/import/file/${encodeURIComponent(filename)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showToast(`Successfully imported ${filename}`, 'success');
+
+            // Reload page after 1 second to show updated status
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            showToast(data.error || 'Failed to import file', 'error');
+
+            // Reset button state
+            if (importButton) {
+                importButton.disabled = false;
+                importButton.textContent = 'Import';
+            }
+        }
+    } catch (error) {
+        console.error('Error importing file:', error);
+        showToast('Error importing file', 'error');
+
+        // Reset button state
+        const row = document.querySelector(`[data-file="${filename}"]`);
+        const importButton = row.querySelector('button[onclick*="importFile"]');
+        if (importButton) {
+            importButton.disabled = false;
+            importButton.textContent = 'Import';
+        }
+    }
+}
+
+/**
+ * Import all files that haven't been imported yet
+ */
+async function importAllFiles() {
+    // Confirm bulk import
+    const pendingCount = document.querySelectorAll('[onclick*="importFile"]').length;
+
+    if (!confirm(
+        `Import all ${pendingCount} pending files to database?\n\n` +
+        `This may take several minutes depending on file size and count.\n\n` +
+        `The page will refresh when import is complete.`
+    )) {
+        return;
+    }
+
+    try {
+        showToast('Starting import of all files...', 'info');
+
+        const response = await fetch('/import/all', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showToast(`Import completed! Processed ${data.total || 0} files`, 'success');
+
+            // Reload page after 2 seconds
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            showToast(data.error || 'Import failed', 'error');
+        }
+    } catch (error) {
+        console.error('Error importing all files:', error);
+        showToast('Error importing files', 'error');
+    }
+}
+
+/**
  * Check initial download status on page load
  */
 document.addEventListener('DOMContentLoaded', async () => {
