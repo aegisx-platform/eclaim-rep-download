@@ -19,18 +19,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class EClaimDownloader:
-    def __init__(self, month=None, year=None):
+    def __init__(self, month=None, year=None, import_each=False):
         """
         Initialize E-Claim Downloader
 
         Args:
             month (int, optional): Month (1-12). Defaults to current month.
             year (int, optional): Year in Buddhist Era. Defaults to current year + 543.
+            import_each (bool, optional): Import each file immediately after download. Defaults to False.
         """
         self.username = os.getenv('ECLAIM_USERNAME')
         self.password = os.getenv('ECLAIM_PASSWORD')
         self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads'))
         self.tracking_file = Path('download_history.json')
+        self.import_each = import_each
 
         # Set month and year (default to current date in Buddhist Era)
         now = datetime.now()
@@ -79,6 +81,38 @@ class EClaimDownloader:
     def _is_already_downloaded(self, filename):
         """Check if file was already downloaded"""
         return any(d['filename'] == filename for d in self.download_history['downloads'])
+
+    def _import_file(self, file_path, filename):
+        """
+        Import single file to database immediately after download
+
+        Args:
+            file_path (str): Path to downloaded file
+            filename (str): Filename
+        """
+        try:
+            print(f"    ⚡ Importing {filename} to database...")
+
+            # Import from eclaim_import module
+            from utils.eclaim.importer import import_eclaim_file
+            from config.database import get_db_config
+
+            # Get database config
+            db_config = get_db_config()
+
+            # Import file
+            result = import_eclaim_file(file_path, db_config)
+
+            if result['success']:
+                imported = result.get('imported_records', 0)
+                total = result.get('total_records', 0)
+                print(f"    ✓ Imported: {imported}/{total} records")
+            else:
+                error = result.get('error', 'Unknown error')
+                print(f"    ✗ Import failed: {error}")
+
+        except Exception as e:
+            print(f"    ✗ Import error: {str(e)}")
 
     def login(self):
         """Login to e-claim system"""
@@ -258,6 +292,10 @@ class EClaimDownloader:
                     # Save history after each download for real-time tracking
                     self._save_history()
 
+                    # Import immediately if flag is set
+                    if self.import_each:
+                        self._import_file(str(file_path), filename)
+
                     # Delay to avoid overwhelming server
                     time.sleep(1)
 
@@ -352,10 +390,20 @@ Examples:
         help='Year in Buddhist Era (BE = Gregorian + 543). Defaults to current year.'
     )
 
+    parser.add_argument(
+        '--import-each',
+        action='store_true',
+        help='Import each file to database immediately after download (concurrent mode)'
+    )
+
     args = parser.parse_args()
 
     # Create downloader with specified month/year (or defaults)
-    downloader = EClaimDownloader(month=args.month, year=args.year)
+    downloader = EClaimDownloader(
+        month=args.month,
+        year=args.year,
+        import_each=args.import_each
+    )
     downloader.run()
 
 if __name__ == '__main__':

@@ -28,6 +28,11 @@ def main():
     if args.year:
         download_cmd.extend(['--year', str(args.year)])
 
+    # Add --import-each flag if auto-import is enabled
+    if args.auto_import:
+        download_cmd.append('--import-each')
+        log_streamer.write_log('⚡ Concurrent import mode: ENABLED', 'info', 'system')
+
     # Run downloader with real-time output streaming
     try:
         log_streamer.write_log('⬇️ Downloading files from e-claim system...', 'info', 'download')
@@ -65,52 +70,9 @@ def main():
         if process.returncode == 0:
             log_streamer.write_log('✅ Download completed successfully!', 'success', 'download')
 
-            # Auto-import if requested
+            # Note: Import happens concurrently during download if --auto-import is enabled
             if args.auto_import:
-                log_streamer.write_log('🔄 Starting auto-import...', 'info', 'import')
-
-                import_cmd = [sys.executable, 'eclaim_import.py', '--directory', 'downloads']
-
-                try:
-                    log_streamer.write_log('📥 Importing files to database...', 'info', 'import')
-
-                    # Use Popen to stream output in real-time
-                    import_process = subprocess.Popen(
-                        import_cmd,
-                        cwd=Path(__file__).parent,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                        bufsize=1,  # Line buffered
-                        universal_newlines=True
-                    )
-
-                    # Stream import output line by line in real-time
-                    for line in import_process.stdout:
-                        if line.strip():
-                            # Determine log level based on content
-                            line_lower = line.lower()
-                            if '✓' in line or 'success' in line_lower or 'completed' in line_lower:
-                                level = 'success'
-                            elif '✗' in line or 'error' in line_lower or 'failed' in line_lower:
-                                level = 'error'
-                            elif 'importing' in line_lower or 'found' in line_lower:
-                                level = 'info'
-                            else:
-                                level = 'info'
-
-                            log_streamer.write_log(line.strip(), level, 'import')
-
-                    # Wait for import to complete
-                    import_process.wait()
-
-                    if import_process.returncode == 0:
-                        log_streamer.write_log('✅ Auto-import completed successfully!', 'success', 'import')
-                    else:
-                        log_streamer.write_log(f'❌ Import failed with code {import_process.returncode}', 'error', 'import')
-
-                except Exception as e:
-                    log_streamer.write_log(f'❌ Import error: {str(e)}', 'error', 'import')
+                log_streamer.write_log('✅ Concurrent import completed!', 'success', 'import')
 
         else:
             log_streamer.write_log(f'❌ Download failed with code {process.returncode}', 'error', 'download')
