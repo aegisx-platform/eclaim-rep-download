@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 from datetime import datetime
 import psutil
-from utils.log_stream import log_streamer
 
 
 class DownloaderRunner:
@@ -93,14 +92,18 @@ class DownloaderRunner:
             if auto_import:
                 cmd.append('--auto-import')
 
-            # Log to realtime log
-            log_streamer.write_log('='*60, 'info', 'system')
-            log_streamer.write_log(f'Started at: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 'info', 'system')
-            if month and year:
-                log_streamer.write_log(f'Download for: Month {month}, Year {year} BE', 'info', 'system')
-            if auto_import:
-                log_streamer.write_log('Auto-import: ENABLED', 'info', 'system')
-            log_streamer.write_log('='*60, 'info', 'system')
+            # Log to realtime log (lazy import to avoid circular dependency)
+            try:
+                from utils.log_stream import log_streamer
+                log_streamer.write_log('='*60, 'info', 'system')
+                log_streamer.write_log(f'Started at: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 'info', 'system')
+                if month and year:
+                    log_streamer.write_log(f'Download for: Month {month}, Year {year} BE', 'info', 'system')
+                if auto_import:
+                    log_streamer.write_log('Auto-import: ENABLED', 'info', 'system')
+                log_streamer.write_log('='*60, 'info', 'system')
+            except ImportError:
+                pass  # Log streamer not available
 
             # Open log file
             with open(self.log_file, 'a', encoding='utf-8') as log:
