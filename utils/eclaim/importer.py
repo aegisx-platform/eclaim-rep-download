@@ -184,15 +184,15 @@ class EClaimImporter:
         """
         query = """
             INSERT INTO eclaim_op_refer
-            (file_id, row_number, rep_no, tran_id, hn, pid,
-             patient_name, admission_date, referral_doc_no,
-             diagnosis_codes, procedure_codes, net_reimbursement, created_at)
-            VALUES (%(file_id)s, %(row_number)s, %(rep_no)s, %(tran_id)s,
-                   %(hn)s, %(pid)s, %(patient_name)s, %(admission_date)s,
-                   %(referral_doc_no)s, %(diagnosis_codes)s, %(procedure_codes)s,
-                   %(net_reimbursement)s, CURRENT_TIMESTAMP)
+            (file_id, row_number, rep, tran_id, hn, pid,
+             patient_name, service_date, refer_doc_no,
+             dx, proc_code, total_claimable, created_at)
+            VALUES (%(file_id)s, %(row_number)s, %(rep)s, %(tran_id)s,
+                   %(hn)s, %(pid)s, %(patient_name)s, %(service_date)s,
+                   %(refer_doc_no)s, %(dx)s, %(proc_code)s,
+                   %(total_claimable)s, CURRENT_TIMESTAMP)
             ON CONFLICT (tran_id, file_id) DO UPDATE SET
-                net_reimbursement = EXCLUDED.net_reimbursement,
+                total_claimable = EXCLUDED.total_claimable,
                 updated_at = CURRENT_TIMESTAMP
         """
 

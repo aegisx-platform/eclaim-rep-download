@@ -131,8 +131,8 @@ class EClaimFileParser:
         Detect which row contains column headers
 
         E-Claim files typically have:
-        - OP/IP: Headers at row 5 (index 4)
-        - ORF: Headers at row 7 (index 6)
+        - OP/IP: Headers at row 6 (index 5)
+        - ORF: Headers at row 8 (index 7)
 
         Args:
             max_rows: Maximum rows to search
@@ -143,6 +143,14 @@ class EClaimFileParser:
         if self.df is None:
             raise ValueError("Must call load_file() first")
 
+        file_type = self.get_file_type()
+
+        # ORF files have headers at row 8 (index 7)
+        if file_type == 'ORF':
+            logger.info(f"ORF file detected, using header row 8 (index 7)")
+            return 7
+
+        # For other types, detect automatically
         for i in range(max_rows):
             if i >= len(self.df):
                 break
@@ -158,9 +166,9 @@ class EClaimFileParser:
                 logger.info(f"Header row detected at row {i+1} (index {i})")
                 return i
 
-        # Default to row 5 (index 4) if not detected
-        logger.warning("Could not detect header row, defaulting to row 5")
-        return 4
+        # Default to row 6 (index 5) if not detected
+        logger.warning("Could not detect header row, defaulting to row 6")
+        return 5
 
     def load_file(self) -> pd.DataFrame:
         """
@@ -232,13 +240,19 @@ class EClaimFileParser:
         if file_type in ['OP', 'IP', 'IP_APPEAL', 'IP_APPEAL_NHSO']:
             return common_mapping
         elif file_type == 'ORF':
-            # ORF has different columns
-            orf_mapping = common_mapping.copy()
-            orf_mapping.update({
-                'เลขที่ใบส่งต่อ': 'referral_doc_no',
-                'DX': 'diagnosis_codes',
-                'Proc.': 'procedure_codes'
-            })
+            # ORF has different columns and multi-row headers at row 8
+            orf_mapping = {
+                'REP': 'rep',
+                'TRAN_ID': 'tran_id',
+                'HN': 'hn',
+                'PID': 'pid',
+                'ชื่อ': 'patient_name',
+                'ว/ด/ป ที่รับบริการ': 'service_date',
+                'เลขที่ใบส่งต่อ': 'refer_doc_no',
+                'DX.': 'dx',
+                'Proc.': 'proc_code',
+                'รายการ OPREF\n(5)': 'total_claimable'
+            }
             return orf_mapping
 
         return common_mapping
@@ -271,9 +285,21 @@ class EClaimFileParser:
                     # Handle NaN/None
                     if pd.isna(value):
                         value = None
+                    # Convert "-" to None (common placeholder in E-Claim)
+                    elif value == '-':
+                        value = None
                     # Convert date strings to ISO format for PostgreSQL
-                    elif db_field in ['admission_date', 'discharge_date'] and value:
+                    elif db_field in ['admission_date', 'discharge_date', 'service_date'] and value:
                         value = self._parse_thai_date(value)
+                    # Clean numeric fields
+                    elif db_field in ['total_claimable', 'net_reimbursement'] and value:
+                        # Remove commas and convert to number
+                        try:
+                            value = str(value).replace(',', '').strip()
+                            if value == '' or value == '-':
+                                value = None
+                        except:
+                            value = None
 
                     record[db_field] = value
 
