@@ -95,29 +95,55 @@ E-Claim Downloader เป็นระบบที่ออกแบบมาเ�
 
 ### Docker Deployment (แนะนำ)
 
+**Option 1: ใช้ Pre-built Image (Production - ง่ายที่สุด)**
+
 ```bash
 # 1. Clone repository
-git clone https://github.com/aegisx-platform/eclaim-req-download.git
-cd eclaim-req-download
+git clone https://github.com/aegisx-platform/eclaim-rep-download.git
+cd eclaim-rep-download
 
 # 2. Setup environment
 cp .env.example .env
-nano .env  # แก้ไข ECLAIM_USERNAME และ ECLAIM_PASSWORD
+nano .env  # ตั้งค่า ECLAIM_USERNAME และ ECLAIM_PASSWORD
+          # และ VERSION=v2.0.0 (หรือ latest)
 
-# 3. Start services (PostgreSQL)
+# 3. Start services (ดึง image จาก GitHub Container Registry)
 docker-compose up -d
 
-# หรือใช้ MySQL
-docker-compose -f docker-compose-mysql.yml up -d
+# อื่นๆ:
+# - MySQL: docker-compose -f docker-compose-mysql.yml up -d
+# - Download-only: docker-compose -f docker-compose-no-db.yml up -d
+```
 
-# หรือ download-only (ไม่มี database)
-docker-compose -f docker-compose-no-db.yml up -d
+**Option 2: Build จาก Source (Development)**
+
+```bash
+# Clone และ setup เหมือนเดิม
+git clone https://github.com/aegisx-platform/eclaim-rep-download.git
+cd eclaim-rep-download
+cp .env.example .env
+nano .env
+
+# Build และ start
+docker-compose build
+docker-compose up -d
+```
+
+**Update เมื่อมี Version ใหม่:**
+
+```bash
+# แก้ไข VERSION ใน .env
+echo "VERSION=v2.1.0" >> .env
+
+# Pull image ใหม่และ restart
+docker-compose pull
+docker-compose up -d
 ```
 
 **Access:**
 - 🌐 **Web UI**: http://localhost:5001
 - 🗄️ **Database**: localhost:5432 (PostgreSQL) or localhost:3306 (MySQL)
-- 🔧 **Admin UI**: http://localhost:5050
+- 🔧 **Admin UI**: http://localhost:5050 (เปิดด้วย `--profile tools`)
 
 **[→ Installation Guide](docs/INSTALLATION.md)**
 

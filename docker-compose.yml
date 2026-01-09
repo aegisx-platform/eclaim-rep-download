@@ -24,6 +24,7 @@ services:
 
   # Flask Web Application
   web:
+    image: ghcr.io/aegisx-platform/eclaim-rep-download:${VERSION:-latest}
     build:
       context: .
       dockerfile: Dockerfile

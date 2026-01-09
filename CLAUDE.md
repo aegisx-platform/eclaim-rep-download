@@ -37,20 +37,42 @@ python eclaim_import.py downloads/
 
 ### Docker Deployment
 
+**Quick Start (Using Pre-built Images):**
 ```bash
-# PostgreSQL (recommended)
-docker-compose up -d
-docker-compose logs -f web
+# Clone and setup
+git clone https://github.com/aegisx-platform/eclaim-rep-download.git
+cd eclaim-rep-download
+cp .env.example .env
+nano .env  # Set ECLAIM_USERNAME and ECLAIM_PASSWORD
 
-# MySQL
+# Start services (pulls pre-built image from ghcr.io)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f web
+```
+
+**Development Mode (Build from source):**
+```bash
+# Build locally
+docker-compose build
+docker-compose up -d
+
+# Rebuild after code changes
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+**Other Options:**
+```bash
+# MySQL instead of PostgreSQL
 docker-compose -f docker-compose-mysql.yml up -d
 
 # Download-only (no database)
 docker-compose -f docker-compose-no-db.yml up -d
 
-# Rebuild after code changes
-docker-compose build --no-cache
-docker-compose up -d
+# Use specific version (set in .env)
+VERSION=v2.0.0 docker-compose up -d
 
 # Database shell access
 docker-compose exec db psql -U eclaim -d eclaim_db  # PostgreSQL
@@ -58,6 +80,16 @@ docker-compose exec db mysql -u eclaim -p eclaim_db  # MySQL
 
 # Container shell
 docker-compose exec web bash
+```
+
+**Update to New Version:**
+```bash
+# Set version in .env
+echo "VERSION=v2.1.0" >> .env
+
+# Pull and restart
+docker-compose pull
+docker-compose up -d
 ```
 
 ### Testing
