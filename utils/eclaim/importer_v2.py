@@ -37,30 +37,39 @@ class EClaimImporterV2:
     """
 
     # Column mapping: E-Claim column name → Database column name
+    # NOTE: Column names contain actual \n (newline) characters as they appear in Excel
     OPIP_COLUMN_MAP = {
+        # Basic Information
         'REP No.': 'rep_no',
         'ลำดับที่': 'seq',
         'TRAN_ID': 'tran_id',
         'HN': 'hn',
         'AN': 'an',
-        'เลขประจำตัวประชาชน': 'pid',
+        'PID': 'pid',  # Changed from 'เลขประจำตัวประชาชน'
         'ชื่อ-สกุล': 'name',
         'ประเภทผู้ป่วย': 'ptype',
         'วันเข้ารักษา': 'dateadm',
         'วันจำหน่าย': 'datedsc',
-        'ชดเชยสุทธิ (บาท)\n(สปสช.)': 'reimb_nhso',
-        'ชดเชยสุทธิ (บาท)\n(ต้นสังกัด)': 'reimb_agency',
+
+        # Reimbursement (single column in actual file)
+        'ชดเชยสุทธิ': 'reimb_nhso',  # Changed from multiline version
         'ชดเชยจาก': 'claim_from',
         'Error Code': 'error_code',
+
+        # Fund Information
         'กองทุนหลัก': 'main_fund',
         'กองทุนย่อย': 'sub_fund',
         'ประเภทบริการ': 'service_type',
+
+        # Rights Check
         'การรับส่งต่อ': 'chk_refer',
         'การมีสิทธิ': 'chk_right',
         'การใช้สิทธิ': 'chk_use_right',
         'CHK': 'chk',
         'สิทธิหลัก': 'main_inscl',
         'สิทธิย่อย': 'sub_inscl',
+
+        # Hospital Codes
         'HREF': 'href',
         'HCODE': 'hcode',
         'HMAIN': 'hmain',
@@ -69,29 +78,29 @@ class EClaimImporterV2:
         'HMAIN2': 'hmain2',
         'PROV2': 'prov2',
         'RG2': 'rg2',
-        'DMIS/HMAIN3': 'hmain3',
+        'DMIS/ HMAIN3': 'hmain3',  # Note: has space after /
         'DA': 'da',
         'PROJ': 'projcode',
         'PA': 'pa',
+
+        # DRG Information
         'DRG': 'drg',
         'RW': 'rw',
         'CA_TYPE': 'ca_type',
-        'เรียกเก็บ(1)\n(1.1)': 'claim_drg',
-        'เรียกเก็บ(1)\n(1.2)': 'claim_xdrg',
-        'เรียกเก็บ(1)\n(1.3)': 'claim_net',
-        'เรียกเก็บ central reimburse (2)': 'claim_central_reimb',
-        'ชำระเอง (3)': 'paid',
-        'อัตราจ่าย/Point (4)': 'pay_point',
-        'PS': 'ps_chk',
-        'ล่าช้า PS (5)': 'ps_percent',
-        'CCUF (6)': 'ccuf',
-        'AdjRW_NHSO (7)': 'adjrw_nhso',
-        'AdjRW2 (8)': 'adjrw2',
-        'จ่ายชดเชย (9)': 'reimb_amt',
-        'ค่าพรบ. (10)': 'act_amt',
-        'เงินเดือน %': 'salary_rate',
-        'จำนวนเงินเงินเดือน (11)': 'salary_amt',
-        'ยอดชดเชยหลังหักเงินเดือน (12)': 'reimb_diff_salary',
+
+        # Claims (with newlines as in actual file)
+        'เรียกเก็บ\n(1)': 'claim_drg',
+        'เรียกเก็บ\ncentral reimburse\n(2)': 'claim_central_reimb',
+        'ชำระเอง\n(3)': 'paid',
+        'อัตราจ่าย/Point\n(4)': 'pay_point',
+        'ล่าช้า (PS)\n(5)': 'ps_percent',
+        'CCUF \n(6)': 'ccuf',  # Note: has trailing space
+        'AdjRW_NHSO\n(7)': 'adjrw_nhso',
+        'AdjRW2\n(8 = 6x7)': 'adjrw2',
+        'จ่ายชดเชย\n(9 = 4x5x8)': 'reimb_amt',
+        'ค่าพรบ.\n(10)': 'act_amt',
+        'เงินเดือน': 'salary_rate',
+        'ยอดชดเชยหลังหักเงินเดือน\n(12 = 9-10-11)': 'reimb_diff_salary',
         # High Cost
         'IPHC': 'iphc',
         'OPHC': 'ophc',
