@@ -37,39 +37,29 @@ class EClaimImporterV2:
     """
 
     # Column mapping: E-Claim column name → Database column name
-    # NOTE: Column names contain actual \n (newline) characters as they appear in Excel
     OPIP_COLUMN_MAP = {
-        # Basic Information
         'REP No.': 'rep_no',
         'ลำดับที่': 'seq',
         'TRAN_ID': 'tran_id',
         'HN': 'hn',
         'AN': 'an',
-        'PID': 'pid',  # Changed from 'เลขประจำตัวประชาชน'
+        'PID': 'pid',
         'ชื่อ-สกุล': 'name',
         'ประเภทผู้ป่วย': 'ptype',
         'วันเข้ารักษา': 'dateadm',
         'วันจำหน่าย': 'datedsc',
-
-        # Reimbursement (single column in actual file)
-        'ชดเชยสุทธิ': 'reimb_nhso',  # Changed from multiline version
+        'ชดเชยสุทธิ': 'reimb_nhso',
         'ชดเชยจาก': 'claim_from',
         'Error Code': 'error_code',
-
-        # Fund Information
         'กองทุนหลัก': 'main_fund',
         'กองทุนย่อย': 'sub_fund',
         'ประเภทบริการ': 'service_type',
-
-        # Rights Check
         'การรับส่งต่อ': 'chk_refer',
         'การมีสิทธิ': 'chk_right',
         'การใช้สิทธิ': 'chk_use_right',
         'CHK': 'chk',
         'สิทธิหลัก': 'main_inscl',
         'สิทธิย่อย': 'sub_inscl',
-
-        # Hospital Codes
         'HREF': 'href',
         'HCODE': 'hcode',
         'HMAIN': 'hmain',
@@ -78,232 +68,58 @@ class EClaimImporterV2:
         'HMAIN2': 'hmain2',
         'PROV2': 'prov2',
         'RG2': 'rg2',
-        'DMIS/ HMAIN3': 'hmain3',  # Note: has space after /
+        'DMIS/ HMAIN3': 'hmain3',
         'DA': 'da',
         'PROJ': 'projcode',
         'PA': 'pa',
-
-        # DRG Information
         'DRG': 'drg',
         'RW': 'rw',
         'CA_TYPE': 'ca_type',
-
-        # Claims (with newlines as in actual file)
         'เรียกเก็บ\n(1)': 'claim_drg',
         'เรียกเก็บ\ncentral reimburse\n(2)': 'claim_central_reimb',
         'ชำระเอง\n(3)': 'paid',
         'อัตราจ่าย/Point\n(4)': 'pay_point',
         'ล่าช้า (PS)\n(5)': 'ps_percent',
-        'CCUF \n(6)': 'ccuf',  # Note: has trailing space
+        'CCUF \n(6)': 'ccuf',
         'AdjRW_NHSO\n(7)': 'adjrw_nhso',
         'AdjRW2\n(8 = 6x7)': 'adjrw2',
         'จ่ายชดเชย\n(9 = 4x5x8)': 'reimb_amt',
         'ค่าพรบ.\n(10)': 'act_amt',
         'เงินเดือน': 'salary_rate',
         'ยอดชดเชยหลังหักเงินเดือน\n(12 = 9-10-11)': 'reimb_diff_salary',
-        # High Cost
-        'IPHC': 'iphc',
-        'OPHC': 'ophc',
-        # Accident & Emergency
-        'OPAE': 'ae_opae',
-        'IPNB': 'ae_ipnb',
-        'IPUC': 'ae_ipuc',
-        'IP3SSS': 'ae_ip3sss',
-        'IP7SSS': 'ae_ip7sss',
-        'CARAE': 'ae_carae',
-        'CAREF': 'ae_caref',
-        'CAREF-PUC': 'ae_caref_puc',
-        # Prosthetics/Equipment
-        'OPINST': 'opinst',
-        'INST': 'inst',
-        # Inpatient
-        'IPAEC': 'ipaec',
-        'IPAER': 'ipaer',
-        'IPINRGC': 'ipinrgc',
-        'IPINRGR': 'ipinrgr',
-        'IPINSPSN': 'ipinspsn',
-        'IPPRCC': 'ipprcc',
-        'IPPRCC-PUC': 'ipprcc_puc',
-        'IPBKK-INST': 'ipbkk_inst',
-        'IP-ONTOP': 'ip_ontop',
-        # DMIS
-        'CATARACT': 'cataract_amt',
-        'ค่าภาระงาน(สสจ.)': 'cataract_oth',
-        'ค่าภาระงาน(รพ.)': 'cataract_hosp',
-        'CATINST': 'dmis_catinst',
-        'DMISRC\n(จำนวนเงิน)': 'dmisrc_amt',
-        'DMISRC\n(ค่าภาระงาน)': 'dmisrc_workload',
-        'RCUHOSC\n(จำนวนเงิน)': 'rcuhosc_amt',
-        'RCUHOSC\n(ค่าภาระงาน)': 'rcuhosc_workload',
-        'RCUHOSR\n(จำนวนเงิน)': 'rcuhosr_amt',
-        'RCUHOSR\n(ค่าภาระงาน)': 'rcuhosr_workload',
-        'LLOP': 'dmis_llop',
-        'LLRGC': 'dmis_llrgc',
-        'LLRGR': 'dmis_llrgr',
-        'LP': 'dmis_lp',
-        'STROKE-STEMI DRUG': 'dmis_stroke_drug',
-        'DMIDML': 'dmis_dmidml',
-        'PP': 'dmis_pp',
-        'DMISHD': 'dmis_dmishd',
-        'DMICNT': 'dmis_dmicnt',
-        'Paliative Care': 'dmis_paliative',
-        'DM': 'dmis_dm',
-        # Drug
-        'DRUG': 'drug',
-        # OP Bangkok
-        'OPBKK HC': 'opbkk_hc',
-        'DENT': 'opbkk_dent',
-        'DRUG.1': 'opbkk_drug',
-        'FS': 'opbkk_fs',
-        'OTHERS': 'opbkk_others',
-        'HSUB': 'opbkk_hsub',
-        'NHSO': 'opbkk_nhso',
-        # Denial
-        'Deny HC': 'deny_hc',
-        'Deny AE': 'deny_ae',
-        'Deny INST': 'deny_inst',
-        'Deny IP': 'deny_ip',
-        'Deny DMIS': 'deny_dmis',
-        # Base Rate
-        'base rate เดิม': 'baserate_old',
-        'base rate ที่ได้รับเพิ่ม': 'baserate_add',
-        'base rate สุทธิ': 'baserate_total',
-        # Other
-        'FS.1': 'fs',
-        'VA': 'va',
-        'Remark': 'remark',
-        'AUDIT RESULTS': 'audit_results',
-        'รูปแบบการจ่าย': 'payment_type',
-        'SEQ NO': 'seq_no',
-        'INVOICE NO': 'invoice_no',
-        'INVOICE LT': 'invoice_lt',
     }
 
+    # ORF Column mapping - Simplified for essential fields
+    # Note: ORF files have multi-level headers and need special handling in import_orf_batch()
     ORF_COLUMN_MAP = {
+        # Basic Information
         'REP': 'rep_no',
         'NO.': 'no',
         'TRAN_ID': 'tran_id',
         'HN': 'hn',
-        'เลขประจำตัวประชาชน': 'pid',
+        'PID': 'pid',
         'ชื่อ': 'name',
         'ว/ด/ป ที่รับบริการ': 'service_date',
         'เลขที่ใบส่งต่อ': 'refer_no',
-        # Hospital codes
-        'รักษา(Htype1)': 'htype1',
-        'รักษา(Prov1)': 'prov1',
-        'รักษา(Hcode)': 'hcode',
-        'รักษา(Htype2)': 'htype2',
-        'รักษา(Prov2)': 'prov2',
-        'ประจำ(Hmain2)': 'hmain2',
-        'รับส่งต่อ(Href)': 'href',
-        # Diagnosis & Procedure
+        # Hospital Codes
+        'HCODE': 'hcode',
+        'PROV1': 'prov1',
+        'PROV2': 'prov2',
+        'HMAIN2': 'hmain2',
+        'HREF': 'href',
+        # Diagnosis & Billing
         'DX': 'dx',
         'Proc.': 'proc',
-        'DMIS': 'dmis',
-        'HMAIN3': 'hmain3',
-        'DAR': 'dar',
         'CA_TYPE': 'ca_type',
-        # Billing Amounts
         'ยอดรวมค่าใช้จ่าย(เฉพาะเบิกได้) (1)': 'claim_amt',
-        'เข้าเกณฑ์ central reimburse\nกรณี': 'central_reimb_case',
-        'เข้าเกณฑ์ central reimburse\nจำนวนเงิน (2)': 'central_reimb_amt',
+        'ชดเชยสุทธิ (บาท) (10=8)': 'reimb_total',
         'ชำระเอง (3)': 'paid',
         'พรบ. (4)': 'act_amt',
-        # OP Refer Amounts
-        'เข้าเกณฑ์ OP REFER\nรายการ OPREF (5)': 'opref_list',
-        'เข้าเกณฑ์ OP REFER\nค่ารักษาอื่นๆ ก่อนปรับลด (6)': 'opref_bef_adj',
-        'เข้าเกณฑ์ OP REFER\nค่ารักษาอื่นๆ หลังปรับลด (7)': 'opref_aft_adj',
-        'ผลรวมทั้ง Case (8)': 'total',
-        # Responsible Parties
-        'ผู้รับผิดชอบ (9)=(8)\nCUP / จังหวัด (<=1600)': 'respon_cup',
-        'ผู้รับผิดชอบ (9)=(8)\nสปสช (>1600)': 'respon_nhso',
-        # Net Reimbursement
-        'ชดเชยสุทธิ (บาท) (10=8)': 'reimb_total',
         'ชำระบัญชีโดย': 'pay_by',
         'PS': 'ps',
-        # Central Reimburse Detail - OPHC
-        'HC01': 'cr_ophc_hc01',
-        'HC02': 'cr_ophc_hc02',
-        'HC03': 'cr_ophc_hc03',
-        'HC04': 'cr_ophc_hc04',
-        'HC05': 'cr_ophc_hc05',
-        'HC06': 'cr_ophc_hc06',
-        'HC07': 'cr_ophc_hc07',
-        'HC08': 'cr_ophc_hc08',
-        # Other Funds
-        'AE04': 'cr_ae04',
-        'AE08': 'cr_carae_ae08',
-        'HC09': 'cr_opinst_hc09',
-        'DMISRC\n(จำนวนเงิน)': 'cr_dmisrc_amt',
-        'DMISRC\n(ค่าภาระงาน)': 'cr_dmisrc_workload',
-        'RCUHOSC\n(จำนวนเงิน)': 'cr_rcuhosc_amt',
-        'RCUHOSC\n(ค่าภาระงาน)': 'cr_rcuhosc_workload',
-        'RCUHOSR\n(จำนวนเงิน)': 'cr_rcuhosr_amt',
-        'RCUHOSR\n(ค่าภาระงาน)': 'cr_rcuhosr_workload',
-        'LLOP': 'cr_llop',
-        'LP': 'cr_lp',
-        'STROKE-STEMI DRUG': 'cr_stroke_drug',
-        'DMIDML': 'cr_dmidml',
-        'PP': 'cr_pp',
-        'DMISHD': 'cr_dmishd',
-        'Paliative Care': 'cr_paliative',
-        'DRUG': 'cr_drug',
-        'ONTOP': 'cr_ontop',
-        'ชดเชยสุทธิ (บาท)': 'cr_total',
-        'ชำระโดย': 'cr_by',
-        # Detailed Expenses (19 categories x 2)
-        'ค่าห้อง/ค่าอาหาร\nเบิกได้': 'oprefer_md01_claim',
-        'ค่าห้อง/ค่าอาหาร\nเบิกไม่ได้': 'oprefer_md01_free',
-        'อวัยวะเทียม\nเบิกได้': 'oprefer_md02_claim',
-        'อวัยวะเทียม\nเบิกไม่ได้': 'oprefer_md02_free',
-        'ยาและสารอาหารทางเส้นเลือด\nเบิกได้': 'oprefer_md03_claim',
-        'ยาและสารอาหารทางเส้นเลือด\nเบิกไม่ได้': 'oprefer_md03_free',
-        'ยาที่นำไปใช้ต่อที่บ้าน\nเบิกได้': 'oprefer_md04_claim',
-        'ยาที่นำไปใช้ต่อที่บ้าน\nเบิกไม่ได้': 'oprefer_md04_free',
-        'เวชภัณฑ์ที่ไม่ใช่ยา\nเบิกได้': 'oprefer_md05_claim',
-        'เวชภัณฑ์ที่ไม่ใช่ยา\nเบิกไม่ได้': 'oprefer_md05_free',
-        'บริการโลหิต\nเบิกได้': 'oprefer_md06_claim',
-        'บริการโลหิต\nเบิกไม่ได้': 'oprefer_md06_free',
-        'ตรวจวินิจฉัยทางเทคนิคการแพทย์\nเบิกได้': 'oprefer_md07_claim',
-        'ตรวจวินิจฉัยทางเทคนิคการแพทย์\nเบิกไม่ได้': 'oprefer_md07_free',
-        'ตรวจวินิจฉัยและรักษาทางรังสี\nเบิกได้': 'oprefer_md08_claim',
-        'ตรวจวินิจฉัยและรักษาทางรังสี\nเบิกไม่ได้': 'oprefer_md08_free',
-        'ตรวจวินิจฉัยโดยวิธีพิเศษ\nเบิกได้': 'oprefer_md09_claim',
-        'ตรวจวินิจฉัยโดยวิธีพิเศษ\nเบิกไม่ได้': 'oprefer_md09_free',
-        'อุปกรณ์และเครื่องมือทางการแพทย์\nเบิกได้': 'oprefer_md10_claim',
-        'อุปกรณ์และเครื่องมือทางการแพทย์\nเบิกไม่ได้': 'oprefer_md10_free',
-        'ทำหัตถการและบริการวิสัญญี\nเบิกได้': 'oprefer_md11_claim',
-        'ทำหัตถการและบริการวิสัญญี\nเบิกไม่ได้': 'oprefer_md11_free',
-        'ค่าบริการทางพยาบาล\nเบิกได้': 'oprefer_md12_claim',
-        'ค่าบริการทางพยาบาล\nเบิกไม่ได้': 'oprefer_md12_free',
-        'ค่าบริการทางทันตกรรม\nเบิกได้': 'oprefer_md13_claim',
-        'ค่าบริการทางทันตกรรม\nเบิกไม่ได้': 'oprefer_md13_free',
-        'ค่ากายภาพบำบัด\nเบิกได้': 'oprefer_md14_claim',
-        'ค่ากายภาพบำบัด\nเบิกไม่ได้': 'oprefer_md14_free',
-        'ค่าบริการฝังเข็ม\nเบิกได้': 'oprefer_md15_claim',
-        'ค่าบริการฝังเข็ม\nเบิกไม่ได้': 'oprefer_md15_free',
-        'ค่าห้องผ่าตัดและห้องคลอด\nเบิกได้': 'oprefer_md16_claim',
-        'ค่าห้องผ่าตัดและห้องคลอด\nเบิกไม่ได้': 'oprefer_md16_free',
-        'ค่าธรรมเนียมบุคลากร\nเบิกได้': 'oprefer_md17_claim',
-        'ค่าธรรมเนียมบุคลากร\nเบิกไม่ได้': 'oprefer_md17_free',
-        'บริการอื่นๆ และส่งเสริมป้องกัน\nเบิกได้': 'oprefer_md18_claim',
-        'บริการอื่นๆ และส่งเสริมป้องกัน\nเบิกไม่ได้': 'oprefer_md18_free',
-        'บริการอื่นๆ ที่ยังไม่ได้จัดหมวด\nเบิกได้': 'oprefer_md19_claim',
-        'บริการอื่นๆ ที่ยังไม่ได้จัดหมวด\nเบิกไม่ได้': 'oprefer_md19_free',
-        # Error & Status
+        # Status
         'Error Code': 'error_code',
-        'Deny HC': 'deny_hc',
-        'Deny AE': 'deny_ae',
-        'Deny INST': 'deny_inst',
-        'Deny DMIS': 'deny_dmis',
-        # Other
-        'VA': 'va',
         'Remark': 'remark',
-        'AUDIT RESULTS': 'audit_results',
-        'รูปแบบการจ่าย': 'payment_type',
-        'SEQ NO': 'seq_no',
-        'INVOICE NO': 'invoice_no',
-        'INVOICE LT': 'invoice_lt',
     }
 
     def __init__(self, db_config: Dict, db_type: str = None):
@@ -707,9 +523,24 @@ class EClaimImporterV2:
             # Create import record
             file_id = self.create_import_record(metadata)
 
-            # Read Excel file
-            # Skip first 5 rows (report header), then skip 2 empty rows after column headers
-            df = pd.read_excel(filepath, engine='xlrd', skiprows=list(range(0,5)) + [6,7])
+            # Read Excel file based on type
+            if file_type == 'ORF':
+                # ORF files have multi-level headers at rows 7-8
+                # Read with both header rows, then flatten
+                df = pd.read_excel(filepath, engine='xlrd', header=[7, 8])
+                # Flatten multi-level columns: keep only non-Unnamed parts
+                df.columns = [
+                    '_'.join(str(c).strip() for c in col if 'Unnamed' not in str(c)).strip('_')
+                    if isinstance(col, tuple) else str(col)
+                    for col in df.columns
+                ]
+            else:
+                # OP/IP files: Skip first 5 rows (report header), then skip 2 empty rows after column headers
+                df = pd.read_excel(filepath, engine='xlrd', skiprows=list(range(0,5)) + [6,7])
+
+            # Remove empty rows
+            if 'TRAN_ID' in df.columns:
+                df = df.dropna(subset=['TRAN_ID'])
 
             total_records = len(df)
 
