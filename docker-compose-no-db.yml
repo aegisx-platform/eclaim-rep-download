@@ -32,6 +32,10 @@ services:
       - ./download_history.json:/app/download_history.json
     ports:
       - "5001:5001"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/"]
       interval: 30s

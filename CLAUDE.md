@@ -395,3 +395,34 @@ gregorian_year = thai_year - 543  # = 2025
 2. Verify database schema exists: `docker-compose exec db psql -U eclaim -d eclaim_db -c "\dt"`
 3. Initialize schema if missing: `docker-compose exec -T db psql -U eclaim -d eclaim_db < database/schema-postgresql-merged.sql`
 4. Check health check endpoint: `curl http://localhost:5001/dashboard`
+
+### Issue: DNS resolution failures "Failed to resolve 'eclaim.nhso.go.th'"
+
+**Symptom:** Download fails with error: `NameResolutionError: Failed to resolve 'eclaim.nhso.go.th' ([Errno -3] Temporary failure in name resolution)`
+
+**Cause:** Docker's internal DNS resolver (127.0.0.11) cannot resolve external domains reliably, especially in some network configurations. This is an intermittent issue where DNS lookups sometimes succeed, sometimes fail.
+
+**Solution (Fixed in current version):**
+Added explicit DNS servers to all docker-compose files:
+```yaml
+dns:
+  - 8.8.8.8    # Google DNS
+  - 8.8.4.4    # Google DNS Secondary
+  - 1.1.1.1    # Cloudflare DNS
+```
+
+**Verify the fix:**
+```bash
+# Check DNS config
+docker-compose exec web cat /etc/resolv.conf
+# Should show: ExtServers: [8.8.8.8 8.8.4.4 1.1.1.1]
+
+# Test DNS resolution
+docker-compose exec web python -c "import socket; print(socket.gethostbyname('eclaim.nhso.go.th'))"
+# Should output: 122.155.147.231
+```
+
+**Alternative solutions (if still having issues):**
+1. Use host network mode (not recommended for production)
+2. Add to `/etc/hosts`: `122.155.147.231 eclaim.nhso.go.th`
+3. Use different DNS servers (e.g., `1.0.0.1`, `208.67.222.222`)

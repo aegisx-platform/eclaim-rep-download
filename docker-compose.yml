@@ -60,6 +60,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5001/dashboard', timeout=2)"]
       interval: 30s
