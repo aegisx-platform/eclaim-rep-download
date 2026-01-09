@@ -350,26 +350,41 @@ class EClaimImporterV2:
 
     def create_import_record(self, metadata: Dict) -> int:
         """
-        Create record in eclaim_imported_files table
+        Create or update record in eclaim_imported_files table
+        Uses UPSERT to handle duplicate filenames (e.g., retry after failed import)
 
         Args:
             metadata: File metadata dict
 
         Returns:
-            file_id of created record
+            file_id of created/updated record
         """
         if self.db_type == 'postgresql':
+            # UPSERT: If filename exists, reset status to 'processing' and retry
             query = """
                 INSERT INTO eclaim_imported_files
-                (filename, file_type, hospital_code, file_date, status, file_created_at)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (filename, file_type, hospital_code, file_date, status, file_created_at, import_started_at)
+                VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                ON CONFLICT (filename) DO UPDATE SET
+                    status = 'processing',
+                    import_started_at = NOW(),
+                    import_completed_at = NULL,
+                    error_message = NULL,
+                    updated_at = NOW()
                 RETURNING id
             """
         elif self.db_type == 'mysql':
+            # MySQL UPSERT using ON DUPLICATE KEY UPDATE
             query = """
                 INSERT INTO eclaim_imported_files
-                (filename, file_type, hospital_code, file_date, status, file_created_at)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (filename, file_type, hospital_code, file_date, status, file_created_at, import_started_at)
+                VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                ON DUPLICATE KEY UPDATE
+                    status = 'processing',
+                    import_started_at = NOW(),
+                    import_completed_at = NULL,
+                    error_message = NULL,
+                    updated_at = NOW()
             """
 
         values = (
@@ -383,13 +398,26 @@ class EClaimImporterV2:
 
         try:
             self.cursor.execute(query, values)
-            file_id = self._get_last_insert_id()
+
+            if self.db_type == 'postgresql':
+                file_id = self.cursor.fetchone()[0]
+            elif self.db_type == 'mysql':
+                # For MySQL, get the ID from the insert or existing record
+                file_id = self.cursor.lastrowid
+                if file_id == 0:  # ON DUPLICATE KEY UPDATE doesn't return lastrowid
+                    # Query to get existing file_id
+                    self.cursor.execute(
+                        "SELECT id FROM eclaim_imported_files WHERE filename = %s",
+                        (metadata['filename'],)
+                    )
+                    file_id = self.cursor.fetchone()[0]
+
             self.conn.commit()
-            logger.info(f"Created import record: file_id={file_id}")
+            logger.info(f"Created/updated import record: file_id={file_id}, filename={metadata['filename']}")
             return file_id
         except Exception as e:
             self.conn.rollback()
-            logger.error(f"Failed to create import record: {e}")
+            logger.error(f"Failed to create/update import record: {e}")
             raise
 
     def update_import_status(self, file_id: int, status: str,

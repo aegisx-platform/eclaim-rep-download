@@ -127,8 +127,8 @@ class EClaimDownloader:
         try:
             print(f"    ⚡ Importing {filename} to database...")
 
-            # Import from eclaim_import module
-            from utils.eclaim.importer import import_eclaim_file
+            # Import from eclaim_import module (V2 with Schema V2)
+            from utils.eclaim.importer_v2 import import_eclaim_file
             from config.database import get_db_config
 
             # Get database config
