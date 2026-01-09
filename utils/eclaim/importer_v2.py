@@ -89,37 +89,120 @@ class EClaimImporterV2:
         'ยอดชดเชยหลังหักเงินเดือน\n(12 = 9-10-11)': 'reimb_diff_salary',
     }
 
-    # ORF Column mapping - Simplified for essential fields
-    # Note: ORF files have multi-level headers and need special handling in import_orf_batch()
-    ORF_COLUMN_MAP = {
-        # Basic Information
-        'REP': 'rep_no',
-        'NO.': 'no',
-        'TRAN_ID': 'tran_id',
-        'HN': 'hn',
-        'PID': 'pid',
-        'ชื่อ': 'name',
-        'ว/ด/ป ที่รับบริการ': 'service_date',
-        'เลขที่ใบส่งต่อ': 'refer_no',
-        # Hospital Codes
-        'HCODE': 'hcode',
-        'PROV1': 'prov1',
-        'PROV2': 'prov2',
-        'HMAIN2': 'hmain2',
-        'HREF': 'href',
-        # Diagnosis & Billing
-        'DX': 'dx',
-        'Proc.': 'proc',
-        'CA_TYPE': 'ca_type',
-        'ยอดรวมค่าใช้จ่าย(เฉพาะเบิกได้) (1)': 'claim_amt',
-        'ชดเชยสุทธิ (บาท) (10=8)': 'reimb_total',
-        'ชำระเอง (3)': 'paid',
-        'พรบ. (4)': 'act_amt',
-        'ชำระบัญชีโดย': 'pay_by',
-        'PS': 'ps',
-        # Status
-        'Error Code': 'error_code',
-        'Remark': 'remark',
+    # ORF Column mapping - Uses column INDEX because ORF files have complex multi-level headers
+    # Headers span rows 5, 7, and 8 with merged cells
+    # Format: Excel column INDEX -> Database column name
+    ORF_COLUMN_INDEX_MAP = {
+        0: 'rep_no',                # REP
+        1: 'no',                    # NO.
+        2: 'tran_id',               # TRAN_ID
+        3: 'hn',                    # HN
+        4: 'pid',                   # PID
+        5: 'name',                  # ชื่อ
+        6: 'service_date',          # ว/ด/ป ที่รับบริการ
+        7: 'refer_no',              # เลขที่ใบส่งต่อ
+        8: 'htype1',                # หน่วยบริการ_รักษา(Htype1)
+        9: 'prov1',                 # รักษา(Prov1)
+        10: 'hcode',                # รักษา(Hcode)
+        11: 'htype2',               # รักษา(Htype2)
+        12: 'prov2',                # รักษา(Prov2)
+        13: 'hmain2',               # ประจำ(Hmain2)
+        14: 'href',                 # รับส่งต่อ(Href)
+        15: 'dx',                   # DX.
+        16: 'proc',                 # Proc.
+        17: 'dmis',                 # DMIS
+        18: 'hmain3',               # HMAIN3
+        19: 'dar',                  # DAR
+        20: 'ca_type',              # CA_TYPE
+        21: 'claim_amt',            # ยอดรวมค่าใช้จ่าย(เฉพาะเบิกได้)(1)
+        22: 'central_reimb_case',   # เข้าเกณฑ์ central reimburse (2)
+        23: 'central_reimb_amt',    # จำนวนเงิน
+        24: 'paid',                 # ชำระเอง(3)
+        25: 'act_amt',              # พรบ.(4)
+        26: 'opref_list',           # เข้าเกณฑ์ OP REFER / รายการ OPREF(5)
+        27: 'opref_bef_adj',        # ค่ารักษาอื่นๆ_ก่อนปรับลด(6)
+        28: 'opref_aft_adj',        # หลังปรับลด(7)
+        29: 'total',                # ผลรวมทั้ง Case(8=5+7)
+        30: 'respon_cup',           # ผู้รับผิดชอบ(9)=(8)_<=1600
+        31: 'respon_nhso',          # สปสช_>1600
+        32: 'reimb_total',          # ชดเชยสุทธิ (บาท)(10=8)
+        33: 'pay_by',               # ชำระบัญชีโดย
+        34: 'ps',                   # PS
+        35: 'cr_ophc_hc01',         # OPHC_HC01
+        36: 'cr_ophc_hc02',         # HC02
+        37: 'cr_ophc_hc03',         # HC03
+        38: 'cr_ophc_hc04',         # HC04
+        39: 'cr_ophc_hc05',         # HC05
+        40: 'cr_ophc_hc06',         # HC06
+        41: 'cr_ophc_hc07',         # HC07
+        42: 'cr_ophc_hc08',         # HC08
+        43: 'cr_ae04',              # อุบัติเหตุฉุกเฉิน_AE04
+        44: 'cr_carae_ae08',        # CARAE_AE08
+        45: 'cr_opinst_hc09',       # OPINST_HC09
+        46: 'cr_dmisrc_amt',        # DMISRC_DMISRC
+        47: 'cr_dmisrc_workload',   # ค่าภาระงาน (DMISRC)
+        48: 'cr_rcuhosc_amt',       # RCUHOSC_RCUHOSC
+        49: 'cr_rcuhosc_workload',  # ค่าภาระงาน (RCUHOSC)
+        50: 'cr_rcuhosr_amt',       # RCUHOSR_RCUHOSR
+        51: 'cr_rcuhosr_workload',  # ค่าภาระงาน (RCUHOSR)
+        52: 'cr_llop',              # LLOP
+        53: 'cr_lp',                # LP
+        54: 'cr_stroke_drug',       # STROKE-STEMI DRUG
+        55: 'cr_dmidml',            # DMIDML
+        56: 'cr_pp',                # PP
+        57: 'cr_dmishd',            # DMISHD
+        58: 'cr_paliative',         # Paliative Care
+        59: 'cr_drug',              # DRUG
+        60: 'cr_ontop',             # ONTOP
+        61: 'cr_total',             # ชดเชยสุทธิ (บาท) - CR section total
+        62: 'cr_by',                # ชำระโดย
+        63: 'oprefer_md01_claim',   # ค่าห้อง/ค่าอาหาร_เบิกได้
+        64: 'oprefer_md01_free',    # ค่าห้อง/ค่าอาหาร_เบิกไม่ได้
+        65: 'oprefer_md02_claim',   # อวัยวะเทียม/อุปกรณ์บำบัดรักษา_เบิกได้
+        66: 'oprefer_md02_free',    # อวัยวะเทียม/อุปกรณ์บำบัดรักษา_เบิกไม่ได้
+        67: 'oprefer_md03_claim',   # ยาและสารอาหารทางเส้นเลือดที่ใช้ในรพ._เบิกได้
+        68: 'oprefer_md03_free',    # ยาและสารอาหารทางเส้นเลือดที่ใช้ในรพ._เบิกไม่ได้
+        69: 'oprefer_md04_claim',   # ยาที่นำไปใช้ต่อที่บ้าน_เบิกได้
+        70: 'oprefer_md04_free',    # ยาที่นำไปใช้ต่อที่บ้าน_เบิกไม่ได้
+        71: 'oprefer_md05_claim',   # เวชภัณฑ์ที่ไม่ใช่ยา_เบิกได้
+        72: 'oprefer_md05_free',    # เวชภัณฑ์ที่ไม่ใช่ยา_เบิกไม่ได้
+        73: 'oprefer_md06_claim',   # บริการโลหิตและองค์ประกอบของโลหิต_เบิกได้
+        74: 'oprefer_md06_free',    # บริการโลหิตและองค์ประกอบของโลหิต_เบิกไม่ได้
+        75: 'oprefer_md07_claim',   # ตรวจวินิจฉัยทางเทคนิคการแพทย์และพยาธิวิทยา_เบิกได้
+        76: 'oprefer_md07_free',    # ตรวจวินิจฉัยทางเทคนิคการแพทย์และพยาธิวิทยา_เบิกไม่ได้
+        77: 'oprefer_md08_claim',   # ตรวจวินิจฉัยและรักษาทางรังสีวิทยา_เบิกได้
+        78: 'oprefer_md08_free',    # ตรวจวินิจฉัยและรักษาทางรังสีวิทยา_เบิกไม่ได้
+        79: 'oprefer_md09_claim',   # ตรวจวินิจฉัยโดยวิธีพิเศษอื่นๆ_เบิกได้
+        80: 'oprefer_md09_free',    # ตรวจวินิจฉัยโดยวิธีพิเศษอื่นๆ_เบิกไม่ได้
+        81: 'oprefer_md10_claim',   # อุปกรณ์และเครื่องมือทางการแพทย์_เบิกได้
+        82: 'oprefer_md10_free',    # อุปกรณ์และเครื่องมือทางการแพทย์_เบิกไม่ได้
+        83: 'oprefer_md11_claim',   # ทำหัตถการและบริการวิสัญญี_เบิกได้
+        84: 'oprefer_md11_free',    # ทำหัตถการและบริการวิสัญญี_เบิกไม่ได้
+        85: 'oprefer_md12_claim',   # ค่าบริการทางพยาบาล_เบิกได้
+        86: 'oprefer_md12_free',    # ค่าบริการทางพยาบาล_เบิกไม่ได้
+        87: 'oprefer_md13_claim',   # ค่าบริการทางทันตกรรม_เบิกได้
+        88: 'oprefer_md13_free',    # ค่าบริการทางทันตกรรม_เบิกไม่ได้
+        89: 'oprefer_md14_claim',   # ค่าบริการทางกายภาพบำบัดและเวชกรรมฟื้นฟู_เบิกได้
+        90: 'oprefer_md14_free',    # ค่าบริการทางกายภาพบำบัดและเวชกรรมฟื้นฟู_เบิกไม่ได้
+        91: 'oprefer_md15_claim',   # ค่าบริการฝังเข็ม_เบิกได้
+        92: 'oprefer_md15_free',    # ค่าบริการฝังเข็ม_เบิกไม่ได้
+        93: 'oprefer_md16_claim',   # ค่าห้องผ่าตัดและห้องคลอด_เบิกได้
+        94: 'oprefer_md16_free',    # ค่าห้องผ่าตัดและห้องคลอด_เบิกไม่ได้
+        95: 'oprefer_md17_claim',   # ค่าธรรมเนียมบุคลากรทางการแพทย์_เบิกได้
+        96: 'oprefer_md17_free',    # ค่าธรรมเนียมบุคลากรทางการแพทย์_เบิกไม่ได้
+        97: 'oprefer_md18_claim',   # บริการอื่นๆ และส่งเสริมป้องกันโรค_เบิกได้
+        98: 'oprefer_md18_free',    # บริการอื่นๆ และส่งเสริมป้องกันโรค_เบิกไม่ได้
+        99: 'oprefer_md19_claim',   # บริการอื่นๆ ที่ยังไม่ได้จัดหมวด_เบิกได้
+        100: 'oprefer_md19_free',   # บริการอื่นๆ ที่ยังไม่ได้จัดหมวด_เบิกไม่ได้
+        101: 'error_code',          # Error Code
+        # 102-105: Deny columns (HC, AE, INST, DMIS) - not mapped to DB
+        106: 'va',                  # VA
+        107: 'remark',              # Remark
+        108: 'audit_results',       # AUDIT RESULTS
+        109: 'payment_type',        # รูปแบบการจ่าย
+        110: 'seq_no',              # SEQ NO
+        111: 'invoice_no',          # INVOICE NO
+        112: 'invoice_lt',          # INVOICE LT
     }
 
     def __init__(self, db_config: Dict, db_type: str = None):
@@ -355,6 +438,90 @@ class EClaimImporterV2:
 
         return mapped
 
+    def _map_orf_row_by_index(self, df_row, file_id: int, row_number: int) -> Dict:
+        """
+        Map ORF DataFrame row to database columns using column INDEX (position-based)
+        ORF files have complex multi-level headers that can't be reliably mapped by name
+
+        Args:
+            df_row: DataFrame row (Series) with integer position-based index
+            file_id: File ID
+            row_number: Row number
+
+        Returns:
+            Mapped dict
+        """
+        # Date columns that need parsing
+        date_columns = ['service_date', 'inp_date']
+
+        # String field max lengths (from schema)
+        max_lengths = {
+            'ps': 1,
+            'ca_type': 5, 'prov1': 5, 'prov2': 5, 'htype1': 5, 'htype2': 5,
+            'dx': 10, 'proc': 10,
+            'rep_no': 15, 'tran_id': 15, 'hn': 15, 'seq_no': 15,
+            'pid': 20, 'invoice_no': 20, 'invoice_lt': 20, 'refer_no': 20,
+            'central_reimb_case': 20,
+            'pay_by': 50,
+            'name': 100, 'hcode': 100, 'hmain2': 100, 'href': 100, 'dmis': 100,
+            'hmain3': 100, 'dar': 100, 'cr_by': 100, 'error_code': 100, 'remark': 100
+        }
+
+        mapped = {
+            'file_id': file_id,
+            'row_number': row_number
+        }
+
+        for col_idx, db_col in self.ORF_COLUMN_INDEX_MAP.items():
+            # Get value by position (iloc)
+            if col_idx < len(df_row):
+                value = df_row.iloc[col_idx]
+
+                # Convert NaN to None
+                if pd.isna(value):
+                    mapped[db_col] = None
+                # Handle empty strings and "-" as NULL
+                elif isinstance(value, str) and value.strip() in ['', '-', 'N/A', 'n/a']:
+                    mapped[db_col] = None
+                else:
+                    # Handle multi-line values (some cells have newline-separated data)
+                    # For numeric columns, take first value; for text, take first non-empty line
+                    if isinstance(value, str) and '\n' in value:
+                        lines = [l.strip() for l in value.split('\n') if l.strip()]
+                        value = lines[0] if lines else None
+                        if value is None:
+                            mapped[db_col] = None
+                            continue
+
+                    # Handle date parsing for date columns
+                    if db_col in date_columns:
+                        if isinstance(value, str):
+                            try:
+                                # Try to parse Thai date format: dd/mm/yyyy hh:mm:ss
+                                parsed_date = pd.to_datetime(value, format='%d/%m/%Y %H:%M:%S', errors='coerce')
+                                if pd.isna(parsed_date):
+                                    # Try without time
+                                    parsed_date = pd.to_datetime(value, format='%d/%m/%Y', errors='coerce')
+                                mapped[db_col] = parsed_date if not pd.isna(parsed_date) else None
+                            except:
+                                mapped[db_col] = None
+                        elif hasattr(value, 'to_pydatetime'):
+                            # Already a datetime-like object
+                            mapped[db_col] = value
+                        else:
+                            mapped[db_col] = None
+                    # Truncate strings to max length
+                    elif db_col in max_lengths:
+                        # Convert to string first if needed
+                        str_value = str(value) if not isinstance(value, str) else value
+                        mapped[db_col] = str_value[:max_lengths[db_col]]
+                    else:
+                        mapped[db_col] = value
+            else:
+                mapped[db_col] = None
+
+        return mapped
+
     def import_opip_batch(self, file_id: int, df, start_row: int = 0) -> int:
         """
         Import batch of OP/IP records from DataFrame
@@ -428,10 +595,11 @@ class EClaimImporterV2:
     def import_orf_batch(self, file_id: int, df, start_row: int = 0) -> int:
         """
         Import batch of ORF records from DataFrame
+        Uses index-based column mapping for ORF's complex multi-level headers
 
         Args:
             file_id: File ID
-            df: DataFrame with ORF data
+            df: DataFrame with ORF data (read without header, columns are positional)
             start_row: Starting row number
 
         Returns:
@@ -442,10 +610,10 @@ class EClaimImporterV2:
         if df.empty:
             return 0
 
-        # Map all rows
+        # Map all rows using index-based mapping
         mapped_records = []
         for idx, row in df.iterrows():
-            mapped = self._map_dataframe_row(row, self.ORF_COLUMN_MAP, file_id, start_row + idx)
+            mapped = self._map_orf_row_by_index(row, file_id, start_row + idx)
             mapped_records.append(mapped)
 
         if not mapped_records:
@@ -525,22 +693,23 @@ class EClaimImporterV2:
 
             # Read Excel file based on type
             if file_type == 'ORF':
-                # ORF files have multi-level headers at rows 7-8
-                # Read with both header rows, then flatten
-                df = pd.read_excel(filepath, engine='xlrd', header=[7, 8])
-                # Flatten multi-level columns: keep only non-Unnamed parts
-                df.columns = [
-                    '_'.join(str(c).strip() for c in col if 'Unnamed' not in str(c)).strip('_')
-                    if isinstance(col, tuple) else str(col)
-                    for col in df.columns
-                ]
+                # ORF files have multi-level headers at rows 5, 7, and 8
+                # Skip header rows (0-8) and read data starting from row 9
+                # Use header=None to get positional column indices
+                df = pd.read_excel(filepath, engine='xlrd', header=None, skiprows=9)
+
+                # Filter out empty rows (check column 2 which is TRAN_ID)
+                df = df[df.iloc[:, 2].notna()]
+
+                # Also filter out footer/summary rows (usually have text in first column)
+                # Check if column 0 (REP) looks like a valid REP number
+                df = df[df.iloc[:, 0].apply(lambda x: str(x).strip() != '' and str(x).strip() != 'nan')]
             else:
                 # OP/IP files: Skip first 5 rows (report header), then skip 2 empty rows after column headers
                 df = pd.read_excel(filepath, engine='xlrd', skiprows=list(range(0,5)) + [6,7])
-
-            # Remove empty rows
-            if 'TRAN_ID' in df.columns:
-                df = df.dropna(subset=['TRAN_ID'])
+                # Remove empty rows
+                if 'TRAN_ID' in df.columns:
+                    df = df.dropna(subset=['TRAN_ID'])
 
             total_records = len(df)
 
