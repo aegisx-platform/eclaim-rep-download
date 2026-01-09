@@ -210,11 +210,16 @@ Database (PostgreSQL/MySQL)
 ### When Working with Imports
 
 - Always use `importer_v2.py` (not legacy `importer.py`)
-- Column mapping is defined in `OPIP_COLUMN_MAP`, `ORF_COLUMN_MAP` dictionaries
-- Date fields: Parse Thai dates (e.g., "25671231 15:30") carefully - year is Buddhist Era, subtract 543 for Python datetime
-- String truncation: Enforce column length limits (e.g., VARCHAR(15) for HN/AN)
-- Null handling: Empty strings → None for numeric/date fields
-- UPSERT: Use `ON CONFLICT (tran_id, file_id) DO UPDATE` to avoid duplicates
+- Column mapping is in `OPIP_COLUMN_MAP` (49 essential fields verified against actual Excel files)
+- **IMPORTANT**: Excel column names contain `\n` (newline) characters - must match exactly
+  - Example: `'เรียกเก็บ\n(1)'` NOT `'เรียกเก็บ(1)'`
+  - Example: `'CCUF \n(6)'` has trailing space before `\n`
+  - Example: `'DMIS/ HMAIN3'` has space after `/`
+- Run `fix_column_mapping.py` to verify column names match actual Excel files
+- Date parsing: Thai dates handled automatically in `_map_dataframe_row()`
+- Empty rows: Automatically filtered with `dropna(subset=['TRAN_ID'])`
+- UPSERT: `ON CONFLICT (tran_id, file_id) DO UPDATE` prevents duplicates
+- ORF files: Multi-level headers need special handling (WIP)
 
 ### When Working with Database Schema
 
@@ -380,6 +385,32 @@ gregorian_year = thai_year - 543  # = 2025
 **Cause:** Excel data exceeds VARCHAR column limits (e.g., VARCHAR(15) for HN).
 
 **Solution:** The importer_v2 automatically truncates strings to column limits. Check column mapping in `OPIP_COLUMN_MAP` and adjust VARCHAR sizes in schema if needed.
+
+### Issue: Import fails with "No columns to import" or wrong data in database
+
+**Symptom:** Import completes but data is wrong, or import fails silently with 0 records.
+
+**Cause:** Column names in `OPIP_COLUMN_MAP` don't match actual Excel file column names. Excel columns contain `\n` (newline) characters and extra spaces that must match exactly.
+
+**Solution (Fixed in current version):**
+- Updated OPIP_COLUMN_MAP with 49 verified column mappings
+- Column names match actual Excel structure including newlines
+- Use `fix_column_mapping.py` to verify mappings
+
+**To verify correct mapping:**
+```bash
+# Run validation script
+python fix_column_mapping.py
+
+# Should output: ✓ Found 49/49 mapped columns
+# If not, Excel file structure may have changed
+```
+
+**Common mismatches to avoid:**
+- ✗ `'PID'` vs ✓ `'เลขประจำตัวประชาชน'` (should be 'PID')
+- ✗ `'ชดเชยสุทธิ (บาท)\n(สปสช.)'` vs ✓ `'ชดเชยสุทธิ'`
+- ✗ `'DMIS/HMAIN3'` vs ✓ `'DMIS/ HMAIN3'` (note space)
+- ✗ `'เรียกเก็บ(1)'` vs ✓ `'เรียกเก็บ\n(1)'` (note \n newline)
 
 ### Issue: Health check failures on container startup
 
