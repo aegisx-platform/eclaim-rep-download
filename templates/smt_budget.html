@@ -1,0 +1,513 @@
+{% extends 'base.html' %}
+
+{% block title %}SMT Budget Report - E-Claim Downloader{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800">SMT Budget Report</h2>
+            <p class="text-gray-600 mt-1">Smart Money Transfer - Payment/Reimbursement Data from NHSO</p>
+        </div>
+        <button onclick="openSettingsModal()" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            Settings
+        </button>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-xl shadow-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
+        <div class="flex flex-wrap gap-4">
+            <div class="flex-1 min-w-[150px]">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Vendor ID</label>
+                <input type="text" id="vendor-id-input" value="{{ smt_settings.smt_vendor_id }}"
+                    placeholder="5-digit ID"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div class="flex-1 min-w-[150px]">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Start Date (BE)</label>
+                <input type="text" id="start-date-input" value=""
+                    placeholder="dd/mm/yyyy"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div class="flex-1 min-w-[150px]">
+                <label class="block text-sm font-medium text-gray-700 mb-1">End Date (BE)</label>
+                <input type="text" id="end-date-input" value=""
+                    placeholder="dd/mm/yyyy"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div class="flex items-end gap-2">
+                <button onclick="fetchSmtData()" id="fetch-btn"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span id="fetch-btn-text">Fetch</span>
+                </button>
+                <button onclick="exportData('csv')"
+                    class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick date presets -->
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+            <span class="text-sm text-gray-500">Quick:</span>
+            <button onclick="setDatePreset('current_fy')" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">Current FY</button>
+            <button onclick="setDatePreset('last_month')" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">Last Month</button>
+            <button onclick="setDatePreset('last_3_months')" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">Last 3 Months</button>
+            <span class="text-gray-300">|</span>
+            <span class="text-sm text-gray-500">Fiscal Year:</span>
+            <select id="fiscal-year-select" onchange="setFiscalYear(this.value)" class="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500">
+                <option value="">-- Select --</option>
+                <option value="2569">2569 (Oct 68 - Sep 69)</option>
+                <option value="2568">2568 (Oct 67 - Sep 68)</option>
+                <option value="2567">2567 (Oct 66 - Sep 67)</option>
+                <option value="2566">2566 (Oct 65 - Sep 66)</option>
+                <option value="2565">2565 (Oct 64 - Sep 65)</option>
+            </select>
+        </div>
+
+        <!-- Options -->
+        <div class="mt-4 flex items-center gap-4">
+            <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="save-db-checkbox" checked
+                    class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                <span class="ml-2 text-sm text-gray-700">Save to database</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    {% if smt_summary %}
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Total Records</p>
+                    <p class="text-2xl font-bold text-gray-800">{{ "{:,}".format(smt_summary.total_records) }}</p>
+                </div>
+                <div class="bg-blue-100 p-3 rounded-full">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Total Amount</p>
+                    <p class="text-2xl font-bold text-green-600">{{ "{:,.2f}".format(smt_summary.total_amount) }}</p>
+                    <p class="text-xs text-gray-400">Baht</p>
+                </div>
+                <div class="bg-green-100 p-3 rounded-full">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Date Range</p>
+                    <p class="text-lg font-semibold text-gray-800">{{ smt_summary.earliest_date or '-' }}</p>
+                    <p class="text-sm text-gray-500">to {{ smt_summary.latest_date or '-' }}</p>
+                </div>
+                <div class="bg-purple-100 p-3 rounded-full">
+                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Last Updated</p>
+                    <p class="text-lg font-semibold text-gray-800" id="last-updated">
+                        {% if smt_summary.last_updated %}
+                            {{ smt_summary.last_updated[:10] }}
+                        {% else %}
+                            Never
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="bg-orange-100 p-3 rounded-full">
+                    <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fund Group Summary -->
+    {% if smt_summary.fund_groups %}
+    <div class="bg-white rounded-xl shadow-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Summary by Fund Group</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fund Group</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Records</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (Baht)</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for fg in smt_summary.fund_groups %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ fg.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">{{ "{:,}".format(fg.count) }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600 text-right">{{ "{:,.2f}".format(fg.amount) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <!-- No Data State -->
+    <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+        </svg>
+        <h3 class="text-xl font-semibold text-gray-600 mb-2">No SMT Data Yet</h3>
+        <p class="text-gray-500 mb-4">Enter your Vendor ID above and click "Fetch Data" to get started.</p>
+    </div>
+    {% endif %}
+
+    <!-- Schedule Info -->
+    {% if smt_settings.smt_schedule_enabled %}
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+                <p class="font-medium text-blue-800">Scheduled Fetch Active</p>
+                <p class="text-sm text-blue-600">
+                    Vendor: {{ smt_settings.smt_vendor_id }} |
+                    Times: {% for t in smt_settings.smt_schedule_times %}{{ "%02d:%02d"|format(t.hour, t.minute) }}{% if not loop.last %}, {% endif %}{% endfor %}
+                    | Auto-save: {{ 'Yes' if smt_settings.smt_auto_save_db else 'No' }}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4">
+        <div class="p-6 border-b">
+            <h3 class="text-xl font-semibold text-gray-800">SMT Schedule Settings</h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <!-- Vendor ID -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Vendor ID *</label>
+                <input type="text" id="settings-vendor-id" value="{{ smt_settings.smt_vendor_id }}"
+                    placeholder="5-digit vendor ID (e.g., 10670)"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <!-- Schedule Enable -->
+            <div>
+                <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" id="settings-schedule-enabled" {% if smt_settings.smt_schedule_enabled %}checked{% endif %}
+                        class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                    <span class="ml-2 text-sm font-medium text-gray-700">Enable daily scheduled fetch</span>
+                </label>
+            </div>
+
+            <!-- Schedule Times -->
+            <div id="schedule-times-container">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Schedule Times</label>
+                <div id="schedule-times-list" class="space-y-2">
+                    {% for t in smt_settings.smt_schedule_times %}
+                    <div class="flex items-center gap-2 schedule-time-row">
+                        <input type="time" value="{{ "%02d:%02d"|format(t.hour, t.minute) }}"
+                            class="schedule-time-input px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <button type="button" onclick="removeScheduleTime(this)" class="text-red-500 hover:text-red-700">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" onclick="addScheduleTime()" class="mt-2 text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Add time
+                </button>
+            </div>
+
+            <!-- Auto Save DB -->
+            <div>
+                <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" id="settings-auto-save-db" {% if smt_settings.smt_auto_save_db %}checked{% endif %}
+                        class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                    <span class="ml-2 text-sm font-medium text-gray-700">Auto-save to database</span>
+                </label>
+            </div>
+        </div>
+        <div class="p-6 border-t bg-gray-50 flex justify-end gap-3 rounded-b-xl">
+            <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors">
+                Cancel
+            </button>
+            <button type="button" onclick="saveSettings()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                Save Settings
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize default dates on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setDatePreset('current_fy');
+});
+
+// Date preset helper
+function setDatePreset(preset) {
+    const now = new Date();
+    const beYear = now.getFullYear() + 543;
+    let startDate, endDate;
+
+    switch(preset) {
+        case 'current_fy':
+            // Thai fiscal year: Oct 1 - Sep 30
+            if (now.getMonth() >= 9) { // Oct-Dec
+                startDate = '01/10/' + beYear;
+            } else { // Jan-Sep
+                startDate = '01/10/' + (beYear - 1);
+            }
+            endDate = padDate(now.getDate()) + '/' + padDate(now.getMonth() + 1) + '/' + beYear;
+            break;
+        case 'last_month':
+            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+            const lmBeYear = lastMonth.getFullYear() + 543;
+            startDate = '01/' + padDate(lastMonth.getMonth() + 1) + '/' + lmBeYear;
+            endDate = padDate(lastMonthEnd.getDate()) + '/' + padDate(lastMonthEnd.getMonth() + 1) + '/' + (lastMonthEnd.getFullYear() + 543);
+            break;
+        case 'last_3_months':
+            const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+            startDate = '01/' + padDate(threeMonthsAgo.getMonth() + 1) + '/' + (threeMonthsAgo.getFullYear() + 543);
+            endDate = padDate(now.getDate()) + '/' + padDate(now.getMonth() + 1) + '/' + beYear;
+            break;
+        case 'last_6_months':
+            const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+            startDate = '01/' + padDate(sixMonthsAgo.getMonth() + 1) + '/' + (sixMonthsAgo.getFullYear() + 543);
+            endDate = padDate(now.getDate()) + '/' + padDate(now.getMonth() + 1) + '/' + beYear;
+            break;
+    }
+
+    document.getElementById('start-date-input').value = startDate;
+    document.getElementById('end-date-input').value = endDate;
+}
+
+function padDate(num) {
+    return num.toString().padStart(2, '0');
+}
+
+function setFiscalYear(year) {
+    if (!year) return;
+    const startYear = parseInt(year) - 1;
+    document.getElementById('start-date-input').value = '01/10/' + startYear;
+    document.getElementById('end-date-input').value = '30/09/' + year;
+}
+
+// SMT Page JavaScript
+function fetchSmtData() {
+    const vendorId = document.getElementById('vendor-id-input').value.trim();
+    const startDate = document.getElementById('start-date-input').value.trim();
+    const endDate = document.getElementById('end-date-input').value.trim();
+    const saveDb = document.getElementById('save-db-checkbox').checked;
+    const btn = document.getElementById('fetch-btn');
+    const btnText = document.getElementById('fetch-btn-text');
+
+    if (!vendorId) {
+        showToast('Please enter a Vendor ID', 'error');
+        return;
+    }
+
+    btn.disabled = true;
+    btnText.textContent = 'Fetching...';
+
+    fetch('/api/smt/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            vendor_id: vendorId,
+            start_date: startDate,
+            end_date: endDate,
+            save_db: saveDb
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Fetched ' + data.records + ' records, ' + data.total_amount.toLocaleString() + ' Baht', 'success');
+            setTimeout(function() { window.location.reload(); }, 1500);
+        } else {
+            showToast(data.error || 'Fetch failed', 'error');
+        }
+    })
+    .catch(function(error) {
+        showToast('Network error: ' + error.message, 'error');
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btnText.textContent = 'Fetch Data';
+    });
+}
+
+function exportData(format) {
+    const vendorId = document.getElementById('vendor-id-input').value.trim();
+    const startDate = document.getElementById('start-date-input').value.trim();
+    const endDate = document.getElementById('end-date-input').value.trim();
+
+    if (!vendorId) {
+        showToast('Please enter a Vendor ID', 'error');
+        return;
+    }
+
+    fetch('/api/smt/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            vendor_id: vendorId,
+            start_date: startDate,
+            end_date: endDate,
+            save_db: false,
+            export_format: format
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.export_path) {
+            showToast('Exported to ' + data.export_path, 'success');
+        } else if (data.success) {
+            showToast('No data to export', 'warning');
+        } else {
+            showToast(data.error || 'Export failed', 'error');
+        }
+    })
+    .catch(function(error) {
+        showToast('Network error: ' + error.message, 'error');
+    });
+}
+
+function openSettingsModal() {
+    document.getElementById('settings-modal').classList.remove('hidden');
+}
+
+function closeSettingsModal() {
+    document.getElementById('settings-modal').classList.add('hidden');
+}
+
+function addScheduleTime() {
+    const list = document.getElementById('schedule-times-list');
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2 schedule-time-row';
+
+    const input = document.createElement('input');
+    input.type = 'time';
+    input.value = '09:00';
+    input.className = 'schedule-time-input px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'text-red-500 hover:text-red-700';
+    btn.onclick = function() { removeScheduleTime(this); };
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'w-5 h-5');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('viewBox', '0 0 24 24');
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('d', 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16');
+
+    svg.appendChild(path);
+    btn.appendChild(svg);
+    row.appendChild(input);
+    row.appendChild(btn);
+    list.appendChild(row);
+}
+
+function removeScheduleTime(btn) {
+    btn.closest('.schedule-time-row').remove();
+}
+
+function saveSettings() {
+    const vendorId = document.getElementById('settings-vendor-id').value.trim();
+    const scheduleEnabled = document.getElementById('settings-schedule-enabled').checked;
+    const autoSaveDb = document.getElementById('settings-auto-save-db').checked;
+
+    const timeInputs = document.querySelectorAll('.schedule-time-input');
+    const times = [];
+    timeInputs.forEach(function(input) {
+        const parts = input.value.split(':');
+        const hour = parseInt(parts[0], 10);
+        const minute = parseInt(parts[1], 10);
+        if (!isNaN(hour) && !isNaN(minute)) {
+            times.push({ hour: hour, minute: minute });
+        }
+    });
+
+    fetch('/api/smt/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            smt_vendor_id: vendorId,
+            smt_schedule_enabled: scheduleEnabled,
+            smt_schedule_times: times,
+            smt_auto_save_db: autoSaveDb
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Settings saved successfully', 'success');
+            closeSettingsModal();
+            setTimeout(function() { window.location.reload(); }, 1000);
+        } else {
+            showToast(data.error || 'Failed to save settings', 'error');
+        }
+    })
+    .catch(function(error) {
+        showToast('Network error: ' + error.message, 'error');
+    });
+}
+
+document.getElementById('settings-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSettingsModal();
+    }
+});
+</script>
+{% endblock %}

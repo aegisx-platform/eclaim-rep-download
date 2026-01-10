@@ -835,6 +835,9 @@ def smt_fetch():
     try:
         data = request.get_json() or {}
         vendor_id = data.get('vendor_id')
+        start_date = data.get('start_date')  # dd/mm/yyyy BE format
+        end_date = data.get('end_date')  # dd/mm/yyyy BE format
+        budget_year = data.get('budget_year')  # Buddhist Era year
         save_db = data.get('save_db', True)
         export_format = data.get('export_format')  # 'json' or 'csv' or None
 
@@ -849,14 +852,24 @@ def smt_fetch():
         # Import and run fetcher
         from smt_budget_fetcher import SMTBudgetFetcher
 
+        date_info = ""
+        if start_date and end_date:
+            date_info = f" ({start_date} - {end_date})"
+        elif budget_year:
+            date_info = f" (FY {budget_year})"
+
         log_streamer.write_log(
-            f"Starting SMT fetch for vendor {vendor_id}...",
+            f"Starting SMT fetch for vendor {vendor_id}{date_info}...",
             'info',
             'smt'
         )
 
         fetcher = SMTBudgetFetcher(vendor_id=vendor_id)
-        result = fetcher.fetch_budget_summary()
+        result = fetcher.fetch_budget_summary(
+            budget_year=int(budget_year) if budget_year else None,
+            start_date=start_date,
+            end_date=end_date
+        )
         records = result.get('datas', [])
 
         if not records:
