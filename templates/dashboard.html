@@ -276,8 +276,14 @@ async function loadKPIData() {
 
         if (data.success) {
             document.getElementById('kpi-total-claims').textContent = formatNumber(data.data.total_claims);
-            document.getElementById('kpi-total-reimburse').textContent = formatMoney(data.data.total_reimburse);
-            document.getElementById('kpi-denial-rate').textContent = (data.data.denial_rate || 0).toFixed(1) + '%';
+            document.getElementById('kpi-total-reimburse').textContent = formatMoney(data.data.total_reimb);
+
+            // Calculate denial rate
+            var denialRate = 0;
+            if (data.data.total_claims > 0 && data.data.total_denials) {
+                denialRate = (data.data.total_denials / data.data.total_claims) * 100;
+            }
+            document.getElementById('kpi-denial-rate').textContent = denialRate.toFixed(1) + '%';
         }
     } catch (error) {
         console.error('Error loading KPI data:', error);
@@ -300,9 +306,9 @@ async function loadServiceTypeData() {
             new Chart(canvas, {
                 type: 'doughnut',
                 data: {
-                    labels: data.data.map(function(d) { return d.service_type; }),
+                    labels: data.data.map(function(d) { return d.name || d.type; }),
                     datasets: [{
-                        data: data.data.map(function(d) { return d.claim_count; }),
+                        data: data.data.map(function(d) { return d.claims; }),
                         backgroundColor: ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444']
                     }]
                 },
@@ -333,7 +339,7 @@ async function loadFundData() {
             container.textContent = '';
 
             var topFunds = data.data.slice(0, 5);
-            var maxAmount = topFunds[0].total_reimburse;
+            var maxAmount = topFunds[0].reimb || 0;
 
             topFunds.forEach(function(fund) {
                 var item = document.createElement('div');
@@ -344,11 +350,11 @@ async function loadFundData() {
 
                 var nameSpan = document.createElement('span');
                 nameSpan.className = 'font-medium text-gray-700';
-                nameSpan.textContent = fund.fund_code || 'Unknown';
+                nameSpan.textContent = fund.fund || 'Unknown';
 
                 var amountSpan = document.createElement('span');
                 amountSpan.className = 'text-gray-600';
-                amountSpan.textContent = formatMoney(fund.total_reimburse);
+                amountSpan.textContent = formatMoney(fund.reimb);
 
                 header.appendChild(nameSpan);
                 header.appendChild(amountSpan);
@@ -358,7 +364,8 @@ async function loadFundData() {
 
                 var bar = document.createElement('div');
                 bar.className = 'bg-blue-600 h-2 rounded-full';
-                bar.style.width = ((fund.total_reimburse / maxAmount) * 100) + '%';
+                var percentage = maxAmount > 0 ? ((fund.reimb / maxAmount) * 100) : 0;
+                bar.style.width = percentage + '%';
 
                 barContainer.appendChild(bar);
 
