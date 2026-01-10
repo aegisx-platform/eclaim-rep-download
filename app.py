@@ -1083,6 +1083,758 @@ def init_smt_scheduler():
         app.logger.error(f"Error initializing SMT scheduler: {e}")
 
 
+# ============================================
+# Analytics Dashboard Routes
+# ============================================
+
+@app.route('/analytics')
+def analytics():
+    """Analytics Dashboard - Comprehensive claim analysis"""
+    return render_template('analytics.html')
+
+
+@app.route('/api/analytics/overview')
+def api_analytics_overview():
+    """Get overview statistics for analytics dashboard"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Total claims and amounts
+        cursor.execute("""
+            SELECT
+                COUNT(*) as total_claims,
+                COALESCE(SUM(reimb_nhso), 0) as total_reimb,
+                COALESCE(SUM(paid), 0) as total_paid,
+                COALESCE(SUM(claim_net), 0) as total_claim_net,
+                COUNT(DISTINCT hn) as unique_patients,
+                COUNT(DISTINCT DATE_TRUNC('month', dateadm)) as active_months
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm IS NOT NULL
+        """)
+        row = cursor.fetchone()
+        overview = {
+            'total_claims': row[0] or 0,
+            'total_reimb': float(row[1] or 0),
+            'total_paid': float(row[2] or 0),
+            'total_claim_net': float(row[3] or 0),
+            'unique_patients': row[4] or 0,
+            'active_months': row[5] or 0,
+            'reimb_rate': round(float(row[2] or 0) / float(row[3] or 1) * 100, 2) if row[3] else 0
+        }
+
+        # Drug summary
+        cursor.execute("""
+            SELECT
+                COUNT(*) as total_drugs,
+                COALESCE(SUM(claim_amount), 0) as total_drug_cost
+            FROM eclaim_drug
+        """)
+        drug_row = cursor.fetchone()
+        overview['total_drug_items'] = drug_row[0] or 0
+        overview['total_drug_cost'] = float(drug_row[1] or 0)
+
+        # Instrument summary
+        cursor.execute("""
+            SELECT
+                COUNT(*) as total_instruments,
+                COALESCE(SUM(claim_amount), 0) as total_instrument_cost
+            FROM eclaim_instrument
+        """)
+        inst_row = cursor.fetchone()
+        overview['total_instrument_items'] = inst_row[0] or 0
+        overview['total_instrument_cost'] = float(inst_row[1] or 0)
+
+        # Denial summary
+        cursor.execute("SELECT COUNT(*) FROM eclaim_deny")
+        overview['total_denials'] = cursor.fetchone()[0] or 0
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': overview})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/monthly-trend')
+def api_analytics_monthly_trend():
+    """Get monthly trend data"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Monthly claims and amounts
+        cursor.execute("""
+            SELECT
+                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                COUNT(*) as claims,
+                COALESCE(SUM(reimb_nhso), 0) as reimb,
+                COALESCE(SUM(paid), 0) as paid,
+                COALESCE(SUM(claim_net), 0) as claim_net,
+                COUNT(DISTINCT hn) as patients
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm IS NOT NULL
+            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+            ORDER BY month DESC
+            LIMIT 12
+        """)
+        rows = cursor.fetchall()
+
+        monthly_data = [
+            {
+                'month': row[0],
+                'claims': row[1],
+                'reimb': float(row[2] or 0),
+                'paid': float(row[3] or 0),
+                'claim_net': float(row[4] or 0),
+                'patients': row[5]
+            }
+            for row in reversed(rows)
+        ]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': monthly_data})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/service-type')
+def api_analytics_service_type():
+    """Get claims by service type"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Service type mapping
+        service_names = {
+            '': 'OP/IP ทั่วไป',
+            'R': 'Refer (ส่งต่อ)',
+            'E': 'Emergency (ฉุกเฉิน)',
+            'C': 'Chronic (เรื้อรัง)',
+            'P': 'PP (ส่งเสริมป้องกัน)'
+        }
+
+        cursor.execute("""
+            SELECT
+                COALESCE(service_type, '') as stype,
+                COUNT(*) as claims,
+                COALESCE(SUM(reimb_nhso), 0) as reimb,
+                COALESCE(SUM(paid), 0) as paid,
+                COUNT(DISTINCT hn) as patients
+            FROM claim_rep_opip_nhso_item
+            GROUP BY service_type
+            ORDER BY SUM(reimb_nhso) DESC NULLS LAST
+        """)
+        rows = cursor.fetchall()
+
+        service_data = [
+            {
+                'type': row[0] or 'OP/IP',
+                'name': service_names.get(row[0] or '', row[0] or 'OP/IP'),
+                'claims': row[1],
+                'reimb': float(row[2] or 0),
+                'paid': float(row[3] or 0),
+                'patients': row[4]
+            }
+            for row in rows
+        ]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': service_data})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/fund')
+def api_analytics_fund():
+    """Get claims by fund type"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                COALESCE(main_fund, 'ไม่ระบุ') as fund,
+                COUNT(*) as claims,
+                COALESCE(SUM(reimb_nhso), 0) as reimb,
+                COALESCE(SUM(paid), 0) as paid,
+                COUNT(DISTINCT hn) as patients
+            FROM claim_rep_opip_nhso_item
+            GROUP BY main_fund
+            ORDER BY SUM(reimb_nhso) DESC NULLS LAST
+            LIMIT 10
+        """)
+        rows = cursor.fetchall()
+
+        fund_data = [
+            {
+                'fund': row[0],
+                'claims': row[1],
+                'reimb': float(row[2] or 0),
+                'paid': float(row[3] or 0),
+                'patients': row[4]
+            }
+            for row in rows
+        ]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': fund_data})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/drg')
+def api_analytics_drg():
+    """Get DRG analysis for IP claims"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Top DRGs
+        cursor.execute("""
+            SELECT
+                drg,
+                COUNT(*) as cases,
+                COALESCE(AVG(rw), 0) as avg_rw,
+                COALESCE(SUM(claim_drg), 0) as total_drg,
+                COALESCE(SUM(paid), 0) as total_paid
+            FROM claim_rep_opip_nhso_item
+            WHERE drg IS NOT NULL AND drg != ''
+            GROUP BY drg
+            ORDER BY COUNT(*) DESC
+            LIMIT 15
+        """)
+        rows = cursor.fetchall()
+
+        drg_data = [
+            {
+                'drg': row[0],
+                'cases': row[1],
+                'avg_rw': round(float(row[2] or 0), 4),
+                'total_drg': float(row[3] or 0),
+                'total_paid': float(row[4] or 0)
+            }
+            for row in rows
+        ]
+
+        # RW distribution
+        cursor.execute("""
+            SELECT rw_range, cases FROM (
+                SELECT
+                    CASE
+                        WHEN rw < 0.5 THEN '< 0.5'
+                        WHEN rw < 1.0 THEN '0.5-1.0'
+                        WHEN rw < 2.0 THEN '1.0-2.0'
+                        WHEN rw < 3.0 THEN '2.0-3.0'
+                        WHEN rw < 5.0 THEN '3.0-5.0'
+                        ELSE '>= 5.0'
+                    END as rw_range,
+                    CASE
+                        WHEN rw < 0.5 THEN 1
+                        WHEN rw < 1.0 THEN 2
+                        WHEN rw < 2.0 THEN 3
+                        WHEN rw < 3.0 THEN 4
+                        WHEN rw < 5.0 THEN 5
+                        ELSE 6
+                    END as sort_order,
+                    COUNT(*) as cases
+                FROM claim_rep_opip_nhso_item
+                WHERE rw IS NOT NULL AND rw > 0
+                GROUP BY rw_range, sort_order
+            ) t
+            ORDER BY sort_order
+        """)
+        rw_rows = cursor.fetchall()
+
+        rw_distribution = [
+            {'range': row[0], 'cases': row[1]}
+            for row in rw_rows
+        ]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'top_drg': drg_data,
+                'rw_distribution': rw_distribution
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/drug')
+def api_analytics_drug():
+    """Get drug analysis"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Top drugs by cost - use generic_name or trade_name
+        cursor.execute("""
+            SELECT
+                COALESCE(generic_name, trade_name, drug_code) as drug_name,
+                COUNT(*) as prescriptions,
+                COALESCE(SUM(quantity), 0) as total_qty,
+                COALESCE(SUM(claim_amount), 0) as total_cost
+            FROM eclaim_drug
+            WHERE generic_name IS NOT NULL AND generic_name != ''
+            GROUP BY COALESCE(generic_name, trade_name, drug_code)
+            ORDER BY SUM(claim_amount) DESC NULLS LAST
+            LIMIT 15
+        """)
+        rows = cursor.fetchall()
+
+        drug_data = [
+            {
+                'name': row[0][:50] if row[0] else 'ไม่ระบุ',
+                'prescriptions': row[1],
+                'total_qty': float(row[2] or 0),
+                'total_cost': float(row[3] or 0)
+            }
+            for row in rows
+        ]
+
+        # Summary by drug_type
+        cursor.execute("""
+            SELECT
+                COALESCE(drug_type, 'ไม่ระบุ') as category,
+                COUNT(*) as items,
+                COALESCE(SUM(claim_amount), 0) as total_cost
+            FROM eclaim_drug
+            GROUP BY drug_type
+            ORDER BY SUM(claim_amount) DESC NULLS LAST
+            LIMIT 10
+        """)
+        cat_rows = cursor.fetchall()
+
+        category_data = [
+            {
+                'category': row[0],
+                'items': row[1],
+                'total_cost': float(row[2] or 0)
+            }
+            for row in cat_rows
+        ]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'top_drugs': drug_data,
+                'categories': category_data
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/instrument')
+def api_analytics_instrument():
+    """Get instrument/procedure analysis"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Top instruments by cost
+        cursor.execute("""
+            SELECT
+                inst_name,
+                COUNT(*) as uses,
+                COALESCE(SUM(claim_qty), 0) as total_qty,
+                COALESCE(SUM(claim_amount), 0) as total_cost
+            FROM eclaim_instrument
+            WHERE inst_name IS NOT NULL AND inst_name != ''
+            GROUP BY inst_name
+            ORDER BY SUM(claim_amount) DESC NULLS LAST
+            LIMIT 15
+        """)
+        rows = cursor.fetchall()
+
+        instrument_data = [
+            {
+                'name': row[0][:50] if row[0] else 'ไม่ระบุ',
+                'uses': row[1],
+                'total_qty': float(row[2] or 0),
+                'total_cost': float(row[3] or 0)
+            }
+            for row in rows
+        ]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': instrument_data})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/denial')
+def api_analytics_denial():
+    """Get denial analysis"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Denials by deny_code
+        cursor.execute("""
+            SELECT
+                COALESCE(deny_code, 'ไม่ระบุรหัส') as reason,
+                COUNT(*) as cases,
+                COALESCE(SUM(claim_amount), 0) as total_amount
+            FROM eclaim_deny
+            GROUP BY deny_code
+            ORDER BY COUNT(*) DESC
+            LIMIT 10
+        """)
+        rows = cursor.fetchall()
+
+        denial_data = [
+            {
+                'reason': row[0][:80] if row[0] else 'ไม่ระบุ',
+                'cases': row[1],
+                'total_amount': float(row[2] or 0)
+            }
+            for row in rows
+        ]
+
+        # Error codes from main claims table
+        cursor.execute("""
+            SELECT
+                COALESCE(error_code, 'ไม่มี') as error,
+                COUNT(*) as cases
+            FROM claim_rep_opip_nhso_item
+            WHERE error_code IS NOT NULL AND error_code != ''
+            GROUP BY error_code
+            ORDER BY COUNT(*) DESC
+            LIMIT 10
+        """)
+        error_rows = cursor.fetchall()
+
+        error_data = [
+            {'error': row[0], 'cases': row[1]}
+            for row in error_rows
+        ]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'denials': denial_data,
+                'errors': error_data
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/comparison')
+def api_analytics_comparison():
+    """Get claim vs payment comparison by month"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Monthly comparison
+        cursor.execute("""
+            SELECT
+                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                COALESCE(SUM(claim_net), 0) as claimed,
+                COALESCE(SUM(reimb_nhso), 0) as approved,
+                COALESCE(SUM(paid), 0) as paid
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm IS NOT NULL
+            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+            ORDER BY month DESC
+            LIMIT 12
+        """)
+        rows = cursor.fetchall()
+
+        comparison_data = [
+            {
+                'month': row[0],
+                'claimed': float(row[1] or 0),
+                'approved': float(row[2] or 0),
+                'paid': float(row[3] or 0),
+                'approval_rate': round(float(row[2] or 0) / float(row[1] or 1) * 100, 2) if row[1] else 0
+            }
+            for row in reversed(rows)
+        ]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': comparison_data})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================
+# Reconciliation Routes
+# ============================================
+
+@app.route('/reconciliation')
+def reconciliation():
+    """Reconciliation Report page - Compare REP claims vs SMT payments"""
+    from utils.reconciliation import ReconciliationReport
+
+    # Get fiscal year from query param
+    fiscal_year = request.args.get('fy', type=int)
+
+    conn = get_db_connection()
+    if not conn:
+        return render_template(
+            'reconciliation.html',
+            error='Database connection failed',
+            summary=None,
+            monthly_data=[],
+            fund_data=[],
+            fiscal_years=[],
+            selected_fy=None
+        )
+
+    try:
+        report = ReconciliationReport(conn)
+
+        # Get available fiscal years
+        fiscal_years = report.get_available_fiscal_years()
+
+        # Default to current fiscal year if not specified
+        if not fiscal_year and fiscal_years:
+            fiscal_year = fiscal_years[0]
+
+        # Get data for selected fiscal year
+        if fiscal_year:
+            summary = report.get_summary_stats_by_fy(fiscal_year)
+            monthly_data = report.get_monthly_reconciliation_by_fy(fiscal_year)
+        else:
+            summary = report.get_summary_stats()
+            monthly_data = report.get_monthly_reconciliation()
+
+        fund_data = report.get_fund_reconciliation()
+        conn.close()
+
+        return render_template(
+            'reconciliation.html',
+            summary=summary,
+            monthly_data=monthly_data,
+            fund_data=fund_data,
+            fiscal_years=fiscal_years,
+            selected_fy=fiscal_year
+        )
+    except Exception as e:
+        app.logger.error(f"Reconciliation error: {e}")
+        if conn:
+            conn.close()
+        return render_template(
+            'reconciliation.html',
+            error=str(e),
+            summary=None,
+            monthly_data=[],
+            fund_data=[],
+            fiscal_years=[],
+            selected_fy=None
+        )
+
+
+@app.route('/api/reconciliation/fiscal-years')
+def api_reconciliation_fiscal_years():
+    """Get available fiscal years"""
+    from utils.reconciliation import ReconciliationReport
+
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        report = ReconciliationReport(conn)
+        fiscal_years = report.get_available_fiscal_years()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': fiscal_years
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/reconciliation/monthly')
+def api_reconciliation_monthly():
+    """Get monthly reconciliation data"""
+    from utils.reconciliation import ReconciliationReport
+
+    try:
+        fiscal_year = request.args.get('fy', type=int)
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        report = ReconciliationReport(conn)
+
+        if fiscal_year:
+            data = report.get_monthly_reconciliation_by_fy(fiscal_year)
+        else:
+            data = report.get_monthly_reconciliation()
+
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'fiscal_year': fiscal_year,
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/reconciliation/fund')
+def api_reconciliation_fund():
+    """Get fund-based reconciliation data"""
+    from utils.reconciliation import ReconciliationReport
+
+    try:
+        month_be = request.args.get('month')  # Optional: YYYYMM in Buddhist Era
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        report = ReconciliationReport(conn)
+        data = report.get_fund_reconciliation(month_be)
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/reconciliation/summary')
+def api_reconciliation_summary():
+    """Get overall reconciliation summary stats"""
+    from utils.reconciliation import ReconciliationReport
+
+    try:
+        fiscal_year = request.args.get('fy', type=int)
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        report = ReconciliationReport(conn)
+
+        if fiscal_year:
+            summary = report.get_summary_stats_by_fy(fiscal_year)
+        else:
+            summary = report.get_summary_stats()
+
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': summary
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/reconciliation/rep-monthly')
+def api_rep_monthly():
+    """Get REP monthly summary by fund"""
+    from utils.reconciliation import ReconciliationReport
+
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        report = ReconciliationReport(conn)
+        data = report.get_rep_monthly_summary()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/reconciliation/smt-monthly')
+def api_smt_monthly():
+    """Get SMT monthly summary by fund"""
+    from utils.reconciliation import ReconciliationReport
+
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        report = ReconciliationReport(conn)
+        data = report.get_smt_monthly_summary()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Initialize schedulers on startup
     init_scheduler()

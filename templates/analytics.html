@@ -1,0 +1,645 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard - E-Claim{% endblock %}
+
+{% block content %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Analytics Dashboard</h1>
+            <p class="text-gray-600 mt-1">วิเคราะห์ข้อมูลการเบิกจ่าย E-Claim</p>
+        </div>
+        <button onclick="refreshAllData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Refresh
+        </button>
+    </div>
+
+    <!-- Overview Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="overview-cards">
+        <!-- Total Claims -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">จำนวน Claims ทั้งหมด</p>
+                    <p class="text-2xl font-bold text-gray-800" id="total-claims">-</p>
+                </div>
+                <div class="bg-blue-100 p-3 rounded-full">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-gray-400 mt-2"><span id="unique-patients">-</span> ผู้ป่วย</p>
+        </div>
+
+        <!-- Total Reimbursement -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">ยอดเบิกทั้งหมด</p>
+                    <p class="text-2xl font-bold text-green-600" id="total-reimb">-</p>
+                </div>
+                <div class="bg-green-100 p-3 rounded-full">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-gray-400 mt-2">อัตราจ่าย <span id="reimb-rate">-</span>%</p>
+        </div>
+
+        <!-- Drug Cost -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">ค่ายา</p>
+                    <p class="text-2xl font-bold text-purple-600" id="total-drug-cost">-</p>
+                </div>
+                <div class="bg-purple-100 p-3 rounded-full">
+                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-gray-400 mt-2"><span id="total-drug-items">-</span> รายการยา</p>
+        </div>
+
+        <!-- Denials -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">รายการถูกปฏิเสธ</p>
+                    <p class="text-2xl font-bold text-red-600" id="total-denials">-</p>
+                </div>
+                <div class="bg-red-100 p-3 rounded-full">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-gray-400 mt-2">ต้องตรวจสอบ</p>
+        </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Monthly Trend Chart -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">แนวโน้มรายเดือน</h3>
+            <div class="h-80">
+                <canvas id="monthlyTrendChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Claim vs Payment Comparison -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">เปรียบเทียบ เบิก vs จ่าย</h3>
+            <div class="h-80">
+                <canvas id="comparisonChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Service Type Pie Chart -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">ตามประเภทบริการ</h3>
+            <div class="h-64">
+                <canvas id="serviceTypeChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Fund Distribution -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">ตามกองทุน</h3>
+            <div class="h-64">
+                <canvas id="fundChart"></canvas>
+            </div>
+        </div>
+
+        <!-- RW Distribution -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">การกระจาย RW (IP)</h3>
+            <div class="h-64">
+                <canvas id="rwChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Tables Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Top Drugs Table -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Top 10 ยาที่เบิกมากสุด</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-gray-600">#</th>
+                            <th class="px-4 py-2 text-left text-gray-600">ชื่อยา</th>
+                            <th class="px-4 py-2 text-right text-gray-600">จำนวนครั้ง</th>
+                            <th class="px-4 py-2 text-right text-gray-600">มูลค่า (บาท)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="drug-table-body">
+                        <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Top DRG Table -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Top 10 DRG</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-gray-600">DRG</th>
+                            <th class="px-4 py-2 text-right text-gray-600">Cases</th>
+                            <th class="px-4 py-2 text-right text-gray-600">Avg RW</th>
+                            <th class="px-4 py-2 text-right text-gray-600">Total Paid</th>
+                        </tr>
+                    </thead>
+                    <tbody id="drg-table-body">
+                        <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Type & Fund Details -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Service Type Details -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">รายละเอียดตามประเภทบริการ</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-gray-600">ประเภท</th>
+                            <th class="px-4 py-2 text-right text-gray-600">Claims</th>
+                            <th class="px-4 py-2 text-right text-gray-600">ผู้ป่วย</th>
+                            <th class="px-4 py-2 text-right text-gray-600">ยอดเบิก</th>
+                        </tr>
+                    </thead>
+                    <tbody id="service-table-body">
+                        <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Denial Analysis -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">สาเหตุการปฏิเสธ</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-gray-600">สาเหตุ</th>
+                            <th class="px-4 py-2 text-right text-gray-600">จำนวน</th>
+                            <th class="px-4 py-2 text-right text-gray-600">มูลค่า (บาท)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="denial-table-body">
+                        <tr><td colspan="3" class="px-4 py-8 text-center text-gray-500">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instrument Table -->
+    <div class="bg-white rounded-xl shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Top อุปกรณ์/หัตถการ</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-gray-600">#</th>
+                        <th class="px-4 py-2 text-left text-gray-600">ชื่อ</th>
+                        <th class="px-4 py-2 text-right text-gray-600">จำนวนครั้ง</th>
+                        <th class="px-4 py-2 text-right text-gray-600">จำนวนชิ้น</th>
+                        <th class="px-4 py-2 text-right text-gray-600">มูลค่า (บาท)</th>
+                    </tr>
+                </thead>
+                <tbody id="instrument-table-body">
+                    <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chart instances
+let monthlyTrendChart, comparisonChart, serviceTypeChart, fundChart, rwChart;
+
+// Format number with commas
+function formatNumber(num) {
+    if (num === null || num === undefined) return '-';
+    return new Intl.NumberFormat('th-TH').format(Math.round(num));
+}
+
+// Format currency
+function formatCurrency(num) {
+    if (num === null || num === undefined) return '-';
+    return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
+// Create table row using DOM methods
+function createTableRow(cells, classes) {
+    const tr = document.createElement('tr');
+    tr.className = classes || 'border-b';
+    cells.forEach(cell => {
+        const td = document.createElement('td');
+        td.className = cell.className || 'px-4 py-2';
+        td.textContent = cell.text;
+        if (cell.title) td.title = cell.title;
+        tr.appendChild(td);
+    });
+    return tr;
+}
+
+// Clear table body and add rows
+function updateTable(tbodyId, rows) {
+    const tbody = document.getElementById(tbodyId);
+    tbody.replaceChildren();
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+// Load overview data
+async function loadOverview() {
+    try {
+        const response = await fetch('/api/analytics/overview');
+        const result = await response.json();
+
+        if (result.success) {
+            const data = result.data;
+            document.getElementById('total-claims').textContent = formatNumber(data.total_claims);
+            document.getElementById('unique-patients').textContent = formatNumber(data.unique_patients);
+            document.getElementById('total-reimb').textContent = formatCurrency(data.total_reimb) + ' B';
+            document.getElementById('reimb-rate').textContent = data.reimb_rate;
+            document.getElementById('total-drug-cost').textContent = formatCurrency(data.total_drug_cost) + ' B';
+            document.getElementById('total-drug-items').textContent = formatNumber(data.total_drug_items);
+            document.getElementById('total-denials').textContent = formatNumber(data.total_denials);
+        }
+    } catch (error) {
+        console.error('Error loading overview:', error);
+    }
+}
+
+// Load monthly trend chart
+async function loadMonthlyTrend() {
+    try {
+        const response = await fetch('/api/analytics/monthly-trend');
+        const result = await response.json();
+
+        if (result.success && result.data.length > 0) {
+            const ctx = document.getElementById('monthlyTrendChart').getContext('2d');
+
+            if (monthlyTrendChart) monthlyTrendChart.destroy();
+
+            monthlyTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: result.data.map(d => d.month),
+                    datasets: [{
+                        label: 'ยอดเบิก (แสน)',
+                        data: result.data.map(d => d.reimb / 100000),
+                        borderColor: '#10B981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'จ่ายจริง (แสน)',
+                        data: result.data.map(d => d.paid / 100000),
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'แสนบาท' }
+                        }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error loading monthly trend:', error);
+    }
+}
+
+// Load comparison chart
+async function loadComparison() {
+    try {
+        const response = await fetch('/api/analytics/comparison');
+        const result = await response.json();
+
+        if (result.success && result.data.length > 0) {
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+
+            if (comparisonChart) comparisonChart.destroy();
+
+            comparisonChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: result.data.map(d => d.month),
+                    datasets: [{
+                        label: 'เบิก',
+                        data: result.data.map(d => d.claimed / 100000),
+                        backgroundColor: '#94A3B8'
+                    }, {
+                        label: 'อนุมัติ',
+                        data: result.data.map(d => d.approved / 100000),
+                        backgroundColor: '#10B981'
+                    }, {
+                        label: 'จ่าย',
+                        data: result.data.map(d => d.paid / 100000),
+                        backgroundColor: '#3B82F6'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'แสนบาท' }
+                        }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error loading comparison:', error);
+    }
+}
+
+// Load service type chart
+async function loadServiceType() {
+    try {
+        const response = await fetch('/api/analytics/service-type');
+        const result = await response.json();
+
+        if (result.success && result.data.length > 0) {
+            const ctx = document.getElementById('serviceTypeChart').getContext('2d');
+
+            if (serviceTypeChart) serviceTypeChart.destroy();
+
+            const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+            serviceTypeChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: result.data.map(d => d.name),
+                    datasets: [{
+                        data: result.data.map(d => d.reimb),
+                        backgroundColor: colors.slice(0, result.data.length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12 } }
+                    }
+                }
+            });
+
+            // Update table using DOM methods
+            const rows = result.data.map(d => createTableRow([
+                { text: d.name, className: 'px-4 py-2' },
+                { text: formatNumber(d.claims), className: 'px-4 py-2 text-right' },
+                { text: formatNumber(d.patients), className: 'px-4 py-2 text-right' },
+                { text: formatCurrency(d.reimb), className: 'px-4 py-2 text-right' }
+            ]));
+            updateTable('service-table-body', rows);
+        }
+    } catch (error) {
+        console.error('Error loading service type:', error);
+    }
+}
+
+// Load fund chart
+async function loadFund() {
+    try {
+        const response = await fetch('/api/analytics/fund');
+        const result = await response.json();
+
+        if (result.success && result.data.length > 0) {
+            const ctx = document.getElementById('fundChart').getContext('2d');
+
+            if (fundChart) fundChart.destroy();
+
+            const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'];
+
+            fundChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: result.data.map(d => d.fund.substring(0, 20)),
+                    datasets: [{
+                        data: result.data.map(d => d.reimb),
+                        backgroundColor: colors.slice(0, result.data.length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error loading fund:', error);
+    }
+}
+
+// Load DRG data
+async function loadDRG() {
+    try {
+        const response = await fetch('/api/analytics/drg');
+        const result = await response.json();
+
+        if (result.success) {
+            // RW distribution chart
+            if (result.data.rw_distribution && result.data.rw_distribution.length > 0) {
+                const ctx = document.getElementById('rwChart').getContext('2d');
+
+                if (rwChart) rwChart.destroy();
+
+                rwChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: result.data.rw_distribution.map(d => d.range),
+                        datasets: [{
+                            label: 'Cases',
+                            data: result.data.rw_distribution.map(d => d.cases),
+                            backgroundColor: '#8B5CF6'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            }
+
+            // DRG table using DOM methods
+            if (result.data.top_drg && result.data.top_drg.length > 0) {
+                const rows = result.data.top_drg.slice(0, 10).map(d => createTableRow([
+                    { text: d.drg, className: 'px-4 py-2 font-mono' },
+                    { text: formatNumber(d.cases), className: 'px-4 py-2 text-right' },
+                    { text: d.avg_rw.toFixed(4), className: 'px-4 py-2 text-right' },
+                    { text: formatCurrency(d.total_paid), className: 'px-4 py-2 text-right' }
+                ]));
+                updateTable('drg-table-body', rows);
+            } else {
+                const emptyRow = createTableRow([
+                    { text: 'ไม่มีข้อมูล DRG', className: 'px-4 py-8 text-center text-gray-500' }
+                ]);
+                emptyRow.firstChild.colSpan = 4;
+                updateTable('drg-table-body', [emptyRow]);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading DRG:', error);
+    }
+}
+
+// Load drug data
+async function loadDrug() {
+    try {
+        const response = await fetch('/api/analytics/drug');
+        const result = await response.json();
+
+        if (result.success && result.data.top_drugs && result.data.top_drugs.length > 0) {
+            const rows = result.data.top_drugs.slice(0, 10).map((d, i) => createTableRow([
+                { text: String(i + 1), className: 'px-4 py-2' },
+                { text: d.name, className: 'px-4 py-2', title: d.name },
+                { text: formatNumber(d.prescriptions), className: 'px-4 py-2 text-right' },
+                { text: formatCurrency(d.total_cost), className: 'px-4 py-2 text-right' }
+            ]));
+            updateTable('drug-table-body', rows);
+        } else {
+            const emptyRow = createTableRow([
+                { text: 'ไม่มีข้อมูลยา', className: 'px-4 py-8 text-center text-gray-500' }
+            ]);
+            emptyRow.firstChild.colSpan = 4;
+            updateTable('drug-table-body', [emptyRow]);
+        }
+    } catch (error) {
+        console.error('Error loading drug:', error);
+    }
+}
+
+// Load instrument data
+async function loadInstrument() {
+    try {
+        const response = await fetch('/api/analytics/instrument');
+        const result = await response.json();
+
+        if (result.success && result.data && result.data.length > 0) {
+            const rows = result.data.slice(0, 10).map((d, i) => createTableRow([
+                { text: String(i + 1), className: 'px-4 py-2' },
+                { text: d.name, className: 'px-4 py-2', title: d.name },
+                { text: formatNumber(d.uses), className: 'px-4 py-2 text-right' },
+                { text: formatNumber(d.total_qty), className: 'px-4 py-2 text-right' },
+                { text: formatCurrency(d.total_cost), className: 'px-4 py-2 text-right' }
+            ]));
+            updateTable('instrument-table-body', rows);
+        } else {
+            const emptyRow = createTableRow([
+                { text: 'ไม่มีข้อมูลอุปกรณ์', className: 'px-4 py-8 text-center text-gray-500' }
+            ]);
+            emptyRow.firstChild.colSpan = 5;
+            updateTable('instrument-table-body', [emptyRow]);
+        }
+    } catch (error) {
+        console.error('Error loading instrument:', error);
+    }
+}
+
+// Load denial data
+async function loadDenial() {
+    try {
+        const response = await fetch('/api/analytics/denial');
+        const result = await response.json();
+
+        if (result.success) {
+            if (result.data.denials && result.data.denials.length > 0) {
+                const rows = result.data.denials.map(d => createTableRow([
+                    { text: d.reason, className: 'px-4 py-2' },
+                    { text: formatNumber(d.cases), className: 'px-4 py-2 text-right' },
+                    { text: formatCurrency(d.total_amount), className: 'px-4 py-2 text-right' }
+                ]));
+                updateTable('denial-table-body', rows);
+            } else {
+                const emptyRow = createTableRow([
+                    { text: 'ไม่มีข้อมูลการปฏิเสธ', className: 'px-4 py-8 text-center text-gray-500' }
+                ]);
+                emptyRow.firstChild.colSpan = 3;
+                updateTable('denial-table-body', [emptyRow]);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading denial:', error);
+    }
+}
+
+// Refresh all data
+function refreshAllData() {
+    loadOverview();
+    loadMonthlyTrend();
+    loadComparison();
+    loadServiceType();
+    loadFund();
+    loadDRG();
+    loadDrug();
+    loadInstrument();
+    loadDenial();
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', refreshAllData);
+</script>
+{% endblock %}
