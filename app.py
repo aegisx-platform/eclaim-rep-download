@@ -1734,19 +1734,26 @@ def api_analytics_comparison():
 
         cursor = conn.cursor()
 
+        # Get date filter
+        date_filter, filter_params, filter_info = get_analytics_date_filter()
+        base_where = "dateadm IS NOT NULL"
+        if date_filter:
+            base_where += f" AND {date_filter}"
+
         # Monthly comparison
-        cursor.execute("""
+        query = f"""
             SELECT
                 TO_CHAR(dateadm, 'YYYY-MM') as month,
                 COALESCE(SUM(claim_net), 0) as claimed,
                 COALESCE(SUM(reimb_nhso), 0) as approved,
                 COALESCE(SUM(paid), 0) as paid
             FROM claim_rep_opip_nhso_item
-            WHERE dateadm IS NOT NULL
+            WHERE {base_where}
             GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
             ORDER BY month DESC
             LIMIT 12
-        """)
+        """
+        cursor.execute(query, filter_params)
         rows = cursor.fetchall()
 
         comparison_data = [

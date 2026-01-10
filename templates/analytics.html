@@ -21,6 +21,48 @@
         </button>
     </div>
 
+    <!-- Filter Section -->
+    <div class="bg-white rounded-xl shadow-md p-4">
+        <div class="flex flex-wrap items-center gap-4">
+            <!-- Fiscal Year Filter -->
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700">ปีงบประมาณ:</label>
+                <select id="fiscal-year-filter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">ทั้งหมด</option>
+                </select>
+            </div>
+
+            <!-- Or separator -->
+            <span class="text-gray-400 text-sm">หรือ</span>
+
+            <!-- Date Range Filter -->
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700">ช่วงวันที่:</label>
+                <input type="date" id="start-date-filter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <span class="text-gray-500">-</span>
+                <input type="date" id="end-date-filter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <!-- Apply Button -->
+            <button onclick="applyFilters()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                </svg>
+                กรองข้อมูล
+            </button>
+
+            <!-- Clear Button -->
+            <button onclick="clearFilters()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
+                ล้าง
+            </button>
+
+            <!-- Current Filter Display -->
+            <div id="current-filter-display" class="ml-auto text-sm text-gray-600 hidden">
+                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded" id="filter-badge"></span>
+            </div>
+        </div>
+    </div>
+
     <!-- Overview Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="overview-cards">
         <!-- Total Claims -->
@@ -245,6 +287,100 @@
 // Chart instances
 let monthlyTrendChart, comparisonChart, serviceTypeChart, fundChart, rwChart;
 
+// Current filter state
+let currentFilters = {
+    fiscalYear: '',
+    startDate: '',
+    endDate: ''
+};
+
+// Get filter query string
+function getFilterQueryString() {
+    const params = new URLSearchParams();
+    if (currentFilters.fiscalYear) {
+        params.append('fiscal_year', currentFilters.fiscalYear);
+    } else {
+        if (currentFilters.startDate) params.append('start_date', currentFilters.startDate);
+        if (currentFilters.endDate) params.append('end_date', currentFilters.endDate);
+    }
+    const qs = params.toString();
+    return qs ? '?' + qs : '';
+}
+
+// Load fiscal years for dropdown
+async function loadFiscalYears() {
+    try {
+        const response = await fetch('/api/analytics/fiscal-years');
+        const result = await response.json();
+
+        if (result.success && result.data.length > 0) {
+            const select = document.getElementById('fiscal-year-filter');
+            result.data.forEach(fy => {
+                const option = document.createElement('option');
+                option.value = fy;
+                option.textContent = 'ปี ' + fy;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading fiscal years:', error);
+    }
+}
+
+// Apply filters
+function applyFilters() {
+    const fiscalYear = document.getElementById('fiscal-year-filter').value;
+    const startDate = document.getElementById('start-date-filter').value;
+    const endDate = document.getElementById('end-date-filter').value;
+
+    currentFilters.fiscalYear = fiscalYear;
+    currentFilters.startDate = startDate;
+    currentFilters.endDate = endDate;
+
+    // Update filter badge
+    updateFilterBadge();
+
+    // Refresh all data with new filters
+    refreshAllData();
+}
+
+// Clear filters
+function clearFilters() {
+    document.getElementById('fiscal-year-filter').value = '';
+    document.getElementById('start-date-filter').value = '';
+    document.getElementById('end-date-filter').value = '';
+
+    currentFilters.fiscalYear = '';
+    currentFilters.startDate = '';
+    currentFilters.endDate = '';
+
+    // Hide filter badge
+    document.getElementById('current-filter-display').classList.add('hidden');
+
+    // Refresh all data
+    refreshAllData();
+}
+
+// Update filter badge display
+function updateFilterBadge() {
+    const display = document.getElementById('current-filter-display');
+    const badge = document.getElementById('filter-badge');
+
+    if (currentFilters.fiscalYear) {
+        badge.textContent = 'ปีงบ ' + currentFilters.fiscalYear;
+        display.classList.remove('hidden');
+    } else if (currentFilters.startDate || currentFilters.endDate) {
+        let text = '';
+        if (currentFilters.startDate) text += currentFilters.startDate;
+        if (currentFilters.startDate && currentFilters.endDate) text += ' - ';
+        if (currentFilters.endDate) text += currentFilters.endDate;
+        badge.textContent = text;
+        display.classList.remove('hidden');
+    } else {
+        display.classList.add('hidden');
+    }
+}
+
 // Format number with commas
 function formatNumber(num) {
     if (num === null || num === undefined) return '-';
@@ -289,7 +425,7 @@ function updateTable(tbodyId, rows) {
 // Load overview data
 async function loadOverview() {
     try {
-        const response = await fetch('/api/analytics/overview');
+        const response = await fetch('/api/analytics/overview' + getFilterQueryString());
         const result = await response.json();
 
         if (result.success) {
@@ -310,7 +446,7 @@ async function loadOverview() {
 // Load monthly trend chart
 async function loadMonthlyTrend() {
     try {
-        const response = await fetch('/api/analytics/monthly-trend');
+        const response = await fetch('/api/analytics/monthly-trend' + getFilterQueryString());
         const result = await response.json();
 
         if (result.success && result.data.length > 0) {
@@ -361,7 +497,7 @@ async function loadMonthlyTrend() {
 // Load comparison chart
 async function loadComparison() {
     try {
-        const response = await fetch('/api/analytics/comparison');
+        const response = await fetch('/api/analytics/comparison' + getFilterQueryString());
         const result = await response.json();
 
         if (result.success && result.data.length > 0) {
@@ -410,7 +546,7 @@ async function loadComparison() {
 // Load service type chart
 async function loadServiceType() {
     try {
-        const response = await fetch('/api/analytics/service-type');
+        const response = await fetch('/api/analytics/service-type' + getFilterQueryString());
         const result = await response.json();
 
         if (result.success && result.data.length > 0) {
@@ -455,7 +591,7 @@ async function loadServiceType() {
 // Load fund chart
 async function loadFund() {
     try {
-        const response = await fetch('/api/analytics/fund');
+        const response = await fetch('/api/analytics/fund' + getFilterQueryString());
         const result = await response.json();
 
         if (result.success && result.data.length > 0) {
@@ -491,7 +627,7 @@ async function loadFund() {
 // Load DRG data
 async function loadDRG() {
     try {
-        const response = await fetch('/api/analytics/drg');
+        const response = await fetch('/api/analytics/drg' + getFilterQueryString());
         const result = await response.json();
 
         if (result.success) {
@@ -549,7 +685,7 @@ async function loadDRG() {
 // Load drug data
 async function loadDrug() {
     try {
-        const response = await fetch('/api/analytics/drug');
+        const response = await fetch('/api/analytics/drug' + getFilterQueryString());
         const result = await response.json();
 
         if (result.success && result.data.top_drugs && result.data.top_drugs.length > 0) {
@@ -575,7 +711,7 @@ async function loadDrug() {
 // Load instrument data
 async function loadInstrument() {
     try {
-        const response = await fetch('/api/analytics/instrument');
+        const response = await fetch('/api/analytics/instrument' + getFilterQueryString());
         const result = await response.json();
 
         if (result.success && result.data && result.data.length > 0) {
@@ -602,7 +738,7 @@ async function loadInstrument() {
 // Load denial data
 async function loadDenial() {
     try {
-        const response = await fetch('/api/analytics/denial');
+        const response = await fetch('/api/analytics/denial' + getFilterQueryString());
         const result = await response.json();
 
         if (result.success) {
@@ -640,6 +776,11 @@ function refreshAllData() {
 }
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', refreshAllData);
+document.addEventListener('DOMContentLoaded', async function() {
+    // Load fiscal years dropdown first
+    await loadFiscalYears();
+    // Then load all data
+    refreshAllData();
+});
 </script>
 {% endblock %}
