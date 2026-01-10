@@ -660,13 +660,14 @@ class EClaimImporterV2:
             logger.error(f"Failed to import ORF batch: {e}")
             raise
 
-    def import_file(self, filepath: str, metadata: Dict = None) -> Dict:
+    def import_file(self, filepath: str, metadata: Dict = None, import_additional_sheets: bool = True) -> Dict:
         """
-        Import complete file
+        Import complete file including all sheets
 
         Args:
             filepath: Path to Excel file
             metadata: Optional file metadata (will be parsed from filename if not provided)
+            import_additional_sheets: Whether to import Summary, Drug, Instrument, Deny, Zero sheets
 
         Returns:
             Dict with import results
@@ -686,6 +687,7 @@ class EClaimImporterV2:
         imported_records = 0
         failed_records = 0
         error_message = None
+        additional_results = {}
 
         try:
             # Create import record
@@ -719,6 +721,17 @@ class EClaimImporterV2:
             else:  # OP, IP, APPEAL
                 imported_records = self.import_opip_batch(file_id, df)
 
+            # Import additional sheets (Summary, Drug, Instrument, Deny, Zero)
+            if import_additional_sheets:
+                try:
+                    from .importer_sheets import AdditionalSheetsImporter
+                    sheets_importer = AdditionalSheetsImporter(self.conn, self.cursor, self.db_type)
+                    additional_results = sheets_importer.import_all_sheets(filepath, file_id, file_type)
+                    logger.info(f"Additional sheets imported: {additional_results}")
+                except Exception as e:
+                    logger.warning(f"Failed to import additional sheets: {e}")
+                    additional_results = {'error': str(e)}
+
             # Update status to completed
             self.update_import_status(
                 file_id=file_id,
@@ -733,7 +746,8 @@ class EClaimImporterV2:
                 'file_id': file_id,
                 'total_records': total_records,
                 'imported_records': imported_records,
-                'failed_records': failed_records
+                'failed_records': failed_records,
+                'additional_sheets': additional_results
             }
 
         except Exception as e:
@@ -756,7 +770,8 @@ class EClaimImporterV2:
                 'error': error_message,
                 'total_records': total_records,
                 'imported_records': imported_records,
-                'failed_records': failed_records
+                'failed_records': failed_records,
+                'additional_sheets': additional_results
             }
 
     def __enter__(self):

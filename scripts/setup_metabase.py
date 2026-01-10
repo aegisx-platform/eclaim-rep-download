@@ -512,6 +512,182 @@ class MetabaseSetup:
             for card_id, row, col, size_x, size_y in questions:
                 self.add_card_to_dashboard(dashboard_id, card_id, row, col, size_x, size_y)
 
+        # ============================================
+        # Dashboard 5: Drug Analytics
+        # ============================================
+        print("\n💊 Creating Drug Analytics Dashboard...")
+
+        questions = []
+
+        # Top Drugs by Cost
+        q13 = self.create_question(
+            "Top 20 ยาที่มียอดเบิกสูงสุด",
+            "ยาที่มีการเบิกมากที่สุด",
+            """
+            SELECT
+                COALESCE(tmt_code, 'ไม่ระบุ') as tmt_code,
+                COALESCE(generic_name, 'ไม่ระบุ') as generic_name,
+                COUNT(*) as prescription_count,
+                COALESCE(SUM(quantity), 0) as total_qty,
+                COALESCE(SUM(claim_amount), 0) as total_claim,
+                COALESCE(SUM(reimb_amount), 0) as total_reimb
+            FROM eclaim_drug
+            WHERE tmt_code IS NOT NULL
+            GROUP BY tmt_code, generic_name
+            ORDER BY total_claim DESC
+            LIMIT 20
+            """
+        )
+        if q13: questions.append((q13, 0, 0, 12, 8))
+
+        # Drug Type Distribution
+        q14 = self.create_question(
+            "สัดส่วนประเภทยา",
+            "แยกตามประเภทยา (ED, NED, etc.)",
+            """
+            SELECT
+                COALESCE(drug_type, 'ไม่ระบุ') as drug_type,
+                COUNT(*) as count,
+                COALESCE(SUM(claim_amount), 0) as total_claim
+            FROM eclaim_drug
+            GROUP BY drug_type
+            ORDER BY count DESC
+            """
+        )
+        if q14: questions.append((q14, 8, 0, 6, 5))
+
+        # Drug with Errors
+        q15 = self.create_question(
+            "ยาที่มี Error",
+            "รายการยาที่มี Error Code",
+            """
+            SELECT
+                error_code,
+                COUNT(*) as count,
+                COALESCE(SUM(claim_amount), 0) as total_claim
+            FROM eclaim_drug
+            WHERE error_code IS NOT NULL AND error_code != ''
+            GROUP BY error_code
+            ORDER BY count DESC
+            LIMIT 10
+            """
+        )
+        if q15: questions.append((q15, 8, 6, 6, 5))
+
+        dashboard_id = self.create_dashboard(
+            "Drug Analytics - วิเคราะห์ยา",
+            "Dashboard วิเคราะห์การเบิกยา"
+        )
+        if dashboard_id:
+            for card_id, row, col, size_x, size_y in questions:
+                self.add_card_to_dashboard(dashboard_id, card_id, row, col, size_x, size_y)
+
+        # ============================================
+        # Dashboard 6: Instrument Analytics
+        # ============================================
+        print("\n🔧 Creating Instrument Analytics Dashboard...")
+
+        questions = []
+
+        # Top Instruments
+        q16 = self.create_question(
+            "Top 20 อุปกรณ์ที่เบิกมากที่สุด",
+            "อุปกรณ์การแพทย์ที่มียอดเบิกสูงสุด",
+            """
+            SELECT
+                COALESCE(inst_code, 'ไม่ระบุ') as inst_code,
+                COALESCE(inst_name, 'ไม่ระบุ') as inst_name,
+                COUNT(*) as usage_count,
+                COALESCE(SUM(claim_qty), 0) as total_claim_qty,
+                COALESCE(SUM(claim_amount), 0) as total_claim,
+                COALESCE(SUM(reimb_amount), 0) as total_reimb,
+                ROUND(COALESCE(SUM(reimb_amount), 0) * 100.0 / NULLIF(COALESCE(SUM(claim_amount), 0), 0), 2) as approval_rate
+            FROM eclaim_instrument
+            WHERE inst_code IS NOT NULL
+            GROUP BY inst_code, inst_name
+            ORDER BY total_claim DESC
+            LIMIT 20
+            """
+        )
+        if q16: questions.append((q16, 0, 0, 12, 8))
+
+        # Instrument Approval Summary
+        q17 = self.create_question(
+            "สรุปการอนุมัติอุปกรณ์",
+            "เปรียบเทียบยอดเบิกและอนุมัติ",
+            """
+            SELECT
+                COUNT(*) as total_items,
+                COALESCE(SUM(claim_qty), 0) as total_claim_qty,
+                COALESCE(SUM(claim_amount), 0) as total_claim,
+                COALESCE(SUM(reimb_qty), 0) as total_reimb_qty,
+                COALESCE(SUM(reimb_amount), 0) as total_reimb,
+                ROUND(COALESCE(SUM(reimb_amount), 0) * 100.0 / NULLIF(COALESCE(SUM(claim_amount), 0), 0), 2) as overall_approval_rate
+            FROM eclaim_instrument
+            """
+        )
+        if q17: questions.append((q17, 8, 0, 12, 3))
+
+        dashboard_id = self.create_dashboard(
+            "Instrument Analytics - อุปกรณ์การแพทย์",
+            "Dashboard วิเคราะห์การเบิกอุปกรณ์การแพทย์"
+        )
+        if dashboard_id:
+            for card_id, row, col, size_x, size_y in questions:
+                self.add_card_to_dashboard(dashboard_id, card_id, row, col, size_x, size_y)
+
+        # ============================================
+        # Dashboard 7: Denial Analytics
+        # ============================================
+        print("\n❌ Creating Denial Analytics Dashboard...")
+
+        questions = []
+
+        # Deny Codes Summary
+        q18 = self.create_question(
+            "สรุป Deny Codes",
+            "รหัสปฏิเสธที่พบบ่อย",
+            """
+            SELECT
+                COALESCE(deny_code, 'ไม่ระบุ') as deny_code,
+                COALESCE(fund_code, 'ไม่ระบุ') as fund_code,
+                COUNT(*) as deny_count,
+                COALESCE(SUM(claim_amount), 0) as total_denied_amount,
+                COUNT(DISTINCT tran_id) as affected_cases
+            FROM eclaim_deny
+            GROUP BY deny_code, fund_code
+            ORDER BY deny_count DESC
+            LIMIT 20
+            """
+        )
+        if q18: questions.append((q18, 0, 0, 12, 6))
+
+        # Zero Paid Summary
+        q19 = self.create_question(
+            "รายการจ่าย 0 บาท",
+            "รายการที่ไม่ได้รับชดเชย",
+            """
+            SELECT
+                COALESCE(fund_code, 'ไม่ระบุ') as fund_code,
+                COUNT(*) as count,
+                SUM(claim_qty) as total_claim_qty,
+                SUM(paid_qty) as total_paid_qty
+            FROM eclaim_zero_paid
+            GROUP BY fund_code
+            ORDER BY count DESC
+            LIMIT 20
+            """
+        )
+        if q19: questions.append((q19, 6, 0, 12, 5))
+
+        dashboard_id = self.create_dashboard(
+            "Denial Analytics - รายการปฏิเสธ",
+            "Dashboard วิเคราะห์รายการที่ถูกปฏิเสธ"
+        )
+        if dashboard_id:
+            for card_id, row, col, size_x, size_y in questions:
+                self.add_card_to_dashboard(dashboard_id, card_id, row, col, size_x, size_y)
+
         print("\n✅ All dashboards created successfully!")
 
     def run(self):

@@ -396,5 +396,291 @@ GROUP BY f.file_type, f.status
 ORDER BY f.file_type, f.status;
 
 -- ============================================================================
+-- 5. SUMMARY TABLE (from Summary sheet)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS eclaim_summary (
+    id SERIAL PRIMARY KEY,
+    file_id INTEGER,
+    rep_period VARCHAR(20),
+    hcode VARCHAR(10),
+    rep_no VARCHAR(20),
+    file_type VARCHAR(10),
+
+    -- จำนวนราย (ข้อมูลปกติ)
+    total_cases INTEGER DEFAULT 0,
+    passed_cases INTEGER DEFAULT 0,
+    failed_cases INTEGER DEFAULT 0,
+
+    -- HC (Health Center)
+    hc_claim DECIMAL(15,2) DEFAULT 0,
+    hc_reimb DECIMAL(15,2) DEFAULT 0,
+
+    -- AE (Accident & Emergency)
+    ae_claim DECIMAL(15,2) DEFAULT 0,
+    ae_reimb DECIMAL(15,2) DEFAULT 0,
+
+    -- INST (Instrument)
+    inst_claim DECIMAL(15,2) DEFAULT 0,
+    inst_reimb DECIMAL(15,2) DEFAULT 0,
+
+    -- IP (Inpatient)
+    ip_claim DECIMAL(15,2) DEFAULT 0,
+    ip_reimb DECIMAL(15,2) DEFAULT 0,
+
+    -- DMIS (Disease Management)
+    dmis_claim DECIMAL(15,2) DEFAULT 0,
+    dmis_reimb DECIMAL(15,2) DEFAULT 0,
+
+    -- PP (Prevention & Promotion)
+    pp_claim DECIMAL(15,2) DEFAULT 0,
+    pp_reimb DECIMAL(15,2) DEFAULT 0,
+
+    -- DRUG
+    drug_claim DECIMAL(15,2) DEFAULT 0,
+    drug_reimb DECIMAL(15,2) DEFAULT 0,
+
+    -- Totals
+    reimb_agency DECIMAL(15,2) DEFAULT 0,
+    reimb_total DECIMAL(15,2) DEFAULT 0,
+
+    -- อุทธรณ์
+    appeal_reimb DECIMAL(15,2) DEFAULT 0,
+    appeal_add DECIMAL(15,2) DEFAULT 0,
+    appeal_refund DECIMAL(15,2) DEFAULT 0,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_summary_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_summary_file_id ON eclaim_summary(file_id);
+CREATE INDEX idx_summary_rep_period ON eclaim_summary(rep_period);
+CREATE INDEX idx_summary_hcode ON eclaim_summary(hcode);
+
+-- ============================================================================
+-- 6. DRUG ITEMS TABLE (from Data Drug sheet)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS eclaim_drug (
+    id SERIAL PRIMARY KEY,
+    file_id INTEGER,
+    row_number INTEGER,
+
+    -- ข้อมูลผู้ป่วย
+    tran_id VARCHAR(20),
+    hn VARCHAR(15),
+    an VARCHAR(20),
+    dateadm DATE,
+    pid VARCHAR(13),
+    patient_name VARCHAR(100),
+
+    -- ข้อมูลยา
+    drug_seq INTEGER,
+    drug_code VARCHAR(20),
+    tmt_code VARCHAR(10),
+    generic_name VARCHAR(200),
+    trade_name VARCHAR(100),
+    drug_type VARCHAR(10),
+    drug_category VARCHAR(50),
+    dosage_form VARCHAR(50),
+
+    -- ข้อมูลการเงิน
+    quantity DECIMAL(10,2) DEFAULT 0,
+    unit_price DECIMAL(15,2) DEFAULT 0,
+    claim_amount DECIMAL(15,2) DEFAULT 0,
+    ceiling_price DECIMAL(15,2) DEFAULT 0,
+    reimb_amount DECIMAL(15,2) DEFAULT 0,
+    reimb_agency DECIMAL(15,2) DEFAULT 0,
+
+    error_code VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_drug_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_drug_file_id ON eclaim_drug(file_id);
+CREATE INDEX idx_drug_tran_id ON eclaim_drug(tran_id);
+CREATE INDEX idx_drug_hn ON eclaim_drug(hn);
+CREATE INDEX idx_drug_tmt ON eclaim_drug(tmt_code);
+CREATE INDEX idx_drug_dateadm ON eclaim_drug(dateadm);
+
+-- ============================================================================
+-- 7. INSTRUMENT ITEMS TABLE (from Data Instrument sheet - IP only)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS eclaim_instrument (
+    id SERIAL PRIMARY KEY,
+    file_id INTEGER,
+    row_number INTEGER,
+
+    -- ข้อมูลผู้ป่วย
+    tran_id VARCHAR(20),
+    hn VARCHAR(15),
+    an VARCHAR(20),
+    dateadm DATE,
+    pid VARCHAR(13),
+    patient_name VARCHAR(100),
+
+    -- ข้อมูลอุปกรณ์
+    inst_seq INTEGER,
+    inst_code VARCHAR(10),
+    inst_name VARCHAR(200),
+
+    -- เรียกเก็บ
+    claim_qty INTEGER DEFAULT 0,
+    claim_amount DECIMAL(15,2) DEFAULT 0,
+
+    -- จ่ายชดเชย
+    reimb_qty INTEGER DEFAULT 0,
+    reimb_amount DECIMAL(15,2) DEFAULT 0,
+
+    deny_flag VARCHAR(10),
+    error_code VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_instrument_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_instrument_file_id ON eclaim_instrument(file_id);
+CREATE INDEX idx_instrument_tran_id ON eclaim_instrument(tran_id);
+CREATE INDEX idx_instrument_hn ON eclaim_instrument(hn);
+CREATE INDEX idx_instrument_code ON eclaim_instrument(inst_code);
+CREATE INDEX idx_instrument_dateadm ON eclaim_instrument(dateadm);
+
+-- ============================================================================
+-- 8. DENY ITEMS TABLE (from Data DENY sheet - IP only)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS eclaim_deny (
+    id SERIAL PRIMARY KEY,
+    file_id INTEGER,
+    row_number INTEGER,
+
+    -- ข้อมูลผู้ป่วย
+    tran_id VARCHAR(20),
+    hcode VARCHAR(10),
+    hn VARCHAR(15),
+    an VARCHAR(20),
+    dateadm DATE,
+    pid VARCHAR(13),
+    patient_name VARCHAR(100),
+
+    -- ข้อมูลการปฏิเสธ
+    fund_code VARCHAR(20),
+    claim_code VARCHAR(20),
+    expense_category INTEGER,
+    claim_amount DECIMAL(15,2) DEFAULT 0,
+    deny_code VARCHAR(20),
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_deny_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_deny_file_id ON eclaim_deny(file_id);
+CREATE INDEX idx_deny_tran_id ON eclaim_deny(tran_id);
+CREATE INDEX idx_deny_hn ON eclaim_deny(hn);
+CREATE INDEX idx_deny_code ON eclaim_deny(deny_code);
+CREATE INDEX idx_deny_fund ON eclaim_deny(fund_code);
+CREATE INDEX idx_deny_dateadm ON eclaim_deny(dateadm);
+
+-- ============================================================================
+-- 9. ZERO PAID ITEMS TABLE (from Data sheet 0)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS eclaim_zero_paid (
+    id SERIAL PRIMARY KEY,
+    file_id INTEGER,
+    row_number INTEGER,
+
+    -- ข้อมูลผู้ป่วย
+    tran_id VARCHAR(20),
+    hcode VARCHAR(10),
+    hn VARCHAR(15),
+    an VARCHAR(20),
+    dateadm DATE,
+    pid VARCHAR(13),
+    patient_name VARCHAR(100),
+
+    -- ข้อมูลรายการ
+    fund_code VARCHAR(20),
+    claim_code VARCHAR(20),
+    tmt_code VARCHAR(10),
+    expense_category INTEGER,
+    claim_qty INTEGER DEFAULT 0,
+    paid_qty INTEGER DEFAULT 0,
+    paid_amount DECIMAL(15,2) DEFAULT 0,
+    reason VARCHAR(200),
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_zero_paid_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_zero_paid_file_id ON eclaim_zero_paid(file_id);
+CREATE INDEX idx_zero_paid_tran_id ON eclaim_zero_paid(tran_id);
+CREATE INDEX idx_zero_paid_hn ON eclaim_zero_paid(hn);
+CREATE INDEX idx_zero_paid_fund ON eclaim_zero_paid(fund_code);
+CREATE INDEX idx_zero_paid_dateadm ON eclaim_zero_paid(dateadm);
+
+-- ============================================================================
+-- 10. ADDITIONAL VIEWS FOR NEW TABLES
+-- ============================================================================
+
+-- Drug Analytics View
+CREATE OR REPLACE VIEW v_drug_analytics AS
+SELECT
+    d.tmt_code,
+    d.generic_name,
+    d.drug_type,
+    COUNT(*) as prescription_count,
+    SUM(d.quantity) as total_quantity,
+    SUM(d.claim_amount) as total_claim,
+    SUM(d.reimb_amount) as total_reimb,
+    AVG(d.unit_price) as avg_unit_price,
+    COUNT(CASE WHEN d.error_code IS NOT NULL AND d.error_code != '' THEN 1 END) as error_count
+FROM eclaim_drug d
+GROUP BY d.tmt_code, d.generic_name, d.drug_type
+ORDER BY total_claim DESC;
+
+-- Deny Analytics View
+CREATE OR REPLACE VIEW v_deny_analytics AS
+SELECT
+    d.deny_code,
+    d.fund_code,
+    COUNT(*) as deny_count,
+    SUM(d.claim_amount) as total_denied_amount,
+    COUNT(DISTINCT d.tran_id) as affected_cases
+FROM eclaim_deny d
+GROUP BY d.deny_code, d.fund_code
+ORDER BY deny_count DESC;
+
+-- Instrument Analytics View
+CREATE OR REPLACE VIEW v_instrument_analytics AS
+SELECT
+    i.inst_code,
+    i.inst_name,
+    COUNT(*) as usage_count,
+    SUM(i.claim_qty) as total_claim_qty,
+    SUM(i.claim_amount) as total_claim,
+    SUM(i.reimb_qty) as total_reimb_qty,
+    SUM(i.reimb_amount) as total_reimb,
+    ROUND(SUM(i.reimb_amount) * 100.0 / NULLIF(SUM(i.claim_amount), 0), 2) as approval_rate
+FROM eclaim_instrument i
+GROUP BY i.inst_code, i.inst_name
+ORDER BY total_claim DESC;
+
+-- Monthly Summary View
+CREATE OR REPLACE VIEW v_monthly_summary AS
+SELECT
+    s.rep_period,
+    s.file_type,
+    SUM(s.total_cases) as total_cases,
+    SUM(s.passed_cases) as passed_cases,
+    SUM(s.failed_cases) as failed_cases,
+    SUM(s.hc_claim + s.ae_claim + s.inst_claim + s.ip_claim + s.dmis_claim + s.pp_claim + s.drug_claim) as total_claim,
+    SUM(s.hc_reimb + s.ae_reimb + s.inst_reimb + s.ip_reimb + s.dmis_reimb + s.pp_reimb + s.drug_reimb) as total_reimb,
+    SUM(s.reimb_total) as grand_total
+FROM eclaim_summary s
+GROUP BY s.rep_period, s.file_type
+ORDER BY s.rep_period DESC;
+
+-- ============================================================================
 -- END OF SCHEMA
 -- ============================================================================
