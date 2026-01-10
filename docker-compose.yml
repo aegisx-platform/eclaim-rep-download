@@ -72,6 +72,32 @@ services:
       retries: 3
       start_period: 40s
 
+  # Metabase (Optional - for data analytics dashboards)
+  metabase:
+    image: metabase/metabase:latest
+    container_name: eclaim-metabase
+    restart: unless-stopped
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+      JAVA_TIMEZONE: Asia/Bangkok
+    volumes:
+      - metabase_data:/metabase-data
+    ports:
+      - "3000:3000"
+    networks:
+      - eclaim-network
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - analytics  # Start with: docker-compose --profile analytics up -d
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
   # pgAdmin (Optional - for database management)
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -99,6 +125,8 @@ networks:
 
 volumes:
   postgres_data:
+    driver: local
+  metabase_data:
     driver: local
   pgadmin_data:
     driver: local
