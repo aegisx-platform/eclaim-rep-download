@@ -37,15 +37,7 @@
             <div>
                 <label for="single-year" class="block text-sm font-medium text-gray-700 mb-1">Year (Buddhist Era)</label>
                 <select id="single-year" class="border border-gray-300 rounded-md px-4 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="2569">2569 BE (2026 AD)</option>
-                    <option value="2568">2568 BE (2025 AD)</option>
-                    <option value="2567">2567 BE (2024 AD)</option>
-                    <option value="2566">2566 BE (2023 AD)</option>
-                    <option value="2565">2565 BE (2022 AD)</option>
-                    <option value="2564">2564 BE (2021 AD)</option>
-                    <option value="2563">2563 BE (2020 AD)</option>
-                    <option value="2562">2562 BE (2019 AD)</option>
-                    <option value="2561">2561 BE (2018 AD)</option>
+                    <!-- Generated dynamically -->
                 </select>
             </div>
 
@@ -95,15 +87,7 @@
                         <option value="12">ธันวาคม (Dec)</option>
                     </select>
                     <select id="bulk-start-year" class="w-32 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500">
-                        <option value="2569">2569</option>
-                        <option value="2568">2568</option>
-                        <option value="2567">2567</option>
-                        <option value="2566">2566</option>
-                        <option value="2565">2565</option>
-                        <option value="2564">2564</option>
-                        <option value="2563">2563</option>
-                        <option value="2562">2562</option>
-                        <option value="2561">2561</option>
+                        <!-- Generated dynamically -->
                     </select>
                 </div>
             </div>
@@ -127,15 +111,7 @@
                         <option value="12">ธันวาคม (Dec)</option>
                     </select>
                     <select id="bulk-end-year" class="w-32 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500">
-                        <option value="2569">2569</option>
-                        <option value="2568">2568</option>
-                        <option value="2567">2567</option>
-                        <option value="2566">2566</option>
-                        <option value="2565">2565</option>
-                        <option value="2564">2564</option>
-                        <option value="2563">2563</option>
-                        <option value="2562">2562</option>
-                        <option value="2561">2561</option>
+                        <!-- Generated dynamically -->
                     </select>
                 </div>
             </div>
@@ -194,8 +170,61 @@
 </div>
 
 <script>
+// Generate year options dynamically based on current year
+function populateYearDropdowns() {
+    const currentYear = new Date().getFullYear();
+    const currentYearBE = currentYear + 543; // Buddhist Era
+    const currentMonth = new Date().getMonth() + 1; // 1-12
+
+    // Generate years from current year down to 8 years ago
+    const yearSelects = [
+        { id: 'single-year', showAD: true },
+        { id: 'bulk-start-year', showAD: false },
+        { id: 'bulk-end-year', showAD: false }
+    ];
+
+    yearSelects.forEach(config => {
+        const select = document.getElementById(config.id);
+        if (!select) return;
+
+        // Clear existing options using DOM methods
+        while (select.firstChild) {
+            select.removeChild(select.firstChild);
+        }
+
+        for (let i = 0; i <= 8; i++) {
+            const yearBE = currentYearBE - i;
+            const yearAD = yearBE - 543;
+            const option = document.createElement('option');
+            option.value = yearBE;
+
+            if (config.showAD) {
+                option.textContent = yearBE + ' BE (' + yearAD + ' AD)';
+            } else {
+                option.textContent = yearBE;
+            }
+
+            // Select current year by default
+            if (i === 0) {
+                option.selected = true;
+            }
+
+            select.appendChild(option);
+        }
+    });
+
+    // Set current month for single month dropdown
+    const singleMonthSelect = document.getElementById('single-month');
+    if (singleMonthSelect) {
+        singleMonthSelect.value = currentMonth;
+    }
+}
+
 // Update bulk estimate on selection change
 document.addEventListener('DOMContentLoaded', function() {
+    // Populate year dropdowns first
+    populateYearDropdowns();
+
     const updateEstimate = () => {
         const startMonth = parseInt(document.getElementById('bulk-start-month').value);
         const startYear = parseInt(document.getElementById('bulk-start-year').value);
