@@ -1,0 +1,873 @@
+{% extends "base.html" %}
+
+{% block title %}Data Management - NHSO Revenue Intelligence{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-6">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">Data Management</h2>
+    <p class="text-gray-600">จัดการข้อมูล E-Claim: Download, Import, และตั้งค่าระบบ</p>
+</div>
+
+<!-- Tab Navigation -->
+<div class="bg-white rounded-t-lg shadow-md border-b">
+    <nav class="flex" id="tab-nav">
+        <button onclick="switchTab('download')" id="tab-download" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-blue-600 text-blue-600">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            Download
+        </button>
+        <button onclick="switchTab('files')" id="tab-files" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            Files ({{ stats.total_files }})
+        </button>
+        <button onclick="switchTab('smt')" id="tab-smt" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            SMT Budget
+        </button>
+        <button onclick="switchTab('settings')" id="tab-settings" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            Settings
+        </button>
+    </nav>
+</div>
+
+<!-- Tab Content Container -->
+<div class="bg-white rounded-b-lg shadow-md">
+
+    <!-- ==================== DOWNLOAD TAB ==================== -->
+    <div id="content-download" class="tab-content p-6">
+        <!-- Data Source Reference -->
+        <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="flex items-center">
+                <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <p class="text-sm text-blue-800">
+                    <span class="font-medium">Data Source:</span>
+                    <a href="https://eclaim.nhso.go.th" target="_blank" class="underline hover:text-blue-600">
+                        https://eclaim.nhso.go.th
+                    </a>
+                    - ระบบ E-Claim สำนักงานหลักประกันสุขภาพแห่งชาติ (สปสช.)
+                </p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Single Month Download -->
+            <div class="border border-gray-200 rounded-lg p-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center text-blue-700">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    Single Month
+                </h3>
+                <p class="text-gray-600 text-sm mb-4">Download ข้อมูลรายเดือน</p>
+
+                <div class="space-y-4">
+                    <div class="flex gap-3">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                            <select id="single-month" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                                <option value="1">มกราคม</option>
+                                <option value="2">กุมภาพันธ์</option>
+                                <option value="3">มีนาคม</option>
+                                <option value="4">เมษายน</option>
+                                <option value="5">พฤษภาคม</option>
+                                <option value="6">มิถุนายน</option>
+                                <option value="7">กรกฎาคม</option>
+                                <option value="8">สิงหาคม</option>
+                                <option value="9">กันยายน</option>
+                                <option value="10">ตุลาคม</option>
+                                <option value="11">พฤศจิกายน</option>
+                                <option value="12">ธันวาคม</option>
+                            </select>
+                        </div>
+                        <div class="w-32">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Year (พ.ศ.)</label>
+                            <select id="single-year" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                            </select>
+                        </div>
+                    </div>
+
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="single-auto-import" class="w-4 h-4 text-blue-600 rounded" checked>
+                        <span class="ml-2 text-sm text-gray-700">Auto-import to database</span>
+                    </label>
+
+                    <button onclick="downloadSingleMonth()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium transition-colors">
+                        Download
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bulk Download -->
+            <div class="border border-gray-200 rounded-lg p-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center text-orange-700">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                    Bulk Download (Date Range)
+                </h3>
+                <p class="text-gray-600 text-sm mb-4">Download ข้อมูลหลายเดือนพร้อมกัน</p>
+
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Start</label>
+                            <div class="flex gap-1">
+                                <select id="bulk-start-month" class="flex-1 border border-gray-300 rounded-md px-2 py-2 text-sm">
+                                    <option value="1">ม.ค.</option>
+                                    <option value="2">ก.พ.</option>
+                                    <option value="3">มี.ค.</option>
+                                    <option value="4">เม.ย.</option>
+                                    <option value="5">พ.ค.</option>
+                                    <option value="6">มิ.ย.</option>
+                                    <option value="7">ก.ค.</option>
+                                    <option value="8">ส.ค.</option>
+                                    <option value="9">ก.ย.</option>
+                                    <option value="10">ต.ค.</option>
+                                    <option value="11">พ.ย.</option>
+                                    <option value="12">ธ.ค.</option>
+                                </select>
+                                <select id="bulk-start-year" class="w-20 border border-gray-300 rounded-md px-2 py-2 text-sm">
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">End</label>
+                            <div class="flex gap-1">
+                                <select id="bulk-end-month" class="flex-1 border border-gray-300 rounded-md px-2 py-2 text-sm">
+                                    <option value="1">ม.ค.</option>
+                                    <option value="2">ก.พ.</option>
+                                    <option value="3">มี.ค.</option>
+                                    <option value="4">เม.ย.</option>
+                                    <option value="5">พ.ค.</option>
+                                    <option value="6">มิ.ย.</option>
+                                    <option value="7">ก.ค.</option>
+                                    <option value="8">ส.ค.</option>
+                                    <option value="9">ก.ย.</option>
+                                    <option value="10">ต.ค.</option>
+                                    <option value="11">พ.ย.</option>
+                                    <option value="12">ธ.ค.</option>
+                                </select>
+                                <select id="bulk-end-year" class="w-20 border border-gray-300 rounded-md px-2 py-2 text-sm">
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p id="bulk-estimate" class="text-sm text-gray-500"></p>
+
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="bulk-auto-import" class="w-4 h-4 text-orange-600 rounded" checked>
+                        <span class="ml-2 text-sm text-gray-700">Auto-import to database</span>
+                    </label>
+
+                    <button onclick="downloadBulk()" class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md font-medium transition-colors">
+                        Download All Months
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Progress -->
+        <div id="bulk-progress" class="hidden mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-blue-900 mb-4">Downloading...</h3>
+            <div class="mb-4">
+                <div class="flex justify-between text-sm text-blue-900 mb-2">
+                    <span>Current: <span id="current-month" class="font-semibold"></span></span>
+                    <span id="progress-count" class="font-semibold">0 / 0 months</span>
+                </div>
+                <div class="w-full bg-blue-200 rounded-full h-4 overflow-hidden">
+                    <div id="progress-bar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+            <span id="progress-percentage" class="text-lg font-bold text-blue-900">0%</span>
+        </div>
+
+        <!-- Scheduler Section -->
+        <div class="mt-6 border border-gray-200 rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Auto Download Schedule
+                </h3>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="schedule-enabled" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+            </div>
+
+            <div id="schedule-times-container" class="space-y-2 mb-4">
+                <p class="text-sm text-gray-500" id="no-schedules-message">ยังไม่มีเวลาที่ตั้งไว้</p>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button onclick="addScheduleTime()" class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md font-medium text-sm">
+                    + Add Time
+                </button>
+                <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" id="schedule-auto-import" class="w-4 h-4 text-purple-600 rounded">
+                    <span class="ml-2 text-sm text-gray-700">Auto-import</span>
+                </label>
+                <button onclick="saveScheduleSettings()" class="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md font-medium text-sm">
+                    Save Schedule
+                </button>
+            </div>
+
+            <!-- Schedule Status -->
+            <div id="schedule-status-box" class="mt-4 p-3 bg-gray-50 rounded-lg text-sm">
+                <span id="schedule-status">Loading...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== FILES TAB ==================== -->
+    <div id="content-files" class="tab-content p-6 hidden">
+        <!-- File Stats -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-blue-50 rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-blue-700">{{ stats.total_files }}</p>
+                <p class="text-sm text-blue-600">Total Files</p>
+            </div>
+            <div class="bg-green-50 rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-green-700">{{ stats.imported_count }}</p>
+                <p class="text-sm text-green-600">Imported</p>
+            </div>
+            <div class="bg-yellow-50 rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-yellow-700">{{ stats.not_imported_count }}</p>
+                <p class="text-sm text-yellow-600">Pending</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-gray-700">{{ stats.total_size }}</p>
+                <p class="text-sm text-gray-600">Total Size</p>
+            </div>
+        </div>
+
+        <!-- Filter and Actions -->
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <select id="file-month-filter" onchange="filterFilesByMonth()" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    {% for date in available_dates %}
+                    <option value="{{ date.month }},{{ date.year }}" {% if date.month == filter_month and date.year == filter_year %}selected{% endif %}>
+                        {{ date.label }} ({{ date.count }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="flex gap-1">
+                    <button onclick="filterFilesStatus('all')" id="filter-all" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white">All</button>
+                    <button onclick="filterFilesStatus('imported')" id="filter-imported" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700">Imported</button>
+                    <button onclick="filterFilesStatus('pending')" id="filter-pending" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700">Pending</button>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                {% if stats.not_imported_count > 0 %}
+                <button onclick="importAllFiles()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium text-sm">
+                    Import All ({{ stats.not_imported_count }})
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Files Table -->
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Filename</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="files-table-body">
+                    {% for file in files %}
+                    <tr class="hover:bg-gray-50 file-row" data-status="{% if file.imported %}imported{% else %}pending{% endif %}">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center">
+                                {% if '_OP_' in file.filename %}
+                                <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                                {% elif '_IP_' in file.filename %}
+                                <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                                {% elif '_ORF_' in file.filename %}
+                                <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                                {% else %}
+                                <span class="w-2 h-2 bg-gray-500 rounded-full mr-2"></span>
+                                {% endif %}
+                                <span class="text-sm font-medium text-gray-900">{{ file.filename }}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ file.date_formatted }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ file.size_formatted }}</td>
+                        <td class="px-4 py-3">
+                            {% if file.imported %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Imported ({{ file.import_status.imported_records }})
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                Pending
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            {% if not file.imported %}
+                            <button onclick="importFile('{{ file.filename }}')" class="text-purple-600 hover:text-purple-800 text-sm font-medium mr-2">Import</button>
+                            {% endif %}
+                            <a href="{{ url_for('download_file', filename=file.filename) }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium mr-2">Download</a>
+                            <button onclick="deleteFile('{{ file.filename }}')" class="text-red-600 hover:text-red-800 text-sm font-medium">Delete</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                            No files found. Click Download tab to start downloading.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="mt-4 flex items-center justify-between">
+            <p class="text-sm text-gray-600">Page {{ page }} of {{ total_pages }}</p>
+            <div class="flex gap-2">
+                {% if page > 1 %}
+                <a href="?tab=files&page={{ page - 1 }}&month={{ filter_month }}&year={{ filter_year }}" class="px-3 py-1 border rounded text-sm">Previous</a>
+                {% endif %}
+                {% if page < total_pages %}
+                <a href="?tab=files&page={{ page + 1 }}&month={{ filter_month }}&year={{ filter_year }}" class="px-3 py-1 border rounded text-sm">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ==================== SMT TAB ==================== -->
+    <div id="content-smt" class="tab-content p-6 hidden">
+        <div class="max-w-2xl">
+            <h3 class="text-lg font-semibold mb-4 flex items-center">
+                <svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                SMT Budget Data Sync
+            </h3>
+
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <p class="text-sm text-green-800">
+                    <span class="font-medium">Data Source:</span>
+                    <a href="https://smt.nhso.go.th" target="_blank" class="underline hover:text-green-600">
+                        https://smt.nhso.go.th
+                    </a>
+                    - ระบบงบประมาณ สปสช.
+                </p>
+            </div>
+
+            <p class="text-gray-600 mb-6">
+                ดึงข้อมูลการจ่ายเงินจากระบบ SMT เพื่อนำมากระทบยอดกับข้อมูล E-Claim
+            </p>
+
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fiscal Year (ปีงบประมาณ)</label>
+                        <select id="smt-fiscal-year" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                            <!-- Generated dynamically -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                        <select id="smt-month" class="w-full border border-gray-300 rounded-md px-3 py-2">
+                            <option value="">All Months</option>
+                            <option value="10">ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button onclick="fetchSmtData()" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">
+                    Fetch SMT Budget Data
+                </button>
+            </div>
+
+            <!-- SMT Sync Status -->
+            <div id="smt-status" class="mt-6 p-4 bg-gray-50 rounded-lg">
+                <p class="text-sm text-gray-600">Last sync: <span id="smt-last-sync">-</span></p>
+                <p class="text-sm text-gray-600">Records: <span id="smt-record-count">-</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SETTINGS TAB ==================== -->
+    <div id="content-settings" class="tab-content p-6 hidden">
+        <div class="max-w-2xl">
+            <!-- Credentials Section -->
+            <div class="border border-gray-200 rounded-lg p-6 mb-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                    </svg>
+                    E-Claim Credentials
+                </h3>
+
+                <form id="credentials-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <input type="text" id="eclaim-username" name="eclaim_username" value="{{ settings.eclaim_username }}"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <div class="relative">
+                            <input type="password" id="eclaim-password" name="eclaim_password" value="{{ settings.eclaim_password }}"
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 pr-10 focus:ring-2 focus:ring-blue-500" required>
+                            <button type="button" onclick="togglePasswordVisibility('eclaim-password')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium">
+                            Save Credentials
+                        </button>
+                        <button type="button" onclick="testConnection()" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">
+                            Test Connection
+                        </button>
+                    </div>
+                </form>
+
+                <div id="connection-status" class="hidden mt-4 p-3 rounded-lg"></div>
+            </div>
+
+            <!-- Database Info -->
+            <div class="border border-gray-200 rounded-lg p-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                    </svg>
+                    Database Status
+                </h3>
+
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div class="bg-gray-50 rounded p-3">
+                        <p class="text-gray-500">Type</p>
+                        <p class="font-medium">{{ db_info.type | default('PostgreSQL') }}</p>
+                    </div>
+                    <div class="bg-gray-50 rounded p-3">
+                        <p class="text-gray-500">Status</p>
+                        <p class="font-medium text-green-600">Connected</p>
+                    </div>
+                    <div class="bg-gray-50 rounded p-3">
+                        <p class="text-gray-500">Claims Records</p>
+                        <p class="font-medium">{{ db_info.claims_count | default(0) | number_format }}</p>
+                    </div>
+                    <div class="bg-gray-50 rounded p-3">
+                        <p class="text-gray-500">Budget Records</p>
+                        <p class="font-medium">{{ db_info.budget_count | default(0) | number_format }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Progress Modal -->
+<div id="import-progress-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Importing Files to Database</h3>
+        <div class="mb-4">
+            <div class="flex justify-between text-sm text-gray-600 mb-2">
+                <span id="import-progress-text">Preparing...</span>
+                <span id="import-progress-percentage">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-4">
+                <div id="import-progress-bar" class="bg-blue-600 h-4 rounded-full transition-all" style="width: 0%"></div>
+            </div>
+            <div class="mt-2 text-sm text-gray-600">
+                <span id="import-file-count">0 / 0 files</span> |
+                <span id="import-record-count">0 records</span>
+            </div>
+        </div>
+        <div class="bg-gray-50 rounded p-3 mb-4">
+            <div class="text-xs text-gray-500">Current File:</div>
+            <div id="import-current-file" class="text-sm font-mono truncate">-</div>
+        </div>
+        <button onclick="closeImportModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+            Run in Background
+        </button>
+    </div>
+</div>
+
+<script>
+let scheduleTimes = [];
+let currentTab = 'download';
+
+// Tab switching
+function switchTab(tab) {
+    currentTab = tab;
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(function(el) {
+        el.classList.add('hidden');
+    });
+    // Show selected tab content
+    document.getElementById('content-' + tab).classList.remove('hidden');
+
+    // Update tab button styles
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        btn.classList.remove('border-blue-600', 'text-blue-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
+    var activeBtn = document.getElementById('tab-' + tab);
+    activeBtn.classList.remove('border-transparent', 'text-gray-500');
+    activeBtn.classList.add('border-blue-600', 'text-blue-600');
+
+    // Update URL without reload
+    var url = new URL(window.location);
+    url.searchParams.set('tab', tab);
+    window.history.pushState({}, '', url);
+}
+
+// Initialize from URL params
+function initFromUrl() {
+    var params = new URLSearchParams(window.location.search);
+    var tab = params.get('tab') || 'download';
+    switchTab(tab);
+}
+
+// Year dropdowns
+function populateYearDropdowns() {
+    var currentYear = new Date().getFullYear();
+    var currentYearBE = currentYear + 543;
+    var currentMonth = new Date().getMonth() + 1;
+
+    var yearSelects = ['single-year', 'bulk-start-year', 'bulk-end-year', 'smt-fiscal-year'];
+
+    yearSelects.forEach(function(id) {
+        var select = document.getElementById(id);
+        if (!select) return;
+
+        while (select.firstChild) select.removeChild(select.firstChild);
+
+        for (var i = 0; i <= 8; i++) {
+            var yearBE = currentYearBE - i;
+            var option = document.createElement('option');
+            option.value = yearBE;
+            option.textContent = yearBE;
+            if (i === 0) option.selected = true;
+            select.appendChild(option);
+        }
+    });
+
+    // Set current month
+    var singleMonthSelect = document.getElementById('single-month');
+    if (singleMonthSelect) singleMonthSelect.value = currentMonth;
+}
+
+// Update bulk estimate
+function updateBulkEstimate() {
+    var startMonth = parseInt(document.getElementById('bulk-start-month').value);
+    var startYear = parseInt(document.getElementById('bulk-start-year').value);
+    var endMonth = parseInt(document.getElementById('bulk-end-month').value);
+    var endYear = parseInt(document.getElementById('bulk-end-year').value);
+
+    if (typeof calculateMonthsBetween === 'function') {
+        var totalMonths = calculateMonthsBetween(startMonth, startYear, endMonth, endYear);
+        document.getElementById('bulk-estimate').textContent =
+            'Estimated: ~' + totalMonths + ' minute(s) (' + totalMonths + ' month(s))';
+    }
+}
+
+// File filtering
+function filterFilesStatus(status) {
+    document.querySelectorAll('.file-filter-btn').forEach(function(btn) {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-gray-200', 'text-gray-700');
+    });
+    document.getElementById('filter-' + status).classList.remove('bg-gray-200', 'text-gray-700');
+    document.getElementById('filter-' + status).classList.add('bg-blue-600', 'text-white');
+
+    document.querySelectorAll('.file-row').forEach(function(row) {
+        if (status === 'all') {
+            row.style.display = '';
+        } else {
+            row.style.display = row.dataset.status === status ? '' : 'none';
+        }
+    });
+}
+
+function filterFilesByMonth() {
+    var select = document.getElementById('file-month-filter');
+    var parts = select.value.split(',');
+    var month = parts[0];
+    var year = parts[1];
+    window.location.href = '?tab=files&month=' + month + '&year=' + year + '&page=1';
+}
+
+// Password toggle
+function togglePasswordVisibility(inputId) {
+    var input = document.getElementById(inputId);
+    input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+// Schedule management
+async function loadScheduleSettings() {
+    try {
+        var response = await fetch('/api/schedule');
+        var data = await response.json();
+
+        if (data.success) {
+            document.getElementById('schedule-enabled').checked = data.settings.schedule_enabled;
+            document.getElementById('schedule-auto-import').checked = data.settings.schedule_auto_import;
+            scheduleTimes = data.settings.schedule_times || [];
+            renderScheduleTimes();
+            displayScheduleStatus(data.jobs);
+        }
+    } catch (error) {
+        console.error('Error loading schedule:', error);
+    }
+}
+
+function renderScheduleTimes() {
+    var container = document.getElementById('schedule-times-container');
+    var msg = document.getElementById('no-schedules-message');
+
+    // Remove existing schedule items
+    var existingItems = container.querySelectorAll('.schedule-item');
+    existingItems.forEach(function(el) { el.remove(); });
+
+    if (scheduleTimes.length === 0) {
+        msg.style.display = 'block';
+        return;
+    }
+
+    msg.style.display = 'none';
+
+    scheduleTimes.forEach(function(time, index) {
+        var item = document.createElement('div');
+        item.className = 'schedule-item flex items-center gap-2 p-2 bg-gray-50 rounded';
+
+        // Hour input
+        var hourInput = document.createElement('input');
+        hourInput.type = 'number';
+        hourInput.min = '0';
+        hourInput.max = '23';
+        hourInput.value = time.hour;
+        hourInput.className = 'w-16 px-2 py-1 border rounded text-center text-sm';
+        hourInput.onchange = function() { scheduleTimes[index].hour = parseInt(this.value); };
+
+        var colon = document.createElement('span');
+        colon.textContent = ':';
+
+        // Minute input
+        var minuteInput = document.createElement('input');
+        minuteInput.type = 'number';
+        minuteInput.min = '0';
+        minuteInput.max = '59';
+        minuteInput.value = String(time.minute).padStart(2, '0');
+        minuteInput.className = 'w-16 px-2 py-1 border rounded text-center text-sm';
+        minuteInput.onchange = function() { scheduleTimes[index].minute = parseInt(this.value); };
+
+        var timeLabel = document.createElement('span');
+        timeLabel.className = 'text-sm text-gray-500';
+        timeLabel.textContent = '(' + String(time.hour).padStart(2, '0') + ':' + String(time.minute).padStart(2, '0') + ')';
+
+        // Delete button
+        var deleteBtn = document.createElement('button');
+        deleteBtn.className = 'text-red-600 hover:text-red-800 ml-auto';
+        deleteBtn.onclick = function() { removeScheduleTime(index); };
+
+        var deleteIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        deleteIcon.setAttribute('class', 'w-4 h-4');
+        deleteIcon.setAttribute('fill', 'none');
+        deleteIcon.setAttribute('stroke', 'currentColor');
+        deleteIcon.setAttribute('viewBox', '0 0 24 24');
+
+        var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('d', 'M6 18L18 6M6 6l12 12');
+
+        deleteIcon.appendChild(path);
+        deleteBtn.appendChild(deleteIcon);
+
+        item.appendChild(hourInput);
+        item.appendChild(colon);
+        item.appendChild(minuteInput);
+        item.appendChild(timeLabel);
+        item.appendChild(deleteBtn);
+
+        container.appendChild(item);
+    });
+}
+
+function addScheduleTime() {
+    scheduleTimes.push({ hour: 9, minute: 0 });
+    renderScheduleTimes();
+}
+
+function removeScheduleTime(index) {
+    scheduleTimes.splice(index, 1);
+    renderScheduleTimes();
+}
+
+async function saveScheduleSettings() {
+    try {
+        var response = await fetch('/api/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                schedule_enabled: document.getElementById('schedule-enabled').checked,
+                schedule_times: scheduleTimes,
+                schedule_auto_import: document.getElementById('schedule-auto-import').checked
+            })
+        });
+
+        var result = await response.json();
+        if (result.success) {
+            showToast('Schedule saved!', 'success');
+            loadScheduleSettings();
+        } else {
+            showToast(result.error || 'Failed to save', 'error');
+        }
+    } catch (error) {
+        showToast('Error saving schedule', 'error');
+    }
+}
+
+function displayScheduleStatus(jobs) {
+    var statusDiv = document.getElementById('schedule-status');
+    if (!jobs || jobs.length === 0) {
+        statusDiv.textContent = 'No scheduled jobs';
+        return;
+    }
+
+    var jobsText = jobs.map(function(job) {
+        var nextRun = job.next_run_time ? new Date(job.next_run_time).toLocaleString('th-TH') : 'N/A';
+        return 'Next: ' + nextRun;
+    }).join(' | ');
+
+    statusDiv.textContent = jobsText;
+}
+
+// Credentials form
+document.getElementById('credentials-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    var data = {
+        eclaim_username: document.getElementById('eclaim-username').value,
+        eclaim_password: document.getElementById('eclaim-password').value
+    };
+
+    try {
+        var response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        var result = await response.json();
+        if (result.success) {
+            showToast('Settings saved!', 'success');
+        } else {
+            showToast(result.error || 'Failed to save', 'error');
+        }
+    } catch (error) {
+        showToast('Error saving settings', 'error');
+    }
+});
+
+async function testConnection() {
+    var statusDiv = document.getElementById('connection-status');
+    statusDiv.classList.remove('hidden');
+    statusDiv.className = 'mt-4 p-3 rounded-lg bg-gray-100';
+    statusDiv.textContent = 'Testing connection...';
+
+    try {
+        var response = await fetch('/api/settings/test-connection', { method: 'POST' });
+        var result = await response.json();
+
+        if (result.success) {
+            statusDiv.className = 'mt-4 p-3 rounded-lg bg-green-100 text-green-800';
+            statusDiv.textContent = result.message;
+        } else {
+            statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-800';
+            statusDiv.textContent = result.error;
+        }
+    } catch (error) {
+        statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-800';
+        statusDiv.textContent = 'Network error';
+    }
+}
+
+// SMT Fetch
+async function fetchSmtData() {
+    var fiscalYear = document.getElementById('smt-fiscal-year').value;
+    var month = document.getElementById('smt-month').value;
+
+    try {
+        showToast('Fetching SMT data...', 'info');
+
+        var url = month
+            ? '/api/smt/fetch?fiscal_year=' + fiscalYear + '&month=' + month
+            : '/api/smt/fetch?fiscal_year=' + fiscalYear;
+
+        var response = await fetch(url, { method: 'POST' });
+        var result = await response.json();
+
+        if (result.success) {
+            showToast('SMT data fetched successfully!', 'success');
+            document.getElementById('smt-last-sync').textContent = new Date().toLocaleString('th-TH');
+            document.getElementById('smt-record-count').textContent = result.records || 0;
+        } else {
+            showToast(result.error || 'Failed to fetch', 'error');
+        }
+    } catch (error) {
+        showToast('Error fetching SMT data', 'error');
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    initFromUrl();
+    populateYearDropdowns();
+    loadScheduleSettings();
+
+    // Bulk estimate listeners
+    ['bulk-start-month', 'bulk-start-year', 'bulk-end-month', 'bulk-end-year'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', updateBulkEstimate);
+    });
+
+    updateBulkEstimate();
+});
+</script>
+{% endblock %}

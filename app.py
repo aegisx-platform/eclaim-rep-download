@@ -419,6 +419,148 @@ def download_config():
     return render_template('download_config.html')
 
 
+@app.route('/data-management')
+def data_management():
+    """
+    Combined Data Management page with tabs for:
+    - Download (single month, bulk download, scheduler)
+    - Files (file list with import status)
+    - SMT Budget sync
+    - Settings (credentials, database info)
+    """
+    # Get filter parameters for files tab
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    filter_month = request.args.get('month', type=int)
+    filter_year = request.args.get('year', type=int)
+
+    # Default to current month/year if not specified
+    now = datetime.now(TZ_BANGKOK)
+    if filter_month is None:
+        filter_month = now.month
+    if filter_year is None:
+        filter_year = now.year + 543  # Convert to Buddhist Era
+
+    all_files = history_manager.get_all_downloads()
+
+    # Get import status from database
+    import_status_map = get_import_status_map()
+
+    # Filter by month/year
+    filtered_files = []
+    for file in all_files:
+        file_month = file.get('month')
+        file_year = file.get('year')
+
+        # If month/year not in file metadata, try to extract from filename
+        if file_month is None or file_year is None:
+            import re
+            match = re.search(r'_(\d{4})(\d{2})\d{2}_', file.get('filename', ''))
+            if match:
+                file_year = int(match.group(1))
+                file_month = int(match.group(2))
+
+        if file_month == filter_month and file_year == filter_year:
+            filtered_files.append(file)
+
+    # Sort by download date (most recent first)
+    filtered_files = sorted(
+        filtered_files,
+        key=lambda d: d.get('download_date', ''),
+        reverse=True
+    )
+
+    # Calculate pagination
+    total_files_filtered = len(filtered_files)
+    total_pages = (total_files_filtered + per_page - 1) // per_page
+    page = max(1, min(page, total_pages if total_pages > 0 else 1))
+
+    # Paginate
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated_files = filtered_files[start_idx:end_idx]
+
+    # Format for display and add import status
+    for file in paginated_files:
+        file['size_formatted'] = humanize.naturalsize(file.get('file_size', 0))
+        try:
+            dt = datetime.fromisoformat(file.get('download_date', ''))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc).astimezone(TZ_BANGKOK)
+            file['date_formatted'] = dt.strftime('%Y-%m-%d %H:%M:%S')
+            now_time = datetime.now(TZ_BANGKOK)
+            file['date_relative'] = humanize.naturaltime(dt, when=now_time)
+        except:
+            file['date_formatted'] = file.get('download_date', 'Unknown')
+            file['date_relative'] = 'Unknown'
+
+        # Add import status
+        filename = file.get('filename', '')
+        if filename in import_status_map:
+            file['import_status'] = import_status_map[filename]
+            file['imported'] = True
+        else:
+            file['import_status'] = None
+            file['imported'] = False
+
+    # Count imported vs not imported
+    imported_count = sum(1 for f in all_files if f.get('filename', '') in import_status_map)
+    not_imported_count = len(all_files) - imported_count
+
+    # Get available months/years for filter
+    available_dates = history_manager.get_available_dates()
+
+    # Get settings
+    current_settings = settings_manager.load_settings()
+
+    # Get database info
+    db_info = {
+        'type': 'PostgreSQL',
+        'claims_count': 0,
+        'budget_count': 0
+    }
+    conn = get_db_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM claim_rep_opip_nhso_item")
+            db_info['claims_count'] = cursor.fetchone()[0]
+            try:
+                cursor.execute("SELECT COUNT(*) FROM smt_budget_items")
+                db_info['budget_count'] = cursor.fetchone()[0]
+            except:
+                pass
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            app.logger.error(f"Error getting db stats: {e}")
+            if conn:
+                conn.close()
+
+    # Calculate stats
+    stats = {
+        'total_files': len(all_files),
+        'total_size': humanize.naturalsize(sum(f.get('file_size', 0) for f in all_files)),
+        'imported_count': imported_count,
+        'not_imported_count': not_imported_count
+    }
+
+    return render_template(
+        'data_management.html',
+        files=paginated_files,
+        stats=stats,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        total_files=total_files_filtered,
+        filter_month=filter_month,
+        filter_year=filter_year,
+        available_dates=available_dates,
+        settings=current_settings,
+        db_info=db_info
+    )
+
+
 @app.route('/download/trigger/single', methods=['POST'])
 def trigger_single_download():
     """Trigger download for specific month/year"""
@@ -701,6 +843,15 @@ def naturaltime_filter(value):
     try:
         dt = datetime.fromisoformat(value)
         return humanize.naturaltime(dt)
+    except:
+        return value
+
+
+@app.template_filter('number_format')
+def number_format_filter(value):
+    """Template filter for number formatting with commas"""
+    try:
+        return "{:,}".format(int(value))
     except:
         return value
 

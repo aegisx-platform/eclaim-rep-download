@@ -287,21 +287,18 @@
 // Chart instances
 let monthlyTrendChart, comparisonChart, serviceTypeChart, fundChart, rwChart;
 
-// Current filter state
-let currentFilters = {
-    fiscalYear: '',
-    startDate: '',
-    endDate: ''
-};
-
-// Get filter query string
+// Build filter query string from current form values
 function getFilterQueryString() {
+    const fiscalYear = document.getElementById('fiscal-year-filter').value;
+    const startDate = document.getElementById('start-date-filter').value;
+    const endDate = document.getElementById('end-date-filter').value;
+
     const params = new URLSearchParams();
-    if (currentFilters.fiscalYear) {
-        params.append('fiscal_year', currentFilters.fiscalYear);
+    if (fiscalYear) {
+        params.append('fiscal_year', fiscalYear);
     } else {
-        if (currentFilters.startDate) params.append('start_date', currentFilters.startDate);
-        if (currentFilters.endDate) params.append('end_date', currentFilters.endDate);
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
     }
     const qs = params.toString();
     return qs ? '?' + qs : '';
@@ -327,16 +324,8 @@ async function loadFiscalYears() {
     }
 }
 
-// Apply filters
+// Apply filters - just refresh all data (filter values read directly from form)
 function applyFilters() {
-    const fiscalYear = document.getElementById('fiscal-year-filter').value;
-    const startDate = document.getElementById('start-date-filter').value;
-    const endDate = document.getElementById('end-date-filter').value;
-
-    currentFilters.fiscalYear = fiscalYear;
-    currentFilters.startDate = startDate;
-    currentFilters.endDate = endDate;
-
     // Update filter badge
     updateFilterBadge();
 
@@ -350,10 +339,6 @@ function clearFilters() {
     document.getElementById('start-date-filter').value = '';
     document.getElementById('end-date-filter').value = '';
 
-    currentFilters.fiscalYear = '';
-    currentFilters.startDate = '';
-    currentFilters.endDate = '';
-
     // Hide filter badge
     document.getElementById('current-filter-display').classList.add('hidden');
 
@@ -366,14 +351,18 @@ function updateFilterBadge() {
     const display = document.getElementById('current-filter-display');
     const badge = document.getElementById('filter-badge');
 
-    if (currentFilters.fiscalYear) {
-        badge.textContent = 'ปีงบ ' + currentFilters.fiscalYear;
+    const fiscalYear = document.getElementById('fiscal-year-filter').value;
+    const startDate = document.getElementById('start-date-filter').value;
+    const endDate = document.getElementById('end-date-filter').value;
+
+    if (fiscalYear) {
+        badge.textContent = 'ปีงบ ' + fiscalYear;
         display.classList.remove('hidden');
-    } else if (currentFilters.startDate || currentFilters.endDate) {
+    } else if (startDate || endDate) {
         let text = '';
-        if (currentFilters.startDate) text += currentFilters.startDate;
-        if (currentFilters.startDate && currentFilters.endDate) text += ' - ';
-        if (currentFilters.endDate) text += currentFilters.endDate;
+        if (startDate) text += startDate;
+        if (startDate && endDate) text += ' - ';
+        if (endDate) text += endDate;
         badge.textContent = text;
         display.classList.remove('hidden');
     } else {
@@ -425,7 +414,8 @@ function updateTable(tbodyId, rows) {
 // Load overview data
 async function loadOverview() {
     try {
-        const response = await fetch('/api/analytics/overview' + getFilterQueryString());
+        const url = '/api/analytics/overview' + getFilterQueryString();
+        const response = await fetch(url);
         const result = await response.json();
 
         if (result.success) {
