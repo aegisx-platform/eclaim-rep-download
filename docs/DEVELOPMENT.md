@@ -25,7 +25,6 @@ eclaim-req-download/
 ├── database/
 │   ├── schema-postgresql-merged.sql  # PostgreSQL schema V2
 │   ├── schema-mysql-merged.sql       # MySQL schema V2
-│   ├── migrate_to_v2.sh              # Migration script
 │   └── IMPORT_GUIDE.md               # Import documentation
 │
 ├── utils/
@@ -40,7 +39,7 @@ eclaim-req-download/
 │   └── eclaim/
 │       ├── parser.py               # XLS file parser
 │       ├── importer.py             # Database importer (old)
-│       └── importer_v2.py          # Database importer V2
+│       └── importer_v2.py          # Database importer
 │
 ├── templates/                      # Jinja2 HTML templates
 │   ├── base.html                   # Base template with navbar
@@ -237,7 +236,7 @@ docker-compose exec db psql -U eclaim -d eclaim_db -c \
 # Good commit messages
 git commit -m "Add bulk download feature with progress tracking"
 git commit -m "Fix PostgreSQL schema syntax for triggers"
-git commit -m "Update README with Schema V2 documentation"
+git commit -m "Update README with database schema documentation"
 
 # Include emoji (optional)
 git commit -m "✨ Add scheduler status display on dashboard"
@@ -258,7 +257,6 @@ Brief description of changes
 
 ## Testing
 - [ ] Manual testing completed
-- [ ] Database migration tested
 - [ ] Docker build successful
 - [ ] Documentation updated
 

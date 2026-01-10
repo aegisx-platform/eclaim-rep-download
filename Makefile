@@ -50,7 +50,6 @@ help:
 	@echo "  make db-backup      - Backup database to backups/"
 	@echo "  make db-restore     - Restore from backup.sql"
 	@echo "  make db-reset       - Reset database (WARNING: deletes data)"
-	@echo "  make db-migrate     - Run Schema V2 migration"
 	@echo "  make db-status      - Show database status & record counts"
 	@echo ""
 	@echo "$(CYAN)Import & Download:$(RESET)"
@@ -268,14 +267,6 @@ db-reset:
 		echo "$(GREEN)✓$(RESET) Database reset complete"; \
 	else \
 		echo "Cancelled"; \
-	fi
-
-db-migrate:
-	@echo "$(BOLD)$(GREEN)==> Running Schema V2 migration...$(RESET)"
-	@if [ -f database/migrate_to_v2.sh ]; then \
-		bash database/migrate_to_v2.sh; \
-	else \
-		echo "$(YELLOW)Migration script not found$(RESET)"; \
 	fi
 
 db-status:

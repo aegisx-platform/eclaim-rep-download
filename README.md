@@ -74,7 +74,7 @@ E-Claim Downloader เป็นระบบที่ออกแบบมาเ�
 - Next run time display
 
 ### 💾 Database Import
-- **Schema V2**: ใช้โครงสร้างตารางของโรงพยาบาลเป็นหลัก
+- Database schema - ใช้โครงสร้างตารางของโรงพยาบาลเป็นหลัก
 - **Multi-Database**: PostgreSQL และ MySQL
 - **Complete Mapping**: Map ทุก columns (170+ fields)
 - **All File Types**: OP, IP, ORF, IP_APPEAL, IP_APPEAL_NHSO
@@ -158,14 +158,14 @@ docker-compose up -d
 
 ### Technical Documentation
 - **[Features Documentation](docs/FEATURES.md)** - รายละเอียด features ทั้งหมด
-- **[Database Guide](docs/DATABASE.md)** - Schema V2 และ HIS reconciliation
+- **[Database Guide](docs/DATABASE.md)** - database schema และ HIS reconciliation
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - แก้ปัญหาและ debugging
 - **[Development Guide](docs/DEVELOPMENT.md)** - สำหรับ developers
 
 ### Additional Resources
 - **[Legal & Compliance](docs/LEGAL.md)** - กฎหมายและ PDPA compliance
 - **[Docker Setup](DOCKER.md)** - Docker deployment guide
-- **[Migration Guide](MIGRATE_V2.md)** - Migrate to Schema V2
+- **[Migration Guide](MIGRATE_V2.md)** - Migrate to database schema
 - **[E-Claim Analysis](ECLAIM_ANALYSIS_REPORT.md)** - File structure analysis
 
 ---
@@ -265,10 +265,10 @@ eclaim-req-download/
 
 ## 🏷️ Version History
 
-### v2.0.0 (2026-01-08) - Schema V2 Release
+### v2.0.0 (2026-01-08) - database schema Release
 
 **Major Changes:**
-- ✨ **Schema V2**: ใช้โครงสร้างตารางของโรงพยาบาลเป็นหลัก
+- ✨ Database schema - ใช้โครงสร้างตารางของโรงพยาบาลเป็นหลัก
 - ✨ **Complete Field Mapping**: Map ทุก columns (170+ fields)
 - ✨ **Multi-Database**: PostgreSQL + MySQL support
 - 🐛 **Import Fixes**: Date parsing, string truncation, data validation

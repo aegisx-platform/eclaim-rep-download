@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-E-Claim Downloader & Data Import System - A Flask-based web application that automates downloading and importing E-Claim data from NHSO (National Health Security Office) for Thai hospitals. The system uses HTTP client-based downloads (no Playwright browser automation) and supports both PostgreSQL and MySQL databases with Schema V2 (hospital's existing structure).
+E-Claim Downloader & Data Import System - A Flask-based web application that automates downloading and importing E-Claim data from NHSO (National Health Security Office) for Thai hospitals. The system uses HTTP client-based downloads (no Playwright browser automation) and supports both PostgreSQL and MySQL databases with hospital database schema.
 
 ## Commands
 
@@ -128,7 +128,7 @@ docker-compose exec db psql -U eclaim -d eclaim_db -c "SELECT COUNT(*) FROM clai
    - Supports single month or bulk date range downloads
 
 3. **Database Importer (`utils/eclaim/importer_v2.py`)**
-   - **Schema V2**: Uses hospital's existing table structure (`claim_rep_opip_nhso_item`, `claim_rep_orf_nhso_item`)
+   - Database schema - Uses hospital's existing table structure (`claim_rep_opip_nhso_item`, `claim_rep_orf_nhso_item`)
    - Complete field mapping: 170+ columns mapped from Excel → Database
    - Multi-database support: PostgreSQL (primary) and MySQL
    - UPSERT logic: ON CONFLICT DO UPDATE prevents duplicates on `(tran_id, file_id)` unique constraint
@@ -160,7 +160,7 @@ Database (PostgreSQL/MySQL)
     └── claim_rep_orf_nhso_item (ORF data)
 ```
 
-### Database Schema V2
+### Database Schema
 
 **Key Design Decisions:**
 - Uses **hospital's existing table structure** as the base schema
@@ -174,7 +174,6 @@ Database (PostgreSQL/MySQL)
 **Schema Files:**
 - PostgreSQL: `database/schema-postgresql-merged.sql`
 - MySQL: `database/schema-mysql-merged.sql`
-- Migration script: `database/migrate_to_v2.sh`
 
 ### Configuration
 
@@ -289,9 +288,8 @@ Database (PostgreSQL/MySQL)
 │   ├── database.py            # Database configuration
 │   └── settings.json          # User settings (gitignored)
 ├── database/
-│   ├── schema-postgresql-merged.sql  # PostgreSQL Schema V2
-│   ├── schema-mysql-merged.sql       # MySQL Schema V2
-│   └── migrate_to_v2.sh              # Migration script
+│   ├── schema-postgresql-merged.sql  # PostgreSQL database schema
+│   ├── schema-mysql-merged.sql       # MySQL database schema
 ├── utils/
 │   ├── downloader_runner.py   # Background download process
 │   ├── import_runner.py       # Background import process
@@ -302,7 +300,7 @@ Database (PostgreSQL/MySQL)
 │   ├── settings_manager.py    # Settings CRUD
 │   └── eclaim/
 │       ├── parser.py          # Excel file parser (pandas/xlrd)
-│       └── importer_v2.py     # Database importer V2
+│       └── importer_v2.py     # Database importer
 ├── templates/                 # Jinja2 HTML templates
 ├── static/                    # CSS & JavaScript
 ├── downloads/                 # Downloaded Excel files
@@ -317,7 +315,6 @@ Database (PostgreSQL/MySQL)
 2. Add column mapping dict in `utils/eclaim/importer_v2.py` (e.g., `NEW_TYPE_COLUMN_MAP`)
 3. Implement import method: `import_new_type_batch(self, file_id, df)` in `EClaimImporterV2`
 4. Update file type detection in `utils/eclaim/parser.py` if needed
-5. Add migration script for existing databases
 
 ### Adding a New API Endpoint
 
@@ -371,9 +368,9 @@ docker-compose exec -T db psql -U eclaim -d eclaim_db -c \
 
 ### Issue: "relation eclaim_claims does not exist"
 
-**Symptom:** Database logs show attempts to INSERT into `eclaim_claims` table which doesn't exist in Schema V2.
+**Symptom:** Database logs show attempts to INSERT into `eclaim_claims` table which does not exist.
 
-**Cause:** Code is using legacy `importer.py` instead of `importer_v2.py`. Schema V2 uses `claim_rep_opip_nhso_item` and `claim_rep_orf_nhso_item` tables instead of `eclaim_claims`.
+**Cause:** Code is using legacy `importer.py` instead of `importer_v2.py`. database schema uses `claim_rep_opip_nhso_item` and `claim_rep_orf_nhso_item` tables instead of `eclaim_claims`.
 
 **Solution:**
 1. Check all imports: `grep -rn "from utils.eclaim.importer import" .`

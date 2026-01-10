@@ -104,21 +104,18 @@ python app.py
 
 **Access:** http://localhost:5001
 
-## Migrating to Schema V2
+## Migrating to database schema
 
 If you have existing database, see [Migration Guide](MIGRATION_V2.md) or [Quick Start Guide](../MIGRATE_V2.md).
 
-### Fresh Install with Schema V2
+### Fresh Install with database schema
 
-Schema V2 uses your hospital's existing table structure. It will be created automatically on first run.
+database schema uses your hospital's existing table structure. It will be created automatically on first run.
 
 ### Option A: Fresh Install (Recommended)
 
 ```bash
-# Run migration script
-./database/migrate_to_v2.sh
 
-# Follow prompts to backup and migrate
 ```
 
 ### Option B: Manual Migration
