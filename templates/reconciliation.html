@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{% block title %}Reconciliation Report - E-Claim Downloader{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header with Fiscal Year Selector -->
+    <div class="flex flex-wrap justify-between items-center gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800">Reconciliation Report</h2>
+            <p class="text-gray-600 mt-1">Compare E-Claim REP claims vs SMT Budget payments</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <!-- Fiscal Year Selector -->
+            <div class="flex items-center gap-2">
+                <label for="fiscal-year" class="text-sm font-medium text-gray-700">Fiscal Year:</label>
+                <select id="fiscal-year" onchange="changeFiscalYear(this.value)" class="block w-32 px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    <option value="">All Time</option>
+                    {% for fy in fiscal_years %}
+                    <option value="{{ fy }}" {% if fy == selected_fy %}selected{% endif %}>{{ fy }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button onclick="refreshData()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    {% if error %}
+    <!-- Error Alert -->
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+
+    {% if summary %}
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- REP Claims Summary -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">REP Claims (E-Claim)</h3>
+                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Claims</span>
+            </div>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Total Claims</span>
+                    <span class="text-xl font-bold text-gray-900">{{ "{:,}".format(summary.rep.total_claims) }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Unique Claims</span>
+                    <span class="text-lg font-semibold text-gray-700">{{ "{:,}".format(summary.rep.unique_claims) }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">NHSO Reimbursement</span>
+                    <span class="text-lg font-semibold text-blue-600">{{ "{:,.2f}".format(summary.rep.total_reimb_nhso) }} THB</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Agency Reimbursement</span>
+                    <span class="text-lg font-semibold text-blue-600">{{ "{:,.2f}".format(summary.rep.total_reimb_agency) }} THB</span>
+                </div>
+                <hr class="my-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-800 font-medium">Total Amount</span>
+                    <span class="text-xl font-bold text-blue-700">{{ "{:,.2f}".format(summary.rep.total_amount) }} THB</span>
+                </div>
+                <div class="text-sm text-gray-500">
+                    Period: {{ summary.rep.earliest_date or 'N/A' }} - {{ summary.rep.latest_date or 'N/A' }}
+                </div>
+            </div>
+        </div>
+
+        <!-- SMT Payments Summary -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">SMT Payments (Budget)</h3>
+                <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Payments</span>
+            </div>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Total Payments</span>
+                    <span class="text-xl font-bold text-gray-900">{{ "{:,}".format(summary.smt.total_payments) }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Payment Amount</span>
+                    <span class="text-lg font-semibold text-green-600">{{ "{:,.2f}".format(summary.smt.total_amount) }} THB</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Wait Amount</span>
+                    <span class="text-lg font-semibold text-yellow-600">{{ "{:,.2f}".format(summary.smt.total_wait) }} THB</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Debt Amount</span>
+                    <span class="text-lg font-semibold text-red-600">{{ "{:,.2f}".format(summary.smt.total_debt) }} THB</span>
+                </div>
+                <hr class="my-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-800 font-medium">Net Total</span>
+                    <span class="text-xl font-bold text-green-700">{{ "{:,.2f}".format(summary.smt.total_amount) }} THB</span>
+                </div>
+                <div class="text-sm text-gray-500">
+                    Period: {{ summary.smt.earliest_date or 'N/A' }} - {{ summary.smt.latest_date or 'N/A' }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overall Difference Card -->
+    {% set diff = summary.smt.total_amount - summary.rep.total_amount %}
+    <div class="bg-white rounded-xl shadow-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Overall Comparison {% if selected_fy %}(FY {{ selected_fy }}){% endif %}</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <div class="text-sm text-gray-600 mb-1">REP Claims Total</div>
+                <div class="text-xl font-bold text-blue-700">{{ "{:,.2f}".format(summary.rep.total_amount) }} THB</div>
+            </div>
+            <div class="text-center p-4 bg-green-50 rounded-lg">
+                <div class="text-sm text-gray-600 mb-1">SMT Payments Total</div>
+                <div class="text-xl font-bold text-green-700">{{ "{:,.2f}".format(summary.smt.total_amount) }} THB</div>
+            </div>
+            <div class="text-center p-4 {% if diff >= 0 %}bg-green-50{% else %}bg-red-50{% endif %} rounded-lg">
+                <div class="text-sm text-gray-600 mb-1">Difference (SMT - REP)</div>
+                <div class="text-xl font-bold {% if diff >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+                    {{ "{:+,.2f}".format(diff) }} THB
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Trend Chart -->
+    <div class="bg-white rounded-xl shadow-lg p-6">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Monthly Trend Comparison</h3>
+                <p class="text-sm text-gray-600">REP Claims vs SMT Payments by month</p>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-1 bg-blue-500 rounded"></div>
+                    <span class="text-gray-600">REP Claims</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-1 bg-green-500 rounded"></div>
+                    <span class="text-gray-600">SMT Payments</span>
+                </div>
+            </div>
+        </div>
+        <div class="h-80">
+            <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Monthly Reconciliation Table -->
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">Monthly Reconciliation {% if selected_fy %}(FY {{ selected_fy }}){% endif %}</h3>
+            <p class="text-sm text-gray-600 mt-1">Compare REP claims vs SMT payments by month</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">REP Claims</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">REP Amount</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">SMT Payments</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">SMT Amount</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Difference</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for row in monthly_data %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ row.month_display }}</div>
+                            <div class="text-xs text-gray-500">{{ row.month_gregorian }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm {% if row.has_rep_data %}text-gray-900{% else %}text-gray-400{% endif %}">
+                                {{ "{:,}".format(row.claim_count) }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm font-medium {% if row.has_rep_data %}text-blue-600{% else %}text-gray-400{% endif %}">
+                                {{ "{:,.2f}".format(row.claim_total) }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm {% if row.has_smt_data %}text-gray-900{% else %}text-gray-400{% endif %}">
+                                {{ "{:,}".format(row.payment_count) }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm font-medium {% if row.has_smt_data %}text-green-600{% else %}text-gray-400{% endif %}">
+                                {{ "{:,.2f}".format(row.payment_amount) }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm font-medium {% if row.difference >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                                {{ "{:+,.2f}".format(row.difference) }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            {% if row.has_rep_data and row.has_smt_data %}
+                                {% if row.difference == 0 %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    Matched
+                                </span>
+                                {% elif row.difference > 0 %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Overpaid
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    Underpaid
+                                </span>
+                                {% endif %}
+                            {% elif row.has_rep_data %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                No SMT
+                            </span>
+                            {% elif row.has_smt_data %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                No REP
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                                No Data
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                            No reconciliation data available. Import REP claims and fetch SMT data first.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Fund-based Reconciliation Table -->
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">Fund-based Reconciliation</h3>
+            <p class="text-sm text-gray-600 mt-1">Compare by fund type (all time)</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">REP Fund Code</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SMT Fund Name</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">REP Claims</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">REP Amount</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">SMT Payments</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">SMT Amount</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Difference</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Matched</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for row in fund_data %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="text-sm font-medium text-gray-900">{{ row.rep_fund_code }}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-sm text-gray-700">{{ row.smt_fund_name }}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm text-gray-900">{{ "{:,}".format(row.claim_count) }}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm font-medium text-blue-600">{{ "{:,.2f}".format(row.claim_amount) }}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm text-gray-900">{{ "{:,}".format(row.payment_count) }}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm font-medium text-green-600">{{ "{:,.2f}".format(row.payment_amount) }}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm font-medium {% if row.difference >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                                {{ "{:+,.2f}".format(row.difference) }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            {% if row.matched %}
+                            <svg class="w-5 h-5 text-green-500 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            {% else %}
+                            <svg class="w-5 h-5 text-gray-300 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                            </svg>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-gray-500">
+                            No fund reconciliation data available.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="bg-white rounded-xl shadow-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Legend</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <h4 class="font-medium text-gray-700 mb-2">Data Sources</h4>
+                <ul class="space-y-1 text-gray-600">
+                    <li><span class="text-blue-600 font-medium">REP (E-Claim)</span> - Reimbursement claims from NHSO E-Claim system</li>
+                    <li><span class="text-green-600 font-medium">SMT (Budget)</span> - Payment transfers from NHSO Smart Money Transfer</li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-medium text-gray-700 mb-2">Status Indicators</h4>
+                <ul class="space-y-1 text-gray-600">
+                    <li><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Matched</span> - Claim and payment amounts match</li>
+                    <li><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Overpaid</span> - Payment exceeds claim amount</li>
+                    <li><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Underpaid</span> - Payment less than claim amount</li>
+                    <li><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">No SMT</span> - REP claim without SMT payment</li>
+                    <li><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">No REP</span> - SMT payment without REP claim</li>
+                </ul>
+            </div>
+        </div>
+        <div class="mt-4 text-sm text-gray-500">
+            <strong>Note:</strong> Thai Fiscal Year runs from October 1 to September 30 (e.g., FY 2568 = Oct 2024 - Sep 2025)
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Chart data from server
+const monthlyData = {{ monthly_data | tojson | safe }};
+const selectedFY = {{ selected_fy | tojson | safe }};
+
+// Initialize chart
+let trendChart = null;
+
+function initChart() {
+    const ctx = document.getElementById('trendChart').getContext('2d');
+
+    // Prepare data for chart
+    const labels = monthlyData.map(d => d.month_display);
+    const repData = monthlyData.map(d => d.claim_total);
+    const smtData = monthlyData.map(d => d.payment_amount);
+
+    // Destroy existing chart if any
+    if (trendChart) {
+        trendChart.destroy();
+    }
+
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'REP Claims',
+                    data: repData,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                },
+                {
+                    label: 'SMT Payments',
+                    data: smtData,
+                    borderColor: 'rgb(34, 197, 94)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += new Intl.NumberFormat('th-TH', {
+                                    style: 'currency',
+                                    currency: 'THB',
+                                    minimumFractionDigits: 2
+                                }).format(context.parsed.y);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                },
+                y: {
+                    display: true,
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            if (value >= 1000000) {
+                                return (value / 1000000).toFixed(1) + 'M';
+                            } else if (value >= 1000) {
+                                return (value / 1000).toFixed(0) + 'K';
+                            }
+                            return value;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function changeFiscalYear(fy) {
+    if (fy) {
+        window.location.href = '/reconciliation?fy=' + fy;
+    } else {
+        window.location.href = '/reconciliation';
+    }
+}
+
+function refreshData() {
+    window.location.reload();
+}
+
+// Initialize chart on page load
+document.addEventListener('DOMContentLoaded', function() {
+    if (monthlyData && monthlyData.length > 0) {
+        initChart();
+    }
+});
+</script>
+{% endblock %}

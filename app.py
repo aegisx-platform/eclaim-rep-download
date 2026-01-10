@@ -1087,10 +1087,86 @@ def init_smt_scheduler():
 # Analytics Dashboard Routes
 # ============================================
 
+def get_analytics_date_filter():
+    """
+    Get date filter parameters from request args.
+    Returns tuple: (where_clause, params, filter_info)
+
+    Supports:
+    - fiscal_year: Buddhist Era fiscal year (e.g., 2568 = Oct 2024 - Sep 2025)
+    - start_date: Start date in YYYY-MM-DD format
+    - end_date: End date in YYYY-MM-DD format
+    """
+    fiscal_year = request.args.get('fiscal_year', type=int)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    where_clauses = []
+    params = []
+    filter_info = {}
+
+    if fiscal_year:
+        # Thai fiscal year runs Oct 1 to Sep 30
+        # FY 2568 BE = Oct 2024 CE - Sep 2025 CE
+        gregorian_year = fiscal_year - 543
+        fy_start = f"{gregorian_year - 1}-10-01"
+        fy_end = f"{gregorian_year}-09-30"
+        where_clauses.append("dateadm >= %s AND dateadm <= %s")
+        params.extend([fy_start, fy_end])
+        filter_info['fiscal_year'] = fiscal_year
+        filter_info['date_range'] = f"{fy_start} to {fy_end}"
+    elif start_date or end_date:
+        if start_date:
+            where_clauses.append("dateadm >= %s")
+            params.append(start_date)
+            filter_info['start_date'] = start_date
+        if end_date:
+            where_clauses.append("dateadm <= %s")
+            params.append(end_date)
+            filter_info['end_date'] = end_date
+
+    where_clause = " AND ".join(where_clauses) if where_clauses else ""
+    return where_clause, params, filter_info
+
+
+def get_available_fiscal_years(cursor):
+    """Get list of available fiscal years from data"""
+    cursor.execute("""
+        SELECT DISTINCT
+            CASE
+                WHEN EXTRACT(MONTH FROM dateadm) >= 10 THEN EXTRACT(YEAR FROM dateadm)::int + 544
+                ELSE EXTRACT(YEAR FROM dateadm)::int + 543
+            END as fiscal_year
+        FROM claim_rep_opip_nhso_item
+        WHERE dateadm IS NOT NULL
+        ORDER BY fiscal_year DESC
+    """)
+    return [row[0] for row in cursor.fetchall()]
+
+
 @app.route('/analytics')
 def analytics():
     """Analytics Dashboard - Comprehensive claim analysis"""
     return render_template('analytics.html')
+
+
+@app.route('/api/analytics/fiscal-years')
+def api_analytics_fiscal_years():
+    """Get available fiscal years for filter dropdown"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        fiscal_years = get_available_fiscal_years(cursor)
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': fiscal_years})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/analytics/overview')
@@ -1103,8 +1179,14 @@ def api_analytics_overview():
 
         cursor = conn.cursor()
 
+        # Get date filter
+        date_filter, filter_params, filter_info = get_analytics_date_filter()
+        base_where = "dateadm IS NOT NULL"
+        if date_filter:
+            base_where += f" AND {date_filter}"
+
         # Total claims and amounts
-        cursor.execute("""
+        query = f"""
             SELECT
                 COUNT(*) as total_claims,
                 COALESCE(SUM(reimb_nhso), 0) as total_reimb,
@@ -1113,8 +1195,9 @@ def api_analytics_overview():
                 COUNT(DISTINCT hn) as unique_patients,
                 COUNT(DISTINCT DATE_TRUNC('month', dateadm)) as active_months
             FROM claim_rep_opip_nhso_item
-            WHERE dateadm IS NOT NULL
-        """)
+            WHERE {base_where}
+        """
+        cursor.execute(query, filter_params)
         row = cursor.fetchone()
         overview = {
             'total_claims': row[0] or 0,
@@ -1123,33 +1206,39 @@ def api_analytics_overview():
             'total_claim_net': float(row[3] or 0),
             'unique_patients': row[4] or 0,
             'active_months': row[5] or 0,
-            'reimb_rate': round(float(row[2] or 0) / float(row[3] or 1) * 100, 2) if row[3] else 0
+            'reimb_rate': round(float(row[2] or 0) / float(row[3] or 1) * 100, 2) if row[3] else 0,
+            'filter': filter_info
         }
 
-        # Drug summary
-        cursor.execute("""
+        # Drug summary with date filter
+        drug_where = "1=1"
+        if date_filter:
+            drug_where = date_filter
+        cursor.execute(f"""
             SELECT
                 COUNT(*) as total_drugs,
                 COALESCE(SUM(claim_amount), 0) as total_drug_cost
             FROM eclaim_drug
-        """)
+            WHERE {drug_where}
+        """, filter_params)
         drug_row = cursor.fetchone()
         overview['total_drug_items'] = drug_row[0] or 0
         overview['total_drug_cost'] = float(drug_row[1] or 0)
 
-        # Instrument summary
-        cursor.execute("""
+        # Instrument summary with date filter
+        cursor.execute(f"""
             SELECT
                 COUNT(*) as total_instruments,
                 COALESCE(SUM(claim_amount), 0) as total_instrument_cost
             FROM eclaim_instrument
-        """)
+            WHERE {drug_where}
+        """, filter_params)
         inst_row = cursor.fetchone()
         overview['total_instrument_items'] = inst_row[0] or 0
         overview['total_instrument_cost'] = float(inst_row[1] or 0)
 
-        # Denial summary
-        cursor.execute("SELECT COUNT(*) FROM eclaim_deny")
+        # Denial summary with date filter
+        cursor.execute(f"SELECT COUNT(*) FROM eclaim_deny WHERE {drug_where}", filter_params)
         overview['total_denials'] = cursor.fetchone()[0] or 0
 
         cursor.close()
@@ -1171,8 +1260,14 @@ def api_analytics_monthly_trend():
 
         cursor = conn.cursor()
 
+        # Get date filter
+        date_filter, filter_params, filter_info = get_analytics_date_filter()
+        base_where = "dateadm IS NOT NULL"
+        if date_filter:
+            base_where += f" AND {date_filter}"
+
         # Monthly claims and amounts
-        cursor.execute("""
+        query = f"""
             SELECT
                 TO_CHAR(dateadm, 'YYYY-MM') as month,
                 COUNT(*) as claims,
@@ -1181,11 +1276,12 @@ def api_analytics_monthly_trend():
                 COALESCE(SUM(claim_net), 0) as claim_net,
                 COUNT(DISTINCT hn) as patients
             FROM claim_rep_opip_nhso_item
-            WHERE dateadm IS NOT NULL
+            WHERE {base_where}
             GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
             ORDER BY month DESC
             LIMIT 12
-        """)
+        """
+        cursor.execute(query, filter_params)
         rows = cursor.fetchall()
 
         monthly_data = [
@@ -1203,7 +1299,7 @@ def api_analytics_monthly_trend():
         cursor.close()
         conn.close()
 
-        return jsonify({'success': True, 'data': monthly_data})
+        return jsonify({'success': True, 'data': monthly_data, 'filter': filter_info})
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1219,6 +1315,12 @@ def api_analytics_service_type():
 
         cursor = conn.cursor()
 
+        # Get date filter
+        date_filter, filter_params, filter_info = get_analytics_date_filter()
+        base_where = "1=1"
+        if date_filter:
+            base_where = date_filter
+
         # Service type mapping
         service_names = {
             '': 'OP/IP ทั่วไป',
@@ -1228,7 +1330,7 @@ def api_analytics_service_type():
             'P': 'PP (ส่งเสริมป้องกัน)'
         }
 
-        cursor.execute("""
+        query = f"""
             SELECT
                 COALESCE(service_type, '') as stype,
                 COUNT(*) as claims,
@@ -1236,9 +1338,11 @@ def api_analytics_service_type():
                 COALESCE(SUM(paid), 0) as paid,
                 COUNT(DISTINCT hn) as patients
             FROM claim_rep_opip_nhso_item
+            WHERE {base_where}
             GROUP BY service_type
             ORDER BY SUM(reimb_nhso) DESC NULLS LAST
-        """)
+        """
+        cursor.execute(query, filter_params)
         rows = cursor.fetchall()
 
         service_data = [
@@ -1272,7 +1376,13 @@ def api_analytics_fund():
 
         cursor = conn.cursor()
 
-        cursor.execute("""
+        # Get date filter
+        date_filter, filter_params, filter_info = get_analytics_date_filter()
+        base_where = "1=1"
+        if date_filter:
+            base_where = date_filter
+
+        query = f"""
             SELECT
                 COALESCE(main_fund, 'ไม่ระบุ') as fund,
                 COUNT(*) as claims,
@@ -1280,10 +1390,12 @@ def api_analytics_fund():
                 COALESCE(SUM(paid), 0) as paid,
                 COUNT(DISTINCT hn) as patients
             FROM claim_rep_opip_nhso_item
+            WHERE {base_where}
             GROUP BY main_fund
             ORDER BY SUM(reimb_nhso) DESC NULLS LAST
             LIMIT 10
-        """)
+        """
+        cursor.execute(query, filter_params)
         rows = cursor.fetchall()
 
         fund_data = [
@@ -1316,8 +1428,16 @@ def api_analytics_drg():
 
         cursor = conn.cursor()
 
+        # Get date filter
+        date_filter, filter_params, filter_info = get_analytics_date_filter()
+        base_where = "drg IS NOT NULL AND drg != ''"
+        rw_where = "rw IS NOT NULL AND rw > 0"
+        if date_filter:
+            base_where += f" AND {date_filter}"
+            rw_where += f" AND {date_filter}"
+
         # Top DRGs
-        cursor.execute("""
+        query = f"""
             SELECT
                 drg,
                 COUNT(*) as cases,
@@ -1325,11 +1445,12 @@ def api_analytics_drg():
                 COALESCE(SUM(claim_drg), 0) as total_drg,
                 COALESCE(SUM(paid), 0) as total_paid
             FROM claim_rep_opip_nhso_item
-            WHERE drg IS NOT NULL AND drg != ''
+            WHERE {base_where}
             GROUP BY drg
             ORDER BY COUNT(*) DESC
             LIMIT 15
-        """)
+        """
+        cursor.execute(query, filter_params)
         rows = cursor.fetchall()
 
         drg_data = [
@@ -1344,7 +1465,7 @@ def api_analytics_drg():
         ]
 
         # RW distribution
-        cursor.execute("""
+        rw_query = f"""
             SELECT rw_range, cases FROM (
                 SELECT
                     CASE
@@ -1365,11 +1486,12 @@ def api_analytics_drg():
                     END as sort_order,
                     COUNT(*) as cases
                 FROM claim_rep_opip_nhso_item
-                WHERE rw IS NOT NULL AND rw > 0
+                WHERE {rw_where}
                 GROUP BY rw_range, sort_order
             ) t
             ORDER BY sort_order
-        """)
+        """
+        cursor.execute(rw_query, filter_params)
         rw_rows = cursor.fetchall()
 
         rw_distribution = [
@@ -1402,19 +1524,28 @@ def api_analytics_drug():
 
         cursor = conn.cursor()
 
+        # Get date filter
+        date_filter, filter_params, filter_info = get_analytics_date_filter()
+        base_where = "generic_name IS NOT NULL AND generic_name != ''"
+        all_where = "1=1"
+        if date_filter:
+            base_where += f" AND {date_filter}"
+            all_where = date_filter
+
         # Top drugs by cost - use generic_name or trade_name
-        cursor.execute("""
+        query = f"""
             SELECT
                 COALESCE(generic_name, trade_name, drug_code) as drug_name,
                 COUNT(*) as prescriptions,
                 COALESCE(SUM(quantity), 0) as total_qty,
                 COALESCE(SUM(claim_amount), 0) as total_cost
             FROM eclaim_drug
-            WHERE generic_name IS NOT NULL AND generic_name != ''
+            WHERE {base_where}
             GROUP BY COALESCE(generic_name, trade_name, drug_code)
             ORDER BY SUM(claim_amount) DESC NULLS LAST
             LIMIT 15
-        """)
+        """
+        cursor.execute(query, filter_params)
         rows = cursor.fetchall()
 
         drug_data = [
@@ -1428,16 +1559,18 @@ def api_analytics_drug():
         ]
 
         # Summary by drug_type
-        cursor.execute("""
+        cat_query = f"""
             SELECT
                 COALESCE(drug_type, 'ไม่ระบุ') as category,
                 COUNT(*) as items,
                 COALESCE(SUM(claim_amount), 0) as total_cost
             FROM eclaim_drug
+            WHERE {all_where}
             GROUP BY drug_type
             ORDER BY SUM(claim_amount) DESC NULLS LAST
             LIMIT 10
-        """)
+        """
+        cursor.execute(cat_query, filter_params)
         cat_rows = cursor.fetchall()
 
         category_data = [
@@ -1474,19 +1607,26 @@ def api_analytics_instrument():
 
         cursor = conn.cursor()
 
+        # Get date filter
+        date_filter, filter_params, filter_info = get_analytics_date_filter()
+        base_where = "inst_name IS NOT NULL AND inst_name != ''"
+        if date_filter:
+            base_where += f" AND {date_filter}"
+
         # Top instruments by cost
-        cursor.execute("""
+        query = f"""
             SELECT
                 inst_name,
                 COUNT(*) as uses,
                 COALESCE(SUM(claim_qty), 0) as total_qty,
                 COALESCE(SUM(claim_amount), 0) as total_cost
             FROM eclaim_instrument
-            WHERE inst_name IS NOT NULL AND inst_name != ''
+            WHERE {base_where}
             GROUP BY inst_name
             ORDER BY SUM(claim_amount) DESC NULLS LAST
             LIMIT 15
-        """)
+        """
+        cursor.execute(query, filter_params)
         rows = cursor.fetchall()
 
         instrument_data = [
@@ -1518,17 +1658,27 @@ def api_analytics_denial():
 
         cursor = conn.cursor()
 
+        # Get date filter
+        date_filter, filter_params, filter_info = get_analytics_date_filter()
+        deny_where = "1=1"
+        error_where = "error_code IS NOT NULL AND error_code != ''"
+        if date_filter:
+            deny_where = date_filter
+            error_where += f" AND {date_filter}"
+
         # Denials by deny_code
-        cursor.execute("""
+        query = f"""
             SELECT
                 COALESCE(deny_code, 'ไม่ระบุรหัส') as reason,
                 COUNT(*) as cases,
                 COALESCE(SUM(claim_amount), 0) as total_amount
             FROM eclaim_deny
+            WHERE {deny_where}
             GROUP BY deny_code
             ORDER BY COUNT(*) DESC
             LIMIT 10
-        """)
+        """
+        cursor.execute(query, filter_params)
         rows = cursor.fetchall()
 
         denial_data = [
@@ -1541,16 +1691,17 @@ def api_analytics_denial():
         ]
 
         # Error codes from main claims table
-        cursor.execute("""
+        error_query = f"""
             SELECT
                 COALESCE(error_code, 'ไม่มี') as error,
                 COUNT(*) as cases
             FROM claim_rep_opip_nhso_item
-            WHERE error_code IS NOT NULL AND error_code != ''
+            WHERE {error_where}
             GROUP BY error_code
             ORDER BY COUNT(*) DESC
             LIMIT 10
-        """)
+        """
+        cursor.execute(error_query, filter_params)
         error_rows = cursor.fetchall()
 
         error_data = [
