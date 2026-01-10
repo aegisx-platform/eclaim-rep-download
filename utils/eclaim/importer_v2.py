@@ -426,6 +426,15 @@ class EClaimImporterV2:
                             mapped[db_col] = parsed_date if not pd.isna(parsed_date) else None
                         except:
                             mapped[db_col] = None
+                    # Clean ID fields - remove .0 suffix from float conversion
+                    elif db_col in ['tran_id', 'hn', 'an', 'pid']:
+                        str_value = str(value).strip()
+                        # Remove .0 suffix if present (pandas converts int to float)
+                        if str_value.endswith('.0'):
+                            str_value = str_value[:-2]
+                        # Apply max length
+                        max_len = {'tran_id': 15, 'hn': 15, 'an': 15, 'pid': 20}.get(db_col, 20)
+                        mapped[db_col] = str_value[:max_len]
                     # Truncate strings to max length
                     elif db_col in max_lengths:
                         # Convert to string first if needed
@@ -510,6 +519,15 @@ class EClaimImporterV2:
                             mapped[db_col] = value
                         else:
                             mapped[db_col] = None
+                    # Clean ID fields - remove .0 suffix from float conversion
+                    elif db_col in ['tran_id', 'hn', 'an', 'pid']:
+                        str_value = str(value).strip()
+                        # Remove .0 suffix if present (pandas converts int to float)
+                        if str_value.endswith('.0'):
+                            str_value = str_value[:-2]
+                        # Apply max length
+                        max_len = {'tran_id': 15, 'hn': 15, 'an': 15, 'pid': 20}.get(db_col, 20)
+                        mapped[db_col] = str_value[:max_len]
                     # Truncate strings to max length
                     elif db_col in max_lengths:
                         # Convert to string first if needed

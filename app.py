@@ -738,7 +738,340 @@ def test_schedule():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ============================================
+# SMT Budget Routes
+# ============================================
+
+@app.route('/smt-budget')
+def smt_budget():
+    """SMT Budget Report page"""
+    smt_settings = settings_manager.get_smt_settings()
+    smt_jobs = [j for j in download_scheduler.get_all_jobs() if j['id'].startswith('smt_')]
+
+    # Get latest SMT data from database
+    smt_summary = get_smt_summary()
+
+    return render_template(
+        'smt_budget.html',
+        smt_settings=smt_settings,
+        smt_jobs=smt_jobs,
+        smt_summary=smt_summary
+    )
+
+
+def get_smt_summary():
+    """Get SMT budget summary from database"""
+    conn = get_db_connection()
+    if not conn:
+        return None
+
+    try:
+        cursor = conn.cursor()
+
+        # Check if table exists
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'smt_budget_transfers'
+            );
+        """)
+        table_exists = cursor.fetchone()[0]
+
+        if not table_exists:
+            cursor.close()
+            conn.close()
+            return None
+
+        # Get summary
+        cursor.execute("""
+            SELECT
+                COUNT(*) as total_records,
+                COALESCE(SUM(amount), 0) as total_amount,
+                MIN(posting_date) as earliest_date,
+                MAX(posting_date) as latest_date,
+                MAX(created_at) as last_updated
+            FROM smt_budget_transfers
+        """)
+        row = cursor.fetchone()
+
+        # Get summary by fund group
+        cursor.execute("""
+            SELECT
+                fund_group_desc,
+                COUNT(*) as record_count,
+                SUM(amount) as total_amount
+            FROM smt_budget_transfers
+            GROUP BY fund_group_desc
+            ORDER BY SUM(amount) DESC
+            LIMIT 10
+        """)
+        fund_groups = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        return {
+            'total_records': row[0] or 0,
+            'total_amount': float(row[1] or 0),
+            'earliest_date': row[2],
+            'latest_date': row[3],
+            'last_updated': row[4].isoformat() if row[4] else None,
+            'fund_groups': [
+                {'name': r[0], 'count': r[1], 'amount': float(r[2] or 0)}
+                for r in fund_groups
+            ]
+        }
+
+    except Exception as e:
+        app.logger.error(f"Error getting SMT summary: {e}")
+        if conn:
+            conn.close()
+        return None
+
+
+@app.route('/api/smt/fetch', methods=['POST'])
+def smt_fetch():
+    """Trigger SMT budget fetch"""
+    try:
+        data = request.get_json() or {}
+        vendor_id = data.get('vendor_id')
+        save_db = data.get('save_db', True)
+        export_format = data.get('export_format')  # 'json' or 'csv' or None
+
+        if not vendor_id:
+            # Try to get from settings
+            smt_settings = settings_manager.get_smt_settings()
+            vendor_id = smt_settings.get('smt_vendor_id')
+
+        if not vendor_id:
+            return jsonify({'success': False, 'error': 'Vendor ID is required'}), 400
+
+        # Import and run fetcher
+        from smt_budget_fetcher import SMTBudgetFetcher
+
+        log_streamer.write_log(
+            f"Starting SMT fetch for vendor {vendor_id}...",
+            'info',
+            'smt'
+        )
+
+        fetcher = SMTBudgetFetcher(vendor_id=vendor_id)
+        result = fetcher.fetch_budget_summary()
+        records = result.get('datas', [])
+
+        if not records:
+            log_streamer.write_log(
+                f"No records found for vendor {vendor_id}",
+                'warning',
+                'smt'
+            )
+            return jsonify({
+                'success': True,
+                'message': 'No records found',
+                'records': 0
+            })
+
+        # Calculate summary
+        summary = fetcher.calculate_summary(records)
+
+        # Save to database if requested
+        saved_count = 0
+        if save_db:
+            saved_count = fetcher.save_to_database(records)
+            log_streamer.write_log(
+                f"Saved {saved_count} records to database",
+                'success',
+                'smt'
+            )
+
+        # Export if requested
+        export_path = None
+        if export_format == 'json':
+            export_path = fetcher.export_to_json(records)
+        elif export_format == 'csv':
+            export_path = fetcher.export_to_csv(records)
+
+        log_streamer.write_log(
+            f"✓ SMT fetch completed: {len(records)} records, {summary['total_amount']:,.2f} Baht",
+            'success',
+            'smt'
+        )
+
+        return jsonify({
+            'success': True,
+            'records': len(records),
+            'saved': saved_count,
+            'total_amount': summary['total_amount'],
+            'export_path': export_path
+        })
+
+    except Exception as e:
+        log_streamer.write_log(
+            f"✗ SMT fetch failed: {str(e)}",
+            'error',
+            'smt'
+        )
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/smt/settings', methods=['GET', 'POST'])
+def api_smt_settings():
+    """Get or update SMT settings"""
+    if request.method == 'GET':
+        smt_settings = settings_manager.get_smt_settings()
+        smt_jobs = [j for j in download_scheduler.get_all_jobs() if j['id'].startswith('smt_')]
+        return jsonify({
+            'success': True,
+            'settings': smt_settings,
+            'jobs': smt_jobs
+        })
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+
+            vendor_id = data.get('smt_vendor_id', '').strip()
+            schedule_enabled = data.get('smt_schedule_enabled', False)
+            times = data.get('smt_schedule_times', [])
+            auto_save_db = data.get('smt_auto_save_db', True)
+
+            # Validate times format
+            for time_config in times:
+                if not isinstance(time_config, dict):
+                    return jsonify({'success': False, 'error': 'Invalid time format'}), 400
+
+                hour = time_config.get('hour')
+                minute = time_config.get('minute')
+
+                if hour is None or minute is None:
+                    return jsonify({'success': False, 'error': 'Missing hour or minute'}), 400
+
+                if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+                    return jsonify({'success': False, 'error': 'Invalid hour or minute value'}), 400
+
+            # Save settings
+            success = settings_manager.update_smt_settings(
+                vendor_id, schedule_enabled, times, auto_save_db
+            )
+
+            if not success:
+                return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
+
+            # Reinitialize SMT scheduler
+            init_smt_scheduler()
+
+            log_streamer.write_log(
+                f"✓ SMT settings updated: vendor={vendor_id}, enabled={schedule_enabled}",
+                'success',
+                'system'
+            )
+
+            return jsonify({'success': True, 'message': 'SMT settings updated'})
+
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/smt/data')
+def api_smt_data():
+    """Get SMT budget data from database"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        fund_group = request.args.get('fund_group')
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Build query
+        where_clause = ""
+        params = []
+        if fund_group:
+            where_clause = "WHERE fund_group_desc = %s"
+            params.append(fund_group)
+
+        # Get total count
+        cursor.execute(f"SELECT COUNT(*) FROM smt_budget_transfers {where_clause}", params)
+        total = cursor.fetchone()[0]
+
+        # Get paginated data
+        offset = (page - 1) * per_page
+        cursor.execute(f"""
+            SELECT id, run_date, posting_date, ref_doc_no, vendor_no,
+                   fund_name, fund_group_desc, amount, total_amount,
+                   bank_name, payment_status, created_at
+            FROM smt_budget_transfers
+            {where_clause}
+            ORDER BY posting_date DESC, id DESC
+            LIMIT %s OFFSET %s
+        """, params + [per_page, offset])
+
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        data = [
+            {
+                'id': r[0],
+                'run_date': str(r[1]) if r[1] else None,
+                'posting_date': r[2],
+                'ref_doc_no': r[3],
+                'vendor_no': r[4],
+                'fund_name': r[5],
+                'fund_group_desc': r[6],
+                'amount': float(r[7] or 0),
+                'total_amount': float(r[8] or 0),
+                'bank_name': r[9],
+                'payment_status': r[10],
+                'created_at': r[11].isoformat() if r[11] else None
+            }
+            for r in rows
+        ]
+
+        return jsonify({
+            'success': True,
+            'data': data,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': (total + per_page - 1) // per_page
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def init_smt_scheduler():
+    """Initialize SMT scheduler with saved settings"""
+    try:
+        smt_settings = settings_manager.get_smt_settings()
+
+        # Clear existing SMT jobs
+        download_scheduler.remove_smt_jobs()
+
+        if smt_settings['smt_schedule_enabled'] and smt_settings['smt_vendor_id']:
+            vendor_id = smt_settings['smt_vendor_id']
+            auto_save_db = smt_settings['smt_auto_save_db']
+
+            for time_config in smt_settings['smt_schedule_times']:
+                hour = time_config.get('hour', 0)
+                minute = time_config.get('minute', 0)
+                download_scheduler.add_smt_scheduled_fetch(hour, minute, vendor_id, auto_save_db)
+
+            log_streamer.write_log(
+                f"✓ SMT scheduler initialized with {len(smt_settings['smt_schedule_times'])} jobs",
+                'success',
+                'system'
+            )
+    except Exception as e:
+        app.logger.error(f"Error initializing SMT scheduler: {e}")
+
+
 if __name__ == '__main__':
-    # Initialize scheduler on startup
+    # Initialize schedulers on startup
     init_scheduler()
+    init_smt_scheduler()
     app.run(host='0.0.0.0', port=5001, debug=True)

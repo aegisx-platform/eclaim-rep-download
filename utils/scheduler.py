@@ -140,5 +140,111 @@ class DownloadScheduler:
                 print(f"Scheduled download error: {e}")
 
 
+    def add_smt_scheduled_fetch(self, hour, minute, vendor_id, auto_save_db=True):
+        """
+        Add a scheduled SMT budget fetch job
+
+        Args:
+            hour (int): Hour (0-23)
+            minute (int): Minute (0-59)
+            vendor_id (str): Hospital/Vendor ID
+            auto_save_db (bool): Whether to auto-save to database
+
+        Returns:
+            str: Job ID
+        """
+        # Create unique job ID
+        job_id = f"smt_{hour:02d}_{minute:02d}"
+
+        # Remove existing job if it exists
+        if self.scheduler.get_job(job_id):
+            self.scheduler.remove_job(job_id)
+
+        # Add new job
+        trigger = CronTrigger(hour=hour, minute=minute)
+        job = self.scheduler.add_job(
+            func=self._run_smt_fetch,
+            trigger=trigger,
+            args=[vendor_id, auto_save_db],
+            id=job_id,
+            name=f"SMT fetch at {hour:02d}:{minute:02d}",
+            replace_existing=True
+        )
+
+        return job_id
+
+    def remove_smt_jobs(self):
+        """Remove all SMT scheduled jobs"""
+        for job in self.scheduler.get_jobs():
+            if job.id.startswith('smt_'):
+                self.scheduler.remove_job(job.id)
+
+    def _run_smt_fetch(self, vendor_id, auto_save_db=True):
+        """
+        Execute SMT budget fetch
+
+        This runs as a background job
+        """
+        try:
+            from utils.log_stream import log_streamer
+
+            log_streamer.write_log(
+                f"⏰ Scheduled SMT fetch started (vendor={vendor_id}, save_db={auto_save_db})",
+                'info',
+                'scheduler'
+            )
+
+            # Get project root directory
+            project_root = Path(__file__).parent.parent
+
+            # Build command
+            cmd = [
+                sys.executable,
+                str(project_root / 'smt_budget_fetcher.py'),
+                '--vendor-id', str(vendor_id),
+                '--quiet'
+            ]
+
+            if auto_save_db:
+                cmd.append('--save-db')
+
+            # Run fetch in background
+            process = subprocess.Popen(
+                cmd,
+                cwd=project_root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                env={**os.environ, 'DB_HOST': os.getenv('DB_HOST', 'db')}
+            )
+
+            # Wait for completion and log result
+            stdout, _ = process.communicate(timeout=300)
+
+            if process.returncode == 0:
+                log_streamer.write_log(
+                    f"✓ SMT fetch completed (vendor={vendor_id})",
+                    'success',
+                    'scheduler'
+                )
+            else:
+                log_streamer.write_log(
+                    f"✗ SMT fetch failed: {stdout}",
+                    'error',
+                    'scheduler'
+                )
+
+        except Exception as e:
+            try:
+                from utils.log_stream import log_streamer
+                log_streamer.write_log(
+                    f"✗ SMT fetch failed: {str(e)}",
+                    'error',
+                    'scheduler'
+                )
+            except:
+                print(f"SMT fetch error: {e}")
+
+
 # Global scheduler instance
 download_scheduler = DownloadScheduler()

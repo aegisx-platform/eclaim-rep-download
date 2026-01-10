@@ -23,7 +23,13 @@ class SettingsManager:
             'auto_import_default': False,
             'schedule_enabled': False,
             'schedule_times': [],
-            'schedule_auto_import': True
+            'schedule_auto_import': True,
+            # SMT Budget settings
+            'smt_enabled': False,
+            'smt_vendor_id': '',
+            'smt_schedule_enabled': False,
+            'smt_schedule_times': [],
+            'smt_auto_save_db': True
         }
 
     def load_settings(self) -> Dict:
@@ -121,4 +127,42 @@ class SettingsManager:
         settings['schedule_enabled'] = enabled
         settings['schedule_times'] = times
         settings['schedule_auto_import'] = auto_import
+        return self.save_settings(settings)
+
+    def get_smt_settings(self) -> Dict:
+        """
+        Get SMT Budget settings
+
+        Returns:
+            Dict with SMT settings
+        """
+        settings = self.load_settings()
+        return {
+            'smt_enabled': settings.get('smt_enabled', False),
+            'smt_vendor_id': settings.get('smt_vendor_id', ''),
+            'smt_schedule_enabled': settings.get('smt_schedule_enabled', False),
+            'smt_schedule_times': settings.get('smt_schedule_times', []),
+            'smt_auto_save_db': settings.get('smt_auto_save_db', True)
+        }
+
+    def update_smt_settings(self, vendor_id: str, schedule_enabled: bool,
+                            times: list, auto_save_db: bool) -> bool:
+        """
+        Update SMT Budget settings
+
+        Args:
+            vendor_id: Hospital/Vendor ID
+            schedule_enabled: Whether scheduling is enabled
+            times: List of time dicts like [{"hour": 9, "minute": 0}, ...]
+            auto_save_db: Whether to auto-save to database
+
+        Returns:
+            True if successful
+        """
+        settings = self.load_settings()
+        settings['smt_enabled'] = bool(vendor_id)
+        settings['smt_vendor_id'] = vendor_id
+        settings['smt_schedule_enabled'] = schedule_enabled
+        settings['smt_schedule_times'] = times
+        settings['smt_auto_save_db'] = auto_save_db
         return self.save_settings(settings)
