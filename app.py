@@ -563,6 +563,132 @@ def api_settings():
             return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
 
 
+@app.route('/api/settings/test-connection', methods=['POST'])
+def test_eclaim_connection():
+    """Test E-Claim login credentials"""
+    import requests
+
+    try:
+        # Get credentials from settings
+        current_settings = settings_manager.load_settings()
+        username = current_settings.get('eclaim_username', '')
+        password = current_settings.get('eclaim_password', '')
+
+        if not username or not password:
+            return jsonify({
+                'success': False,
+                'error': 'Credentials not configured. Please enter username and password first.'
+            }), 400
+
+        log_streamer.write_log(
+            f"Testing E-Claim connection for user: {username}",
+            'info',
+            'system'
+        )
+
+        # Test login
+        login_url = "https://eclaim.nhso.go.th/webComponent/main/MainWebAction.do"
+
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'th,en;q=0.9',
+        })
+
+        # First, get the login page
+        response = session.get(login_url, timeout=30)
+        response.raise_for_status()
+
+        # Post login
+        login_data = {
+            'user': username,
+            'pass': password
+        }
+        response = session.post(login_url, data=login_data, timeout=30, allow_redirects=True)
+        response.raise_for_status()
+
+        # Check login result
+        if 'login' in response.url.lower() and 'error' in response.text.lower():
+            log_streamer.write_log(
+                f"E-Claim login failed: Invalid credentials",
+                'error',
+                'system'
+            )
+            return jsonify({
+                'success': False,
+                'error': 'Login failed - invalid username or password'
+            })
+
+        # Check if we got redirected to a valid page
+        if 'logout' in response.text.lower() or 'menu' in response.text.lower():
+            log_streamer.write_log(
+                f"E-Claim connection test successful",
+                'success',
+                'system'
+            )
+            return jsonify({
+                'success': True,
+                'message': 'Connection successful! Credentials are valid.'
+            })
+
+        # Uncertain result
+        log_streamer.write_log(
+            f"E-Claim connection test: uncertain result",
+            'warning',
+            'system'
+        )
+        return jsonify({
+            'success': True,
+            'message': 'Connection established. Please verify by downloading.'
+        })
+
+    except requests.exceptions.Timeout:
+        log_streamer.write_log(
+            f"E-Claim connection timeout",
+            'error',
+            'system'
+        )
+        return jsonify({
+            'success': False,
+            'error': 'Connection timeout - NHSO server is not responding'
+        }), 504
+
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code if e.response else 'Unknown'
+        log_streamer.write_log(
+            f"E-Claim server error: HTTP {status_code}",
+            'error',
+            'system'
+        )
+        return jsonify({
+            'success': False,
+            'error': f'NHSO server error (HTTP {status_code}). Server may be down or under maintenance.'
+        }), 502
+
+    except requests.exceptions.ConnectionError:
+        log_streamer.write_log(
+            f"E-Claim connection failed: Network error",
+            'error',
+            'system'
+        )
+        return jsonify({
+            'success': False,
+            'error': 'Cannot connect to NHSO server. Check your internet connection.'
+        }), 503
+
+    except Exception as e:
+        log_streamer.write_log(
+            f"E-Claim connection test failed: {str(e)}",
+            'error',
+            'system'
+        )
+        return jsonify({
+            'success': False,
+            'error': f'Connection test failed: {str(e)}'
+        }), 500
+
+
 @app.template_filter('naturalsize')
 def naturalsize_filter(value):
     """Template filter for human-readable file sizes"""

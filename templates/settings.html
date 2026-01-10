@@ -92,9 +92,28 @@
                     </svg>
                     Save Settings
                 </button>
+                <button
+                    type="button"
+                    onclick="testConnection()"
+                    id="test-connection-btn"
+                    class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:shadow-lg transition-all"
+                >
+                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                    </svg>
+                    <span id="test-connection-text">Test Connection</span>
+                </button>
                 <a href="{{ url_for('dashboard') }}" class="text-gray-600 hover:text-gray-800 font-medium">
                     Cancel
                 </a>
+            </div>
+
+            <!-- Connection Status -->
+            <div id="connection-status" class="hidden mt-4 p-4 rounded-lg">
+                <div class="flex items-center">
+                    <span id="connection-status-icon" class="mr-3"></span>
+                    <span id="connection-status-message"></span>
+                </div>
             </div>
         </form>
     </div>
@@ -194,6 +213,93 @@ function togglePasswordVisibility() {
         passwordInput.type = 'text';
     } else {
         passwordInput.type = 'password';
+    }
+}
+
+function setStatusIcon(container, type) {
+    // Clear existing content
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'w-6 h-6');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('viewBox', '0 0 24 24');
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-width', '2');
+
+    if (type === 'success') {
+        svg.classList.add('text-green-500');
+        path.setAttribute('d', 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z');
+    } else if (type === 'error') {
+        svg.classList.add('text-red-500');
+        path.setAttribute('d', 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z');
+    } else {
+        svg.classList.add('text-red-500');
+        path.setAttribute('d', 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z');
+    }
+
+    svg.appendChild(path);
+    container.appendChild(svg);
+}
+
+async function testConnection() {
+    const btn = document.getElementById('test-connection-btn');
+    const btnText = document.getElementById('test-connection-text');
+    const statusDiv = document.getElementById('connection-status');
+    const statusIcon = document.getElementById('connection-status-icon');
+    const statusMessage = document.getElementById('connection-status-message');
+
+    // Show loading state
+    btn.disabled = true;
+    btn.classList.add('opacity-75', 'cursor-not-allowed');
+    btnText.textContent = 'Testing...';
+    statusDiv.classList.add('hidden');
+
+    try {
+        const response = await fetch('/api/settings/test-connection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        // Show status
+        statusDiv.classList.remove('hidden');
+
+        if (result.success) {
+            statusDiv.className = 'mt-4 p-4 rounded-lg bg-green-50 border border-green-200';
+            setStatusIcon(statusIcon, 'success');
+            statusMessage.className = 'text-green-700 font-medium';
+            statusMessage.textContent = result.message;
+            showToast(result.message, 'success');
+        } else {
+            statusDiv.className = 'mt-4 p-4 rounded-lg bg-red-50 border border-red-200';
+            setStatusIcon(statusIcon, 'error');
+            statusMessage.className = 'text-red-700 font-medium';
+            statusMessage.textContent = result.error;
+            showToast(result.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error testing connection:', error);
+        statusDiv.classList.remove('hidden');
+        statusDiv.className = 'mt-4 p-4 rounded-lg bg-red-50 border border-red-200';
+        setStatusIcon(statusIcon, 'warning');
+        statusMessage.className = 'text-red-700 font-medium';
+        statusMessage.textContent = 'Network error - could not reach server';
+        showToast('Network error', 'error');
+    } finally {
+        // Reset button
+        btn.disabled = false;
+        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+        btnText.textContent = 'Test Connection';
     }
 }
 
