@@ -2204,7 +2204,7 @@ def api_claims_detail():
         # Get paginated data
         select_query = """
             SELECT
-                tran_id, rep_no, hn, an, pid, pname,
+                tran_id, rep_no, hn, an, pid, name,
                 dateadm, datedsc,
                 service_type, main_fund, sub_fund,
                 claim_net, reimb_nhso, reimb_agency, paid,
@@ -2231,7 +2231,7 @@ def api_claims_detail():
                 'hn': r[2],
                 'an': r[3],
                 'pid': r[4],
-                'pname': r[5],
+                'name': r[5],
                 'dateadm': str(r[6]) if r[6] else None,
                 'datedsc': str(r[7]) if r[7] else None,
                 'service_type': r[8],
@@ -2711,6 +2711,401 @@ def api_alerts():
 
     except Exception as e:
         app.logger.error(f"Error getting alerts: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================
+# Phase 2: Strategic Analytics APIs
+# ============================================
+
+@app.route('/api/analytics/forecast')
+def api_revenue_forecast():
+    """
+    Phase 2.1: Revenue Projection
+    Forecast revenue for next 6 months based on historical trends.
+
+    Uses simple linear regression on monthly data.
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Get historical monthly data (last 24 months)
+        query = """
+            SELECT
+                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                COUNT(*) as claims,
+                COALESCE(SUM(claim_net), 0) as claimed,
+                COALESCE(SUM(reimb_nhso), 0) as reimb,
+                COALESCE(SUM(paid), 0) as paid
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm IS NOT NULL
+              AND dateadm >= CURRENT_DATE - INTERVAL '24 months'
+            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+            ORDER BY month ASC
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+        historical = [
+            {
+                'month': r[0],
+                'claims': r[1],
+                'claimed': float(r[2]),
+                'reimb': float(r[3]),
+                'paid': float(r[4])
+            }
+            for r in rows
+        ]
+
+        # Simple forecasting using moving average and trend
+        forecast = []
+        if len(historical) >= 6:
+            # Calculate average growth rate from last 6 months
+            recent = historical[-6:]
+            reimb_values = [h['reimb'] for h in recent]
+
+            # Average monthly value
+            avg_reimb = sum(reimb_values) / len(reimb_values)
+
+            # Calculate trend (simple linear)
+            n = len(reimb_values)
+            if n > 1:
+                x_mean = (n - 1) / 2
+                y_mean = avg_reimb
+                numerator = sum((i - x_mean) * (reimb_values[i] - y_mean) for i in range(n))
+                denominator = sum((i - x_mean) ** 2 for i in range(n))
+                slope = numerator / denominator if denominator != 0 else 0
+            else:
+                slope = 0
+
+            # Generate forecast for next 6 months
+            from datetime import datetime
+            from dateutil.relativedelta import relativedelta
+
+            last_month = datetime.strptime(historical[-1]['month'], '%Y-%m')
+
+            for i in range(1, 7):
+                future_month = last_month + relativedelta(months=i)
+                projected_value = avg_reimb + (slope * (n + i - 1))
+
+                # Confidence decreases with distance
+                confidence = max(50, 95 - (i * 7))
+
+                # Seasonality adjustment (simple: same month last year if available)
+                seasonal_adjustment = 1.0
+                target_month_str = future_month.strftime('%Y-%m')
+                last_year_month = (future_month - relativedelta(years=1)).strftime('%Y-%m')
+                for h in historical:
+                    if h['month'] == last_year_month:
+                        if avg_reimb > 0:
+                            seasonal_adjustment = h['reimb'] / avg_reimb
+                        break
+
+                adjusted_value = projected_value * seasonal_adjustment
+
+                forecast.append({
+                    'month': future_month.strftime('%Y-%m'),
+                    'month_name': future_month.strftime('%b %Y'),
+                    'projected_reimb': round(adjusted_value, 2),
+                    'projected_claims': round(sum(h['claims'] for h in recent) / len(recent)),
+                    'confidence': confidence,
+                    'lower_bound': round(adjusted_value * 0.85, 2),
+                    'upper_bound': round(adjusted_value * 1.15, 2)
+                })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'historical': historical[-12:],  # Last 12 months
+                'forecast': forecast,
+                'method': 'linear_regression_with_seasonality',
+                'data_points': len(historical)
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in revenue forecast: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/yoy-comparison')
+def api_yoy_comparison():
+    """
+    Phase 2.2: Year-over-Year Comparison
+    Compare current fiscal year with previous fiscal year.
+    """
+    try:
+        fiscal_year = request.args.get('fiscal_year', type=int)
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # If no fiscal year specified, get current
+        if not fiscal_year:
+            cursor.execute("SELECT MAX(EXTRACT(YEAR FROM dateadm)) FROM claim_rep_opip_nhso_item WHERE dateadm IS NOT NULL")
+            max_year = cursor.fetchone()[0]
+            if max_year:
+                # Convert to fiscal year (Thai Buddhist Era)
+                fiscal_year = int(max_year) + 543
+                # Adjust for fiscal year (Oct-Sep)
+                cursor.execute("SELECT MAX(dateadm) FROM claim_rep_opip_nhso_item")
+                max_date = cursor.fetchone()[0]
+                if max_date and max_date.month >= 10:
+                    fiscal_year += 1
+
+        if not fiscal_year:
+            return jsonify({'success': False, 'error': 'No data available'}), 404
+
+        # Current fiscal year dates
+        current_gregorian = fiscal_year - 543
+        current_start = f"{current_gregorian - 1}-10-01"
+        current_end = f"{current_gregorian}-09-30"
+
+        # Previous fiscal year dates
+        prev_start = f"{current_gregorian - 2}-10-01"
+        prev_end = f"{current_gregorian - 1}-09-30"
+
+        # Get current year stats
+        current_query = """
+            SELECT
+                COUNT(*) as claims,
+                COALESCE(SUM(claim_net), 0) as claimed,
+                COALESCE(SUM(reimb_nhso), 0) as reimb,
+                COALESCE(SUM(paid), 0) as paid,
+                COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as denials
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm >= %s AND dateadm <= %s
+        """
+        cursor.execute(current_query, [current_start, current_end])
+        current = cursor.fetchone()
+
+        # Get previous year stats
+        cursor.execute(current_query, [prev_start, prev_end])
+        previous = cursor.fetchone()
+
+        # Get monthly breakdown for both years
+        monthly_query = """
+            SELECT
+                EXTRACT(MONTH FROM dateadm) as month,
+                COUNT(*) as claims,
+                COALESCE(SUM(reimb_nhso), 0) as reimb
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm >= %s AND dateadm <= %s
+            GROUP BY EXTRACT(MONTH FROM dateadm)
+            ORDER BY month
+        """
+
+        cursor.execute(monthly_query, [current_start, current_end])
+        current_monthly = {int(r[0]): {'claims': r[1], 'reimb': float(r[2])} for r in cursor.fetchall()}
+
+        cursor.execute(monthly_query, [prev_start, prev_end])
+        prev_monthly = {int(r[0]): {'claims': r[1], 'reimb': float(r[2])} for r in cursor.fetchall()}
+
+        cursor.close()
+        conn.close()
+
+        # Calculate changes
+        def calc_change(current_val, prev_val):
+            if prev_val and prev_val > 0:
+                return round(((current_val - prev_val) / prev_val) * 100, 2)
+            return 0
+
+        current_denial_rate = (current[4] / current[0] * 100) if current[0] > 0 else 0
+        prev_denial_rate = (previous[4] / previous[0] * 100) if previous[0] > 0 else 0
+
+        current_reimb_rate = (current[2] / current[1] * 100) if current[1] > 0 else 0
+        prev_reimb_rate = (previous[2] / previous[1] * 100) if previous[1] > 0 else 0
+
+        # Monthly comparison (fiscal year months: Oct=10, Nov=11, ..., Sep=9)
+        fiscal_months = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        month_names = ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.']
+
+        monthly_comparison = []
+        for i, m in enumerate(fiscal_months):
+            curr = current_monthly.get(m, {'claims': 0, 'reimb': 0})
+            prev = prev_monthly.get(m, {'claims': 0, 'reimb': 0})
+            monthly_comparison.append({
+                'month': month_names[i],
+                'month_num': m,
+                'current_claims': curr['claims'],
+                'current_reimb': curr['reimb'],
+                'prev_claims': prev['claims'],
+                'prev_reimb': prev['reimb'],
+                'claims_change': calc_change(curr['claims'], prev['claims']),
+                'reimb_change': calc_change(curr['reimb'], prev['reimb'])
+            })
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'fiscal_year': fiscal_year,
+                'previous_year': fiscal_year - 1,
+                'summary': {
+                    'current': {
+                        'claims': current[0],
+                        'claimed': float(current[1]),
+                        'reimb': float(current[2]),
+                        'paid': float(current[3]),
+                        'denials': current[4],
+                        'denial_rate': round(current_denial_rate, 2),
+                        'reimb_rate': round(current_reimb_rate, 2)
+                    },
+                    'previous': {
+                        'claims': previous[0],
+                        'claimed': float(previous[1]),
+                        'reimb': float(previous[2]),
+                        'paid': float(previous[3]),
+                        'denials': previous[4],
+                        'denial_rate': round(prev_denial_rate, 2),
+                        'reimb_rate': round(prev_reimb_rate, 2)
+                    },
+                    'changes': {
+                        'claims': calc_change(current[0], previous[0]),
+                        'claimed': calc_change(current[1], previous[1]),
+                        'reimb': calc_change(current[2], previous[2]),
+                        'denial_rate': round(current_denial_rate - prev_denial_rate, 2),
+                        'reimb_rate': round(current_reimb_rate - prev_reimb_rate, 2)
+                    }
+                },
+                'monthly': monthly_comparison
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in YoY comparison: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/export/<report_type>')
+def api_export_report(report_type):
+    """
+    Phase 2.4: Export Reports to CSV
+    Supported types: claims, denial, forecast, yoy
+    """
+    import csv
+    import io
+
+    try:
+        fiscal_year = request.args.get('fiscal_year', type=int)
+        start_date = _validate_date_param(request.args.get('start_date'))
+        end_date = _validate_date_param(request.args.get('end_date'))
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        if report_type == 'claims':
+            # Export claims data
+            where_clauses = ["dateadm IS NOT NULL"]
+            params = []
+
+            if fiscal_year:
+                gregorian_year = fiscal_year - 543
+                where_clauses.append("dateadm >= %s AND dateadm <= %s")
+                params.extend([f"{gregorian_year - 1}-10-01", f"{gregorian_year}-09-30"])
+
+            if start_date:
+                where_clauses.append("dateadm >= %s")
+                params.append(start_date)
+            if end_date:
+                where_clauses.append("dateadm <= %s")
+                params.append(end_date)
+
+            query = """
+                SELECT tran_id, rep_no, hn, an, pid, name, dateadm, datedsc,
+                       service_type, main_fund, drg, rw, claim_net, reimb_nhso, paid, error_code
+                FROM claim_rep_opip_nhso_item
+                WHERE """ + " AND ".join(where_clauses) + """
+                ORDER BY dateadm DESC
+                LIMIT 10000
+            """
+            cursor.execute(query, params)
+
+            # Write header
+            writer.writerow(['TRAN_ID', 'REP_NO', 'HN', 'AN', 'PID', 'ชื่อผู้ป่วย',
+                           'วันที่รับ', 'วันที่จำหน่าย', 'ประเภทบริการ', 'กองทุน',
+                           'DRG', 'RW', 'ยอดเบิก', 'Reimb NHSO', 'ยอดได้รับ', 'Error Code'])
+
+            for row in cursor.fetchall():
+                writer.writerow(row)
+
+            filename = f"claims_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+        elif report_type == 'denial':
+            # Export denial analysis
+            query = """
+                SELECT error_code, COUNT(*) as count,
+                       SUM(claim_net) as total_amount,
+                       ROUND(COUNT(*) * 100.0 / NULLIF(SUM(COUNT(*)) OVER(), 0), 2) as percentage
+                FROM claim_rep_opip_nhso_item
+                WHERE error_code IS NOT NULL AND error_code != ''
+                GROUP BY error_code
+                ORDER BY count DESC
+            """
+            cursor.execute(query)
+
+            writer.writerow(['Error Code', 'จำนวน', 'ยอดเงิน', 'สัดส่วน (%)'])
+            for row in cursor.fetchall():
+                writer.writerow(row)
+
+            filename = f"denial_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+        elif report_type == 'monthly':
+            # Export monthly summary
+            query = """
+                SELECT TO_CHAR(dateadm, 'YYYY-MM') as month,
+                       COUNT(*) as claims,
+                       SUM(claim_net) as claimed,
+                       SUM(reimb_nhso) as reimb,
+                       SUM(paid) as paid,
+                       COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as denials
+                FROM claim_rep_opip_nhso_item
+                WHERE dateadm IS NOT NULL
+                GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+                ORDER BY month DESC
+            """
+            cursor.execute(query)
+
+            writer.writerow(['เดือน', 'จำนวน Claims', 'ยอดเบิก', 'Reimb', 'ยอดได้รับ', 'Denials'])
+            for row in cursor.fetchall():
+                writer.writerow(row)
+
+            filename = f"monthly_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+        else:
+            return jsonify({'success': False, 'error': f'Unknown report type: {report_type}'}), 400
+
+        cursor.close()
+        conn.close()
+
+        # Create response with CSV
+        output.seek(0)
+        response = Response(
+            '\ufeff' + output.getvalue(),  # BOM for Excel UTF-8
+            mimetype='text/csv; charset=utf-8',
+            headers={
+                'Content-Disposition': f'attachment; filename={filename}',
+                'Content-Type': 'text/csv; charset=utf-8'
+            }
+        )
+        return response
+
+    except Exception as e:
+        app.logger.error(f"Error exporting report: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

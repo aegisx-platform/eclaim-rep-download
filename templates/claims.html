@@ -286,7 +286,7 @@ function renderClaims(claims) {
             { text: claim.tran_id || '-', className: 'font-mono text-blue-600' },
             { text: claim.dateadm || '-' },
             { html: true, hn: claim.hn, an: claim.an },
-            { text: claim.pname || '-' },
+            { text: claim.name || '-' },
             { text: claim.service_type || '-' },
             { text: claim.main_fund || '-' },
             { text: formatMoney(claim.claim_net), className: 'text-right font-medium' },
@@ -366,7 +366,7 @@ function showClaimModal(claim) {
     grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
     const fields = [
         ['TRAN_ID', claim.tran_id], ['REP_NO', claim.rep_no], ['HN', claim.hn], ['AN', claim.an],
-        ['PID', claim.pid], ['ชื่อผู้ป่วย', claim.pname], ['วันที่รับบริการ', claim.dateadm],
+        ['PID', claim.pid], ['ชื่อผู้ป่วย', claim.name], ['วันที่รับบริการ', claim.dateadm],
         ['วันที่จำหน่าย', claim.datedsc], ['ประเภทบริการ', claim.service_type],
         ['กองทุน', claim.main_fund], ['DRG', claim.drg], ['RW', claim.rw],
         ['ยอดเบิก', formatMoney(claim.claim_net)], ['Reimb NHSO', formatMoney(claim.reimb_nhso)],
