@@ -1,5 +1,6 @@
 """Flask Web UI for E-Claim Downloader"""
 
+import os
 from flask import Flask, render_template, jsonify, request, send_from_directory, redirect, url_for, Response, stream_with_context
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -19,7 +20,16 @@ from config.database import get_db_config
 TZ_BANGKOK = ZoneInfo('Asia/Bangkok')
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'eclaim-downloader-secret-key-change-in-production'
+
+# Load SECRET_KEY from environment variable
+# CRITICAL: Must be set in production for session security
+secret_key = os.environ.get('SECRET_KEY')
+if not secret_key:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError('SECRET_KEY environment variable must be set in production')
+    # Development fallback (not for production use)
+    secret_key = 'dev-only-secret-key-do-not-use-in-production'
+app.config['SECRET_KEY'] = secret_key
 
 # Initialize managers
 history_manager = HistoryManager()

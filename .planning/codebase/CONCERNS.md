@@ -12,11 +12,10 @@
 - Fix approach: Replace with specific exceptions like `except (ValueError, AttributeError) as e:`
 
 **Hardcoded Flask Secret Key:**
-- Issue: `app.config['SECRET_KEY'] = 'eclaim-downloader-secret-key-change-in-production'`
+- Issue: ~~`app.config['SECRET_KEY'] = 'eclaim-downloader-secret-key-change-in-production'`~~
 - File: `app.py` (line 22)
-- Why: Development convenience
-- Impact: CRITICAL - Session security compromised if not changed in production
-- Fix approach: Load from `SECRET_KEY` environment variable with required check
+- Status: ✅ FIXED (2026-01-11)
+- Fix: Loads from `SECRET_KEY` env variable, raises error in production if not set
 
 **No Database Connection Pooling:**
 - Issue: Creates new connection for each request without pooling
