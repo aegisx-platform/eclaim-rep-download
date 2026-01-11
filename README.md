@@ -157,6 +157,10 @@ NHSO Revenue Intelligence
 - **[Configuration Guide](docs/CONFIGURATION.md)** - System configuration
 - **[Usage Guide](docs/USAGE.md)** - How to use features
 
+### Hospital Analytics (สำหรับผู้บริหาร รพ.)
+- **[Hospital Analytics Guide](docs/HOSPITAL_ANALYTICS_GUIDE.md)** - คู่มือวิเคราะห์การเบิกเคลม
+- **[Analytics Roadmap](docs/ANALYTICS_ROADMAP.md)** - แผนพัฒนา Analytics
+
 ### Technical Documentation
 - **[Features Documentation](docs/FEATURES.md)** - All features detail
 - **[Database Guide](docs/DATABASE.md)** - Schema & HIS reconciliation
