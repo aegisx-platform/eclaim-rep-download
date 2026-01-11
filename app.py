@@ -15,6 +15,7 @@ from utils.log_stream import log_streamer
 from utils.settings_manager import SettingsManager
 from utils.scheduler import download_scheduler
 from config.database import get_db_config
+from config.db_pool import init_pool, close_pool, get_connection as get_pooled_connection, get_pool_status
 
 # Thailand timezone
 TZ_BANGKOK = ZoneInfo('Asia/Bangkok')
@@ -65,10 +66,12 @@ def init_scheduler():
 
 
 def get_db_connection():
-    """Get database connection"""
+    """Get database connection from pool"""
     try:
-        db_config = get_db_config()
-        return psycopg2.connect(**db_config)
+        conn = get_pooled_connection()
+        if conn is None:
+            app.logger.error("Failed to get connection from pool")
+        return conn
     except Exception as e:
         app.logger.error(f"Database connection error: {e}")
         return None
@@ -2280,7 +2283,32 @@ def api_smt_monthly():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/db/pool-status')
+def api_db_pool_status():
+    """Get database connection pool status"""
+    try:
+        status = get_pool_status()
+        return jsonify({
+            'success': True,
+            'pool': status
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
+    import atexit
+
+    # Initialize database connection pool
+    try:
+        init_pool()
+        app.logger.info("Database connection pool initialized")
+    except Exception as e:
+        app.logger.warning(f"Failed to initialize connection pool: {e}")
+
+    # Register cleanup on shutdown
+    atexit.register(close_pool)
+
     # Initialize schedulers on startup
     init_scheduler()
     init_smt_scheduler()

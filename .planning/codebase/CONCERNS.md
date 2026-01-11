@@ -18,11 +18,10 @@
 - Fix: Loads from `SECRET_KEY` env variable, raises error in production if not set
 
 **No Database Connection Pooling:**
-- Issue: Creates new connection for each request without pooling
-- Files: `app.py`, `config/database.py`
-- Why: Simple implementation for initial development
-- Impact: HIGH - Under load, will exhaust database connections
-- Fix approach: Use SQLAlchemy connection pool or pgBouncer
+- Issue: ~~Creates new connection for each request without pooling~~
+- Files: `app.py`, `config/database.py`, `config/db_pool.py`
+- Status: ✅ FIXED (2026-01-11)
+- Fix: Added `config/db_pool.py` with ThreadedConnectionPool, configurable via `DB_POOL_MIN`/`DB_POOL_MAX`
 
 **Unused Playwright Dependency:**
 - Issue: `playwright==1.40.0` in requirements but not used (HTTP requests used instead)
