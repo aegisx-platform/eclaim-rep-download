@@ -2085,6 +2085,624 @@ def api_analytics_comparison():
 
 
 # ============================================
+# Phase 1: Decision Support APIs
+# ============================================
+
+@app.route('/api/analytics/claims')
+def api_claims_detail():
+    """
+    Phase 1.1: Claim Detail Viewer
+    Paginated claim-level details with filters for drill-down analysis.
+
+    Query params:
+    - page: Page number (default: 1)
+    - per_page: Items per page (default: 50, max: 100)
+    - status: Filter by status (denied, error, success, all)
+    - fiscal_year: Filter by fiscal year (BE)
+    - start_date, end_date: Date range filter (YYYY-MM-DD)
+    - fund: Filter by main_fund
+    - service_type: Filter by service type
+    - search: Search in tran_id, hn, pid
+    - sort: Sort field (dateadm, claim_net, reimb_nhso, error_code)
+    - order: Sort order (asc, desc)
+    """
+    try:
+        # Pagination
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 50, type=int), 100)
+        offset = (page - 1) * per_page
+
+        # Filters
+        status = request.args.get('status', 'all')
+        fiscal_year = request.args.get('fiscal_year', type=int)
+        start_date = _validate_date_param(request.args.get('start_date'))
+        end_date = _validate_date_param(request.args.get('end_date'))
+        fund = request.args.get('fund')
+        service_type = request.args.get('service_type')
+        search = request.args.get('search', '').strip()
+
+        # Sorting
+        sort_field = request.args.get('sort', 'dateadm')
+        sort_order = request.args.get('order', 'desc')
+
+        # Validate sort field (prevent SQL injection)
+        allowed_sorts = ['dateadm', 'datedsc', 'claim_net', 'reimb_nhso', 'paid', 'error_code', 'tran_id']
+        if sort_field not in allowed_sorts:
+            sort_field = 'dateadm'
+        if sort_order not in ['asc', 'desc']:
+            sort_order = 'desc'
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Build WHERE clause
+        where_clauses = ["1=1"]
+        params = []
+
+        # Status filter
+        if status == 'denied':
+            where_clauses.append("(error_code IS NOT NULL AND error_code != '')")
+        elif status == 'error':
+            where_clauses.append("(error_code IS NOT NULL AND error_code != '')")
+        elif status == 'success':
+            where_clauses.append("(error_code IS NULL OR error_code = '')")
+
+        # Fiscal year filter
+        if fiscal_year:
+            gregorian_year = fiscal_year - 543
+            fy_start = f"{gregorian_year - 1}-10-01"
+            fy_end = f"{gregorian_year}-09-30"
+            where_clauses.append("dateadm >= %s AND dateadm <= %s")
+            params.extend([fy_start, fy_end])
+
+        # Date range filter
+        if start_date:
+            where_clauses.append("dateadm >= %s")
+            params.append(start_date)
+        if end_date:
+            where_clauses.append("dateadm <= %s")
+            params.append(end_date)
+
+        # Fund filter
+        if fund:
+            where_clauses.append("main_fund = %s")
+            params.append(fund)
+
+        # Service type filter
+        if service_type:
+            where_clauses.append("service_type = %s")
+            params.append(service_type)
+
+        # Search filter (tran_id, hn, pid)
+        if search:
+            where_clauses.append("(tran_id ILIKE %s OR hn ILIKE %s OR pid ILIKE %s)")
+            search_pattern = f"%{search}%"
+            params.extend([search_pattern, search_pattern, search_pattern])
+
+        where_clause = " AND ".join(where_clauses)
+
+        # Get total count
+        count_query = "SELECT COUNT(*) FROM claim_rep_opip_nhso_item WHERE " + where_clause
+        cursor.execute(count_query, params)
+        total = cursor.fetchone()[0]
+
+        # Get paginated data
+        select_query = """
+            SELECT
+                tran_id, rep_no, hn, an, pid, pname,
+                dateadm, datedsc,
+                service_type, main_fund, sub_fund,
+                claim_net, reimb_nhso, reimb_agency, paid,
+                drg, rw,
+                error_code,
+                file_id
+            FROM claim_rep_opip_nhso_item
+            WHERE """ + where_clause + """
+            ORDER BY """ + sort_field + " " + sort_order + """
+            LIMIT %s OFFSET %s
+        """
+        cursor.execute(select_query, params + [per_page, offset])
+        rows = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        # Format results
+        claims = []
+        for r in rows:
+            claim = {
+                'tran_id': r[0],
+                'rep_no': r[1],
+                'hn': r[2],
+                'an': r[3],
+                'pid': r[4],
+                'pname': r[5],
+                'dateadm': str(r[6]) if r[6] else None,
+                'datedsc': str(r[7]) if r[7] else None,
+                'service_type': r[8],
+                'main_fund': r[9],
+                'sub_fund': r[10],
+                'claim_net': float(r[11] or 0),
+                'reimb_nhso': float(r[12] or 0),
+                'reimb_agency': float(r[13] or 0),
+                'paid': float(r[14] or 0),
+                'drg': r[15],
+                'rw': float(r[16] or 0) if r[16] else None,
+                'error_code': r[17],
+                'file_id': r[18],
+                'has_error': bool(r[17] and r[17].strip()),
+                'reimb_rate': round(float(r[14] or 0) / float(r[11]) * 100, 1) if r[11] and float(r[11]) > 0 else 0
+            }
+            claims.append(claim)
+
+        # Calculate pagination info
+        total_pages = (total + per_page - 1) // per_page
+
+        return jsonify({
+            'success': True,
+            'data': claims,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': total_pages,
+                'has_next': page < total_pages,
+                'has_prev': page > 1
+            },
+            'filters': {
+                'status': status,
+                'fiscal_year': fiscal_year,
+                'start_date': start_date,
+                'end_date': end_date,
+                'fund': fund,
+                'service_type': service_type,
+                'search': search
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in claims detail: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/claim/<tran_id>')
+def api_claim_single(tran_id):
+    """
+    Get single claim details by tran_id
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Get main claim data
+        cursor.execute("""
+            SELECT *
+            FROM claim_rep_opip_nhso_item
+            WHERE tran_id = %s
+            ORDER BY file_id DESC
+            LIMIT 1
+        """, [tran_id])
+
+        row = cursor.fetchone()
+        if not row:
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'Claim not found'}), 404
+
+        # Get column names
+        columns = [desc[0] for desc in cursor.description]
+        claim = dict(zip(columns, row))
+
+        # Convert decimal/date types
+        for key, value in claim.items():
+            if hasattr(value, 'isoformat'):
+                claim[key] = value.isoformat()
+            elif hasattr(value, '__float__'):
+                claim[key] = float(value)
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': claim
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error getting claim {tran_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/denial-root-cause')
+def api_denial_root_cause():
+    """
+    Phase 1.2: Denial Root Cause Analysis
+    Analyze denial patterns and identify root causes.
+
+    Query params:
+    - fiscal_year: Filter by fiscal year (BE)
+    - start_date, end_date: Date range filter
+    - error_code: Filter by specific error code
+    """
+    try:
+        fiscal_year = request.args.get('fiscal_year', type=int)
+        start_date = _validate_date_param(request.args.get('start_date'))
+        end_date = _validate_date_param(request.args.get('end_date'))
+        error_code_filter = request.args.get('error_code')
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Build date filter
+        where_clauses = ["error_code IS NOT NULL", "error_code != ''"]
+        params = []
+
+        if fiscal_year:
+            gregorian_year = fiscal_year - 543
+            fy_start = f"{gregorian_year - 1}-10-01"
+            fy_end = f"{gregorian_year}-09-30"
+            where_clauses.append("dateadm >= %s AND dateadm <= %s")
+            params.extend([fy_start, fy_end])
+
+        if start_date:
+            where_clauses.append("dateadm >= %s")
+            params.append(start_date)
+        if end_date:
+            where_clauses.append("dateadm <= %s")
+            params.append(end_date)
+
+        if error_code_filter:
+            where_clauses.append("error_code = %s")
+            params.append(error_code_filter)
+
+        where_clause = " AND ".join(where_clauses)
+
+        # 1. Overall denial statistics
+        stats_query = """
+            SELECT
+                COUNT(*) as total_denials,
+                COUNT(DISTINCT error_code) as unique_error_codes,
+                COALESCE(SUM(claim_net), 0) as total_denied_amount,
+                COALESCE(SUM(reimb_nhso), 0) as total_reimb_lost
+            FROM claim_rep_opip_nhso_item
+            WHERE """ + where_clause
+        cursor.execute(stats_query, params)
+        stats_row = cursor.fetchone()
+
+        # Get total claims for rate calculation
+        total_query = """
+            SELECT COUNT(*), COALESCE(SUM(claim_net), 0)
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm IS NOT NULL
+        """
+        if fiscal_year:
+            total_query += " AND dateadm >= %s AND dateadm <= %s"
+            cursor.execute(total_query, [fy_start, fy_end])
+        elif start_date or end_date:
+            date_params = []
+            if start_date:
+                total_query += " AND dateadm >= %s"
+                date_params.append(start_date)
+            if end_date:
+                total_query += " AND dateadm <= %s"
+                date_params.append(end_date)
+            cursor.execute(total_query, date_params)
+        else:
+            cursor.execute(total_query)
+        total_row = cursor.fetchone()
+
+        denial_rate = round(stats_row[0] / total_row[0] * 100, 2) if total_row[0] > 0 else 0
+
+        # 2. Error code breakdown
+        error_query = """
+            SELECT
+                error_code,
+                COUNT(*) as count,
+                COALESCE(SUM(claim_net), 0) as total_amount,
+                ROUND(COUNT(*) * 100.0 / NULLIF(SUM(COUNT(*)) OVER(), 0), 2) as percentage
+            FROM claim_rep_opip_nhso_item
+            WHERE """ + where_clause + """
+            GROUP BY error_code
+            ORDER BY count DESC
+            LIMIT 15
+        """
+        cursor.execute(error_query, params)
+        error_rows = cursor.fetchall()
+
+        error_breakdown = [
+            {
+                'error_code': r[0],
+                'count': r[1],
+                'amount': float(r[2]),
+                'percentage': float(r[3]) if r[3] else 0
+            }
+            for r in error_rows
+        ]
+
+        # 3. Denial by service type
+        service_query = """
+            SELECT
+                COALESCE(service_type, 'Unknown') as service_type,
+                COUNT(*) as count,
+                COALESCE(SUM(claim_net), 0) as total_amount
+            FROM claim_rep_opip_nhso_item
+            WHERE """ + where_clause + """
+            GROUP BY service_type
+            ORDER BY count DESC
+        """
+        cursor.execute(service_query, params)
+        service_rows = cursor.fetchall()
+
+        by_service = [
+            {
+                'service_type': r[0],
+                'count': r[1],
+                'amount': float(r[2])
+            }
+            for r in service_rows
+        ]
+
+        # 4. Denial by fund
+        fund_query = """
+            SELECT
+                COALESCE(main_fund, 'Unknown') as fund,
+                COUNT(*) as count,
+                COALESCE(SUM(claim_net), 0) as total_amount
+            FROM claim_rep_opip_nhso_item
+            WHERE """ + where_clause + """
+            GROUP BY main_fund
+            ORDER BY count DESC
+            LIMIT 10
+        """
+        cursor.execute(fund_query, params)
+        fund_rows = cursor.fetchall()
+
+        by_fund = [
+            {
+                'fund': r[0],
+                'count': r[1],
+                'amount': float(r[2])
+            }
+            for r in fund_rows
+        ]
+
+        # 5. Monthly trend
+        trend_query = """
+            SELECT
+                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                COUNT(*) as count,
+                COALESCE(SUM(claim_net), 0) as total_amount
+            FROM claim_rep_opip_nhso_item
+            WHERE """ + where_clause + """ AND dateadm IS NOT NULL
+            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+            ORDER BY month DESC
+            LIMIT 12
+        """
+        cursor.execute(trend_query, params)
+        trend_rows = cursor.fetchall()
+
+        monthly_trend = [
+            {
+                'month': r[0],
+                'count': r[1],
+                'amount': float(r[2])
+            }
+            for r in reversed(trend_rows)
+        ]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'summary': {
+                    'total_denials': stats_row[0],
+                    'unique_error_codes': stats_row[1],
+                    'total_denied_amount': float(stats_row[2]),
+                    'total_reimb_lost': float(stats_row[3]),
+                    'denial_rate': denial_rate,
+                    'total_claims': total_row[0],
+                    'total_claims_amount': float(total_row[1])
+                },
+                'by_error_code': error_breakdown,
+                'by_service_type': by_service,
+                'by_fund': by_fund,
+                'monthly_trend': monthly_trend
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in denial root cause: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/alerts')
+def api_alerts():
+    """
+    Phase 1.3: Alert System
+    Get active alerts based on predefined thresholds.
+
+    Alerts checked:
+    - Denial Rate > 10%
+    - Reimb Rate < 85%
+    - Fund variance > 15%
+    - Monthly decline > 20%
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        alerts = []
+
+        # Get current month data
+        cursor.execute("""
+            SELECT
+                COUNT(*) as total_claims,
+                COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as denied_claims,
+                COALESCE(SUM(claim_net), 0) as total_claimed,
+                COALESCE(SUM(paid), 0) as total_paid
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm >= DATE_TRUNC('month', CURRENT_DATE)
+        """)
+        current = cursor.fetchone()
+
+        if current[0] > 0:
+            # Alert 1: High Denial Rate
+            denial_rate = round(current[1] / current[0] * 100, 2)
+            if denial_rate > 10:
+                alerts.append({
+                    'id': 'denial_rate_high',
+                    'type': 'error',
+                    'severity': 'critical',
+                    'title': 'Denial Rate สูงเกินเกณฑ์',
+                    'message': f'Denial Rate เดือนนี้ {denial_rate}% (เกณฑ์: <10%)',
+                    'metric': 'denial_rate',
+                    'value': denial_rate,
+                    'threshold': 10,
+                    'action': 'ตรวจสอบ Error Codes และแก้ไขด่วน'
+                })
+            elif denial_rate > 5:
+                alerts.append({
+                    'id': 'denial_rate_warning',
+                    'type': 'warning',
+                    'severity': 'warning',
+                    'title': 'Denial Rate เริ่มสูง',
+                    'message': f'Denial Rate เดือนนี้ {denial_rate}% (ควรต่ำกว่า 5%)',
+                    'metric': 'denial_rate',
+                    'value': denial_rate,
+                    'threshold': 5,
+                    'action': 'ติดตามและเฝ้าระวัง'
+                })
+
+            # Alert 2: Low Reimbursement Rate
+            if current[2] > 0:
+                reimb_rate = round(current[3] / current[2] * 100, 2)
+                if reimb_rate < 85:
+                    alerts.append({
+                        'id': 'reimb_rate_low',
+                        'type': 'error',
+                        'severity': 'critical',
+                        'title': 'Reimbursement Rate ต่ำ',
+                        'message': f'Reimb Rate เดือนนี้ {reimb_rate}% (เกณฑ์: >85%)',
+                        'metric': 'reimb_rate',
+                        'value': reimb_rate,
+                        'threshold': 85,
+                        'action': 'ตรวจสอบ Claims ที่ยังไม่ได้รับเงิน'
+                    })
+                elif reimb_rate < 90:
+                    alerts.append({
+                        'id': 'reimb_rate_warning',
+                        'type': 'warning',
+                        'severity': 'warning',
+                        'title': 'Reimbursement Rate ต่ำกว่าเป้า',
+                        'message': f'Reimb Rate เดือนนี้ {reimb_rate}% (เป้า: >90%)',
+                        'metric': 'reimb_rate',
+                        'value': reimb_rate,
+                        'threshold': 90,
+                        'action': 'ติดตาม Claims ค้างรับ'
+                    })
+
+        # Alert 3: Month-over-Month decline
+        cursor.execute("""
+            SELECT
+                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                COUNT(*) as claims,
+                COALESCE(SUM(reimb_nhso), 0) as reimb
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '2 months'
+            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+            ORDER BY month DESC
+            LIMIT 2
+        """)
+        monthly = cursor.fetchall()
+
+        if len(monthly) >= 2:
+            current_reimb = float(monthly[0][2])
+            prev_reimb = float(monthly[1][2])
+            if prev_reimb > 0:
+                change_pct = round((current_reimb - prev_reimb) / prev_reimb * 100, 2)
+                if change_pct < -20:
+                    alerts.append({
+                        'id': 'revenue_decline',
+                        'type': 'error',
+                        'severity': 'critical',
+                        'title': 'รายได้ลดลงมาก',
+                        'message': f'Reimb ลดลง {abs(change_pct)}% จากเดือนก่อน',
+                        'metric': 'mom_change',
+                        'value': change_pct,
+                        'threshold': -20,
+                        'action': 'วิเคราะห์สาเหตุและดำเนินการแก้ไข'
+                    })
+                elif change_pct < -10:
+                    alerts.append({
+                        'id': 'revenue_decline_warning',
+                        'type': 'warning',
+                        'severity': 'warning',
+                        'title': 'รายได้ลดลง',
+                        'message': f'Reimb ลดลง {abs(change_pct)}% จากเดือนก่อน',
+                        'metric': 'mom_change',
+                        'value': change_pct,
+                        'threshold': -10,
+                        'action': 'ติดตามแนวโน้ม'
+                    })
+
+        # Alert 4: Pending claims (no payment)
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM claim_rep_opip_nhso_item
+            WHERE (paid IS NULL OR paid = 0)
+            AND claim_net > 0
+            AND dateadm < CURRENT_DATE - INTERVAL '30 days'
+        """)
+        pending = cursor.fetchone()[0]
+        if pending > 100:
+            alerts.append({
+                'id': 'pending_claims',
+                'type': 'warning',
+                'severity': 'warning',
+                'title': 'Claims รอการชำระเงินมาก',
+                'message': f'มี {pending:,} claims ที่ยังไม่ได้รับเงิน (>30 วัน)',
+                'metric': 'pending_claims',
+                'value': pending,
+                'threshold': 100,
+                'action': 'ติดตามกับ สปสช.'
+            })
+
+        cursor.close()
+        conn.close()
+
+        # Sort alerts by severity
+        severity_order = {'critical': 0, 'warning': 1, 'info': 2}
+        alerts.sort(key=lambda x: severity_order.get(x['severity'], 99))
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'alerts': alerts,
+                'total': len(alerts),
+                'critical_count': sum(1 for a in alerts if a['severity'] == 'critical'),
+                'warning_count': sum(1 for a in alerts if a['severity'] == 'warning')
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error getting alerts: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================
 # Reconciliation Routes
 # ============================================
 
