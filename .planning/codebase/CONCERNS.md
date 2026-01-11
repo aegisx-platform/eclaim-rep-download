@@ -23,11 +23,10 @@
 - Fix: Added `config/db_pool.py` with ThreadedConnectionPool, configurable via `DB_POOL_MIN`/`DB_POOL_MAX`
 
 **Unused Playwright Dependency:**
-- Issue: `playwright==1.40.0` in requirements but not used (HTTP requests used instead)
-- File: `requirements.txt` (line 5)
-- Why: Legacy from browser automation approach
-- Impact: Bloated container image, unnecessary dependency
-- Fix approach: Remove from `requirements.txt`
+- Issue: ~~`playwright==1.40.0` in requirements but not used~~
+- File: `requirements.txt`
+- Status: ✅ FIXED (2026-01-11)
+- Fix: Removed from requirements.txt (legacy `eclaim_downloader.py` still exists but unused)
 
 ## Known Bugs
 
