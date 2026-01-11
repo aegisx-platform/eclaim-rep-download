@@ -1,6 +1,6 @@
-# E-Claim Downloader & Data Import System
+# NHSO Revenue Intelligence
 
-> 🏥 ระบบ download และ import ข้อมูล e-claim จาก NHSO อัตโนมัติ พร้อม Web UI สำหรับจัดการไฟล์และนำเข้าฐานข้อมูล
+> ระบบวิเคราะห์รายได้จากการเบิกจ่าย สปสช. - Hospital Revenue Analytics for NHSO E-Claim Reimbursements
 
 ![Dashboard](screenshots/dashboard.jpeg)
 
@@ -10,7 +10,7 @@
 
 ---
 
-## ☕ Support This Project
+## Support This Project
 
 If you find this project helpful, consider buying me a coffee!
 
@@ -20,7 +20,7 @@ If you find this project helpful, consider buying me a coffee!
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#-overview)
 - [Key Features](#-key-features)
@@ -35,67 +35,75 @@ If you find this project helpful, consider buying me a coffee!
 
 ---
 
-## 🌟 Overview
+## Overview
 
-E-Claim Downloader เป็นระบบที่ออกแบบมาเพื่อช่วยโรงพยาบาลในการจัดการข้อมูล E-Claim จาก NHSO อย่างมีประสิทธิภาพ ด้วยระบบ Web UI ที่ใช้งานง่าย และรองรับการ import ข้อมูลเข้า database โดยตรง
+**NHSO Revenue Intelligence** (เดิมชื่อ E-Claim Downloader) เป็นระบบวิเคราะห์รายได้จากการเบิกจ่าย สปสช. สำหรับโรงพยาบาล ครอบคลุมตั้งแต่การ download ข้อมูล E-Claim, import เข้าฐานข้อมูล, วิเคราะห์รายได้, จนถึงกระทบยอดกับข้อมูล SMT Budget
 
-**Version:** v2.0.0
-**Last Updated:** 2026-01-08
+**Version:** v3.0.0
+**Last Updated:** 2026-01-11
+
+### Data Sources
+
+| Source | URL | Description |
+|--------|-----|-------------|
+| E-Claim | [eclaim.nhso.go.th](https://eclaim.nhso.go.th) | ข้อมูลการเบิกจ่าย (REP) |
+| SMT Budget | [smt.nhso.go.th](https://smt.nhso.go.th) | ข้อมูลงบประมาณที่จ่ายจริง |
 
 ### Why This System?
 
-- ✅ **Save Time** - ไม่ต้อง download ไฟล์ทีละไฟล์จาก web browser
-- ✅ **Automated** - ตั้งเวลา download อัตโนมัติได้
-- ✅ **Data Management** - import เข้า database พร้อม HIS reconciliation
-- ✅ **Multi-Database** - รองรับทั้ง PostgreSQL และ MySQL
-- ✅ **Hospital Schema** - ใช้โครงสร้างตารางของโรงพยาบาลเป็นหลัก
-- ✅ **Easy to Use** - Web UI ใช้งานง่าย พร้อม real-time monitoring
+- **Revenue Analytics** - วิเคราะห์รายได้จากการเบิกจ่ายแบบ real-time
+- **Reconciliation** - กระทบยอด REP vs SMT อัตโนมัติ
+- **Dashboard & KPIs** - ภาพรวมสำหรับผู้บริหารโรงพยาบาล
+- **Automated Downloads** - ตั้งเวลา download อัตโนมัติได้
+- **Multi-Database** - รองรับทั้ง PostgreSQL และ MySQL
+- **Hospital Schema** - ใช้โครงสร้างตารางของโรงพยาบาลเป็นหลัก
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-### 🌐 Web Dashboard
-- สถิติและภาพรวมการ download
-- จัดการไฟล์ (view, download, delete)
-- Pagination & month/year filtering
-- Real-time log viewer
+### Revenue Dashboard
+- **KPI Cards**: Total Claims, Total Reimbursement, Denial Rate
+- **Service Type Distribution**: OP, IP, Refer, Emergency
+- **Top Funds by Revenue**: แยกตามกองทุน
+- **Quick Actions**: เข้าถึง Analytics, Reconciliation, Download
 
-### 📥 Download System
-- Auto login & HTTP client (fast!)
-- Single month หรือ bulk download (date range)
-- Duplicate prevention & progress tracking
-- Download history
+### Analytics Dashboard
+- **Monthly Trends**: เทรนด์รายเดือน
+- **DRG Analysis**: Top DRG, RW Distribution
+- **Drug Analysis**: ยาที่เบิกมากที่สุด
+- **Denial Analysis**: สาเหตุการปฏิเสธ
+- **Fund Analysis**: วิเคราะห์ตามกองทุน
+- **Fiscal Year Filter**: กรองตามปีงบประมาณ
 
-### ⏰ Auto Scheduling
+### Reconciliation (REP vs SMT)
+- **Claims vs Payments**: เปรียบเทียบยอดเบิก vs ยอดจ่าย
+- **Monthly Comparison**: กระทบยอดรายเดือน
+- **Discrepancy Detection**: ตรวจหาความต่าง
+- **Export Reports**: ส่งออกรายงาน
+
+### Data Management (All-in-One)
+- **Download Tab**: Single month & Bulk download
+- **Files Tab**: จัดการไฟล์ & Import status
+- **SMT Sync Tab**: ดึงข้อมูล SMT Budget
+- **Settings Tab**: Credentials & Scheduler
+
+### Auto Scheduling
 - ตั้งเวลา download ได้หลายช่วงต่อวัน
-- Enable/disable toggle
 - Auto-import option
 - Next run time display
 
-### 💾 Database Import
-- Database schema - ใช้โครงสร้างตารางของโรงพยาบาลเป็นหลัก
+### Database Import
 - **Multi-Database**: PostgreSQL และ MySQL
 - **Complete Mapping**: Map ทุก columns (170+ fields)
-- **All File Types**: OP, IP, ORF, IP_APPEAL, IP_APPEAL_NHSO
+- **All File Types**: OP, IP, ORF, IP_APPEAL
 - **UPSERT Logic**: ป้องกัน duplicate
-- **HIS Reconciliation**: Fields สำหรับ reconcile
-
-### 🐳 Docker Deployment
-- One-command deploy
-- Full stack (Web + Database + Admin UI)
-- Download-only mode
-- Health checks & auto-restart
-
-**[→ ดู Features ทั้งหมด](docs/FEATURES.md)**
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-### Docker Deployment (แนะนำ)
-
-**Option 1: ใช้ Pre-built Image (Production - ง่ายที่สุด)**
+### Docker Deployment (Recommended)
 
 ```bash
 # 1. Clone repository
@@ -104,90 +112,82 @@ cd eclaim-rep-download
 
 # 2. Setup environment
 cp .env.example .env
-nano .env  # ตั้งค่า ECLAIM_USERNAME และ ECLAIM_PASSWORD
-          # และ VERSION=v2.0.0 (หรือ latest)
+nano .env  # Set ECLAIM_USERNAME and ECLAIM_PASSWORD
 
-# 3. Start services (ดึง image จาก GitHub Container Registry)
+# 3. Start services
 docker-compose up -d
 
-# อื่นๆ:
+# Other options:
 # - MySQL: docker-compose -f docker-compose-mysql.yml up -d
 # - Download-only: docker-compose -f docker-compose-no-db.yml up -d
 ```
 
-**Option 2: Build จาก Source (Development)**
+### Access Points
 
-```bash
-# Clone และ setup เหมือนเดิม
-git clone https://github.com/aegisx-platform/eclaim-rep-download.git
-cd eclaim-rep-download
-cp .env.example .env
-nano .env
-
-# Build และ start
-docker-compose build
-docker-compose up -d
-```
-
-**Update เมื่อมี Version ใหม่:**
-
-```bash
-# แก้ไข VERSION ใน .env
-echo "VERSION=v2.1.0" >> .env
-
-# Pull image ใหม่และ restart
-docker-compose pull
-docker-compose up -d
-```
-
-**Access:**
-- 🌐 **Web UI**: http://localhost:5001
-- 🗄️ **Database**: localhost:5432 (PostgreSQL) or localhost:3306 (MySQL)
-- 🔧 **Admin UI**: http://localhost:5050 (เปิดด้วย `--profile tools`)
-
-**[→ Installation Guide](docs/INSTALLATION.md)**
+| Service | URL | Description |
+|---------|-----|-------------|
+| Web UI | http://localhost:5001 | Main application |
+| Dashboard | http://localhost:5001/dashboard | Revenue KPIs |
+| Analytics | http://localhost:5001/analytics | Detailed analytics |
+| Reconciliation | http://localhost:5001/reconciliation | REP vs SMT |
+| Data Management | http://localhost:5001/data-management | Download, Files, Settings |
 
 ---
 
-## 📚 Documentation
+## Navigation Structure
+
+```
+NHSO Revenue Intelligence
+├── Dashboard          - Revenue KPIs & Overview
+├── Analytics          - Detailed Charts & Analysis
+├── Reconciliation     - REP vs SMT Comparison
+└── Data Management    - Download, Files, SMT, Settings
+    ├── Download       - Single/Bulk download + Scheduler
+    ├── Files          - File list + Import status
+    ├── SMT Sync       - Budget data sync
+    └── Settings       - Credentials + Database info
+```
+
+---
+
+## Documentation
 
 ### Getting Started
-- **[Installation Guide](docs/INSTALLATION.md)** - ขั้นตอนการติดตั้ง (Docker & Manual)
-- **[Configuration Guide](docs/CONFIGURATION.md)** - การตั้งค่าระบบ
-- **[Usage Guide](docs/USAGE.md)** - วิธีใช้งาน Web UI และ features ต่างๆ
+- **[Installation Guide](docs/INSTALLATION.md)** - Docker & Manual setup
+- **[Configuration Guide](docs/CONFIGURATION.md)** - System configuration
+- **[Usage Guide](docs/USAGE.md)** - How to use features
 
 ### Technical Documentation
-- **[Features Documentation](docs/FEATURES.md)** - รายละเอียด features ทั้งหมด
-- **[Database Guide](docs/DATABASE.md)** - database schema และ HIS reconciliation
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - แก้ปัญหาและ debugging
-- **[Development Guide](docs/DEVELOPMENT.md)** - สำหรับ developers
+- **[Features Documentation](docs/FEATURES.md)** - All features detail
+- **[Database Guide](docs/DATABASE.md)** - Schema & HIS reconciliation
+- **[Analytics Guide](docs/ANALYTICS.md)** - Analytics dashboard guide
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Problem solving
 
 ### Additional Resources
-- **[Legal & Compliance](docs/LEGAL.md)** - กฎหมายและ PDPA compliance
-- **[Docker Setup](DOCKER.md)** - Docker deployment guide
-- **[Migration Guide](MIGRATE_V2.md)** - Migrate to database schema
-- **[E-Claim Analysis](ECLAIM_ANALYSIS_REPORT.md)** - File structure analysis
+- **[Legal & Compliance](docs/LEGAL.md)** - PDPA compliance
+- **[Docker Setup](DOCKER.md)** - Docker deployment
+- **[E-Claim Analysis](ECLAIM_ANALYSIS_REPORT.md)** - File structure
 
 ---
 
-## 📱 Screenshots
+## Screenshots
 
-### Dashboard
+### Revenue Dashboard
 ![Dashboard](screenshots/dashboard.jpeg)
-*Overview with statistics and recent files*
+*Revenue KPIs, Service Distribution, Top Funds*
 
-### Files Management
-*Pagination, filtering, and import status*
+### Analytics Dashboard
+*Monthly Trends, DRG Analysis, Drug Analysis*
 
-### Download Configuration
-*Date range selection and bulk download*
+### Reconciliation
+*REP vs SMT Comparison, Discrepancy Detection*
 
-### Settings
-*Credentials and scheduler configuration*
+### Data Management
+*Download, Files, SMT Sync, Settings - All in one page*
 
 ---
 
-## 💻 Requirements
+## Requirements
 
 ### Minimum Requirements
 - **Docker** 20.10+ & **Docker Compose** 2.0+
@@ -201,38 +201,30 @@ docker-compose up -d
 - No database (download-only mode)
 
 ### Supported OS
-- ✅ Linux (Ubuntu, Debian, CentOS)
-- ✅ macOS
-- ✅ Windows (with Docker Desktop or WSL2)
+- Linux (Ubuntu, Debian, CentOS)
+- macOS
+- Windows (with Docker Desktop or WSL2)
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-eclaim-req-download/
+eclaim-rep-download/
 ├── app.py                          # Flask web application
 ├── eclaim_downloader_http.py       # HTTP downloader
 ├── eclaim_import.py                # CLI import tool
 ├── docker-compose*.yml             # Docker configurations
 ├── config/                         # Configuration files
 ├── database/                       # Database schemas
-│   ├── schema-postgresql-merged.sql  # PostgreSQL V2
-│   └── schema-mysql-merged.sql       # MySQL V2
+│   ├── schema-postgresql-merged.sql
+│   └── schema-mysql-merged.sql
 ├── docs/                           # Documentation
-│   ├── FEATURES.md
-│   ├── INSTALLATION.md
-│   ├── CONFIGURATION.md
-│   ├── USAGE.md
-│   ├── DATABASE.md
-│   ├── LEGAL.md
-│   ├── TROUBLESHOOTING.md
-│   └── DEVELOPMENT.md
 ├── utils/                          # Utility modules
-│   ├── eclaim/                    # E-Claim modules
+│   ├── eclaim/                     # E-Claim modules
 │   │   ├── parser.py
-│   │   ├── importer.py
-│   │   └── importer_v2.py         # V2 with hospital schema
+│   │   └── importer_v2.py
+│   ├── smt/                        # SMT Budget modules
 │   ├── history_manager.py
 │   ├── file_manager.py
 │   ├── downloader_runner.py
@@ -240,63 +232,52 @@ eclaim-req-download/
 │   ├── scheduler.py
 │   └── settings_manager.py
 ├── templates/                      # HTML templates
+│   ├── base.html                   # Base layout
+│   ├── dashboard.html              # Revenue Dashboard
+│   ├── analytics.html              # Analytics Dashboard
+│   ├── reconciliation.html         # Reconciliation
+│   └── data_management.html        # Combined Data Management
 └── static/                         # CSS & JavaScript
 ```
 
-**[→ Detailed Structure](docs/DEVELOPMENT.md#project-structure)**
-
 ---
 
-## 📊 Sample Statistics
+## Version History
 
-จากการทดสอบจริงในโรงพยาบาล:
-
-- **Total Files**: 382 ไฟล์
-- **Total Records**: 40,006 records
-- **Total Reimbursement**: ~141.6 million THB
-
-**By Type:**
-- OP: 252 files (14.1M THB)
-- IP: 82 files (123.6M THB)
-- ORF: 45 files
-- IP_APPEAL_NHSO: 2 files (3.8M THB)
-
----
-
-## 🏷️ Version History
-
-### v2.0.0 (2026-01-08) - database schema Release
+### v3.0.0 (2026-01-11) - Revenue Intelligence Release
 
 **Major Changes:**
-- ✨ Database schema - ใช้โครงสร้างตารางของโรงพยาบาลเป็นหลัก
-- ✨ **Complete Field Mapping**: Map ทุก columns (170+ fields)
-- ✨ **Multi-Database**: PostgreSQL + MySQL support
-- 🐛 **Import Fixes**: Date parsing, string truncation, data validation
-- 📚 **Documentation**: แยก sections เป็นไฟล์แยก
+- Rebrand to **NHSO Revenue Intelligence**
+- New **Revenue Dashboard** with KPIs
+- New **Analytics Dashboard** with filters
+- **Reconciliation** (REP vs SMT)
+- Combined **Data Management** page
+- SMT Budget integration
+- New navigation structure (4 main pages)
 
-### v1.1.0 (2026-01-07)
-- ✨ Auto Download Scheduling
-- ✨ Settings Page
-- ✨ Pagination & Filtering
-- ✨ Real-time Log Streaming
-- 🐳 Docker Compose
-- 📚 Legal & Compliance Docs
+### v2.0.0 (2026-01-08) - Hospital Schema Release
 
-### v1.0.0 (Initial Release)
-- 📥 E-Claim Downloader
-- 🌐 Web UI Dashboard
-- 💾 Database Import
-- 🐳 Docker Support
+- Hospital database schema
+- Complete Field Mapping (170+ fields)
+- Multi-Database support
+- Import fixes
+
+### v1.0.0 - Initial Release
+
+- E-Claim Downloader
+- Web UI Dashboard
+- Database Import
+- Docker Support
 
 ---
 
-## 📝 License
+## License
 
 MIT License - see [LICENSE](LICENSE) file for details
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please:
 
@@ -306,17 +287,15 @@ Contributions are welcome! Please:
 4. Push to branch (`git push origin feature/AmazingFeature`)
 5. Open Pull Request
 
-**[→ Development Guide](docs/DEVELOPMENT.md)**
-
 ---
 
-## 💬 Support
+## Support
 
 ### Getting Help
 
-- 📖 **Documentation**: [docs/](docs/)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/aegisx-platform/eclaim-req-download/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/aegisx-platform/eclaim-req-download/discussions)
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/aegisx-platform/eclaim-rep-download/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/aegisx-platform/eclaim-rep-download/discussions)
 
 ### Report Issues
 
@@ -326,33 +305,31 @@ Include:
 - Environment (OS, Docker version)
 - Logs (sanitize sensitive data)
 
-**[→ Troubleshooting Guide](docs/TROUBLESHOOTING.md)**
-
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- NHSO E-Claim System
+- NHSO E-Claim System (eclaim.nhso.go.th)
+- NHSO SMT Budget System (smt.nhso.go.th)
 - Flask Framework
-- PostgreSQL & MySQL Databases
-- APScheduler Library
+- Chart.js
 - Tailwind CSS
-- Docker Community
+- PostgreSQL & MySQL
 
 ---
 
-## ⚖️ Legal Notice
+## Legal Notice
 
 This software is **legal** when used correctly with authorized credentials and for legitimate hospital purposes. Please comply with:
 
-- ✅ **PDPA** (พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล)
-- ✅ **Security Best Practices**
-- ✅ **Access Control**
+- **PDPA** (พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล)
+- **Security Best Practices**
+- **Access Control**
 
-**[→ Legal & Compliance Guide](docs/LEGAL.md)**
+**[Legal & Compliance Guide](docs/LEGAL.md)**
 
 ---
 
-**Made with ❤️ by [aegisx platform](https://github.com/aegisx-platform)**
+**Made with love by [aegisx platform](https://github.com/aegisx-platform)**
 
-**Last Updated:** 2026-01-08 | **Version:** v2.0.0
+**Last Updated:** 2026-01-11 | **Version:** v3.0.0
