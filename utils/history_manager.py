@@ -82,7 +82,7 @@ class HistoryManager:
             try:
                 last_run_dt = datetime.fromisoformat(last_run)
                 last_run_formatted = humanize.naturaltime(last_run_dt)
-            except:
+            except (ValueError, TypeError):
                 last_run_formatted = last_run
         else:
             last_run_formatted = 'Never'

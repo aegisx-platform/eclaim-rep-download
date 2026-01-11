@@ -5,11 +5,10 @@
 ## Tech Debt
 
 **Bare Exception Handlers:**
-- Issue: Multiple bare `except:` clauses catch all exceptions, masking real errors
-- Files: `app.py` (lines 136, 227, 301), `utils/eclaim/importer_v2.py`, `utils/eclaim/parser.py`
-- Why: Rapid development without specific exception handling
-- Impact: Debugging difficult, unexpected failures hidden
-- Fix approach: Replace with specific exceptions like `except (ValueError, AttributeError) as e:`
+- Issue: ~~Multiple bare `except:` clauses catch all exceptions~~
+- Files: `app.py`, `utils/scheduler.py`, `utils/history_manager.py`, `utils/eclaim/*.py`
+- Status: ✅ FIXED (2026-01-11)
+- Fix: Replaced 16 bare `except:` with specific exceptions (ValueError, TypeError, AttributeError)
 
 **Hardcoded Flask Secret Key:**
 - Issue: ~~`app.config['SECRET_KEY'] = 'eclaim-downloader-secret-key-change-in-production'`~~

@@ -63,7 +63,7 @@ class AdditionalSheetsImporter:
                 if pd.isna(result):
                     return None
                 return result
-            except:
+            except (ValueError, TypeError, AttributeError):
                 return None
         if isinstance(value, str):
             value = value.strip()
@@ -75,7 +75,7 @@ class AdditionalSheetsImporter:
                 if pd.isna(result):
                     return None
                 return result
-            except:
+            except (ValueError, TypeError):
                 return None
         return None
 
@@ -89,7 +89,7 @@ class AdditionalSheetsImporter:
                 return default
         try:
             return float(value)
-        except:
+        except (ValueError, TypeError):
             return default
 
     def _safe_int(self, value, default=0):
@@ -98,7 +98,7 @@ class AdditionalSheetsImporter:
             return default
         try:
             return int(float(value))
-        except:
+        except (ValueError, TypeError):
             return default
 
     def _safe_string(self, value, max_length=None):

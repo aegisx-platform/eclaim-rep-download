@@ -298,7 +298,7 @@ class EClaimFileParser:
                             value = str(value).replace(',', '').strip()
                             if value == '' or value == '-':
                                 value = None
-                        except:
+                        except (AttributeError, TypeError):
                             value = None
 
                     record[db_field] = value

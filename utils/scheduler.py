@@ -136,7 +136,8 @@ class DownloadScheduler:
                     'error',
                     'scheduler'
                 )
-            except:
+            except Exception:
+                # Fallback to print if log_streamer fails
                 print(f"Scheduled download error: {e}")
 
 
@@ -242,7 +243,8 @@ class DownloadScheduler:
                     'error',
                     'scheduler'
                 )
-            except:
+            except Exception:
+                # Fallback to print if log_streamer fails
                 print(f"SMT fetch error: {e}")
 
 

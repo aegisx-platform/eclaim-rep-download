@@ -424,7 +424,7 @@ class EClaimImporterV2:
                                 # Try without time
                                 parsed_date = pd.to_datetime(value, format='%d/%m/%Y', errors='coerce')
                             mapped[db_col] = parsed_date if not pd.isna(parsed_date) else None
-                        except:
+                        except (ValueError, TypeError, AttributeError):
                             mapped[db_col] = None
                     # Clean ID fields - remove .0 suffix from float conversion
                     elif db_col in ['tran_id', 'hn', 'an', 'pid']:
@@ -512,7 +512,7 @@ class EClaimImporterV2:
                                     # Try without time
                                     parsed_date = pd.to_datetime(value, format='%d/%m/%Y', errors='coerce')
                                 mapped[db_col] = parsed_date if not pd.isna(parsed_date) else None
-                            except:
+                            except (ValueError, TypeError, AttributeError):
                                 mapped[db_col] = None
                         elif hasattr(value, 'to_pydatetime'):
                             # Already a datetime-like object

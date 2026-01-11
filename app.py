@@ -146,7 +146,7 @@ def dashboard():
             # Use current Bangkok time for relative time calculation
             now = datetime.now(TZ_BANGKOK)
             file['date_formatted'] = humanize.naturaltime(dt, when=now)
-        except:
+        except (ValueError, TypeError, AttributeError):
             file['date_formatted'] = file.get('download_date', 'Unknown')
 
     # Check if downloader is running
@@ -237,7 +237,7 @@ def files():
             # Use current Bangkok time for relative time calculation
             now = datetime.now(TZ_BANGKOK)
             file['date_relative'] = humanize.naturaltime(dt, when=now)
-        except:
+        except (ValueError, TypeError, AttributeError):
             file['date_formatted'] = file.get('download_date', 'Unknown')
             file['date_relative'] = 'Unknown'
 
@@ -503,7 +503,7 @@ def data_management():
             file['date_formatted'] = dt.strftime('%Y-%m-%d %H:%M:%S')
             now_time = datetime.now(TZ_BANGKOK)
             file['date_relative'] = humanize.naturaltime(dt, when=now_time)
-        except:
+        except (ValueError, TypeError, AttributeError):
             file['date_formatted'] = file.get('download_date', 'Unknown')
             file['date_relative'] = 'Unknown'
 
@@ -541,7 +541,8 @@ def data_management():
             try:
                 cursor.execute("SELECT COUNT(*) FROM smt_budget_items")
                 db_info['budget_count'] = cursor.fetchone()[0]
-            except:
+            except Exception:
+                # Table may not exist in all deployments
                 pass
             cursor.close()
             conn.close()
@@ -856,7 +857,7 @@ def naturaltime_filter(value):
     try:
         dt = datetime.fromisoformat(value)
         return humanize.naturaltime(dt)
-    except:
+    except (ValueError, TypeError, AttributeError):
         return value
 
 
@@ -865,7 +866,7 @@ def number_format_filter(value):
     """Template filter for number formatting with commas"""
     try:
         return "{:,}".format(int(value))
-    except:
+    except (ValueError, TypeError):
         return value
 
 
