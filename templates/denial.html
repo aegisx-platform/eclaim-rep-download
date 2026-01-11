@@ -1,0 +1,558 @@
+{% extends "base.html" %}
+
+{% block title %}Denial Analysis - E-Claim{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Denial Root Cause Analysis</h1>
+            <p class="text-gray-600 mt-1">วิเคราะห์สาเหตุการถูกปฏิเสธและ Error Codes</p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="exportData()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Export
+            </button>
+            <button onclick="loadData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="bg-white rounded-xl shadow-md p-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ปีงบประมาณ</label>
+                <select id="filter-fiscal-year" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" onchange="loadData()">
+                    <option value="">ทั้งหมด</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่ม</label>
+                <input type="date" id="filter-start-date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" onchange="loadData()">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">วันที่สิ้นสุด</label>
+                <input type="date" id="filter-end-date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" onchange="loadData()">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Error Code</label>
+                <select id="filter-error-code" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" onchange="loadData()">
+                    <option value="">ทั้งหมด</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-white rounded-xl shadow-md p-4 text-center">
+            <p class="text-sm text-gray-500">จำนวน Denial</p>
+            <p class="text-2xl font-bold text-red-600" id="stat-denials">-</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 text-center">
+            <p class="text-sm text-gray-500">Denial Rate</p>
+            <p class="text-2xl font-bold text-orange-600" id="stat-rate">-</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 text-center">
+            <p class="text-sm text-gray-500">ยอดที่ถูกปฏิเสธ</p>
+            <p class="text-2xl font-bold text-red-600" id="stat-amount">-</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 text-center">
+            <p class="text-sm text-gray-500">Error Codes</p>
+            <p class="text-2xl font-bold text-purple-600" id="stat-codes">-</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 text-center">
+            <p class="text-sm text-gray-500">Total Claims</p>
+            <p class="text-2xl font-bold text-blue-600" id="stat-total">-</p>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Error Code Breakdown -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Top Error Codes</h3>
+            <div class="h-80">
+                <canvas id="chart-error-codes"></canvas>
+            </div>
+        </div>
+
+        <!-- Monthly Trend -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">แนวโน้มรายเดือน</h3>
+            <div class="h-80">
+                <canvas id="chart-monthly"></canvas>
+            </div>
+        </div>
+
+        <!-- By Service Type -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">แยกตามประเภทบริการ</h3>
+            <div class="h-80">
+                <canvas id="chart-service"></canvas>
+            </div>
+        </div>
+
+        <!-- By Fund -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">แยกตามกองทุน</h3>
+            <div class="h-80">
+                <canvas id="chart-fund"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Code Detail Table -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">รายละเอียด Error Codes</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error Code</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวน</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">สัดส่วน</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ยอดเงิน</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="error-tbody">
+                    <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">กำลังโหลดข้อมูล...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recommendations Section -->
+    <div class="bg-white rounded-xl shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">คำแนะนำในการแก้ไข</h3>
+        <div id="recommendations" class="space-y-3">
+            <p class="text-gray-500">กำลังวิเคราะห์...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let errorChart, monthlyChart, serviceChart, fundChart;
+let currentData = null;
+
+const ERROR_CODE_DESCRIPTIONS = {
+    'E01': 'ข้อมูลไม่ครบ',
+    'E02': 'รหัสไม่ตรง',
+    'E03': 'ซ้ำซ้อน',
+    'E04': 'เกินสิทธิ์',
+    'E05': 'เอกสารไม่ครบ',
+    'E06': 'วันที่ไม่ถูกต้อง',
+    'E07': 'รหัส DRG ไม่ตรง',
+    'E08': 'ค่าใช้จ่ายเกินเกณฑ์',
+    'E09': 'ไม่มีสิทธิ์',
+    'E10': 'อื่นๆ'
+};
+
+const CHART_COLORS = [
+    'rgba(239, 68, 68, 0.8)',
+    'rgba(249, 115, 22, 0.8)',
+    'rgba(234, 179, 8, 0.8)',
+    'rgba(34, 197, 94, 0.8)',
+    'rgba(59, 130, 246, 0.8)',
+    'rgba(139, 92, 246, 0.8)',
+    'rgba(236, 72, 153, 0.8)',
+    'rgba(20, 184, 166, 0.8)',
+    'rgba(107, 114, 128, 0.8)',
+    'rgba(55, 65, 81, 0.8)'
+];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadFiscalYears();
+    loadData();
+});
+
+async function loadFiscalYears() {
+    try {
+        const response = await fetch('/api/analytics/fiscal-years');
+        const data = await response.json();
+        if (data.success) {
+            const select = document.getElementById('filter-fiscal-year');
+            data.data.forEach(fy => {
+                const option = document.createElement('option');
+                option.value = fy;
+                option.textContent = 'ปี ' + fy;
+                select.appendChild(option);
+            });
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function loadData() {
+    const params = new URLSearchParams();
+    const fy = document.getElementById('filter-fiscal-year').value;
+    if (fy) params.append('fiscal_year', fy);
+    const sd = document.getElementById('filter-start-date').value;
+    if (sd) params.append('start_date', sd);
+    const ed = document.getElementById('filter-end-date').value;
+    if (ed) params.append('end_date', ed);
+    const ec = document.getElementById('filter-error-code').value;
+    if (ec) params.append('error_code', ec);
+
+    try {
+        const response = await fetch('/api/analytics/denial-root-cause?' + params);
+        const data = await response.json();
+        if (data.success) {
+            currentData = data.data;
+            updateSummary(data.data.summary);
+            updateErrorCodeFilter(data.data.by_error_code);
+            updateCharts(data.data);
+            updateTable(data.data.by_error_code);
+            generateRecommendations(data.data);
+        }
+    } catch (e) { console.error(e); }
+}
+
+function updateSummary(summary) {
+    document.getElementById('stat-denials').textContent = summary.total_denials.toLocaleString();
+    document.getElementById('stat-rate').textContent = summary.denial_rate.toFixed(2) + '%';
+    document.getElementById('stat-amount').textContent = formatMoney(summary.total_denied_amount);
+    document.getElementById('stat-codes').textContent = summary.unique_error_codes;
+    document.getElementById('stat-total').textContent = summary.total_claims.toLocaleString();
+}
+
+function updateErrorCodeFilter(byErrorCode) {
+    const select = document.getElementById('filter-error-code');
+    const current = select.value;
+    // Clear existing options except first
+    while (select.options.length > 1) select.remove(1);
+    byErrorCode.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.error_code;
+        opt.textContent = item.error_code + ' (' + item.count + ')';
+        select.appendChild(opt);
+    });
+    select.value = current;
+}
+
+function updateCharts(data) {
+    // Error Code Chart
+    const errorCtx = document.getElementById('chart-error-codes').getContext('2d');
+    if (errorChart) errorChart.destroy();
+    errorChart = new Chart(errorCtx, {
+        type: 'bar',
+        data: {
+            labels: data.by_error_code.slice(0, 10).map(d => d.error_code),
+            datasets: [{
+                label: 'จำนวน',
+                data: data.by_error_code.slice(0, 10).map(d => d.count),
+                backgroundColor: CHART_COLORS,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false } },
+                y: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Monthly Trend Chart
+    const monthlyCtx = document.getElementById('chart-monthly').getContext('2d');
+    if (monthlyChart) monthlyChart.destroy();
+    monthlyChart = new Chart(monthlyCtx, {
+        type: 'line',
+        data: {
+            labels: data.monthly_trend.map(d => d.month),
+            datasets: [{
+                label: 'จำนวน Denial',
+                data: data.monthly_trend.map(d => d.count),
+                borderColor: 'rgba(239, 68, 68, 1)',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // Service Type Chart
+    const serviceCtx = document.getElementById('chart-service').getContext('2d');
+    if (serviceChart) serviceChart.destroy();
+    serviceChart = new Chart(serviceCtx, {
+        type: 'doughnut',
+        data: {
+            labels: data.by_service_type.map(d => d.service_type || 'Unknown'),
+            datasets: [{
+                data: data.by_service_type.map(d => d.count),
+                backgroundColor: CHART_COLORS,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' }
+            }
+        }
+    });
+
+    // Fund Chart
+    const fundCtx = document.getElementById('chart-fund').getContext('2d');
+    if (fundChart) fundChart.destroy();
+    fundChart = new Chart(fundCtx, {
+        type: 'pie',
+        data: {
+            labels: data.by_fund.map(d => d.fund || 'Unknown'),
+            datasets: [{
+                data: data.by_fund.map(d => d.count),
+                backgroundColor: CHART_COLORS,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' }
+            }
+        }
+    });
+}
+
+function updateTable(byErrorCode) {
+    const tbody = document.getElementById('error-tbody');
+    tbody.textContent = '';
+
+    if (byErrorCode.length === 0) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 5;
+        cell.className = 'px-6 py-8 text-center text-gray-500';
+        cell.textContent = 'ไม่พบข้อมูล';
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+    }
+
+    byErrorCode.forEach(item => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+
+        // Error Code
+        const tdCode = document.createElement('td');
+        tdCode.className = 'px-6 py-4';
+        const codeDiv = document.createElement('div');
+        codeDiv.className = 'font-medium text-gray-900';
+        codeDiv.textContent = item.error_code;
+        const descDiv = document.createElement('div');
+        descDiv.className = 'text-xs text-gray-500';
+        descDiv.textContent = ERROR_CODE_DESCRIPTIONS[item.error_code] || '-';
+        tdCode.appendChild(codeDiv);
+        tdCode.appendChild(descDiv);
+        row.appendChild(tdCode);
+
+        // Count
+        const tdCount = document.createElement('td');
+        tdCount.className = 'px-6 py-4 text-right font-medium';
+        tdCount.textContent = item.count.toLocaleString();
+        row.appendChild(tdCount);
+
+        // Percentage
+        const tdPct = document.createElement('td');
+        tdPct.className = 'px-6 py-4 text-right';
+        const pctBar = document.createElement('div');
+        pctBar.className = 'flex items-center justify-end gap-2';
+        const pctText = document.createElement('span');
+        pctText.textContent = item.percentage.toFixed(1) + '%';
+        const pctBarOuter = document.createElement('div');
+        pctBarOuter.className = 'w-16 h-2 bg-gray-200 rounded-full overflow-hidden';
+        const pctBarInner = document.createElement('div');
+        pctBarInner.className = 'h-full bg-red-500 rounded-full';
+        pctBarInner.style.width = Math.min(item.percentage, 100) + '%';
+        pctBarOuter.appendChild(pctBarInner);
+        pctBar.appendChild(pctText);
+        pctBar.appendChild(pctBarOuter);
+        tdPct.appendChild(pctBar);
+        row.appendChild(tdPct);
+
+        // Amount
+        const tdAmount = document.createElement('td');
+        tdAmount.className = 'px-6 py-4 text-right font-medium text-red-600';
+        tdAmount.textContent = formatMoney(item.amount);
+        row.appendChild(tdAmount);
+
+        // Actions
+        const tdAction = document.createElement('td');
+        tdAction.className = 'px-6 py-4 text-center';
+        const btn = document.createElement('a');
+        btn.href = '/claims?status=denied&search=' + encodeURIComponent(item.error_code);
+        btn.className = 'text-blue-600 hover:text-blue-800 text-sm';
+        btn.textContent = 'ดู Claims';
+        tdAction.appendChild(btn);
+        row.appendChild(tdAction);
+
+        tbody.appendChild(row);
+    });
+}
+
+function generateRecommendations(data) {
+    const container = document.getElementById('recommendations');
+    container.textContent = '';
+
+    const recommendations = [];
+    const summary = data.summary;
+    const byErrorCode = data.by_error_code;
+
+    // Check denial rate
+    if (summary.denial_rate > 10) {
+        recommendations.push({
+            severity: 'critical',
+            title: 'Denial Rate สูงเกินไป',
+            message: 'Denial Rate อยู่ที่ ' + summary.denial_rate.toFixed(2) + '% ซึ่งสูงกว่าเกณฑ์ 10%',
+            action: 'ตรวจสอบกระบวนการก่อนส่ง claim และ training ทีม coding'
+        });
+    } else if (summary.denial_rate > 5) {
+        recommendations.push({
+            severity: 'warning',
+            title: 'Denial Rate ควรปรับปรุง',
+            message: 'Denial Rate อยู่ที่ ' + summary.denial_rate.toFixed(2) + '% ซึ่งสูงกว่าค่าเฉลี่ย',
+            action: 'ติดตามและวิเคราะห์ error codes ที่พบบ่อย'
+        });
+    }
+
+    // Top error codes
+    if (byErrorCode.length > 0) {
+        const topError = byErrorCode[0];
+        if (topError.percentage > 30) {
+            recommendations.push({
+                severity: 'warning',
+                title: 'Error Code หลัก: ' + topError.error_code,
+                message: 'มีสัดส่วน ' + topError.percentage.toFixed(1) + '% ของ denial ทั้งหมด',
+                action: getErrorCodeAction(topError.error_code)
+            });
+        }
+    }
+
+    // If no issues
+    if (recommendations.length === 0) {
+        recommendations.push({
+            severity: 'success',
+            title: 'สถานะดี',
+            message: 'Denial Rate อยู่ในเกณฑ์ที่ยอมรับได้',
+            action: 'ติดตามต่อเนื่องเพื่อรักษาประสิทธิภาพ'
+        });
+    }
+
+    recommendations.forEach(rec => {
+        const div = document.createElement('div');
+        let bgClass, borderClass, iconClass;
+        if (rec.severity === 'critical') {
+            bgClass = 'bg-red-50';
+            borderClass = 'border-red-500';
+            iconClass = 'text-red-600';
+        } else if (rec.severity === 'warning') {
+            bgClass = 'bg-yellow-50';
+            borderClass = 'border-yellow-500';
+            iconClass = 'text-yellow-600';
+        } else {
+            bgClass = 'bg-green-50';
+            borderClass = 'border-green-500';
+            iconClass = 'text-green-600';
+        }
+        div.className = bgClass + ' border-l-4 ' + borderClass + ' p-4 rounded-r-lg';
+
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'flex items-center gap-2';
+        const icon = document.createElement('span');
+        icon.className = iconClass + ' font-bold';
+        icon.textContent = rec.severity === 'critical' ? '!!' : (rec.severity === 'warning' ? '!' : '');
+        const title = document.createElement('span');
+        title.className = 'font-semibold';
+        title.textContent = rec.title;
+        titleDiv.appendChild(icon);
+        titleDiv.appendChild(title);
+
+        const msgDiv = document.createElement('p');
+        msgDiv.className = 'text-sm text-gray-700 mt-1';
+        msgDiv.textContent = rec.message;
+
+        const actionDiv = document.createElement('p');
+        actionDiv.className = 'text-sm text-gray-600 mt-2';
+        const actionLabel = document.createElement('span');
+        actionLabel.className = 'font-medium';
+        actionLabel.textContent = 'แนะนำ: ';
+        actionDiv.appendChild(actionLabel);
+        actionDiv.appendChild(document.createTextNode(rec.action));
+
+        div.appendChild(titleDiv);
+        div.appendChild(msgDiv);
+        div.appendChild(actionDiv);
+        container.appendChild(div);
+    });
+}
+
+function getErrorCodeAction(code) {
+    const actions = {
+        'E01': 'ตรวจสอบความครบถ้วนของข้อมูลก่อนส่ง claim',
+        'E02': 'ทบทวนกระบวนการ coding และ mapping รหัส',
+        'E03': 'ตรวจสอบระบบป้องกัน duplicate claim',
+        'E04': 'ตรวจสอบสิทธิ์ผู้ป่วยก่อนให้บริการ',
+        'E05': 'จัดทำ checklist เอกสารประกอบ claim',
+        'E06': 'ตรวจสอบความถูกต้องของวันที่ในระบบ',
+        'E07': 'ทบทวน DRG coding และ grouper',
+        'E08': 'ตรวจสอบค่าใช้จ่ายให้อยู่ในเกณฑ์',
+        'E09': 'ยืนยันสิทธิ์ก่อนให้บริการ',
+        'E10': 'วิเคราะห์รายละเอียดเพิ่มเติม'
+    };
+    return actions[code] || 'ตรวจสอบรายละเอียดและแก้ไขตามสาเหตุ';
+}
+
+function formatMoney(v) {
+    if (!v && v !== 0) return '-';
+    return new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 0 }).format(v);
+}
+
+function exportData() {
+    if (!currentData) return;
+
+    const rows = [['Error Code', 'จำนวน', 'สัดส่วน (%)', 'ยอดเงิน']];
+    currentData.by_error_code.forEach(item => {
+        rows.push([item.error_code, item.count, item.percentage, item.amount]);
+    });
+
+    const csvContent = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'denial_analysis_' + new Date().toISOString().split('T')[0] + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

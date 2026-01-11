@@ -1460,6 +1460,18 @@ def analytics():
     return render_template('analytics.html')
 
 
+@app.route('/claims')
+def claims():
+    """Claims Viewer - Detailed claim list with filters and drill-down"""
+    return render_template('claims.html')
+
+
+@app.route('/denial')
+def denial():
+    """Denial Root Cause Analysis - Charts and recommendations"""
+    return render_template('denial.html')
+
+
 @app.route('/api/analytics/fiscal-years')
 def api_analytics_fiscal_years():
     """Get available fiscal years for filter dropdown"""

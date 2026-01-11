@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}Claims Viewer - E-Claim{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Claims Viewer</h1>
+            <p class="text-gray-600 mt-1">ดูรายละเอียด Claims ระดับรายการ</p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="loadClaims()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Alerts Section -->
+    <div id="alerts-section" class="hidden">
+        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg" id="alerts-container">
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="bg-white rounded-xl shadow-md p-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                <select id="filter-status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="all">ทั้งหมด</option>
+                    <option value="success">สำเร็จ</option>
+                    <option value="denied">ถูกปฏิเสธ/มี Error</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ปีงบประมาณ</label>
+                <select id="filter-fiscal-year" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">ทั้งหมด</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">กองทุน</label>
+                <select id="filter-fund" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">ทั้งหมด</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ประเภทบริการ</label>
+                <select id="filter-service-type" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">ทั้งหมด</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่ม</label>
+                <input type="date" id="filter-start-date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">วันที่สิ้นสุด</label>
+                <input type="date" id="filter-end-date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">ค้นหา (HN, PID, TRAN_ID)</label>
+                <div class="flex gap-2">
+                    <input type="text" id="filter-search" placeholder="พิมพ์เพื่อค้นหา..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                    <button onclick="loadClaims(1)" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">ค้นหา</button>
+                    <button onclick="clearFilters()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">ล้าง</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="summary-stats">
+        <div class="bg-white rounded-xl shadow-md p-4 text-center">
+            <p class="text-sm text-gray-500">จำนวน Claims</p>
+            <p class="text-2xl font-bold text-blue-600" id="stat-total">-</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 text-center">
+            <p class="text-sm text-gray-500">ยอดเบิก</p>
+            <p class="text-2xl font-bold text-green-600" id="stat-claimed">-</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 text-center">
+            <p class="text-sm text-gray-500">ยอดได้รับ</p>
+            <p class="text-2xl font-bold text-purple-600" id="stat-paid">-</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 text-center">
+            <p class="text-sm text-gray-500">มี Error</p>
+            <p class="text-2xl font-bold text-red-600" id="stat-errors">-</p>
+        </div>
+    </div>
+
+    <!-- Claims Table -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="sortBy('tran_id')">TRAN_ID</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="sortBy('dateadm')">วันที่รับ</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">HN / AN</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อผู้ป่วย</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ประเภท</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">กองทุน</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="sortBy('claim_net')">ยอดเบิก</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="sortBy('paid')">ยอดได้รับ</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="claims-tbody">
+                    <tr><td colspan="10" class="px-4 py-8 text-center text-gray-500">กำลังโหลดข้อมูล...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200">
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-gray-700">แสดง</span>
+                <select id="per-page" class="border border-gray-300 rounded px-2 py-1 text-sm" onchange="loadClaims(1)">
+                    <option value="25">25</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                </select>
+                <span class="text-sm text-gray-700">รายการ</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-gray-700" id="pagination-info">-</span>
+                <div class="flex gap-1">
+                    <button onclick="prevPage()" id="btn-prev" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>ก่อนหน้า</button>
+                    <button onclick="nextPage()" id="btn-next" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>ถัดไป</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Claim Detail Modal -->
+<div id="claim-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+            <h2 class="text-xl font-bold text-gray-800">รายละเอียด Claim</h2>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="p-6" id="claim-modal-content"></div>
+    </div>
+</div>
+
+<script>
+let currentPage = 1, currentSort = 'dateadm', currentOrder = 'desc', totalPages = 1;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadFiscalYears();
+    loadFilters();
+    loadAlerts();
+    loadClaims(1);
+    document.getElementById('filter-search').addEventListener('keypress', e => { if (e.key === 'Enter') loadClaims(1); });
+});
+
+async function loadFiscalYears() {
+    try {
+        const response = await fetch('/api/analytics/fiscal-years');
+        const data = await response.json();
+        if (data.success) {
+            const select = document.getElementById('filter-fiscal-year');
+            data.data.forEach(fy => {
+                const option = document.createElement('option');
+                option.value = fy;
+                option.textContent = 'ปี ' + fy;
+                select.appendChild(option);
+            });
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function loadFilters() {
+    const fundSelect = document.getElementById('filter-fund');
+    ['UC', 'OFC', 'SSS', 'LGO', 'OTHER'].forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f; opt.textContent = f;
+        fundSelect.appendChild(opt);
+    });
+    const serviceSelect = document.getElementById('filter-service-type');
+    ['ทั่วไป', 'ส่งต่อ', 'ฉุกเฉิน', 'เรื้อรัง', 'PP'].forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s;
+        serviceSelect.appendChild(opt);
+    });
+}
+
+async function loadAlerts() {
+    try {
+        const response = await fetch('/api/analytics/alerts');
+        const data = await response.json();
+        if (data.success && data.data.alerts.length > 0) {
+            const container = document.getElementById('alerts-container');
+            const section = document.getElementById('alerts-section');
+            container.textContent = '';
+            const div = document.createElement('div');
+            div.className = 'space-y-2';
+            data.data.alerts.forEach(alert => {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = (alert.severity === 'critical' ? 'bg-red-100 border-red-500' : 'bg-yellow-100 border-yellow-500') + ' border-l-4 p-3 rounded-r';
+                const title = document.createElement('span');
+                title.className = (alert.severity === 'critical' ? 'text-red-800' : 'text-yellow-800') + ' font-semibold';
+                title.textContent = alert.title + ': ' + alert.message;
+                const action = document.createElement('p');
+                action.className = 'text-sm text-gray-600 mt-1';
+                action.textContent = 'แนะนำ: ' + alert.action;
+                alertDiv.appendChild(title);
+                alertDiv.appendChild(action);
+                div.appendChild(alertDiv);
+            });
+            container.appendChild(div);
+            section.classList.remove('hidden');
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function loadClaims(page = 1) {
+    currentPage = page;
+    const params = new URLSearchParams({
+        page: page, per_page: document.getElementById('per-page').value,
+        sort: currentSort, order: currentOrder
+    });
+    const status = document.getElementById('filter-status').value;
+    if (status !== 'all') params.append('status', status);
+    const fy = document.getElementById('filter-fiscal-year').value;
+    if (fy) params.append('fiscal_year', fy);
+    const fund = document.getElementById('filter-fund').value;
+    if (fund) params.append('fund', fund);
+    const stype = document.getElementById('filter-service-type').value;
+    if (stype) params.append('service_type', stype);
+    const sd = document.getElementById('filter-start-date').value;
+    if (sd) params.append('start_date', sd);
+    const ed = document.getElementById('filter-end-date').value;
+    if (ed) params.append('end_date', ed);
+    const search = document.getElementById('filter-search').value.trim();
+    if (search) params.append('search', search);
+
+    const tbody = document.getElementById('claims-tbody');
+    tbody.textContent = '';
+    const loadingRow = document.createElement('tr');
+    const loadingCell = document.createElement('td');
+    loadingCell.colSpan = 10;
+    loadingCell.className = 'px-4 py-8 text-center text-gray-500';
+    loadingCell.textContent = 'กำลังโหลด...';
+    loadingRow.appendChild(loadingCell);
+    tbody.appendChild(loadingRow);
+
+    try {
+        const response = await fetch('/api/analytics/claims?' + params);
+        const data = await response.json();
+        if (data.success) {
+            renderClaims(data.data);
+            updatePagination(data.pagination);
+            updateStats(data.data, data.pagination.total);
+        }
+    } catch (e) { console.error(e); }
+}
+
+function renderClaims(claims) {
+    const tbody = document.getElementById('claims-tbody');
+    tbody.textContent = '';
+    if (claims.length === 0) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 10; cell.className = 'px-4 py-8 text-center text-gray-500';
+        cell.textContent = 'ไม่พบข้อมูล';
+        row.appendChild(cell); tbody.appendChild(row);
+        return;
+    }
+    claims.forEach(claim => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50 cursor-pointer';
+        row.onclick = () => viewClaim(claim.tran_id);
+
+        const cells = [
+            { text: claim.tran_id || '-', className: 'font-mono text-blue-600' },
+            { text: claim.dateadm || '-' },
+            { html: true, hn: claim.hn, an: claim.an },
+            { text: claim.pname || '-' },
+            { text: claim.service_type || '-' },
+            { text: claim.main_fund || '-' },
+            { text: formatMoney(claim.claim_net), className: 'text-right font-medium' },
+            { text: formatMoney(claim.paid), className: 'text-right font-medium text-green-600' },
+            { status: true, hasError: claim.has_error, errorCode: claim.error_code },
+            { action: true, tranId: claim.tran_id }
+        ];
+
+        cells.forEach(c => {
+            const td = document.createElement('td');
+            td.className = 'px-4 py-3 text-sm ' + (c.className || '');
+            if (c.html) {
+                const div1 = document.createElement('div');
+                div1.className = 'font-medium';
+                div1.textContent = c.hn || '-';
+                const div2 = document.createElement('div');
+                div2.className = 'text-xs text-gray-400';
+                div2.textContent = c.an || '-';
+                td.appendChild(div1); td.appendChild(div2);
+            } else if (c.status) {
+                td.className = 'px-4 py-3 text-center';
+                const badge = document.createElement('span');
+                badge.className = 'px-2 py-1 text-xs rounded-full ' + (c.hasError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800');
+                badge.textContent = c.hasError ? 'Error' : 'OK';
+                td.appendChild(badge);
+                if (c.errorCode) {
+                    const code = document.createElement('span');
+                    code.className = 'text-xs text-red-600 ml-1';
+                    code.textContent = c.errorCode;
+                    td.appendChild(code);
+                }
+            } else if (c.action) {
+                td.className = 'px-4 py-3 text-center';
+                const btn = document.createElement('button');
+                btn.className = 'text-blue-600 hover:text-blue-800';
+                btn.textContent = 'ดู';
+                btn.onclick = (e) => { e.stopPropagation(); viewClaim(c.tranId); };
+                td.appendChild(btn);
+            } else {
+                td.textContent = c.text;
+            }
+            row.appendChild(td);
+        });
+        tbody.appendChild(row);
+    });
+}
+
+function updatePagination(p) {
+    totalPages = p.total_pages;
+    document.getElementById('pagination-info').textContent = 'หน้า ' + p.page + ' จาก ' + p.total_pages + ' (' + p.total.toLocaleString() + ' รายการ)';
+    document.getElementById('btn-prev').disabled = !p.has_prev;
+    document.getElementById('btn-next').disabled = !p.has_next;
+}
+
+function updateStats(claims, total) {
+    document.getElementById('stat-total').textContent = total.toLocaleString();
+    const tc = claims.reduce((s, c) => s + c.claim_net, 0);
+    const tp = claims.reduce((s, c) => s + c.paid, 0);
+    const ec = claims.filter(c => c.has_error).length;
+    document.getElementById('stat-claimed').textContent = formatMoney(tc);
+    document.getElementById('stat-paid').textContent = formatMoney(tp);
+    document.getElementById('stat-errors').textContent = ec.toLocaleString();
+}
+
+async function viewClaim(tranId) {
+    try {
+        const response = await fetch('/api/analytics/claim/' + tranId);
+        const data = await response.json();
+        if (data.success) showClaimModal(data.data);
+    } catch (e) { console.error(e); }
+}
+
+function showClaimModal(claim) {
+    const content = document.getElementById('claim-modal-content');
+    content.textContent = '';
+    const grid = document.createElement('div');
+    grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+    const fields = [
+        ['TRAN_ID', claim.tran_id], ['REP_NO', claim.rep_no], ['HN', claim.hn], ['AN', claim.an],
+        ['PID', claim.pid], ['ชื่อผู้ป่วย', claim.pname], ['วันที่รับบริการ', claim.dateadm],
+        ['วันที่จำหน่าย', claim.datedsc], ['ประเภทบริการ', claim.service_type],
+        ['กองทุน', claim.main_fund], ['DRG', claim.drg], ['RW', claim.rw],
+        ['ยอดเบิก', formatMoney(claim.claim_net)], ['Reimb NHSO', formatMoney(claim.reimb_nhso)],
+        ['ยอดได้รับ', formatMoney(claim.paid)], ['Error Code', claim.error_code || '-']
+    ];
+    fields.forEach(([label, value]) => {
+        const div = document.createElement('div');
+        div.className = 'border-b border-gray-100 pb-2';
+        const lbl = document.createElement('p');
+        lbl.className = 'text-xs text-gray-500';
+        lbl.textContent = label;
+        const val = document.createElement('p');
+        val.className = 'text-sm';
+        val.textContent = value || '-';
+        div.appendChild(lbl); div.appendChild(val);
+        grid.appendChild(div);
+    });
+    content.appendChild(grid);
+    document.getElementById('claim-modal').classList.remove('hidden');
+}
+
+function closeModal() { document.getElementById('claim-modal').classList.add('hidden'); }
+function prevPage() { if (currentPage > 1) loadClaims(currentPage - 1); }
+function nextPage() { if (currentPage < totalPages) loadClaims(currentPage + 1); }
+function sortBy(field) {
+    if (currentSort === field) currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+    else { currentSort = field; currentOrder = 'desc'; }
+    loadClaims(1);
+}
+function clearFilters() {
+    document.getElementById('filter-status').value = 'all';
+    document.getElementById('filter-fiscal-year').value = '';
+    document.getElementById('filter-fund').value = '';
+    document.getElementById('filter-service-type').value = '';
+    document.getElementById('filter-start-date').value = '';
+    document.getElementById('filter-end-date').value = '';
+    document.getElementById('filter-search').value = '';
+    loadClaims(1);
+}
+function formatMoney(v) {
+    if (!v && v !== 0) return '-';
+    return new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 0 }).format(v);
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+{% endblock %}

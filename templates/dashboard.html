@@ -60,6 +60,22 @@
     </div>
 </div>
 
+<!-- System Alerts -->
+<div id="alerts-section" class="mb-8 hidden">
+    <div class="bg-white rounded-xl shadow-md p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            System Alerts
+            <span id="alert-count" class="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
+        </h3>
+        <div id="alerts-container" class="space-y-3">
+            <p class="text-gray-500">Loading...</p>
+        </div>
+    </div>
+</div>
+
 <!-- Quick Actions and Status -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <!-- Quick Actions -->
@@ -395,11 +411,109 @@ function formatMoney(num) {
     return formatNumber(num);
 }
 
+// Create alert icon using DOM methods
+function createAlertIcon(severity) {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'w-5 h-5');
+    svg.setAttribute('fill', 'currentColor');
+    svg.setAttribute('viewBox', '0 0 20 20');
+
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('fill-rule', 'evenodd');
+    path.setAttribute('clip-rule', 'evenodd');
+
+    if (severity === 'critical') {
+        path.setAttribute('d', 'M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z');
+    } else {
+        path.setAttribute('d', 'M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z');
+    }
+
+    svg.appendChild(path);
+    return svg;
+}
+
+// Load system alerts
+async function loadAlerts() {
+    try {
+        var response = await fetch('/api/analytics/alerts');
+        var data = await response.json();
+
+        if (data.success && data.data.alerts && data.data.alerts.length > 0) {
+            var section = document.getElementById('alerts-section');
+            var container = document.getElementById('alerts-container');
+            var countBadge = document.getElementById('alert-count');
+
+            section.classList.remove('hidden');
+            container.textContent = '';
+            countBadge.textContent = data.data.alerts.length;
+
+            data.data.alerts.forEach(function(alert) {
+                var alertDiv = document.createElement('div');
+
+                // Determine colors based on severity
+                var bgClass, borderClass, iconColor;
+                if (alert.severity === 'critical') {
+                    bgClass = 'bg-red-50';
+                    borderClass = 'border-red-500';
+                    iconColor = 'text-red-600';
+                } else {
+                    bgClass = 'bg-yellow-50';
+                    borderClass = 'border-yellow-500';
+                    iconColor = 'text-yellow-600';
+                }
+
+                alertDiv.className = bgClass + ' border-l-4 ' + borderClass + ' p-4 rounded-r-lg';
+
+                // Title row with icon
+                var titleRow = document.createElement('div');
+                titleRow.className = 'flex items-start gap-3';
+
+                var iconSpan = document.createElement('span');
+                iconSpan.className = iconColor;
+                iconSpan.appendChild(createAlertIcon(alert.severity));
+
+                var contentDiv = document.createElement('div');
+                contentDiv.className = 'flex-1';
+
+                var titleText = document.createElement('div');
+                titleText.className = 'font-semibold text-gray-800';
+                titleText.textContent = alert.title;
+
+                var messageText = document.createElement('div');
+                messageText.className = 'text-sm text-gray-600 mt-1';
+                messageText.textContent = alert.message;
+
+                contentDiv.appendChild(titleText);
+                contentDiv.appendChild(messageText);
+
+                if (alert.action) {
+                    var actionText = document.createElement('div');
+                    actionText.className = 'text-sm text-gray-500 mt-2';
+                    var actionLabel = document.createElement('span');
+                    actionLabel.className = 'font-medium';
+                    actionLabel.textContent = 'แนะนำ: ';
+                    actionText.appendChild(actionLabel);
+                    actionText.appendChild(document.createTextNode(alert.action));
+                    contentDiv.appendChild(actionText);
+                }
+
+                titleRow.appendChild(iconSpan);
+                titleRow.appendChild(contentDiv);
+                alertDiv.appendChild(titleRow);
+                container.appendChild(alertDiv);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading alerts:', error);
+    }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     loadKPIData();
     loadServiceTypeData();
     loadFundData();
+    loadAlerts();
 });
 </script>
 {% endblock %}

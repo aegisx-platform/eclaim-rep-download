@@ -677,17 +677,40 @@ document.addEventListener('DOMContentLoaded', async () => {
 function toggleDownloadMenu() {
     const menu = document.getElementById('download-menu');
     menu.classList.toggle('hidden');
+    // Close analytics menu if open
+    const analyticsMenu = document.getElementById('analytics-menu');
+    if (analyticsMenu) analyticsMenu.classList.add('hidden');
 }
 
 /**
- * Close download menu when clicking outside
+ * Toggle analytics dropdown menu
+ */
+function toggleAnalyticsMenu() {
+    const menu = document.getElementById('analytics-menu');
+    if (menu) menu.classList.toggle('hidden');
+    // Close download menu if open
+    const downloadMenu = document.getElementById('download-menu');
+    if (downloadMenu) downloadMenu.classList.add('hidden');
+}
+
+/**
+ * Close dropdown menus when clicking outside
  */
 document.addEventListener('click', (event) => {
-    const container = document.getElementById('download-menu-container');
-    const menu = document.getElementById('download-menu');
+    // Download menu
+    const downloadContainer = document.getElementById('download-menu-container');
+    const downloadMenu = document.getElementById('download-menu');
 
-    if (container && menu && !container.contains(event.target)) {
-        menu.classList.add('hidden');
+    if (downloadContainer && downloadMenu && !downloadContainer.contains(event.target)) {
+        downloadMenu.classList.add('hidden');
+    }
+
+    // Analytics menu
+    const analyticsContainer = document.getElementById('analytics-menu-container');
+    const analyticsMenu = document.getElementById('analytics-menu');
+
+    if (analyticsContainer && analyticsMenu && !analyticsContainer.contains(event.target)) {
+        analyticsMenu.classList.add('hidden');
     }
 });
 
