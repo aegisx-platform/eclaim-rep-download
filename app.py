@@ -2923,14 +2923,14 @@ def api_yoy_comparison():
         # Calculate changes
         def calc_change(current_val, prev_val):
             if prev_val and prev_val > 0:
-                return round(((current_val - prev_val) / prev_val) * 100, 2)
+                return round(float((current_val - prev_val) / prev_val) * 100, 2)
             return 0
 
-        current_denial_rate = (current[4] / current[0] * 100) if current[0] > 0 else 0
-        prev_denial_rate = (previous[4] / previous[0] * 100) if previous[0] > 0 else 0
+        current_denial_rate = float(current[4] / current[0] * 100) if current[0] > 0 else 0
+        prev_denial_rate = float(previous[4] / previous[0] * 100) if previous[0] > 0 else 0
 
-        current_reimb_rate = (current[2] / current[1] * 100) if current[1] > 0 else 0
-        prev_reimb_rate = (previous[2] / previous[1] * 100) if previous[1] > 0 else 0
+        current_reimb_rate = float(current[2] / current[1] * 100) if current[1] > 0 else 0
+        prev_reimb_rate = float(previous[2] / previous[1] * 100) if previous[1] > 0 else 0
 
         # Monthly comparison (fiscal year months: Oct=10, Nov=11, ..., Sep=9)
         fiscal_months = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9]
