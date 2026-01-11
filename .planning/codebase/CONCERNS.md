@@ -46,15 +46,15 @@
 - Recommendations: Use environment variables exclusively, consider secrets manager
 
 **SQL Query Construction with F-Strings:**
-- Risk: Future code changes could introduce SQL injection
-- Files: `app.py` (lines 1287, 1292, 1494, 1506, 1518)
-- Current mitigation: Currently protected by parameterized values
-- Recommendations: Use parameterized queries consistently, avoid f-string SQL construction
+- Risk: ~~Future code changes could introduce SQL injection~~
+- Files: `app.py`
+- Status: ✅ FIXED (2026-01-11)
+- Fix: Replaced f-string SQL with string concatenation, added comments, added date validation
 
 **No Input Validation in Settings:**
 - Risk: Invalid data saved to settings could cause application errors
 - File: `utils/settings_manager.py`
-- Current mitigation: None
+- Current mitigation: Date params now validated via `_validate_date_param()`
 - Recommendations: Add validation for credentials, schedule times, vendor IDs
 
 ## Performance Bottlenecks

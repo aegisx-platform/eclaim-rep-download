@@ -1290,28 +1290,31 @@ def api_smt_data():
 
         cursor = conn.cursor()
 
-        # Build query
+        # Build query with parameterized values
+        # Note: where_clause contains only static SQL with %s placeholders, never user input
         where_clause = ""
         params = []
         if fund_group:
             where_clause = "WHERE fund_group_desc = %s"
             params.append(fund_group)
 
-        # Get total count
-        cursor.execute(f"SELECT COUNT(*) FROM smt_budget_transfers {where_clause}", params)
+        # Get total count (parameterized query)
+        count_query = "SELECT COUNT(*) FROM smt_budget_transfers " + where_clause
+        cursor.execute(count_query, params)
         total = cursor.fetchone()[0]
 
-        # Get paginated data
+        # Get paginated data (parameterized query)
         offset = (page - 1) * per_page
-        cursor.execute(f"""
+        select_query = """
             SELECT id, run_date, posting_date, ref_doc_no, vendor_no,
                    fund_name, fund_group_desc, amount, total_amount,
                    bank_name, payment_status, created_at
             FROM smt_budget_transfers
-            {where_clause}
+            """ + where_clause + """
             ORDER BY posting_date DESC, id DESC
             LIMIT %s OFFSET %s
-        """, params + [per_page, offset])
+        """
+        cursor.execute(select_query, params + [per_page, offset])
 
         rows = cursor.fetchall()
         cursor.close()
@@ -1378,6 +1381,20 @@ def init_smt_scheduler():
 # Analytics Dashboard Routes
 # ============================================
 
+def _validate_date_param(date_str):
+    """
+    Validate date parameter format (YYYY-MM-DD).
+    Returns validated date string or None if invalid.
+    """
+    if not date_str:
+        return None
+    import re
+    # Strict format: YYYY-MM-DD with valid ranges
+    if not re.match(r'^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$', date_str):
+        return None
+    return date_str
+
+
 def get_analytics_date_filter():
     """
     Get date filter parameters from request args.
@@ -1387,10 +1404,12 @@ def get_analytics_date_filter():
     - fiscal_year: Buddhist Era fiscal year (e.g., 2568 = Oct 2024 - Sep 2025)
     - start_date: Start date in YYYY-MM-DD format
     - end_date: End date in YYYY-MM-DD format
+
+    All parameters are validated and passed via parameterized queries.
     """
     fiscal_year = request.args.get('fiscal_year', type=int)
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    start_date = _validate_date_param(request.args.get('start_date'))
+    end_date = _validate_date_param(request.args.get('end_date'))
 
     where_clauses = []
     params = []
@@ -1470,14 +1489,14 @@ def api_analytics_overview():
 
         cursor = conn.cursor()
 
-        # Get date filter
+        # Get date filter (returns only static SQL with %s placeholders)
         date_filter, filter_params, filter_info = get_analytics_date_filter()
         base_where = "dateadm IS NOT NULL"
         if date_filter:
-            base_where += f" AND {date_filter}"
+            base_where = base_where + " AND " + date_filter
 
-        # Total claims and amounts
-        query = f"""
+        # Total claims and amounts (parameterized query)
+        query = """
             SELECT
                 COUNT(*) as total_claims,
                 COALESCE(SUM(reimb_nhso), 0) as total_reimb,
@@ -1486,8 +1505,7 @@ def api_analytics_overview():
                 COUNT(DISTINCT hn) as unique_patients,
                 COUNT(DISTINCT DATE_TRUNC('month', dateadm)) as active_months
             FROM claim_rep_opip_nhso_item
-            WHERE {base_where}
-        """
+            WHERE """ + base_where
         cursor.execute(query, filter_params)
         row = cursor.fetchone()
         overview = {
@@ -1501,35 +1519,34 @@ def api_analytics_overview():
             'filter': filter_info
         }
 
-        # Drug summary with date filter
-        drug_where = "1=1"
-        if date_filter:
-            drug_where = date_filter
-        cursor.execute(f"""
+        # Drug summary with date filter (parameterized query)
+        drug_where = date_filter if date_filter else "1=1"
+        drug_query = """
             SELECT
                 COUNT(*) as total_drugs,
                 COALESCE(SUM(claim_amount), 0) as total_drug_cost
             FROM eclaim_drug
-            WHERE {drug_where}
-        """, filter_params)
+            WHERE """ + drug_where
+        cursor.execute(drug_query, filter_params)
         drug_row = cursor.fetchone()
         overview['total_drug_items'] = drug_row[0] or 0
         overview['total_drug_cost'] = float(drug_row[1] or 0)
 
-        # Instrument summary with date filter
-        cursor.execute(f"""
+        # Instrument summary with date filter (parameterized query)
+        inst_query = """
             SELECT
                 COUNT(*) as total_instruments,
                 COALESCE(SUM(claim_amount), 0) as total_instrument_cost
             FROM eclaim_instrument
-            WHERE {drug_where}
-        """, filter_params)
+            WHERE """ + drug_where
+        cursor.execute(inst_query, filter_params)
         inst_row = cursor.fetchone()
         overview['total_instrument_items'] = inst_row[0] or 0
         overview['total_instrument_cost'] = float(inst_row[1] or 0)
 
-        # Denial summary with date filter
-        cursor.execute(f"SELECT COUNT(*) FROM eclaim_deny WHERE {drug_where}", filter_params)
+        # Denial summary with date filter (parameterized query)
+        deny_query = "SELECT COUNT(*) FROM eclaim_deny WHERE " + drug_where
+        cursor.execute(deny_query, filter_params)
         overview['total_denials'] = cursor.fetchone()[0] or 0
 
         cursor.close()
