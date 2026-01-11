@@ -3834,6 +3834,178 @@ def api_insights():
 
 
 # ============================================
+# ML Prediction Endpoints
+# ============================================
+
+@app.route('/api/predictive/ml-info')
+def api_ml_info():
+    """Get ML model information and performance metrics"""
+    try:
+        from utils.ml.predictor import get_model_info
+        info = get_model_info()
+        return jsonify({'success': True, 'data': info})
+    except Exception as e:
+        app.logger.error(f"Error getting ML info: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/predictive/ml-predict', methods=['POST'])
+def api_ml_predict():
+    """
+    ML-based denial risk prediction for a single claim
+
+    Request body:
+    {
+        "service_type": "IP",
+        "drg": "A15",
+        "main_fund": "UC",
+        "main_inscl": "UCS",
+        "ptype": "1",
+        "error_code": "",
+        "claim_amount": 5000,
+        "rw": 1.5,
+        "adjrw": 1.2
+    }
+    """
+    try:
+        from utils.ml.predictor import predict_denial_risk
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+        result = predict_denial_risk(data)
+        return jsonify({'success': True, 'data': result})
+
+    except Exception as e:
+        app.logger.error(f"Error in ML prediction: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/predictive/ml-predict-batch', methods=['POST'])
+def api_ml_predict_batch():
+    """
+    ML-based denial risk prediction for multiple claims
+
+    Request body:
+    {
+        "claims": [
+            {"service_type": "IP", "drg": "A15", ...},
+            {"service_type": "OP", "drg": "B20", ...}
+        ]
+    }
+    """
+    try:
+        from utils.ml.predictor import predict_denial_risk_batch
+        data = request.get_json()
+
+        if not data or 'claims' not in data:
+            return jsonify({'success': False, 'error': 'No claims data provided'}), 400
+
+        results = predict_denial_risk_batch(data['claims'])
+        return jsonify({'success': True, 'data': results})
+
+    except Exception as e:
+        app.logger.error(f"Error in batch ML prediction: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/predictive/ml-high-risk')
+def api_ml_high_risk():
+    """
+    Get claims with highest predicted denial risk using ML model
+    Returns top claims that need attention based on ML prediction
+    """
+    try:
+        from utils.ml.predictor import get_predictor
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Get recent claims without errors for prediction
+        cursor.execute("""
+            SELECT
+                tran_id,
+                COALESCE(service_type, 'UN') as service_type,
+                COALESCE(error_code, '0') as error_code,
+                COALESCE(drg, 'UNKNOWN') as drg,
+                COALESCE(main_fund, 'UNKNOWN') as main_fund,
+                COALESCE(main_inscl, 'UNKNOWN') as main_inscl,
+                COALESCE(ptype, 'UNKNOWN') as ptype,
+                COALESCE(claim_drg, 0) as claim_amount,
+                COALESCE(rw, 0) as rw,
+                COALESCE(adjrw_nhso, 0) as adjrw,
+                hn, name
+            FROM claim_rep_opip_nhso_item
+            WHERE claim_drg IS NOT NULL AND claim_drg > 0
+            AND (error_code IS NULL OR error_code = '' OR error_code = '0')
+            ORDER BY claim_drg DESC
+            LIMIT 100
+        """)
+
+        claims = []
+        for row in cursor.fetchall():
+            claims.append({
+                'tran_id': row[0],
+                'service_type': row[1],
+                'error_code': row[2],
+                'drg': row[3],
+                'main_fund': row[4],
+                'main_inscl': row[5],
+                'ptype': row[6],
+                'claim_amount': float(row[7]) if row[7] else 0,
+                'rw': float(row[8]) if row[8] else 0,
+                'adjrw': float(row[9]) if row[9] else 0,
+                'hn': row[10],
+                'name': row[11]
+            })
+
+        cursor.close()
+        conn.close()
+
+        # Predict denial risk for each claim
+        predictor = get_predictor()
+        high_risk_claims = []
+
+        for claim in claims:
+            prediction = predictor.predict(claim)
+            if prediction.get('risk_score', 0) >= 0.3:  # Medium or high risk
+                high_risk_claims.append({
+                    'tran_id': claim['tran_id'],
+                    'hn': claim['hn'],
+                    'name': claim['name'],
+                    'service_type': claim['service_type'],
+                    'drg': claim['drg'],
+                    'main_fund': claim['main_fund'],
+                    'claim_amount': claim['claim_amount'],
+                    'risk_score': prediction['risk_score'],
+                    'risk_level': prediction['risk_level'],
+                    'confidence': prediction['confidence'],
+                    'factors': prediction.get('factors', [])
+                })
+
+        # Sort by risk score descending
+        high_risk_claims.sort(key=lambda x: x['risk_score'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'high_risk_claims': high_risk_claims[:20],  # Top 20
+                'total_analyzed': len(claims),
+                'high_risk_count': len(high_risk_claims),
+                'model_info': predictor.get_model_info()
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in ML high risk prediction: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================
 # Reconciliation Routes
 # ============================================
 

@@ -1,0 +1,36 @@
+{
+  "trained_at": "2026-01-12T01:02:09.956848",
+  "model_type": "RandomForestClassifier",
+  "version": "1.0.0",
+  "feature_columns": [
+    "service_type_encoded",
+    "drg_encoded",
+    "main_fund_encoded",
+    "main_inscl_encoded",
+    "ptype_encoded",
+    "error_code_num",
+    "high_risk_error",
+    "claim_amount",
+    "claim_amount_log",
+    "rw",
+    "adjrw"
+  ],
+  "metrics": {
+    "accuracy": 0.9985549132947977,
+    "precision": 1.0,
+    "recall": 0.975609756097561,
+    "f1_score": 0.9876543209876543,
+    "auc_roc": 1.0,
+    "cv_f1_mean": 0.9827018744053972,
+    "cv_f1_std": 0.012792450509552253,
+    "test_size": 692,
+    "train_size": 2764,
+    "denial_rate": 0.059027777777777776,
+    "confusion_matrix": {
+      "true_negative": 651,
+      "false_positive": 0,
+      "false_negative": 1,
+      "true_positive": 40
+    }
+  }
+}

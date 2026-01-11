@@ -39,6 +39,53 @@
         </div>
     </div>
 
+    <!-- ML Model Section -->
+    <div class="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl shadow-lg p-6 text-white">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+                <h2 class="text-xl font-bold">Machine Learning Predictions</h2>
+                <span id="ml-status" class="bg-white/20 px-2 py-1 rounded text-sm">Loading...</span>
+            </div>
+            <div id="ml-model-info" class="text-sm text-white/80"></div>
+        </div>
+
+        <!-- Model Metrics -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div class="bg-white/10 rounded-lg p-3 backdrop-blur">
+                <div class="text-xs text-white/70">Model Accuracy</div>
+                <div id="ml-accuracy" class="text-2xl font-bold">-</div>
+            </div>
+            <div class="bg-white/10 rounded-lg p-3 backdrop-blur">
+                <div class="text-xs text-white/70">F1 Score</div>
+                <div id="ml-f1" class="text-2xl font-bold">-</div>
+            </div>
+            <div class="bg-white/10 rounded-lg p-3 backdrop-blur">
+                <div class="text-xs text-white/70">AUC-ROC</div>
+                <div id="ml-auc" class="text-2xl font-bold">-</div>
+            </div>
+            <div class="bg-white/10 rounded-lg p-3 backdrop-blur">
+                <div class="text-xs text-white/70">High Risk Claims</div>
+                <div id="ml-high-risk" class="text-2xl font-bold">-</div>
+            </div>
+        </div>
+
+        <!-- High Risk Claims List -->
+        <div class="bg-white/10 rounded-lg p-4 backdrop-blur">
+            <h3 class="font-semibold mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                ML-Predicted High Risk Claims
+            </h3>
+            <div id="ml-high-risk-list" class="space-y-2 max-h-64 overflow-y-auto">
+                <p class="text-white/70 text-sm">Loading ML predictions...</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Denial Risk & Anomaly Detection Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Denial Risk Section -->
@@ -237,6 +284,7 @@ function refreshAllData() {
     loadDenialRisk();
     loadAnomalies();
     loadOpportunities();
+    loadMLPredictions();
 }
 
 async function loadInsights() {
@@ -622,6 +670,136 @@ function formatMoney(value) {
         return (value / 1000).toFixed(0) + 'K';
     }
     return value.toLocaleString();
+}
+
+// ML Predictions
+async function loadMLPredictions() {
+    try {
+        // First load model info
+        var infoResponse = await fetch('/api/predictive/ml-info');
+        var infoData = await infoResponse.json();
+
+        if (infoData.success && infoData.data.is_available) {
+            renderMLModelInfo(infoData.data);
+
+            // Then load high risk predictions
+            var riskResponse = await fetch('/api/predictive/ml-high-risk');
+            var riskData = await riskResponse.json();
+
+            if (riskData.success) {
+                renderMLHighRisk(riskData.data);
+            }
+        } else {
+            document.getElementById('ml-status').textContent = 'Model Not Trained';
+            document.getElementById('ml-status').className = 'bg-red-500/50 px-2 py-1 rounded text-sm';
+            document.getElementById('ml-high-risk-list').innerHTML =
+                '<p class="text-white/70 text-sm">ML model not available. Run training script to enable predictions.</p>';
+        }
+    } catch (e) {
+        console.error('Error loading ML predictions:', e);
+        document.getElementById('ml-status').textContent = 'Error';
+        document.getElementById('ml-status').className = 'bg-red-500/50 px-2 py-1 rounded text-sm';
+    }
+}
+
+function renderMLModelInfo(info) {
+    document.getElementById('ml-status').textContent = 'Model Active';
+    document.getElementById('ml-status').className = 'bg-green-500/50 px-2 py-1 rounded text-sm';
+
+    if (info.metrics) {
+        document.getElementById('ml-accuracy').textContent =
+            (info.metrics.accuracy * 100).toFixed(1) + '%';
+        document.getElementById('ml-f1').textContent =
+            (info.metrics.f1_score * 100).toFixed(1) + '%';
+        document.getElementById('ml-auc').textContent =
+            (info.metrics.auc_roc * 100).toFixed(1) + '%';
+    }
+
+    if (info.trained_at) {
+        var trainedDate = new Date(info.trained_at);
+        document.getElementById('ml-model-info').textContent =
+            'Trained: ' + trainedDate.toLocaleDateString('th-TH');
+    }
+}
+
+function renderMLHighRisk(data) {
+    document.getElementById('ml-high-risk').textContent = data.high_risk_count;
+
+    var container = document.getElementById('ml-high-risk-list');
+    container.textContent = '';
+
+    if (data.high_risk_claims.length === 0) {
+        var emptyMsg = document.createElement('p');
+        emptyMsg.className = 'text-white/70 text-sm';
+        emptyMsg.textContent = 'No high-risk claims detected by ML model.';
+        container.appendChild(emptyMsg);
+        return;
+    }
+
+    data.high_risk_claims.slice(0, 10).forEach(function(claim) {
+        var div = document.createElement('div');
+        div.className = 'bg-white/5 rounded-lg p-3 hover:bg-white/10 transition';
+
+        var header = document.createElement('div');
+        header.className = 'flex items-center justify-between mb-2';
+
+        var tranId = document.createElement('span');
+        tranId.className = 'font-mono text-sm';
+        tranId.textContent = claim.tran_id;
+        header.appendChild(tranId);
+
+        var riskBadge = document.createElement('span');
+        var badgeClass = claim.risk_level === 'high' ? 'bg-red-500' :
+                        claim.risk_level === 'medium' ? 'bg-yellow-500' : 'bg-green-500';
+        riskBadge.className = badgeClass + ' px-2 py-0.5 rounded text-xs font-semibold';
+        riskBadge.textContent = (claim.risk_score * 100).toFixed(0) + '% Risk';
+        header.appendChild(riskBadge);
+
+        div.appendChild(header);
+
+        var details = document.createElement('div');
+        details.className = 'text-xs text-white/70 space-y-1';
+
+        var line1 = document.createElement('div');
+        line1.className = 'flex justify-between';
+        var patientSpan = document.createElement('span');
+        patientSpan.textContent = 'HN: ' + (claim.hn || '-');
+        line1.appendChild(patientSpan);
+        var amountSpan = document.createElement('span');
+        amountSpan.textContent = 'Amount: ' + formatMoney(claim.claim_amount);
+        line1.appendChild(amountSpan);
+        details.appendChild(line1);
+
+        var line2 = document.createElement('div');
+        line2.className = 'flex justify-between';
+        var serviceSpan = document.createElement('span');
+        serviceSpan.textContent = claim.service_type + ' | DRG: ' + (claim.drg || '-');
+        line2.appendChild(serviceSpan);
+        var fundSpan = document.createElement('span');
+        fundSpan.textContent = 'Fund: ' + (claim.main_fund || '-');
+        line2.appendChild(fundSpan);
+        details.appendChild(line2);
+
+        div.appendChild(details);
+
+        // Risk factors
+        if (claim.factors && claim.factors.length > 0) {
+            var factorsDiv = document.createElement('div');
+            factorsDiv.className = 'mt-2 pt-2 border-t border-white/10';
+            claim.factors.forEach(function(f) {
+                var factorSpan = document.createElement('span');
+                var factorClass = f.impact === 'high' ? 'bg-red-500/30' :
+                                 f.impact === 'medium' ? 'bg-yellow-500/30' : 'bg-blue-500/30';
+                factorSpan.className = factorClass + ' text-xs px-2 py-0.5 rounded mr-1';
+                factorSpan.textContent = f.factor;
+                factorSpan.title = f.description;
+                factorsDiv.appendChild(factorSpan);
+            });
+            div.appendChild(factorsDiv);
+        }
+
+        container.appendChild(div);
+    });
 }
 </script>
 {% endblock %}
