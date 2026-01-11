@@ -3116,6 +3116,724 @@ def api_export_report(report_type):
 
 
 # ============================================
+# Phase 3: Predictive & AI Analytics
+# ============================================
+
+@app.route('/predictive')
+def predictive():
+    """Phase 3: Predictive Analytics page"""
+    return render_template('predictive.html')
+
+
+@app.route('/api/predictive/denial-risk')
+def api_denial_risk():
+    """
+    Phase 3.1: Denial Risk Prediction
+    Analyze claim characteristics to predict denial risk
+    Uses historical error patterns to calculate risk scores
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Get risk factors from historical data
+        # 1. Error rate by service type
+        cursor.execute("""
+            SELECT
+                service_type,
+                COUNT(*) as total_claims,
+                COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as error_claims,
+                ROUND(
+                    COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) * 100.0 /
+                    NULLIF(COUNT(*), 0), 2
+                ) as error_rate
+            FROM claim_rep_opip_nhso_item
+            WHERE service_type IS NOT NULL AND service_type != ''
+            GROUP BY service_type
+            HAVING COUNT(*) >= 10
+            ORDER BY error_rate DESC
+        """)
+        service_type_risk = []
+        for row in cursor.fetchall():
+            service_type_risk.append({
+                'service_type': row[0],
+                'total_claims': row[1],
+                'error_claims': row[2],
+                'error_rate': float(row[3]) if row[3] else 0,
+                'risk_level': 'high' if (row[3] or 0) > 10 else 'medium' if (row[3] or 0) > 5 else 'low'
+            })
+
+        # 2. Error rate by fund type
+        cursor.execute("""
+            SELECT
+                main_fund,
+                COUNT(*) as total_claims,
+                COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as error_claims,
+                ROUND(
+                    COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) * 100.0 /
+                    NULLIF(COUNT(*), 0), 2
+                ) as error_rate
+            FROM claim_rep_opip_nhso_item
+            WHERE main_fund IS NOT NULL AND main_fund != ''
+            GROUP BY main_fund
+            HAVING COUNT(*) >= 5
+            ORDER BY error_rate DESC
+        """)
+        fund_risk = []
+        for row in cursor.fetchall():
+            fund_risk.append({
+                'fund': row[0],
+                'total_claims': row[1],
+                'error_claims': row[2],
+                'error_rate': float(row[3]) if row[3] else 0,
+                'risk_level': 'high' if (row[3] or 0) > 10 else 'medium' if (row[3] or 0) > 5 else 'low'
+            })
+
+        # 3. Error rate by DRG groups
+        cursor.execute("""
+            SELECT
+                LEFT(drg, 3) as drg_group,
+                COUNT(*) as total_claims,
+                COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as error_claims,
+                ROUND(
+                    COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) * 100.0 /
+                    NULLIF(COUNT(*), 0), 2
+                ) as error_rate
+            FROM claim_rep_opip_nhso_item
+            WHERE drg IS NOT NULL AND drg != ''
+            GROUP BY LEFT(drg, 3)
+            HAVING COUNT(*) >= 5
+            ORDER BY error_rate DESC
+            LIMIT 20
+        """)
+        drg_risk = []
+        for row in cursor.fetchall():
+            drg_risk.append({
+                'drg_group': row[0],
+                'total_claims': row[1],
+                'error_claims': row[2],
+                'error_rate': float(row[3]) if row[3] else 0,
+                'risk_level': 'high' if (row[3] or 0) > 10 else 'medium' if (row[3] or 0) > 5 else 'low'
+            })
+
+        # 4. Error rate by claim amount ranges
+        cursor.execute("""
+            SELECT
+                CASE
+                    WHEN COALESCE(claim_net, 0)::numeric < 1000 THEN 'Under 1,000'
+                    WHEN COALESCE(claim_net, 0)::numeric < 5000 THEN '1,000-5,000'
+                    WHEN COALESCE(claim_net, 0)::numeric < 10000 THEN '5,000-10,000'
+                    WHEN COALESCE(claim_net, 0)::numeric < 50000 THEN '10,000-50,000'
+                    ELSE 'Over 50,000'
+                END as amount_range,
+                COUNT(*) as total_claims,
+                COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as error_claims,
+                ROUND(
+                    COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) * 100.0 /
+                    NULLIF(COUNT(*), 0), 2
+                ) as error_rate,
+                CASE
+                    WHEN COALESCE(claim_net, 0)::numeric < 1000 THEN 1
+                    WHEN COALESCE(claim_net, 0)::numeric < 5000 THEN 2
+                    WHEN COALESCE(claim_net, 0)::numeric < 10000 THEN 3
+                    WHEN COALESCE(claim_net, 0)::numeric < 50000 THEN 4
+                    ELSE 5
+                END as sort_order
+            FROM claim_rep_opip_nhso_item
+            GROUP BY 1, 5
+            ORDER BY sort_order
+        """)
+        amount_risk = []
+        for row in cursor.fetchall():
+            amount_risk.append({
+                'amount_range': row[0],
+                'total_claims': row[1],
+                'error_claims': row[2],
+                'error_rate': float(row[3]) if row[3] else 0,
+                'risk_level': 'high' if (row[3] or 0) > 10 else 'medium' if (row[3] or 0) > 5 else 'low'
+            })
+
+        # 5. Overall risk summary
+        cursor.execute("""
+            SELECT
+                COUNT(*) as total_claims,
+                COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as total_errors,
+                ROUND(
+                    COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) * 100.0 /
+                    NULLIF(COUNT(*), 0), 2
+                ) as overall_error_rate
+            FROM claim_rep_opip_nhso_item
+        """)
+        summary_row = cursor.fetchone()
+        overall_summary = {
+            'total_claims': summary_row[0],
+            'total_errors': summary_row[1],
+            'overall_error_rate': float(summary_row[2]) if summary_row[2] else 0
+        }
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'summary': overall_summary,
+                'service_type_risk': service_type_risk,
+                'fund_risk': fund_risk,
+                'drg_risk': drg_risk,
+                'amount_risk': amount_risk
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in denial risk analysis: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/predictive/anomalies')
+def api_anomalies():
+    """
+    Phase 3.2: Anomaly Detection
+    Detect unusual claim amounts and patterns
+    Uses statistical analysis to identify outliers
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # 1. Calculate statistical metrics for claim amounts
+        cursor.execute("""
+            SELECT
+                AVG(COALESCE(claim_net, 0)::numeric) as mean_amount,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY COALESCE(claim_net, 0)::numeric) as median_amount,
+                STDDEV(COALESCE(claim_net, 0)::numeric) as std_amount,
+                MIN(COALESCE(claim_net, 0)::numeric) as min_amount,
+                MAX(COALESCE(claim_net, 0)::numeric) as max_amount,
+                PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY COALESCE(claim_net, 0)::numeric) as q1,
+                PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY COALESCE(claim_net, 0)::numeric) as q3
+            FROM claim_rep_opip_nhso_item
+            WHERE claim_net IS NOT NULL
+        """)
+        stats_row = cursor.fetchone()
+        stats = {
+            'mean': float(stats_row[0]) if stats_row[0] else 0,
+            'median': float(stats_row[1]) if stats_row[1] else 0,
+            'std': float(stats_row[2]) if stats_row[2] else 0,
+            'min': float(stats_row[3]) if stats_row[3] else 0,
+            'max': float(stats_row[4]) if stats_row[4] else 0,
+            'q1': float(stats_row[5]) if stats_row[5] else 0,
+            'q3': float(stats_row[6]) if stats_row[6] else 0
+        }
+        # Calculate IQR bounds for outliers
+        iqr = stats['q3'] - stats['q1']
+        lower_bound = stats['q1'] - (1.5 * iqr)
+        upper_bound = stats['q3'] + (1.5 * iqr)
+
+        # 2. Find high-value anomalies (claims above upper bound)
+        cursor.execute("""
+            SELECT
+                tran_id, hn, name, dateadm, service_type, drg,
+                claim_net, reimb_nhso, error_code
+            FROM claim_rep_opip_nhso_item
+            WHERE COALESCE(claim_net, 0)::numeric > %s
+            ORDER BY claim_net DESC
+            LIMIT 20
+        """, (upper_bound,))
+        high_value_anomalies = []
+        for row in cursor.fetchall():
+            high_value_anomalies.append({
+                'tran_id': row[0],
+                'hn': row[1],
+                'name': row[2],
+                'dateadm': row[3].strftime('%Y-%m-%d') if row[3] else None,
+                'service_type': row[4],
+                'drg': row[5],
+                'claim_net': float(row[6]) if row[6] else 0,
+                'reimb_nhso': float(row[7]) if row[7] else 0,
+                'error_code': row[8],
+                'anomaly_type': 'high_value',
+                'deviation': round((float(row[6] or 0) - stats['mean']) / stats['std'], 2) if stats['std'] > 0 else 0
+            })
+
+        # 3. Find claims with large reimbursement variance
+        cursor.execute("""
+            SELECT
+                tran_id, hn, name, dateadm, service_type, drg,
+                claim_net, reimb_nhso, paid,
+                COALESCE(claim_net, 0)::numeric - COALESCE(reimb_nhso, 0)::numeric as variance
+            FROM claim_rep_opip_nhso_item
+            WHERE claim_net IS NOT NULL
+              AND reimb_nhso IS NOT NULL
+              AND ABS(COALESCE(claim_net, 0)::numeric - COALESCE(reimb_nhso, 0)::numeric) >
+                  (SELECT AVG(ABS(COALESCE(claim_net, 0)::numeric - COALESCE(reimb_nhso, 0)::numeric)) * 3
+                   FROM claim_rep_opip_nhso_item
+                   WHERE claim_net IS NOT NULL AND reimb_nhso IS NOT NULL)
+            ORDER BY ABS(COALESCE(claim_net, 0)::numeric - COALESCE(reimb_nhso, 0)::numeric) DESC
+            LIMIT 20
+        """)
+        variance_anomalies = []
+        for row in cursor.fetchall():
+            variance_anomalies.append({
+                'tran_id': row[0],
+                'hn': row[1],
+                'name': row[2],
+                'dateadm': row[3].strftime('%Y-%m-%d') if row[3] else None,
+                'service_type': row[4],
+                'drg': row[5],
+                'claim_net': float(row[6]) if row[6] else 0,
+                'reimb_nhso': float(row[7]) if row[7] else 0,
+                'paid': float(row[8]) if row[8] else 0,
+                'variance': float(row[9]) if row[9] else 0,
+                'anomaly_type': 'high_variance'
+            })
+
+        # 4. Find unusual RW (relative weight) values
+        # Skip RW analysis if data has non-numeric values
+        rw_anomalies = []
+        try:
+            cursor.execute("""
+                SELECT
+                    AVG(rw::numeric) as mean_rw,
+                    STDDEV(rw::numeric) as std_rw
+                FROM claim_rep_opip_nhso_item
+                WHERE rw IS NOT NULL
+                  AND rw <> ''
+                  AND rw ~ '^[0-9]+\.?[0-9]*$'
+            """)
+            rw_stats = cursor.fetchone()
+            rw_mean = float(rw_stats[0]) if rw_stats[0] else 0
+            rw_std = float(rw_stats[1]) if rw_stats[1] else 1
+
+            if rw_mean > 0:
+                cursor.execute("""
+                    SELECT
+                        tran_id, hn, name, dateadm, drg, rw, claim_net
+                    FROM claim_rep_opip_nhso_item
+                    WHERE rw IS NOT NULL
+                      AND rw <> ''
+                      AND rw ~ '^[0-9]+\.?[0-9]*$'
+                      AND rw::numeric > %s
+                    ORDER BY rw::numeric DESC
+                    LIMIT 15
+                """, (rw_mean + (2 * rw_std),))
+                for row in cursor.fetchall():
+                    rw_anomalies.append({
+                        'tran_id': row[0],
+                        'hn': row[1],
+                        'name': row[2],
+                        'dateadm': row[3].strftime('%Y-%m-%d') if row[3] else None,
+                        'drg': row[4],
+                        'rw': float(row[5]) if row[5] else 0,
+                        'claim_net': float(row[6]) if row[6] else 0,
+                        'anomaly_type': 'high_rw'
+                    })
+        except Exception as rw_error:
+            app.logger.warning(f"RW anomaly detection skipped: {rw_error}")
+            conn.rollback()  # Reset transaction state
+
+        # 5. Anomaly summary
+        cursor.execute("""
+            SELECT
+                COUNT(*) as total_claims,
+                COUNT(CASE WHEN COALESCE(claim_net, 0)::numeric > %s THEN 1 END) as high_value_count,
+                COUNT(CASE WHEN COALESCE(claim_net, 0)::numeric < %s THEN 1 END) as low_value_count
+            FROM claim_rep_opip_nhso_item
+        """, (upper_bound, lower_bound if lower_bound > 0 else 0))
+        anomaly_summary = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'statistics': stats,
+                'bounds': {
+                    'lower': max(0, lower_bound),
+                    'upper': upper_bound,
+                    'iqr': iqr
+                },
+                'summary': {
+                    'total_claims': anomaly_summary[0],
+                    'high_value_anomalies': anomaly_summary[1],
+                    'low_value_anomalies': anomaly_summary[2]
+                },
+                'high_value_claims': high_value_anomalies,
+                'variance_anomalies': variance_anomalies,
+                'rw_anomalies': rw_anomalies
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in anomaly detection: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/predictive/opportunities')
+def api_opportunities():
+    """
+    Phase 3.3: Revenue Opportunities
+    Identify potential revenue recovery and optimization opportunities
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # 1. Under-reimbursed claims (claimed more than received)
+        cursor.execute("""
+            SELECT
+                tran_id, hn, name, dateadm, service_type, drg,
+                claim_net, reimb_nhso, paid,
+                COALESCE(claim_net, 0)::numeric - COALESCE(paid, 0)::numeric as potential_recovery,
+                error_code
+            FROM claim_rep_opip_nhso_item
+            WHERE COALESCE(claim_net, 0)::numeric > COALESCE(paid, 0)::numeric + 100
+              AND error_code IS NULL OR error_code = ''
+            ORDER BY COALESCE(claim_net, 0)::numeric - COALESCE(paid, 0)::numeric DESC
+            LIMIT 30
+        """)
+        under_reimbursed = []
+        for row in cursor.fetchall():
+            under_reimbursed.append({
+                'tran_id': row[0],
+                'hn': row[1],
+                'name': row[2],
+                'dateadm': row[3].strftime('%Y-%m-%d') if row[3] else None,
+                'service_type': row[4],
+                'drg': row[5],
+                'claim_net': float(row[6]) if row[6] else 0,
+                'reimb_nhso': float(row[7]) if row[7] else 0,
+                'paid': float(row[8]) if row[8] else 0,
+                'potential_recovery': float(row[9]) if row[9] else 0,
+                'error_code': row[10]
+            })
+
+        # 2. Summary of potential recovery by fund
+        cursor.execute("""
+            SELECT
+                main_fund,
+                COUNT(*) as claims,
+                SUM(COALESCE(claim_net, 0)::numeric - COALESCE(paid, 0)::numeric) as total_gap,
+                AVG(COALESCE(claim_net, 0)::numeric - COALESCE(paid, 0)::numeric) as avg_gap
+            FROM claim_rep_opip_nhso_item
+            WHERE COALESCE(claim_net, 0)::numeric > COALESCE(paid, 0)::numeric + 100
+              AND main_fund IS NOT NULL AND main_fund != ''
+            GROUP BY main_fund
+            ORDER BY total_gap DESC
+        """)
+        fund_gaps = []
+        for row in cursor.fetchall():
+            fund_gaps.append({
+                'fund': row[0],
+                'claims': row[1],
+                'total_gap': float(row[2]) if row[2] else 0,
+                'avg_gap': float(row[3]) if row[3] else 0
+            })
+
+        # 3. Claims with potential coding improvements (low RW vs high claim)
+        coding_opportunities = []
+        try:
+            cursor.execute("""
+                WITH rw_stats AS (
+                    SELECT
+                        LEFT(drg, 3) as drg_group,
+                        AVG(rw::numeric) as avg_rw
+                    FROM claim_rep_opip_nhso_item
+                    WHERE drg IS NOT NULL
+                      AND rw IS NOT NULL
+                      AND rw <> ''
+                      AND rw ~ '^[0-9]+\.?[0-9]*$'
+                    GROUP BY LEFT(drg, 3)
+                )
+                SELECT
+                    c.tran_id, c.hn, c.name, c.dateadm, c.drg, c.rw,
+                    c.claim_net, r.avg_rw,
+                    r.avg_rw - c.rw::numeric as rw_gap
+                FROM claim_rep_opip_nhso_item c
+                JOIN rw_stats r ON LEFT(c.drg, 3) = r.drg_group
+                WHERE c.rw IS NOT NULL
+                  AND c.rw <> ''
+                  AND c.rw ~ '^[0-9]+\.?[0-9]*$'
+                  AND c.rw::numeric < r.avg_rw * 0.7
+                  AND c.claim_net IS NOT NULL
+                  AND COALESCE(c.claim_net, 0)::numeric > 5000
+                ORDER BY c.claim_net DESC
+                LIMIT 20
+            """)
+            for row in cursor.fetchall():
+                coding_opportunities.append({
+                    'tran_id': row[0],
+                    'hn': row[1],
+                    'name': row[2],
+                    'dateadm': row[3].strftime('%Y-%m-%d') if row[3] else None,
+                    'drg': row[4],
+                    'rw': float(row[5]) if row[5] else 0,
+                    'claim_net': float(row[6]) if row[6] else 0,
+                    'avg_rw_for_drg': round(float(row[7]), 3) if row[7] else 0,
+                    'rw_gap': round(float(row[8]), 3) if row[8] else 0
+                })
+        except Exception as rw_error:
+            app.logger.warning(f"Coding opportunities analysis skipped: {rw_error}")
+            conn.rollback()  # Reset transaction state
+
+        # 4. Error claims that could be resubmitted
+        cursor.execute("""
+            SELECT
+                error_code,
+                COUNT(*) as count,
+                SUM(COALESCE(claim_net, 0)::numeric) as total_value,
+                AVG(COALESCE(claim_net, 0)::numeric) as avg_value
+            FROM claim_rep_opip_nhso_item
+            WHERE error_code IS NOT NULL AND error_code != ''
+            GROUP BY error_code
+            ORDER BY total_value DESC
+            LIMIT 15
+        """)
+        resubmit_opportunities = []
+        for row in cursor.fetchall():
+            resubmit_opportunities.append({
+                'error_code': row[0],
+                'count': row[1],
+                'total_value': float(row[2]) if row[2] else 0,
+                'avg_value': float(row[3]) if row[3] else 0
+            })
+
+        # 5. Overall opportunity summary
+        cursor.execute("""
+            SELECT
+                COUNT(*) as total_claims,
+                SUM(COALESCE(claim_net, 0)::numeric) as total_claimed,
+                SUM(COALESCE(paid, 0)::numeric) as total_paid,
+                SUM(COALESCE(claim_net, 0)::numeric) - SUM(COALESCE(paid, 0)::numeric) as total_gap,
+                COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as error_claims,
+                SUM(CASE WHEN error_code IS NOT NULL AND error_code != ''
+                    THEN COALESCE(claim_net, 0)::numeric ELSE 0 END) as error_claim_value
+            FROM claim_rep_opip_nhso_item
+        """)
+        summary_row = cursor.fetchone()
+        summary = {
+            'total_claims': summary_row[0],
+            'total_claimed': float(summary_row[1]) if summary_row[1] else 0,
+            'total_paid': float(summary_row[2]) if summary_row[2] else 0,
+            'total_gap': float(summary_row[3]) if summary_row[3] else 0,
+            'reimbursement_rate': round(float(summary_row[2] or 0) / float(summary_row[1] or 1) * 100, 2),
+            'error_claims': summary_row[4],
+            'error_claim_value': float(summary_row[5]) if summary_row[5] else 0
+        }
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'summary': summary,
+                'under_reimbursed': under_reimbursed,
+                'fund_gaps': fund_gaps,
+                'coding_opportunities': coding_opportunities,
+                'resubmit_opportunities': resubmit_opportunities
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in revenue opportunities: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/predictive/insights')
+def api_insights():
+    """
+    Phase 3.4: AI-Generated Insights
+    Generate actionable recommendations based on data patterns
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        insights = []
+        priority_score = 0
+
+        # 1. Check overall denial rate trend
+        cursor.execute("""
+            SELECT
+                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                COUNT(*) as total,
+                COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as errors,
+                ROUND(COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) * 100.0 /
+                      NULLIF(COUNT(*), 0), 2) as error_rate
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm IS NOT NULL
+            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+            ORDER BY month DESC
+            LIMIT 6
+        """)
+        monthly_rates = cursor.fetchall()
+        if len(monthly_rates) >= 2:
+            recent_rate = float(monthly_rates[0][3] or 0)
+            prev_rate = float(monthly_rates[1][3] or 0)
+            if recent_rate > prev_rate * 1.2:
+                insights.append({
+                    'type': 'warning',
+                    'category': 'Denial Rate',
+                    'title': 'อัตรา Denial เพิ่มขึ้น',
+                    'description': f'อัตรา Denial เดือนล่าสุด ({recent_rate}%) เพิ่มขึ้นจากเดือนก่อน ({prev_rate}%) ควรตรวจสอบสาเหตุ',
+                    'action': 'ตรวจสอบ Error Code ที่พบบ่อยและปรับปรุงกระบวนการ coding',
+                    'priority': 'high',
+                    'metric': {'current': recent_rate, 'previous': prev_rate}
+                })
+                priority_score += 30
+            elif recent_rate < prev_rate * 0.8:
+                insights.append({
+                    'type': 'success',
+                    'category': 'Denial Rate',
+                    'title': 'อัตรา Denial ลดลง',
+                    'description': f'อัตรา Denial เดือนล่าสุด ({recent_rate}%) ลดลงจากเดือนก่อน ({prev_rate}%)',
+                    'action': 'รักษามาตรฐานการทำงานปัจจุบัน',
+                    'priority': 'low',
+                    'metric': {'current': recent_rate, 'previous': prev_rate}
+                })
+
+        # 2. Check for specific high-error service types
+        cursor.execute("""
+            SELECT service_type,
+                   COUNT(*) as total,
+                   ROUND(COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) * 100.0 /
+                         NULLIF(COUNT(*), 0), 2) as error_rate
+            FROM claim_rep_opip_nhso_item
+            WHERE service_type IS NOT NULL AND service_type != ''
+            GROUP BY service_type
+            HAVING COUNT(*) >= 20 AND
+                   COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) * 100.0 /
+                   NULLIF(COUNT(*), 0) > 15
+            ORDER BY error_rate DESC
+            LIMIT 3
+        """)
+        high_error_services = cursor.fetchall()
+        for service in high_error_services:
+            insights.append({
+                'type': 'warning',
+                'category': 'Service Type',
+                'title': f'ประเภทบริการ {service[0]} มี Error สูง',
+                'description': f'พบอัตรา Error {service[2]}% จาก {service[1]} claims',
+                'action': f'ทบทวนกระบวนการบันทึกข้อมูลสำหรับบริการประเภท {service[0]}',
+                'priority': 'medium',
+                'metric': {'service_type': service[0], 'error_rate': float(service[2])}
+            })
+            priority_score += 15
+
+        # 3. Check reimbursement rate
+        cursor.execute("""
+            SELECT
+                SUM(COALESCE(claim_net, 0)::numeric) as claimed,
+                SUM(COALESCE(paid, 0)::numeric) as paid
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm >= NOW() - INTERVAL '3 months'
+        """)
+        reimb_row = cursor.fetchone()
+        if reimb_row[0] and reimb_row[0] > 0:
+            reimb_rate = float(reimb_row[1] or 0) / float(reimb_row[0]) * 100
+            if reimb_rate < 85:
+                insights.append({
+                    'type': 'warning',
+                    'category': 'Reimbursement',
+                    'title': 'อัตราการชดเชยต่ำกว่าเป้าหมาย',
+                    'description': f'อัตราการชดเชย 3 เดือนล่าสุดอยู่ที่ {reimb_rate:.1f}% ต่ำกว่าเป้าหมาย 85%',
+                    'action': 'ตรวจสอบ claims ที่ยังไม่ได้รับการชดเชยและติดตามการ resubmit',
+                    'priority': 'high',
+                    'metric': {'rate': round(reimb_rate, 2), 'target': 85}
+                })
+                priority_score += 25
+            elif reimb_rate >= 95:
+                insights.append({
+                    'type': 'success',
+                    'category': 'Reimbursement',
+                    'title': 'อัตราการชดเชยดีเยี่ยม',
+                    'description': f'อัตราการชดเชย 3 เดือนล่าสุดอยู่ที่ {reimb_rate:.1f}%',
+                    'action': 'รักษามาตรฐานการทำงาน',
+                    'priority': 'low',
+                    'metric': {'rate': round(reimb_rate, 2)}
+                })
+
+        # 4. Check for common error codes
+        cursor.execute("""
+            SELECT error_code, COUNT(*) as count,
+                   SUM(COALESCE(claim_net, 0)::numeric) as total_value
+            FROM claim_rep_opip_nhso_item
+            WHERE error_code IS NOT NULL AND error_code != ''
+              AND dateadm >= NOW() - INTERVAL '3 months'
+            GROUP BY error_code
+            ORDER BY count DESC
+            LIMIT 3
+        """)
+        common_errors = cursor.fetchall()
+        if common_errors:
+            top_error = common_errors[0]
+            insights.append({
+                'type': 'info',
+                'category': 'Error Analysis',
+                'title': f'Error Code {top_error[0]} พบบ่อยที่สุด',
+                'description': f'พบ {top_error[1]} ครั้ง มูลค่ารวม {top_error[2]:,.0f} บาท',
+                'action': 'ศึกษาสาเหตุของ Error Code นี้และหาแนวทางป้องกัน',
+                'priority': 'medium',
+                'metric': {'error_code': top_error[0], 'count': top_error[1], 'value': float(top_error[2] or 0)}
+            })
+            priority_score += 10
+
+        # 5. Check for pending long-duration claims
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm < NOW() - INTERVAL '60 days'
+              AND (paid IS NULL OR COALESCE(paid, 0)::numeric = 0)
+              AND error_code IS NULL OR error_code = ''
+        """)
+        pending_count = cursor.fetchone()[0]
+        if pending_count > 10:
+            insights.append({
+                'type': 'warning',
+                'category': 'Pending Claims',
+                'title': 'มี Claims ค้างนานเกิน 60 วัน',
+                'description': f'พบ {pending_count} claims ที่ยังไม่ได้รับการชำระเกิน 60 วัน',
+                'action': 'ติดตามสถานะกับ สปสช. และตรวจสอบว่ามีปัญหาเอกสารหรือไม่',
+                'priority': 'medium',
+                'metric': {'pending_count': pending_count}
+            })
+            priority_score += 15
+
+        cursor.close()
+        conn.close()
+
+        # Sort insights by priority
+        priority_order = {'high': 0, 'medium': 1, 'low': 2}
+        insights.sort(key=lambda x: priority_order.get(x['priority'], 3))
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'insights': insights,
+                'total_insights': len(insights),
+                'priority_score': min(100, priority_score),
+                'health_status': 'critical' if priority_score >= 60 else 'warning' if priority_score >= 30 else 'good'
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error generating insights: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================
 # Reconciliation Routes
 # ============================================
 

@@ -1,0 +1,627 @@
+{% extends "base.html" %}
+
+{% block title %}Predictive Analytics - E-Claim{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Predictive Analytics</h1>
+            <p class="text-gray-600 mt-1">AI-Powered Insights & Risk Analysis</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <!-- Health Score Badge -->
+            <div id="health-badge" class="px-4 py-2 rounded-lg flex items-center gap-2 bg-gray-100">
+                <span class="text-sm font-medium">System Health:</span>
+                <span id="health-score" class="font-bold">-</span>
+            </div>
+            <button onclick="refreshAllData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- AI Insights Section -->
+    <div class="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+        <div class="flex items-center gap-2 mb-4">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+            </svg>
+            <h2 class="text-xl font-bold">AI Insights</h2>
+            <span id="insight-count" class="bg-white/20 px-2 py-1 rounded text-sm">-</span>
+        </div>
+        <div id="insights-container" class="space-y-3">
+            <p class="text-white/70">Loading AI insights...</p>
+        </div>
+    </div>
+
+    <!-- Denial Risk & Anomaly Detection Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Denial Risk Section -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    Denial Risk Analysis
+                </h3>
+                <span id="overall-error-rate" class="text-sm font-medium px-2 py-1 rounded bg-gray-100">-</span>
+            </div>
+
+            <!-- Risk Summary -->
+            <div class="grid grid-cols-3 gap-2 mb-4">
+                <div class="bg-red-50 rounded-lg p-3 text-center">
+                    <div class="text-xs text-red-600">High Risk</div>
+                    <div id="high-risk-count" class="text-xl font-bold text-red-700">-</div>
+                </div>
+                <div class="bg-yellow-50 rounded-lg p-3 text-center">
+                    <div class="text-xs text-yellow-600">Medium Risk</div>
+                    <div id="medium-risk-count" class="text-xl font-bold text-yellow-700">-</div>
+                </div>
+                <div class="bg-green-50 rounded-lg p-3 text-center">
+                    <div class="text-xs text-green-600">Low Risk</div>
+                    <div id="low-risk-count" class="text-xl font-bold text-green-700">-</div>
+                </div>
+            </div>
+
+            <!-- Risk by Service Type -->
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-700 mb-2">Risk by Service Type</h4>
+                <div id="service-risk-container" class="space-y-2 max-h-48 overflow-y-auto">
+                    <p class="text-gray-400 text-sm">Loading...</p>
+                </div>
+            </div>
+
+            <!-- Risk by DRG -->
+            <div>
+                <h4 class="text-sm font-medium text-gray-700 mb-2">Top Risk DRG Groups</h4>
+                <div id="drg-risk-container" class="space-y-2 max-h-48 overflow-y-auto">
+                    <p class="text-gray-400 text-sm">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Anomaly Detection Section -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    Anomaly Detection
+                </h3>
+            </div>
+
+            <!-- Statistics Summary -->
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="bg-blue-50 rounded-lg p-3">
+                    <div class="text-xs text-blue-600">Mean Claim</div>
+                    <div id="stat-mean" class="text-lg font-bold text-blue-700">-</div>
+                </div>
+                <div class="bg-blue-50 rounded-lg p-3">
+                    <div class="text-xs text-blue-600">Std Dev</div>
+                    <div id="stat-std" class="text-lg font-bold text-blue-700">-</div>
+                </div>
+                <div class="bg-orange-50 rounded-lg p-3">
+                    <div class="text-xs text-orange-600">High Value Outliers</div>
+                    <div id="high-outliers" class="text-lg font-bold text-orange-700">-</div>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-3">
+                    <div class="text-xs text-purple-600">Upper Bound</div>
+                    <div id="upper-bound" class="text-lg font-bold text-purple-700">-</div>
+                </div>
+            </div>
+
+            <!-- High Value Anomalies -->
+            <div>
+                <h4 class="text-sm font-medium text-gray-700 mb-2">High Value Claims (Outliers)</h4>
+                <div id="anomaly-container" class="space-y-2 max-h-64 overflow-y-auto">
+                    <p class="text-gray-400 text-sm">Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue Opportunities Section -->
+    <div class="bg-white rounded-xl shadow-md p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Revenue Opportunities
+            </h3>
+        </div>
+
+        <!-- Opportunity Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-gradient-to-br from-green-400 to-green-600 rounded-lg p-4 text-white">
+                <div class="text-sm opacity-80">Total Gap</div>
+                <div id="total-gap" class="text-2xl font-bold">-</div>
+                <div class="text-xs opacity-70">Potential Recovery</div>
+            </div>
+            <div class="bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg p-4 text-white">
+                <div class="text-sm opacity-80">Reimb Rate</div>
+                <div id="reimb-rate" class="text-2xl font-bold">-</div>
+                <div class="text-xs opacity-70">Current Performance</div>
+            </div>
+            <div class="bg-gradient-to-br from-red-400 to-red-600 rounded-lg p-4 text-white">
+                <div class="text-sm opacity-80">Error Claims</div>
+                <div id="error-claim-count" class="text-2xl font-bold">-</div>
+                <div class="text-xs opacity-70">Resubmit Candidates</div>
+            </div>
+            <div class="bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg p-4 text-white">
+                <div class="text-sm opacity-80">Error Value</div>
+                <div id="error-claim-value" class="text-2xl font-bold">-</div>
+                <div class="text-xs opacity-70">Recovery Potential</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Under-reimbursed Claims -->
+            <div>
+                <h4 class="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                    Under-Reimbursed Claims
+                </h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">TRAN_ID</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">HN</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Claimed</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Paid</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Gap</th>
+                            </tr>
+                        </thead>
+                        <tbody id="under-reimbursed-tbody" class="divide-y divide-gray-200">
+                            <tr><td colspan="5" class="px-3 py-4 text-center text-gray-400">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Resubmit Opportunities -->
+            <div>
+                <h4 class="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                    Error Claims - Resubmit Opportunities
+                </h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Error Code</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Count</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Total Value</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Avg Value</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resubmit-tbody" class="divide-y divide-gray-200">
+                            <tr><td colspan="4" class="px-3 py-4 text-center text-gray-400">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gap by Fund -->
+        <div class="mt-6">
+            <h4 class="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                Gap by Fund Type
+            </h4>
+            <div class="h-64">
+                <canvas id="chart-fund-gap"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let fundGapChart;
+
+document.addEventListener('DOMContentLoaded', function() {
+    refreshAllData();
+});
+
+function refreshAllData() {
+    loadInsights();
+    loadDenialRisk();
+    loadAnomalies();
+    loadOpportunities();
+}
+
+async function loadInsights() {
+    try {
+        var response = await fetch('/api/predictive/insights');
+        var data = await response.json();
+        if (data.success) {
+            renderInsights(data.data);
+            updateHealthBadge(data.data);
+        }
+    } catch (e) {
+        console.error('Error loading insights:', e);
+    }
+}
+
+function renderInsights(data) {
+    var container = document.getElementById('insights-container');
+    container.textContent = '';
+    document.getElementById('insight-count').textContent = data.total_insights + ' insights';
+
+    if (data.insights.length === 0) {
+        var emptyMsg = document.createElement('p');
+        emptyMsg.className = 'text-white/70';
+        emptyMsg.textContent = 'No insights available at this time.';
+        container.appendChild(emptyMsg);
+        return;
+    }
+
+    data.insights.forEach(function(insight) {
+        var div = document.createElement('div');
+        div.className = 'bg-white/10 rounded-lg p-4 backdrop-blur';
+
+        var wrapper = document.createElement('div');
+        wrapper.className = 'flex items-start gap-3';
+
+        // Icon
+        var svgNS = 'http://www.w3.org/2000/svg';
+        var svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('class', 'w-5 h-5 flex-shrink-0 mt-0.5 ' +
+            (insight.type === 'warning' ? 'text-yellow-300' :
+             insight.type === 'success' ? 'text-green-300' : 'text-blue-300'));
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        var path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('stroke-width', '2');
+        if (insight.type === 'warning') {
+            path.setAttribute('d', 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z');
+        } else if (insight.type === 'success') {
+            path.setAttribute('d', 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z');
+        } else {
+            path.setAttribute('d', 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z');
+        }
+        svg.appendChild(path);
+        wrapper.appendChild(svg);
+
+        // Content
+        var content = document.createElement('div');
+        content.className = 'flex-1';
+
+        var header = document.createElement('div');
+        header.className = 'flex items-center gap-2 mb-1';
+
+        var title = document.createElement('span');
+        title.className = 'font-semibold';
+        title.textContent = insight.title;
+        header.appendChild(title);
+
+        var badge = document.createElement('span');
+        badge.className = 'px-2 py-0.5 rounded text-xs ' +
+            (insight.priority === 'high' ? 'bg-red-500' :
+             insight.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500');
+        badge.textContent = insight.priority;
+        header.appendChild(badge);
+
+        content.appendChild(header);
+
+        var desc = document.createElement('p');
+        desc.className = 'text-sm text-white/80 mb-2';
+        desc.textContent = insight.description;
+        content.appendChild(desc);
+
+        var action = document.createElement('p');
+        action.className = 'text-xs text-white/60';
+        var actionBold = document.createElement('strong');
+        actionBold.textContent = 'Action: ';
+        action.appendChild(actionBold);
+        action.appendChild(document.createTextNode(insight.action));
+        content.appendChild(action);
+
+        wrapper.appendChild(content);
+        div.appendChild(wrapper);
+        container.appendChild(div);
+    });
+}
+
+function updateHealthBadge(data) {
+    var badge = document.getElementById('health-badge');
+    var score = document.getElementById('health-score');
+
+    score.textContent = data.health_status.toUpperCase();
+
+    if (data.health_status === 'critical') {
+        badge.className = 'px-4 py-2 rounded-lg flex items-center gap-2 bg-red-100 text-red-800';
+    } else if (data.health_status === 'warning') {
+        badge.className = 'px-4 py-2 rounded-lg flex items-center gap-2 bg-yellow-100 text-yellow-800';
+    } else {
+        badge.className = 'px-4 py-2 rounded-lg flex items-center gap-2 bg-green-100 text-green-800';
+    }
+}
+
+async function loadDenialRisk() {
+    try {
+        var response = await fetch('/api/predictive/denial-risk');
+        var data = await response.json();
+        if (data.success) {
+            renderDenialRisk(data.data);
+        }
+    } catch (e) {
+        console.error('Error loading denial risk:', e);
+    }
+}
+
+function renderDenialRisk(data) {
+    // Overall error rate
+    document.getElementById('overall-error-rate').textContent =
+        'Error Rate: ' + data.summary.overall_error_rate + '%';
+
+    // Count risks by level
+    var highCount = 0, mediumCount = 0, lowCount = 0;
+    data.service_type_risk.forEach(function(r) {
+        if (r.risk_level === 'high') highCount++;
+        else if (r.risk_level === 'medium') mediumCount++;
+        else lowCount++;
+    });
+
+    document.getElementById('high-risk-count').textContent = highCount;
+    document.getElementById('medium-risk-count').textContent = mediumCount;
+    document.getElementById('low-risk-count').textContent = lowCount;
+
+    // Service type risks
+    var serviceContainer = document.getElementById('service-risk-container');
+    serviceContainer.textContent = '';
+    data.service_type_risk.slice(0, 10).forEach(function(r) {
+        var barWidth = Math.min(r.error_rate * 5, 100);
+        var barColor = r.risk_level === 'high' ? 'bg-red-500' :
+                      r.risk_level === 'medium' ? 'bg-yellow-500' : 'bg-green-500';
+        var badgeColor = r.risk_level === 'high' ? 'bg-red-100 text-red-800' :
+                        r.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800';
+
+        var div = document.createElement('div');
+        div.className = 'flex items-center gap-2';
+
+        var label = document.createElement('span');
+        label.className = 'w-16 text-xs truncate';
+        label.title = r.service_type;
+        label.textContent = r.service_type;
+        div.appendChild(label);
+
+        var barContainer = document.createElement('div');
+        barContainer.className = 'flex-1 h-2 bg-gray-100 rounded-full overflow-hidden';
+        var bar = document.createElement('div');
+        bar.className = 'h-full ' + barColor;
+        bar.style.width = barWidth + '%';
+        barContainer.appendChild(bar);
+        div.appendChild(barContainer);
+
+        var rate = document.createElement('span');
+        rate.className = badgeColor + ' px-2 py-0.5 rounded text-xs font-medium';
+        rate.textContent = r.error_rate + '%';
+        div.appendChild(rate);
+
+        serviceContainer.appendChild(div);
+    });
+
+    // DRG risks
+    var drgContainer = document.getElementById('drg-risk-container');
+    drgContainer.textContent = '';
+    data.drg_risk.slice(0, 10).forEach(function(r) {
+        var badgeColor = r.risk_level === 'high' ? 'bg-red-100 text-red-800' :
+                        r.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800';
+
+        var div = document.createElement('div');
+        div.className = 'flex items-center justify-between';
+
+        var drg = document.createElement('span');
+        drg.className = 'text-xs font-mono';
+        drg.textContent = r.drg_group;
+        div.appendChild(drg);
+
+        var claims = document.createElement('span');
+        claims.className = 'text-xs text-gray-500';
+        claims.textContent = r.total_claims + ' claims';
+        div.appendChild(claims);
+
+        var rate = document.createElement('span');
+        rate.className = badgeColor + ' px-2 py-0.5 rounded text-xs font-medium';
+        rate.textContent = r.error_rate + '%';
+        div.appendChild(rate);
+
+        drgContainer.appendChild(div);
+    });
+}
+
+async function loadAnomalies() {
+    try {
+        var response = await fetch('/api/predictive/anomalies');
+        var data = await response.json();
+        if (data.success) {
+            renderAnomalies(data.data);
+        }
+    } catch (e) {
+        console.error('Error loading anomalies:', e);
+    }
+}
+
+function renderAnomalies(data) {
+    // Statistics
+    document.getElementById('stat-mean').textContent = formatMoney(data.statistics.mean);
+    document.getElementById('stat-std').textContent = formatMoney(data.statistics.std);
+    document.getElementById('high-outliers').textContent = data.summary.high_value_anomalies;
+    document.getElementById('upper-bound').textContent = formatMoney(data.bounds.upper);
+
+    // High value anomalies
+    var container = document.getElementById('anomaly-container');
+    container.textContent = '';
+
+    if (data.high_value_claims.length === 0) {
+        var emptyMsg = document.createElement('p');
+        emptyMsg.className = 'text-gray-400 text-sm';
+        emptyMsg.textContent = 'No high-value anomalies detected';
+        container.appendChild(emptyMsg);
+        return;
+    }
+
+    data.high_value_claims.slice(0, 10).forEach(function(a) {
+        var div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-2 bg-orange-50 rounded';
+
+        var left = document.createElement('div');
+        left.className = 'flex-1';
+        var tranId = document.createElement('span');
+        tranId.className = 'text-xs font-mono text-gray-600';
+        tranId.textContent = a.tran_id;
+        left.appendChild(tranId);
+        var svcType = document.createElement('span');
+        svcType.className = 'text-xs text-gray-400 ml-2';
+        svcType.textContent = a.service_type || '-';
+        left.appendChild(svcType);
+        div.appendChild(left);
+
+        var right = document.createElement('div');
+        right.className = 'text-right';
+        var amount = document.createElement('div');
+        amount.className = 'text-sm font-semibold text-orange-700';
+        amount.textContent = formatMoney(a.claim_net);
+        right.appendChild(amount);
+        var deviation = document.createElement('div');
+        deviation.className = 'text-xs text-gray-500';
+        deviation.textContent = a.deviation + ' std';
+        right.appendChild(deviation);
+        div.appendChild(right);
+
+        container.appendChild(div);
+    });
+}
+
+async function loadOpportunities() {
+    try {
+        var response = await fetch('/api/predictive/opportunities');
+        var data = await response.json();
+        if (data.success) {
+            renderOpportunities(data.data);
+        }
+    } catch (e) {
+        console.error('Error loading opportunities:', e);
+    }
+}
+
+function renderOpportunities(data) {
+    // Summary cards
+    document.getElementById('total-gap').textContent = formatMoney(data.summary.total_gap);
+    document.getElementById('reimb-rate').textContent = data.summary.reimbursement_rate + '%';
+    document.getElementById('error-claim-count').textContent = data.summary.error_claims.toLocaleString();
+    document.getElementById('error-claim-value').textContent = formatMoney(data.summary.error_claim_value);
+
+    // Under-reimbursed table
+    var tbody = document.getElementById('under-reimbursed-tbody');
+    tbody.textContent = '';
+    data.under_reimbursed.slice(0, 10).forEach(function(r) {
+        var tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+
+        var cells = [
+            { text: r.tran_id, className: 'px-3 py-2 text-xs font-mono' },
+            { text: r.hn || '-', className: 'px-3 py-2 text-xs' },
+            { text: formatMoney(r.claim_net), className: 'px-3 py-2 text-right text-xs' },
+            { text: formatMoney(r.paid), className: 'px-3 py-2 text-right text-xs' },
+            { text: formatMoney(r.potential_recovery), className: 'px-3 py-2 text-right text-xs font-semibold text-yellow-600' }
+        ];
+
+        cells.forEach(function(c) {
+            var td = document.createElement('td');
+            td.className = c.className;
+            td.textContent = c.text;
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+    });
+
+    // Resubmit opportunities table
+    var resubmitTbody = document.getElementById('resubmit-tbody');
+    resubmitTbody.textContent = '';
+    data.resubmit_opportunities.forEach(function(r) {
+        var tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+
+        var cells = [
+            { text: r.error_code, className: 'px-3 py-2 text-xs font-mono' },
+            { text: r.count.toLocaleString(), className: 'px-3 py-2 text-right text-xs' },
+            { text: formatMoney(r.total_value), className: 'px-3 py-2 text-right text-xs font-semibold text-red-600' },
+            { text: formatMoney(r.avg_value), className: 'px-3 py-2 text-right text-xs' }
+        ];
+
+        cells.forEach(function(c) {
+            var td = document.createElement('td');
+            td.className = c.className;
+            td.textContent = c.text;
+            tr.appendChild(td);
+        });
+
+        resubmitTbody.appendChild(tr);
+    });
+
+    // Fund gap chart
+    renderFundGapChart(data.fund_gaps);
+}
+
+function renderFundGapChart(fundGaps) {
+    var ctx = document.getElementById('chart-fund-gap').getContext('2d');
+    if (fundGapChart) fundGapChart.destroy();
+
+    fundGapChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: fundGaps.map(function(f) { return f.fund; }),
+            datasets: [{
+                label: 'Total Gap',
+                data: fundGaps.map(function(f) { return f.total_gap; }),
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) { return formatMoney(value); }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function formatMoney(value) {
+    if (!value && value !== 0) return '-';
+    if (value >= 1000000) {
+        return (value / 1000000).toFixed(1) + 'M';
+    } else if (value >= 1000) {
+        return (value / 1000).toFixed(0) + 'K';
+    }
+    return value.toLocaleString();
+}
+</script>
+{% endblock %}
