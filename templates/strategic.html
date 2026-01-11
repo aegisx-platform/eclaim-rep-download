@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+
+{% block title %}Strategic Analytics - E-Claim{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Strategic Analytics</h1>
+            <p class="text-gray-600 mt-1">วิเคราะห์เชิงกลยุทธ์และพยากรณ์รายได้</p>
+        </div>
+        <div class="flex gap-2">
+            <div class="relative" id="export-menu-container">
+                <button onclick="toggleExportMenu()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Export
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div id="export-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                    <a href="/api/analytics/export/claims" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-t-lg">Export Claims</a>
+                    <a href="/api/analytics/export/monthly" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Export Monthly</a>
+                    <a href="/api/analytics/export/denial" class="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-b-lg">Export Denial</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fiscal Year Filter -->
+    <div class="bg-white rounded-xl shadow-md p-4">
+        <div class="flex items-center gap-4">
+            <label class="text-sm font-medium text-gray-700">ปีงบประมาณ:</label>
+            <select id="filter-fiscal-year" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" onchange="loadAllData()">
+                <option value="">ล่าสุด</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Revenue Forecast Section -->
+    <div class="bg-white rounded-xl shadow-md p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-800">Revenue Forecast (6 เดือนข้างหน้า)</h3>
+            <span id="forecast-method" class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">-</span>
+        </div>
+        <div class="h-80">
+            <canvas id="chart-forecast"></canvas>
+        </div>
+        <div class="mt-4 grid grid-cols-3 md:grid-cols-6 gap-2" id="forecast-cards">
+            <!-- Forecast cards will be inserted here -->
+        </div>
+    </div>
+
+    <!-- YoY Comparison Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Summary Comparison -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Year-over-Year Comparison</h3>
+            <div class="space-y-4" id="yoy-summary">
+                <p class="text-gray-500">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Monthly Comparison Chart -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Monthly Revenue Comparison</h3>
+            <div class="h-64">
+                <canvas id="chart-yoy"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed YoY Table -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">Monthly Breakdown</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">เดือน</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Claims ปีนี้</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Claims ปีก่อน</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Change</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Reimb ปีนี้</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Reimb ปีก่อน</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Change</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="yoy-tbody">
+                    <tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let forecastChart, yoyChart;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadFiscalYears();
+    loadAllData();
+});
+
+function toggleExportMenu() {
+    var menu = document.getElementById('export-menu');
+    menu.classList.toggle('hidden');
+}
+
+document.addEventListener('click', function(e) {
+    var container = document.getElementById('export-menu-container');
+    var menu = document.getElementById('export-menu');
+    if (container && menu && !container.contains(e.target)) {
+        menu.classList.add('hidden');
+    }
+});
+
+async function loadFiscalYears() {
+    try {
+        var response = await fetch('/api/analytics/fiscal-years');
+        var data = await response.json();
+        if (data.success) {
+            var select = document.getElementById('filter-fiscal-year');
+            data.data.forEach(function(fy) {
+                var option = document.createElement('option');
+                option.value = fy;
+                option.textContent = 'ปี ' + fy;
+                select.appendChild(option);
+            });
+        }
+    } catch (e) { console.error(e); }
+}
+
+function loadAllData() {
+    loadForecast();
+    loadYoYComparison();
+}
+
+async function loadForecast() {
+    try {
+        var response = await fetch('/api/analytics/forecast');
+        var data = await response.json();
+        if (data.success) {
+            renderForecastChart(data.data);
+            renderForecastCards(data.data.forecast);
+            document.getElementById('forecast-method').textContent =
+                'Method: ' + data.data.method.replace(/_/g, ' ');
+        }
+    } catch (e) { console.error(e); }
+}
+
+function renderForecastChart(data) {
+    var ctx = document.getElementById('chart-forecast').getContext('2d');
+    if (forecastChart) forecastChart.destroy();
+
+    var historicalLabels = data.historical.map(function(d) { return d.month; });
+    var historicalData = data.historical.map(function(d) { return d.reimb; });
+
+    var forecastLabels = data.forecast.map(function(d) { return d.month; });
+    var forecastData = data.forecast.map(function(d) { return d.projected_reimb; });
+    var lowerBound = data.forecast.map(function(d) { return d.lower_bound; });
+    var upperBound = data.forecast.map(function(d) { return d.upper_bound; });
+
+    var allLabels = historicalLabels.concat(forecastLabels);
+
+    // Pad historical data with nulls for forecast period
+    var paddedHistorical = historicalData.concat(new Array(forecastLabels.length).fill(null));
+    // Pad forecast data with nulls for historical period
+    var paddedForecast = new Array(historicalLabels.length).fill(null).concat(forecastData);
+    var paddedLower = new Array(historicalLabels.length).fill(null).concat(lowerBound);
+    var paddedUpper = new Array(historicalLabels.length).fill(null).concat(upperBound);
+
+    forecastChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: allLabels,
+            datasets: [
+                {
+                    label: 'Historical',
+                    data: paddedHistorical,
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Forecast',
+                    data: paddedForecast,
+                    borderColor: 'rgba(34, 197, 94, 1)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    borderDash: [5, 5],
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Upper Bound',
+                    data: paddedUpper,
+                    borderColor: 'rgba(156, 163, 175, 0.5)',
+                    backgroundColor: 'transparent',
+                    borderDash: [2, 2],
+                    pointRadius: 0,
+                    fill: false
+                },
+                {
+                    label: 'Lower Bound',
+                    data: paddedLower,
+                    borderColor: 'rgba(156, 163, 175, 0.5)',
+                    backgroundColor: 'transparent',
+                    borderDash: [2, 2],
+                    pointRadius: 0,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    ticks: {
+                        callback: function(value) { return formatMoney(value); }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderForecastCards(forecast) {
+    var container = document.getElementById('forecast-cards');
+    container.textContent = '';
+
+    forecast.forEach(function(f) {
+        var card = document.createElement('div');
+        card.className = 'bg-green-50 border border-green-200 rounded-lg p-3 text-center';
+
+        var month = document.createElement('div');
+        month.className = 'text-xs text-gray-500';
+        month.textContent = f.month_name;
+
+        var value = document.createElement('div');
+        value.className = 'text-sm font-bold text-green-700';
+        value.textContent = formatMoney(f.projected_reimb);
+
+        var conf = document.createElement('div');
+        conf.className = 'text-xs text-gray-400';
+        conf.textContent = 'Conf: ' + f.confidence + '%';
+
+        card.appendChild(month);
+        card.appendChild(value);
+        card.appendChild(conf);
+        container.appendChild(card);
+    });
+}
+
+async function loadYoYComparison() {
+    var fy = document.getElementById('filter-fiscal-year').value;
+    var url = '/api/analytics/yoy-comparison';
+    if (fy) url += '?fiscal_year=' + fy;
+
+    try {
+        var response = await fetch(url);
+        var data = await response.json();
+        if (data.success) {
+            renderYoYSummary(data.data);
+            renderYoYChart(data.data.monthly);
+            renderYoYTable(data.data.monthly);
+        }
+    } catch (e) { console.error(e); }
+}
+
+function renderYoYSummary(data) {
+    var container = document.getElementById('yoy-summary');
+    container.textContent = '';
+
+    var title = document.createElement('div');
+    title.className = 'text-sm text-gray-500 mb-3';
+    title.textContent = 'ปี ' + data.fiscal_year + ' vs ปี ' + data.previous_year;
+    container.appendChild(title);
+
+    var metrics = [
+        { label: 'Claims', current: data.summary.current.claims, prev: data.summary.previous.claims, change: data.summary.changes.claims, format: 'number' },
+        { label: 'Reimbursement', current: data.summary.current.reimb, prev: data.summary.previous.reimb, change: data.summary.changes.reimb, format: 'money' },
+        { label: 'Denial Rate', current: data.summary.current.denial_rate, prev: data.summary.previous.denial_rate, change: data.summary.changes.denial_rate, format: 'percent', inverse: true },
+        { label: 'Reimb Rate', current: data.summary.current.reimb_rate, prev: data.summary.previous.reimb_rate, change: data.summary.changes.reimb_rate, format: 'percent' }
+    ];
+
+    metrics.forEach(function(m) {
+        var row = document.createElement('div');
+        row.className = 'flex justify-between items-center py-2 border-b border-gray-100';
+
+        var labelSpan = document.createElement('span');
+        labelSpan.className = 'text-gray-700';
+        labelSpan.textContent = m.label;
+
+        var valueDiv = document.createElement('div');
+        valueDiv.className = 'text-right';
+
+        var currentSpan = document.createElement('span');
+        currentSpan.className = 'font-semibold';
+        if (m.format === 'money') {
+            currentSpan.textContent = formatMoney(m.current);
+        } else if (m.format === 'percent') {
+            currentSpan.textContent = m.current.toFixed(2) + '%';
+        } else {
+            currentSpan.textContent = m.current.toLocaleString();
+        }
+
+        var changeSpan = document.createElement('span');
+        var isPositive = m.inverse ? m.change < 0 : m.change > 0;
+        changeSpan.className = 'text-sm ml-2 ' + (isPositive ? 'text-green-600' : 'text-red-600');
+        changeSpan.textContent = (m.change >= 0 ? '+' : '') + m.change.toFixed(1) + '%';
+
+        valueDiv.appendChild(currentSpan);
+        valueDiv.appendChild(changeSpan);
+        row.appendChild(labelSpan);
+        row.appendChild(valueDiv);
+        container.appendChild(row);
+    });
+}
+
+function renderYoYChart(monthly) {
+    var ctx = document.getElementById('chart-yoy').getContext('2d');
+    if (yoyChart) yoyChart.destroy();
+
+    yoyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: monthly.map(function(m) { return m.month; }),
+            datasets: [
+                {
+                    label: 'ปีนี้',
+                    data: monthly.map(function(m) { return m.current_reimb; }),
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)'
+                },
+                {
+                    label: 'ปีก่อน',
+                    data: monthly.map(function(m) { return m.prev_reimb; }),
+                    backgroundColor: 'rgba(156, 163, 175, 0.5)'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) { return formatMoney(value); }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderYoYTable(monthly) {
+    var tbody = document.getElementById('yoy-tbody');
+    tbody.textContent = '';
+
+    monthly.forEach(function(m) {
+        var row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+
+        var cells = [
+            { text: m.month, className: 'font-medium' },
+            { text: m.current_claims.toLocaleString(), className: 'text-right' },
+            { text: m.prev_claims.toLocaleString(), className: 'text-right text-gray-500' },
+            { text: (m.claims_change >= 0 ? '+' : '') + m.claims_change.toFixed(1) + '%', className: 'text-right ' + (m.claims_change >= 0 ? 'text-green-600' : 'text-red-600') },
+            { text: formatMoney(m.current_reimb), className: 'text-right' },
+            { text: formatMoney(m.prev_reimb), className: 'text-right text-gray-500' },
+            { text: (m.reimb_change >= 0 ? '+' : '') + m.reimb_change.toFixed(1) + '%', className: 'text-right ' + (m.reimb_change >= 0 ? 'text-green-600' : 'text-red-600') }
+        ];
+
+        cells.forEach(function(c) {
+            var td = document.createElement('td');
+            td.className = 'px-4 py-3 text-sm ' + (c.className || '');
+            td.textContent = c.text;
+            row.appendChild(td);
+        });
+
+        tbody.appendChild(row);
+    });
+}
+
+function formatMoney(value) {
+    if (!value && value !== 0) return '-';
+    if (value >= 1000000) {
+        return (value / 1000000).toFixed(1) + 'M';
+    } else if (value >= 1000) {
+        return (value / 1000).toFixed(0) + 'K';
+    }
+    return value.toLocaleString();
+}
+</script>
+{% endblock %}

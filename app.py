@@ -1472,6 +1472,12 @@ def denial():
     return render_template('denial.html')
 
 
+@app.route('/strategic')
+def strategic():
+    """Strategic Analytics - Forecasting and YoY comparison"""
+    return render_template('strategic.html')
+
+
 @app.route('/api/analytics/fiscal-years')
 def api_analytics_fiscal_years():
     """Get available fiscal years for filter dropdown"""

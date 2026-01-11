@@ -37,7 +37,7 @@
 
                     <!-- Analytics Dropdown -->
                     <div class="relative" id="analytics-menu-container">
-                        <button onclick="toggleAnalyticsMenu()" class="px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-1 {% if request.endpoint in ['analytics', 'claims', 'denial'] %}bg-white/20 text-white{% else %}text-blue-100 hover:bg-white/10 hover:text-white{% endif %}">
+                        <button onclick="toggleAnalyticsMenu()" class="px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-1 {% if request.endpoint in ['analytics', 'claims', 'denial', 'strategic'] %}bg-white/20 text-white{% else %}text-blue-100 hover:bg-white/10 hover:text-white{% endif %}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                             </svg>
@@ -69,7 +69,7 @@
                                     </div>
                                 </div>
                             </a>
-                            <a href="{{ url_for('denial') }}" class="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-b-lg {% if request.endpoint == 'denial' %}bg-blue-50 text-blue-600{% endif %}">
+                            <a href="{{ url_for('denial') }}" class="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 {% if request.endpoint == 'denial' %}bg-blue-50 text-blue-600{% endif %}">
                                 <div class="flex items-center gap-2">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -77,6 +77,17 @@
                                     <div>
                                         <div class="font-medium">Denial Analysis</div>
                                         <div class="text-xs text-gray-500">วิเคราะห์สาเหตุ Error</div>
+                                    </div>
+                                </div>
+                            </a>
+                            <a href="{{ url_for('strategic') }}" class="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-b-lg {% if request.endpoint == 'strategic' %}bg-blue-50 text-blue-600{% endif %}">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                                    </svg>
+                                    <div>
+                                        <div class="font-medium">Strategic</div>
+                                        <div class="text-xs text-gray-500">Forecast & YoY</div>
                                     </div>
                                 </div>
                             </a>
