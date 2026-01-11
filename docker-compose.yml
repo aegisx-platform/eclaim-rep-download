@@ -43,6 +43,7 @@ services:
       FLASK_APP: app.py
       FLASK_ENV: ${FLASK_ENV:-production}
       TZ: ${TZ:-Asia/Bangkok}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
 
       # E-Claim credentials (update these!)
       ECLAIM_USERNAME: ${ECLAIM_USERNAME:-your_username}
