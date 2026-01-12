@@ -41,51 +41,77 @@ settings_manager = SettingsManager()
 
 
 def init_scheduler():
-    """Initialize scheduler with saved settings for REP and STM"""
+    """Initialize unified scheduler with saved settings for all data types"""
     try:
-        # Initialize REP scheduler
+        # Get unified schedule settings
         schedule_settings = settings_manager.get_schedule_settings()
 
-        if schedule_settings['schedule_enabled']:
-            # Clear existing REP jobs only
-            for job in download_scheduler.get_all_jobs():
-                if job['id'].startswith('download_'):
-                    download_scheduler.remove_scheduled_download(job['id'])
+        # Clear all existing scheduled jobs
+        for job in download_scheduler.get_all_jobs():
+            if job['id'].startswith('download_'):
+                download_scheduler.remove_scheduled_download(job['id'])
+        download_scheduler.remove_stm_jobs()
 
-            # Add REP scheduled jobs
-            auto_import = schedule_settings['schedule_auto_import']
-            for time_config in schedule_settings['schedule_times']:
+        if not schedule_settings['schedule_enabled']:
+            log_streamer.write_log(
+                "⏸ Scheduler disabled",
+                'info',
+                'system'
+            )
+            return
+
+        # Get common settings
+        times = schedule_settings['schedule_times']
+        auto_import = schedule_settings['schedule_auto_import']
+        schemes = schedule_settings.get('schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
+        type_rep = schedule_settings.get('schedule_type_rep', True)
+        type_stm = schedule_settings.get('schedule_type_stm', False)
+
+        if not times:
+            log_streamer.write_log(
+                "⚠ Scheduler enabled but no times configured",
+                'warning',
+                'system'
+            )
+            return
+
+        # Schedule REP jobs if enabled
+        if type_rep:
+            for time_config in times:
                 hour = time_config.get('hour', 0)
                 minute = time_config.get('minute', 0)
                 download_scheduler.add_scheduled_download(hour, minute, auto_import)
 
             log_streamer.write_log(
-                f"✓ REP Scheduler initialized with {len(schedule_settings['schedule_times'])} jobs",
+                f"✓ REP Scheduler initialized with {len(times)} jobs",
                 'success',
                 'system'
             )
 
-        # Initialize STM scheduler
-        stm_settings = settings_manager.get_stm_schedule_settings()
-
-        if stm_settings['stm_schedule_enabled']:
-            # Clear existing STM jobs
-            download_scheduler.remove_stm_jobs()
-
-            # Add STM scheduled jobs
-            auto_import = stm_settings['stm_schedule_auto_import']
-            schemes = stm_settings['stm_schedule_schemes']
-
-            for time_config in stm_settings['stm_schedule_times']:
+        # Schedule STM jobs if enabled
+        if type_stm:
+            for time_config in times:
                 hour = time_config.get('hour', 0)
                 minute = time_config.get('minute', 0)
                 download_scheduler.add_stm_scheduled_download(hour, minute, auto_import, schemes)
 
             log_streamer.write_log(
-                f"✓ STM Scheduler initialized with {len(stm_settings['stm_schedule_times'])} jobs",
+                f"✓ STM Scheduler initialized with {len(times)} jobs",
                 'success',
                 'system'
             )
+
+        # Log summary
+        data_types = []
+        if type_rep:
+            data_types.append('REP')
+        if type_stm:
+            data_types.append('STM')
+        log_streamer.write_log(
+            f"📅 Unified scheduler active: {len(times)} times, types=[{', '.join(data_types)}]",
+            'info',
+            'system'
+        )
 
     except Exception as e:
         app.logger.error(f"Error initializing scheduler: {e}")
@@ -1381,9 +1407,9 @@ def clear_logs():
 
 @app.route('/api/schedule', methods=['GET', 'POST'])
 def api_schedule():
-    """Get or update schedule settings"""
+    """Get or update unified schedule settings for all data types"""
     if request.method == 'GET':
-        # Get current schedule settings
+        # Get current unified schedule settings
         schedule_settings = settings_manager.get_schedule_settings()
 
         # Get scheduled jobs info
@@ -1396,7 +1422,7 @@ def api_schedule():
         })
 
     elif request.method == 'POST':
-        # Update schedule settings
+        # Update unified schedule settings
         try:
             data = request.get_json()
 
@@ -1404,6 +1430,12 @@ def api_schedule():
             times = data.get('schedule_times', [])
             auto_import = data.get('schedule_auto_import', True)
             schemes = data.get('schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
+            type_rep = data.get('schedule_type_rep', True)
+            type_stm = data.get('schedule_type_stm', False)
+
+            # Validate at least one data type is selected when enabled
+            if enabled and not type_rep and not type_stm:
+                return jsonify({'success': False, 'error': 'กรุณาเลือกอย่างน้อย 1 ประเภทข้อมูล'}), 400
 
             # Validate times format
             for time_config in times:
@@ -1425,8 +1457,10 @@ def api_schedule():
             if not schemes:
                 schemes = ['ucs']  # Default fallback
 
-            # Save settings (including schemes)
-            success = settings_manager.update_schedule_settings(enabled, times, auto_import)
+            # Save unified settings (including data type flags)
+            success = settings_manager.update_schedule_settings(
+                enabled, times, auto_import, type_rep, type_stm
+            )
             if success:
                 # Save schedule_schemes separately
                 settings_manager.update_schedule_schemes(schemes)
@@ -1434,11 +1468,19 @@ def api_schedule():
             if not success:
                 return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
 
-            # Reinitialize scheduler
+            # Reinitialize unified scheduler
             init_scheduler()
 
+            # Build data types string for log
+            data_types = []
+            if type_rep:
+                data_types.append('REP')
+            if type_stm:
+                data_types.append('STM')
+            data_types_str = ', '.join(data_types) if data_types else 'None'
+
             log_streamer.write_log(
-                f"✓ Schedule updated: {len(times)} times, {len(schemes)} schemes, enabled={enabled}",
+                f"✓ Unified schedule updated: {len(times)} times, types=[{data_types_str}], {len(schemes)} schemes, enabled={enabled}",
                 'success',
                 'system'
             )

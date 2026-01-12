@@ -289,6 +289,22 @@
             <div class="p-6 pt-2 border-t border-gray-100">
                 <p class="text-sm text-gray-600 mb-4">ระบบจะดาวน์โหลดข้อมูลเดือนปัจจุบันโดยอัตโนมัติตามเวลาที่กำหนด</p>
 
+                <!-- Data Types Selection -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ประเภทข้อมูลที่ต้องการดาวน์โหลด</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center cursor-pointer p-3 hover:bg-blue-50 rounded-lg border border-blue-200 bg-blue-50">
+                            <input type="checkbox" id="schedule-type-rep" class="w-4 h-4 text-blue-600 rounded" checked>
+                            <span class="ml-2 text-sm font-medium text-blue-700">📄 REP Files</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-3 hover:bg-purple-50 rounded-lg border border-purple-200">
+                            <input type="checkbox" id="schedule-type-stm" class="w-4 h-4 text-purple-600 rounded">
+                            <span class="ml-2 text-sm font-medium text-purple-700">📊 Statement</span>
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">เลือกประเภทข้อมูลที่ต้องการดาวน์โหลดอัตโนมัติ (เลือกได้หลายประเภท)</p>
+                </div>
+
                 <!-- Schedule Scheme Selection -->
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">สิทธิที่ต้องการดาวน์โหลด</label>
@@ -599,83 +615,6 @@
             <div class="bg-gray-50 rounded-lg p-4 text-center">
                 <p id="stm-stat-size" class="text-2xl font-bold text-gray-700">0 B</p>
                 <p class="text-sm text-gray-600">Total Size</p>
-            </div>
-        </div>
-
-        <!-- STM Auto Schedule Section -->
-        <div class="bg-white rounded-lg border border-purple-200 p-4 mb-6">
-            <div class="flex items-center justify-between cursor-pointer" onclick="toggleStmSchedule()">
-                <div class="flex items-center">
-                    <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span class="font-medium text-gray-800">ตั้งเวลาดาวน์โหลดอัตโนมัติ (Auto Schedule)</span>
-                </div>
-                <div class="flex items-center gap-3">
-                    <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
-                        <input type="checkbox" id="stm-schedule-enabled" class="sr-only peer" onchange="toggleStmScheduleEnabled()">
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                    </label>
-                    <svg id="stm-schedule-arrow" class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </div>
-            </div>
-
-            <div id="stm-schedule-content" class="hidden mt-4 pt-4 border-t border-gray-200">
-                <p class="text-sm text-gray-600 mb-4">ระบบจะดาวน์โหลด Statement เดือนปัจจุบันโดยอัตโนมัติตามเวลาที่กำหนด</p>
-
-                <!-- Schemes -->
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">สิทธิที่ต้องการดาวน์โหลด</label>
-                    <div class="grid grid-cols-4 gap-4">
-                        <label class="flex items-center">
-                            <input type="checkbox" id="stm-scheme-ucs" value="ucs" class="stm-scheme-checkbox mr-2 rounded text-purple-600" checked>
-                            <span class="text-sm">UCS (บัตรทอง)</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="checkbox" id="stm-scheme-ofc" value="ofc" class="stm-scheme-checkbox mr-2 rounded text-purple-600" checked>
-                            <span class="text-sm">OFC (ข้าราชการ)</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="checkbox" id="stm-scheme-sss" value="sss" class="stm-scheme-checkbox mr-2 rounded text-purple-600" checked>
-                            <span class="text-sm">SSS (ประกันสังคม)</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="checkbox" id="stm-scheme-lgo" value="lgo" class="stm-scheme-checkbox mr-2 rounded text-purple-600" checked>
-                            <span class="text-sm">LGO (อปท.)</span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Time Settings -->
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">เวลาดาวน์โหลด</label>
-                    <div id="stm-schedule-times" class="space-y-2">
-                        <!-- Times will be populated by JavaScript -->
-                    </div>
-                    <button onclick="addStmScheduleTime()" class="mt-2 text-sm text-purple-600 hover:text-purple-800">
-                        + เพิ่มเวลา
-                    </button>
-                </div>
-
-                <!-- Auto Import -->
-                <div class="mb-4">
-                    <label class="flex items-center">
-                        <input type="checkbox" id="stm-schedule-auto-import" class="mr-2 rounded text-purple-600" checked>
-                        <span class="text-sm text-gray-700">นำเข้าข้อมูลอัตโนมัติหลังดาวน์โหลด</span>
-                    </label>
-                </div>
-
-                <!-- Save Button -->
-                <div class="flex justify-end gap-2">
-                    <button onclick="testStmSchedule()" class="px-4 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded-md hover:bg-purple-100">
-                        ทดสอบดาวน์โหลด
-                    </button>
-                    <button onclick="saveStmSchedule()" class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700">
-                        บันทึกการตั้งค่า
-                    </button>
-                </div>
             </div>
         </div>
 
@@ -1291,6 +1230,15 @@ async function loadScheduleSettings() {
             displayScheduleStatus(data.jobs);
             // Load schedule schemes
             setScheduleSchemes(data.settings.schedule_schemes);
+            // Load data type checkboxes
+            var typeRepCheckbox = document.getElementById('schedule-type-rep');
+            var typeStmCheckbox = document.getElementById('schedule-type-stm');
+            if (typeRepCheckbox) {
+                typeRepCheckbox.checked = data.settings.schedule_type_rep !== false; // Default true
+            }
+            if (typeStmCheckbox) {
+                typeStmCheckbox.checked = data.settings.schedule_type_stm === true; // Default false
+            }
         }
     } catch (error) {
         console.error('Error loading schedule:', error);
@@ -1406,14 +1354,29 @@ async function saveScheduleSettings() {
             return;
         }
 
+        // Get data type checkboxes
+        var typeRep = document.getElementById('schedule-type-rep');
+        var typeStm = document.getElementById('schedule-type-stm');
+        var scheduleTypeRep = typeRep ? typeRep.checked : true;
+        var scheduleTypeStm = typeStm ? typeStm.checked : false;
+
+        // Validate at least one data type is selected when enabling
+        var scheduleEnabled = document.getElementById('schedule-enabled').checked;
+        if (scheduleEnabled && !scheduleTypeRep && !scheduleTypeStm) {
+            showToast('กรุณาเลือกอย่างน้อย 1 ประเภทข้อมูล', 'error');
+            return;
+        }
+
         var response = await fetch('/api/schedule', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                schedule_enabled: document.getElementById('schedule-enabled').checked,
+                schedule_enabled: scheduleEnabled,
                 schedule_times: scheduleTimes,
                 schedule_auto_import: document.getElementById('schedule-auto-import').checked,
-                schedule_schemes: scheduleSchemes
+                schedule_schemes: scheduleSchemes,
+                schedule_type_rep: scheduleTypeRep,
+                schedule_type_stm: scheduleTypeStm
             })
         });
 

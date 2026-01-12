@@ -21,10 +21,13 @@ class SettingsManager:
             'eclaim_password': '',
             'download_dir': 'downloads',
             'auto_import_default': False,
+            # Unified schedule settings (applies to all data types)
             'schedule_enabled': False,
             'schedule_times': [],
             'schedule_auto_import': True,
             'schedule_schemes': ['ucs', 'ofc', 'sss', 'lgo'],  # Schemes for scheduled downloads
+            'schedule_type_rep': True,   # Download REP files in schedule
+            'schedule_type_stm': False,  # Download Statement files in schedule
             # Insurance scheme settings
             'enabled_schemes': ['ucs', 'ofc', 'sss', 'lgo'],  # Default 4 main schemes
             # SMT Budget settings
@@ -102,27 +105,33 @@ class SettingsManager:
 
     def get_schedule_settings(self) -> Dict:
         """
-        Get schedule settings
+        Get unified schedule settings
 
         Returns:
-            Dict with schedule_enabled, schedule_times, schedule_auto_import, schedule_schemes
+            Dict with schedule_enabled, schedule_times, schedule_auto_import,
+            schedule_schemes, schedule_type_rep, schedule_type_stm
         """
         settings = self.load_settings()
         return {
             'schedule_enabled': settings.get('schedule_enabled', False),
             'schedule_times': settings.get('schedule_times', []),
             'schedule_auto_import': settings.get('schedule_auto_import', True),
-            'schedule_schemes': settings.get('schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
+            'schedule_schemes': settings.get('schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo']),
+            'schedule_type_rep': settings.get('schedule_type_rep', True),
+            'schedule_type_stm': settings.get('schedule_type_stm', False)
         }
 
-    def update_schedule_settings(self, enabled: bool, times: list, auto_import: bool) -> bool:
+    def update_schedule_settings(self, enabled: bool, times: list, auto_import: bool,
+                                   type_rep: bool = True, type_stm: bool = False) -> bool:
         """
-        Update schedule settings
+        Update unified schedule settings
 
         Args:
             enabled: Whether scheduling is enabled
             times: List of time dicts like [{"hour": 9, "minute": 0}, ...]
             auto_import: Whether to auto-import after download
+            type_rep: Download REP files in schedule
+            type_stm: Download Statement files in schedule
 
         Returns:
             True if successful
@@ -131,6 +140,8 @@ class SettingsManager:
         settings['schedule_enabled'] = enabled
         settings['schedule_times'] = times
         settings['schedule_auto_import'] = auto_import
+        settings['schedule_type_rep'] = type_rep
+        settings['schedule_type_stm'] = type_stm
         return self.save_settings(settings)
 
     def get_smt_settings(self) -> Dict:
