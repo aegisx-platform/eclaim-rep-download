@@ -763,9 +763,6 @@ def test_eclaim_connection():
             'system'
         )
 
-        # Test login
-        login_url = "https://eclaim.nhso.go.th/webComponent/main/MainWebAction.do"
-
         session = requests.Session()
         session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -773,7 +770,31 @@ def test_eclaim_connection():
             'Accept-Language': 'th,en;q=0.9',
         })
 
-        # First, get the login page
+        # First, check if NHSO service is alive
+        health_check_url = "https://eclaim.nhso.go.th/webComponent/"
+        try:
+            health_response = session.get(health_check_url, timeout=15)
+            health_response.raise_for_status()
+            log_streamer.write_log(
+                f"NHSO service is reachable",
+                'info',
+                'system'
+            )
+        except requests.exceptions.RequestException as e:
+            log_streamer.write_log(
+                f"NHSO service is not reachable: {str(e)}",
+                'error',
+                'system'
+            )
+            return jsonify({
+                'success': False,
+                'error': 'NHSO E-Claim service is not available. Please try again later.'
+            }), 503
+
+        # Test login
+        login_url = "https://eclaim.nhso.go.th/webComponent/main/MainWebAction.do"
+
+        # Get the login page
         response = session.get(login_url, timeout=30)
         response.raise_for_status()
 
