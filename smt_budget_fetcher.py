@@ -467,8 +467,18 @@ class SMTBudgetFetcher:
                     except (ValueError, TypeError):
                         return None
 
+                def to_date(val):
+                    """Convert date string to date object for PostgreSQL"""
+                    if val is None or val == '':
+                        return None
+                    try:
+                        # Try ISO format YYYY-MM-DD
+                        return datetime.strptime(val, '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        return None
+
                 values = (
-                    record.get('runDt') or None,
+                    to_date(record.get('runDt')),
                     record.get('postingDate') or None,
                     record.get('batchNo') or None,
                     record.get('refDocNo') or None,
