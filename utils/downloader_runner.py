@@ -49,13 +49,14 @@ class DownloaderRunner:
                 self.pid_file.unlink()
             return False
 
-    def start(self, month=None, year=None, auto_import=False):
+    def start(self, month=None, year=None, schemes=None, auto_import=False):
         """
         Start the downloader as a background process
 
         Args:
             month (int, optional): Month (1-12) to download. None = current month
             year (int, optional): Year in Buddhist Era. None = current year
+            schemes (list, optional): List of scheme codes to download. None = ['ucs']
             auto_import (bool): Auto-import files after download completes
         """
         if self.is_running():
@@ -82,15 +83,40 @@ class DownloaderRunner:
             script_to_run = self.script_path
 
         try:
-            # Build command with optional month/year parameters
-            cmd = [sys.executable, str(script_to_run)]
+            # Handle schemes - default to ['ucs'] if not specified
+            if schemes is None:
+                schemes = ['ucs']
 
-            if month is not None:
-                cmd.extend(['--month', str(month)])
-            if year is not None:
-                cmd.extend(['--year', str(year)])
-            if auto_import:
-                cmd.append('--auto-import')
+            # If multiple schemes, use bulk_downloader for single month
+            if len(schemes) > 1:
+                # Use bulk_downloader for multi-scheme single month
+                bulk_script = self.script_path.parent / 'bulk_downloader.py'
+                if not bulk_script.exists():
+                    return {
+                        'success': False,
+                        'error': f'Bulk downloader script not found: {bulk_script}'
+                    }
+                script_to_run = bulk_script
+                schemes_str = ','.join(schemes)
+
+                # Build command for bulk downloader (single month, multi-scheme)
+                cmd = [
+                    sys.executable, str(script_to_run),
+                    f'{month},{year}', f'{month},{year}',
+                    '--schemes', schemes_str
+                ]
+            else:
+                # Single scheme - use regular downloader with --scheme parameter
+                cmd = [sys.executable, str(script_to_run)]
+
+                if month is not None:
+                    cmd.extend(['--month', str(month)])
+                if year is not None:
+                    cmd.extend(['--year', str(year)])
+                if schemes:
+                    cmd.extend(['--scheme', schemes[0]])
+                if auto_import:
+                    cmd.append('--auto-import')
 
             # Log to realtime log (lazy import to avoid circular dependency)
             try:
@@ -99,6 +125,7 @@ class DownloaderRunner:
                 log_streamer.write_log(f'Started at: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 'info', 'system')
                 if month and year:
                     log_streamer.write_log(f'Download for: Month {month}, Year {year} BE', 'info', 'system')
+                log_streamer.write_log(f'Schemes: {", ".join(s.upper() for s in schemes)}', 'info', 'system')
                 if auto_import:
                     log_streamer.write_log('Auto-import: ENABLED', 'info', 'system')
                 log_streamer.write_log('='*60, 'info', 'system')
@@ -111,6 +138,7 @@ class DownloaderRunner:
                 log.write(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 if month and year:
                     log.write(f"Download for: Month {month}, Year {year} BE\n")
+                log.write(f"Schemes: {', '.join(s.upper() for s in schemes)}\n")
                 if auto_import:
                     log.write(f"Auto-import: ENABLED\n")
                 log.write(f"{'='*60}\n")
@@ -132,7 +160,8 @@ class DownloaderRunner:
                 'success': True,
                 'pid': process.pid,
                 'start_time': datetime.now().isoformat(),
-                'auto_import': auto_import
+                'auto_import': auto_import,
+                'schemes': schemes
             }
 
             if month and year:
@@ -177,7 +206,7 @@ class DownloaderRunner:
             print(f"Error reading log: {e}")
             return []
 
-    def start_bulk(self, start_month, start_year, end_month, end_year, auto_import=False):
+    def start_bulk(self, start_month, start_year, end_month, end_year, auto_import=False, schemes=None):
         """
         Start bulk downloader for date range
 
@@ -187,6 +216,7 @@ class DownloaderRunner:
             end_month (int): Ending month (1-12)
             end_year (int): Ending year in BE
             auto_import (bool): Whether to auto-import files after download
+            schemes (list, optional): List of scheme codes to download
         """
         # Check if already running (check both regular and bulk)
         if self.is_running():
@@ -203,6 +233,10 @@ class DownloaderRunner:
                 'error': f'Bulk downloader script not found: {bulk_script}'
             }
 
+        # Default schemes
+        if schemes is None:
+            schemes = ['ucs', 'ofc', 'sss', 'lgo']
+
         try:
             # Build command for bulk downloader
             cmd = [
@@ -211,6 +245,10 @@ class DownloaderRunner:
                 f'{start_month},{start_year}',
                 f'{end_month},{end_year}'
             ]
+
+            # Add schemes
+            if schemes:
+                cmd.extend(['--schemes', ','.join(schemes)])
 
             # Add auto-import flag if enabled
             if auto_import:
@@ -222,6 +260,7 @@ class DownloaderRunner:
                 log.write(f"\n{'='*60}\n")
                 log.write(f"Bulk Download Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 log.write(f"Date range: {start_month}/{start_year} to {end_month}/{end_year}\n")
+                log.write(f"Schemes: {', '.join(s.upper() for s in schemes)}\n")
                 log.write(f"Auto-import: {auto_import}\n")
                 log.write(f"{'='*60}\n")
 
@@ -244,7 +283,8 @@ class DownloaderRunner:
                 'start_month': start_month,
                 'start_year': start_year,
                 'end_month': end_month,
-                'end_year': end_year
+                'end_year': end_year,
+                'schemes': schemes
             }
 
         except Exception as e:

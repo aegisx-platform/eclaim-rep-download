@@ -240,3 +240,130 @@ class HistoryManager:
         available_dates.sort(key=lambda d: (d['year'], d['month']), reverse=True)
 
         return available_dates
+
+    def get_downloads_by_scheme(self, scheme):
+        """
+        Get all downloads for a specific insurance scheme
+
+        Args:
+            scheme (str): Scheme code (e.g., 'ucs', 'ofc')
+
+        Returns:
+            list: List of download records for the specified scheme
+        """
+        downloads = self.get_all_downloads()
+
+        # Filter by scheme (default to 'ucs' for legacy records)
+        filtered = [
+            d for d in downloads
+            if d.get('scheme', 'ucs') == scheme
+        ]
+
+        # Sort by download date (most recent first)
+        filtered.sort(key=lambda d: d.get('download_date', ''), reverse=True)
+
+        return filtered
+
+    def get_statistics_by_scheme(self):
+        """
+        Get statistics grouped by insurance scheme
+
+        Returns:
+            dict: Statistics organized by scheme
+                {
+                  "ucs": {"files": 54, "size": 12345678, "size_formatted": "12.3 MB"},
+                  "ofc": {"files": 23, "size": 9876543, "size_formatted": "9.9 MB"}
+                }
+        """
+        downloads = self.get_all_downloads()
+        stats = {}
+
+        for download in downloads:
+            # Get scheme from record (default to 'ucs' for legacy)
+            scheme = download.get('scheme', 'ucs')
+
+            if scheme not in stats:
+                stats[scheme] = {
+                    'files': 0,
+                    'size': 0
+                }
+
+            stats[scheme]['files'] += 1
+            stats[scheme]['size'] += download.get('file_size', 0)
+
+        # Format sizes
+        for scheme in stats:
+            stats[scheme]['size_formatted'] = humanize.naturalsize(stats[scheme]['size'])
+
+        return stats
+
+    def get_available_schemes(self):
+        """
+        Get list of schemes that have downloaded files
+
+        Returns:
+            list: List of dicts with scheme info and counts
+                [{'scheme': 'ucs', 'count': 54, 'size': 12345678}, ...]
+        """
+        stats = self.get_statistics_by_scheme()
+
+        # Scheme display names
+        scheme_names = {
+            'ucs': 'สิทธิบัตรทอง (UCS)',
+            'ofc': 'สิทธิข้าราชการ (OFC)',
+            'sss': 'สิทธิประกันสังคม (SSS)',
+            'lgo': 'สิทธิ อปท. (LGO)',
+            'nhs': 'สิทธิ สปสช. (NHS)',
+            'bkk': 'สิทธิ กทม. (BKK)',
+            'bmt': 'สิทธิ ขสมก. (BMT)',
+            'srt': 'สิทธิ รฟท. (SRT)'
+        }
+
+        # Convert to list
+        available_schemes = [
+            {
+                'scheme': scheme,
+                'name': scheme_names.get(scheme, scheme.upper()),
+                'count': data['files'],
+                'size': data['size'],
+                'size_formatted': data['size_formatted']
+            }
+            for scheme, data in stats.items()
+        ]
+
+        # Sort by file count (descending)
+        available_schemes.sort(key=lambda s: s['count'], reverse=True)
+
+        return available_schemes
+
+    def get_downloads_by_date_and_scheme(self, month, year, scheme=None):
+        """
+        Get all downloads for specific month/year and optionally scheme
+
+        Args:
+            month (int): Month (1-12)
+            year (int): Year in Buddhist Era
+            scheme (str, optional): Scheme code to filter
+
+        Returns:
+            list: List of download records
+        """
+        downloads = self.get_all_downloads()
+
+        # Filter by month and year
+        filtered = [
+            d for d in downloads
+            if d.get('month') == month and d.get('year') == year
+        ]
+
+        # Optionally filter by scheme
+        if scheme:
+            filtered = [
+                d for d in filtered
+                if d.get('scheme', 'ucs') == scheme
+            ]
+
+        # Sort by download date
+        filtered.sort(key=lambda d: d.get('download_date', ''), reverse=True)
+
+        return filtered

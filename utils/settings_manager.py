@@ -24,6 +24,8 @@ class SettingsManager:
             'schedule_enabled': False,
             'schedule_times': [],
             'schedule_auto_import': True,
+            # Insurance scheme settings
+            'enabled_schemes': ['ucs', 'ofc', 'sss', 'lgo'],  # Default 4 main schemes
             # SMT Budget settings
             'smt_enabled': False,
             'smt_vendor_id': '',
@@ -166,3 +168,64 @@ class SettingsManager:
         settings['smt_schedule_times'] = times
         settings['smt_auto_save_db'] = auto_save_db
         return self.save_settings(settings)
+
+    # ===== Insurance Scheme Settings =====
+
+    def get_enabled_schemes(self) -> list:
+        """
+        Get list of enabled insurance scheme codes
+
+        Returns:
+            List of scheme codes like ['ucs', 'ofc', 'sss', 'lgo']
+        """
+        settings = self.load_settings()
+        return settings.get('enabled_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
+
+    def update_enabled_schemes(self, schemes: list) -> bool:
+        """
+        Update enabled insurance schemes
+
+        Args:
+            schemes: List of scheme codes to enable
+
+        Returns:
+            True if successful
+        """
+        # Validate schemes
+        valid_schemes = ['ucs', 'ofc', 'sss', 'lgo', 'nhs', 'bkk', 'bmt', 'srt']
+        schemes = [s.lower() for s in schemes if s.lower() in valid_schemes]
+
+        if not schemes:
+            # Default to UCS if nothing selected
+            schemes = ['ucs']
+
+        settings = self.load_settings()
+        settings['enabled_schemes'] = schemes
+        return self.save_settings(settings)
+
+    def is_scheme_enabled(self, scheme: str) -> bool:
+        """
+        Check if a specific scheme is enabled
+
+        Args:
+            scheme: Scheme code to check
+
+        Returns:
+            True if scheme is enabled
+        """
+        enabled = self.get_enabled_schemes()
+        return scheme.lower() in [s.lower() for s in enabled]
+
+    def get_setting(self, key: str, default=None):
+        """
+        Get a specific setting by key
+
+        Args:
+            key: Setting key
+            default: Default value if not found
+
+        Returns:
+            Setting value or default
+        """
+        settings = self.load_settings()
+        return settings.get(key, default)

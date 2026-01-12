@@ -577,11 +577,12 @@ def data_management():
 
 @app.route('/download/trigger/single', methods=['POST'])
 def trigger_single_download():
-    """Trigger download for specific month/year"""
+    """Trigger download for specific month/year and schemes"""
     try:
         data = request.get_json()
         month = data.get('month')
         year = data.get('year')
+        schemes = data.get('schemes', ['ucs'])  # Default to UCS if not specified
         auto_import = data.get('auto_import', False)
 
         # Validate inputs
@@ -597,8 +598,15 @@ def trigger_single_download():
         if not (2561 <= year <= 2570):
             return jsonify({'success': False, 'error': 'Invalid year (must be 2561-2570 BE)'}), 400
 
+        # Validate schemes
+        valid_schemes = ['ucs', 'ofc', 'sss', 'lgo', 'nhs', 'bkk', 'bmt', 'srt']
+        if schemes:
+            schemes = [s for s in schemes if s in valid_schemes]
+        if not schemes:
+            schemes = ['ucs']  # Default fallback
+
         # Start downloader with parameters
-        result = downloader_runner.start(month=month, year=year, auto_import=auto_import)
+        result = downloader_runner.start(month=month, year=year, schemes=schemes, auto_import=auto_import)
 
         if result['success']:
             return jsonify(result), 200
@@ -612,7 +620,7 @@ def trigger_single_download():
 
 @app.route('/download/trigger/bulk', methods=['POST'])
 def trigger_bulk_download():
-    """Trigger bulk download for date range"""
+    """Trigger bulk download for date range and schemes"""
     try:
         data = request.get_json()
 
@@ -620,6 +628,7 @@ def trigger_bulk_download():
         start_year = data.get('start_year')
         end_month = data.get('end_month')
         end_year = data.get('end_year')
+        schemes = data.get('schemes', ['ucs', 'ofc', 'sss', 'lgo'])  # Default to 4 main schemes
         auto_import = data.get('auto_import', False)
 
         # Validate inputs
@@ -642,8 +651,20 @@ def trigger_bulk_download():
         if start_year > end_year or (start_year == end_year and start_month > end_month):
             return jsonify({'success': False, 'error': 'Start date must be before or equal to end date'}), 400
 
-        # Start bulk downloader
-        result = downloader_runner.start_bulk(start_month, start_year, end_month, end_year, auto_import)
+        # Validate schemes
+        valid_schemes = ['ucs', 'ofc', 'sss', 'lgo', 'nhs', 'bkk', 'bmt', 'srt']
+        if schemes:
+            schemes = [s for s in schemes if s in valid_schemes]
+        if not schemes:
+            schemes = ['ucs']  # Default fallback
+
+        # Start bulk downloader with schemes
+        result = downloader_runner.start_bulk(
+            start_month, start_year,
+            end_month, end_year,
+            auto_import=auto_import,
+            schemes=schemes
+        )
 
         if result['success']:
             return jsonify(result), 200
@@ -3365,6 +3386,91 @@ def api_benchmark():
 def benchmark_page():
     """Benchmark Comparison page"""
     return render_template('benchmark.html')
+
+
+@app.route('/api/benchmark/hospitals')
+def api_benchmark_hospitals():
+    """Get list of hospitals from SMT data for comparison"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Get summary by vendor from smt_budget_transfers
+        cursor.execute("""
+            SELECT
+                vendor_no,
+                COUNT(*) as records,
+                COALESCE(SUM(total_amount), 0) as total_amount,
+                COALESCE(SUM(wait_amount), 0) as wait_amount,
+                COALESCE(SUM(debt_amount), 0) as debt_amount,
+                COALESCE(SUM(bond_amount), 0) as bond_amount,
+                MIN(run_date) as first_date,
+                MAX(run_date) as last_date
+            FROM smt_budget_transfers
+            GROUP BY vendor_no
+            ORDER BY total_amount DESC
+        """)
+
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        hospitals = []
+        for row in rows:
+            hospitals.append({
+                'vendor_no': row[0],
+                'records': row[1],
+                'total_amount': float(row[2]) if row[2] else 0,
+                'wait_amount': float(row[3]) if row[3] else 0,
+                'debt_amount': float(row[4]) if row[4] else 0,
+                'bond_amount': float(row[5]) if row[5] else 0,
+                'first_date': row[6].strftime('%Y-%m-%d') if row[6] else None,
+                'last_date': row[7].strftime('%Y-%m-%d') if row[7] else None
+            })
+
+        return jsonify({
+            'success': True,
+            'hospitals': hospitals,
+            'count': len(hospitals)
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/benchmark/hospitals/<vendor_no>', methods=['DELETE'])
+def api_benchmark_delete_hospital(vendor_no):
+    """Delete SMT data for a specific hospital"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Delete all records for this vendor
+        cursor.execute("""
+            DELETE FROM smt_budget_transfers
+            WHERE vendor_no = %s OR vendor_no = %s
+        """, (vendor_no, vendor_no.zfill(10)))
+
+        deleted = cursor.rowcount
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': f'Deleted {deleted} records for vendor {vendor_no}'
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ============================================

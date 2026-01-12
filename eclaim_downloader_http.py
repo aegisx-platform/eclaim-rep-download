@@ -19,13 +19,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class EClaimDownloader:
-    def __init__(self, month=None, year=None, import_each=False):
+    def __init__(self, month=None, year=None, scheme='ucs', import_each=False):
         """
         Initialize E-Claim Downloader
 
         Args:
             month (int, optional): Month (1-12). Defaults to current month.
             year (int, optional): Year in Buddhist Era. Defaults to current year + 543.
+            scheme (str, optional): Insurance scheme code. Defaults to 'ucs'.
+                Valid schemes: ucs, ofc, sss, lgo, nhs, bkk, bmt, srt
             import_each (bool, optional): Import each file immediately after download. Defaults to False.
         """
         # Load credentials from settings file first, fallback to env vars
@@ -33,6 +35,7 @@ class EClaimDownloader:
         self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads'))
         self.tracking_file = Path('download_history.json')
         self.import_each = import_each
+        self.scheme = scheme
 
         # Set month and year (default to current date in Buddhist Era)
         now = datetime.now()
@@ -44,7 +47,7 @@ class EClaimDownloader:
         self.login_url = f'{self.base_url}/webComponent/login/LoginAction.do'
         self.validation_url = (
             f'{self.base_url}/webComponent/validation/ValidationMainAction.do?'
-            f'mo={self.month}&ye={self.year}&maininscl=ucs'
+            f'mo={self.month}&ye={self.year}&maininscl={self.scheme}'
         )
 
         # Create session with cookies
@@ -113,8 +116,20 @@ class EClaimDownloader:
             json.dump(self.download_history, f, ensure_ascii=False, indent=2)
 
     def _is_already_downloaded(self, filename):
-        """Check if file was already downloaded"""
-        return any(d['filename'] == filename for d in self.download_history['downloads'])
+        """
+        Check if file was already downloaded
+
+        Note: Filename-based deduplication works because each scheme has
+        different files with unique filenames (includes timestamp).
+        We also check scheme for extra safety.
+        """
+        for d in self.download_history['downloads']:
+            if d['filename'] == filename:
+                # For legacy records without scheme, assume 'ucs'
+                record_scheme = d.get('scheme', 'ucs')
+                if record_scheme == self.scheme:
+                    return True
+        return False
 
     def _import_file(self, file_path, filename):
         """
@@ -316,7 +331,8 @@ class EClaimDownloader:
                         'file_size': file_size,
                         'url': url,
                         'month': self.month,
-                        'year': self.year
+                        'year': self.year,
+                        'scheme': self.scheme
                     })
 
                     downloaded_count += 1
@@ -349,6 +365,8 @@ class EClaimDownloader:
         print("E-Claim Excel File Downloader (HTTP Client)")
         print("="*60)
         print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Month/Year: {self.month}/{self.year} BE")
+        print(f"Insurance Scheme: {self.scheme.upper()}")
         print()
 
         try:
@@ -395,19 +413,35 @@ def main():
     """Entry point"""
     import argparse
 
+    # Valid scheme codes
+    VALID_SCHEMES = ['ucs', 'ofc', 'sss', 'lgo', 'nhs', 'bkk', 'bmt', 'srt']
+
     parser = argparse.ArgumentParser(
         description='E-Claim Excel File Downloader',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Download current month (default)
+  # Download current month (default scheme: UCS)
   python eclaim_downloader_http.py
 
   # Download specific month and year (Buddhist Era)
   python eclaim_downloader_http.py --month 12 --year 2568
 
-  # Download January 2025 (2568 BE)
-  python eclaim_downloader_http.py --month 1 --year 2568
+  # Download from different insurance scheme
+  python eclaim_downloader_http.py --scheme ofc
+
+  # Download SSS scheme for January 2025
+  python eclaim_downloader_http.py --month 1 --year 2568 --scheme sss
+
+Insurance Schemes:
+  ucs  - Universal Coverage Scheme (บัตรทอง)
+  ofc  - Government Officer (ข้าราชการ)
+  sss  - Social Security Scheme (ประกันสังคม)
+  lgo  - Local Government Organization (อปท.)
+  nhs  - NHSO Staff (สปสช.)
+  bkk  - Bangkok Metropolitan Staff (กทม.)
+  bmt  - BMTA Staff (ขสมก.)
+  srt  - State Railway of Thailand Staff (รฟท.)
         """
     )
 
@@ -425,6 +459,14 @@ Examples:
     )
 
     parser.add_argument(
+        '--scheme',
+        type=str,
+        choices=VALID_SCHEMES,
+        default='ucs',
+        help='Insurance scheme code. Defaults to "ucs" (Universal Coverage Scheme).'
+    )
+
+    parser.add_argument(
         '--import-each',
         action='store_true',
         help='Import each file to database immediately after download (concurrent mode)'
@@ -432,10 +474,11 @@ Examples:
 
     args = parser.parse_args()
 
-    # Create downloader with specified month/year (or defaults)
+    # Create downloader with specified month/year/scheme (or defaults)
     downloader = EClaimDownloader(
         month=args.month,
         year=args.year,
+        scheme=args.scheme,
         import_each=args.import_each
     )
     downloader.run()

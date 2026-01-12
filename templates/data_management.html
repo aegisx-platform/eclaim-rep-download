@@ -98,6 +98,49 @@
                         </div>
                     </div>
 
+                    <!-- Insurance Schemes Selection -->
+                    <div class="border-t pt-4 mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Insurance Schemes (สิทธิการรักษา)</label>
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="single-schemes" value="ucs" class="scheme-checkbox w-4 h-4 text-blue-600 rounded" checked>
+                                <span class="ml-2">UCS (บัตรทอง)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="single-schemes" value="ofc" class="scheme-checkbox w-4 h-4 text-blue-600 rounded" checked>
+                                <span class="ml-2">OFC (ข้าราชการ)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="single-schemes" value="sss" class="scheme-checkbox w-4 h-4 text-blue-600 rounded" checked>
+                                <span class="ml-2">SSS (ประกันสังคม)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="single-schemes" value="lgo" class="scheme-checkbox w-4 h-4 text-blue-600 rounded" checked>
+                                <span class="ml-2">LGO (อปท.)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="single-schemes" value="nhs" class="scheme-checkbox w-4 h-4 text-blue-600 rounded">
+                                <span class="ml-2">NHS (สปสช.)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="single-schemes" value="bkk" class="scheme-checkbox w-4 h-4 text-blue-600 rounded">
+                                <span class="ml-2">BKK (กทม.)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="single-schemes" value="bmt" class="scheme-checkbox w-4 h-4 text-blue-600 rounded">
+                                <span class="ml-2">BMT (ขสมก.)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="single-schemes" value="srt" class="scheme-checkbox w-4 h-4 text-blue-600 rounded">
+                                <span class="ml-2">SRT (รฟท.)</span>
+                            </label>
+                        </div>
+                        <div class="flex gap-2 mt-2">
+                            <button type="button" onclick="selectAllSchemes('single')" class="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded">Select All</button>
+                            <button type="button" onclick="selectDefaultSchemes('single')" class="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded">Default (4)</button>
+                        </div>
+                    </div>
+
                     <label class="flex items-center cursor-pointer">
                         <input type="checkbox" id="single-auto-import" class="w-4 h-4 text-blue-600 rounded" checked>
                         <span class="ml-2 text-sm text-gray-700">Auto-import to database</span>
@@ -166,6 +209,49 @@
                     </div>
 
                     <p id="bulk-estimate" class="text-sm text-gray-500"></p>
+
+                    <!-- Insurance Schemes Selection for Bulk -->
+                    <div class="border-t pt-4 mt-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Insurance Schemes</label>
+                        <div class="grid grid-cols-2 gap-1 text-xs">
+                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="bulk-schemes" value="ucs" class="w-3 h-3 text-orange-600 rounded" checked>
+                                <span class="ml-1.5">UCS</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="bulk-schemes" value="ofc" class="w-3 h-3 text-orange-600 rounded" checked>
+                                <span class="ml-1.5">OFC</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="bulk-schemes" value="sss" class="w-3 h-3 text-orange-600 rounded" checked>
+                                <span class="ml-1.5">SSS</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="bulk-schemes" value="lgo" class="w-3 h-3 text-orange-600 rounded" checked>
+                                <span class="ml-1.5">LGO</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="bulk-schemes" value="nhs" class="w-3 h-3 text-orange-600 rounded">
+                                <span class="ml-1.5">NHS</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="bulk-schemes" value="bkk" class="w-3 h-3 text-orange-600 rounded">
+                                <span class="ml-1.5">BKK</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="bulk-schemes" value="bmt" class="w-3 h-3 text-orange-600 rounded">
+                                <span class="ml-1.5">BMT</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
+                                <input type="checkbox" name="bulk-schemes" value="srt" class="w-3 h-3 text-orange-600 rounded">
+                                <span class="ml-1.5">SRT</span>
+                            </label>
+                        </div>
+                        <div class="flex gap-2 mt-1">
+                            <button type="button" onclick="selectAllSchemes('bulk')" class="text-xs px-2 py-0.5 bg-gray-100 hover:bg-gray-200 rounded">All</button>
+                            <button type="button" onclick="selectDefaultSchemes('bulk')" class="text-xs px-2 py-0.5 bg-gray-100 hover:bg-gray-200 rounded">Default</button>
+                        </div>
+                    </div>
 
                     <label class="flex items-center cursor-pointer">
                         <input type="checkbox" id="bulk-auto-import" class="w-4 h-4 text-orange-600 rounded" checked>
@@ -382,6 +468,22 @@
             </p>
 
             <div class="space-y-4">
+                <!-- Vendor ID Input -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Vendor ID (รหัสโรงพยาบาล) <span class="text-red-500">*</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="text" id="smt-vendor-id-input"
+                               placeholder="เช่น 10670 หรือ 0000010670"
+                               class="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-green-500">
+                        <button onclick="saveSmtVendorId()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">
+                            Save
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">รหัสหน่วยบริการที่ใช้ใน SMT (เปลี่ยนได้เมื่อใช้กับ รพ. อื่น)</p>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Fiscal Year (ปีงบประมาณ)</label>
@@ -467,6 +569,46 @@
                 <div id="connection-status" class="hidden mt-4 p-3 rounded-lg"></div>
             </div>
 
+            <!-- SMT Settings Section -->
+            <div class="border border-gray-200 rounded-lg p-6 mb-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    SMT Budget Settings
+                </h3>
+                <p class="text-sm text-gray-600 mb-4">ตั้งค่ารหัสโรงพยาบาลสำหรับดึงข้อมูล SMT Budget จาก สปสช.</p>
+
+                <form id="smt-settings-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Vendor ID (รหัสโรงพยาบาล)
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" id="smt-vendor-id" name="smt_vendor_id"
+                               value="{{ settings.smt_vendor_id | default('') }}"
+                               placeholder="เช่น 10670 หรือ 0000010670"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-green-500">
+                        <p class="text-xs text-gray-500 mt-1">รหัสหน่วยบริการ 5 หลัก หรือ 10 หลัก (Vendor ID ที่ใช้ใน SMT)</p>
+                    </div>
+
+                    <div class="flex items-center">
+                        <input type="checkbox" id="smt-auto-save" name="smt_auto_save_db"
+                               {% if settings.smt_auto_save_db | default(true) %}checked{% endif %}
+                               class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                        <label for="smt-auto-save" class="ml-2 text-sm text-gray-700">
+                            บันทึกข้อมูลลง Database อัตโนมัติ
+                        </label>
+                    </div>
+
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">
+                        Save SMT Settings
+                    </button>
+                </form>
+
+                <div id="smt-settings-status" class="hidden mt-4 p-3 rounded-lg"></div>
+            </div>
+
             <!-- Database Info -->
             <div class="border border-gray-200 rounded-lg p-6">
                 <h3 class="text-lg font-semibold mb-4 flex items-center">
@@ -529,6 +671,30 @@
 <script>
 let scheduleTimes = [];
 let currentTab = 'download';
+
+// Scheme selection helpers
+function selectAllSchemes(prefix) {
+    document.querySelectorAll('input[name="' + prefix + '-schemes"]').forEach(function(cb) {
+        cb.checked = true;
+    });
+    updateBulkEstimate();
+}
+
+function selectDefaultSchemes(prefix) {
+    var defaultSchemes = ['ucs', 'ofc', 'sss', 'lgo'];
+    document.querySelectorAll('input[name="' + prefix + '-schemes"]').forEach(function(cb) {
+        cb.checked = defaultSchemes.includes(cb.value);
+    });
+    updateBulkEstimate();
+}
+
+function getSelectedSchemes(prefix) {
+    var schemes = [];
+    document.querySelectorAll('input[name="' + prefix + '-schemes"]:checked').forEach(function(cb) {
+        schemes.push(cb.value);
+    });
+    return schemes;
+}
 
 // Tab switching
 function switchTab(tab) {
@@ -598,10 +764,15 @@ function updateBulkEstimate() {
     var endMonth = parseInt(document.getElementById('bulk-end-month').value);
     var endYear = parseInt(document.getElementById('bulk-end-year').value);
 
+    var schemes = getSelectedSchemes('bulk');
+    var numSchemes = schemes.length || 1;
+
     if (typeof calculateMonthsBetween === 'function') {
         var totalMonths = calculateMonthsBetween(startMonth, startYear, endMonth, endYear);
+        var totalIterations = totalMonths * numSchemes;
+        var estimatedMinutes = Math.ceil(totalIterations * 0.5); // ~30 sec per iteration
         document.getElementById('bulk-estimate').textContent =
-            'Estimated: ~' + totalMonths + ' minute(s) (' + totalMonths + ' month(s))';
+            totalMonths + ' months x ' + numSchemes + ' schemes = ' + totalIterations + ' downloads (~' + estimatedMinutes + ' min)';
     }
 }
 
@@ -877,16 +1048,136 @@ async function fetchSmtData() {
     }
 }
 
+// SMT Settings
+async function saveSmtSettings(event) {
+    event.preventDefault();
+
+    var vendorId = document.getElementById('smt-vendor-id').value.trim();
+    var autoSave = document.getElementById('smt-auto-save').checked;
+    var statusDiv = document.getElementById('smt-settings-status');
+
+    if (!vendorId) {
+        statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-700';
+        statusDiv.textContent = 'Vendor ID is required';
+        statusDiv.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        var response = await fetch('/api/smt/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                smt_vendor_id: vendorId,
+                smt_schedule_enabled: false,
+                smt_schedule_times: [],
+                smt_auto_save_db: autoSave
+            })
+        });
+        var result = await response.json();
+
+        if (result.success) {
+            statusDiv.className = 'mt-4 p-3 rounded-lg bg-green-100 text-green-700';
+            statusDiv.textContent = 'SMT settings saved successfully!';
+            showToast('SMT settings saved!', 'success');
+        } else {
+            statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-700';
+            statusDiv.textContent = result.error || 'Failed to save settings';
+        }
+        statusDiv.classList.remove('hidden');
+    } catch (error) {
+        console.error('SMT settings error:', error);
+        statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-700';
+        statusDiv.textContent = 'Error: ' + error.message;
+        statusDiv.classList.remove('hidden');
+    }
+}
+
+async function loadSmtSettings() {
+    try {
+        var response = await fetch('/api/smt/settings');
+        var result = await response.json();
+
+        if (result.success && result.settings) {
+            // Settings tab fields
+            var vendorInput = document.getElementById('smt-vendor-id');
+            var autoSaveInput = document.getElementById('smt-auto-save');
+            // SMT tab field
+            var vendorInputTab = document.getElementById('smt-vendor-id-input');
+
+            if (vendorInput && result.settings.smt_vendor_id) {
+                vendorInput.value = result.settings.smt_vendor_id;
+            }
+            if (vendorInputTab && result.settings.smt_vendor_id) {
+                vendorInputTab.value = result.settings.smt_vendor_id;
+            }
+            if (autoSaveInput) {
+                autoSaveInput.checked = result.settings.smt_auto_save_db !== false;
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load SMT settings:', error);
+    }
+}
+
+// Quick save vendor ID from SMT tab
+async function saveSmtVendorId() {
+    var vendorId = document.getElementById('smt-vendor-id-input').value.trim();
+
+    if (!vendorId) {
+        showToast('กรุณากรอก Vendor ID', 'error');
+        return;
+    }
+
+    try {
+        var response = await fetch('/api/smt/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                smt_vendor_id: vendorId,
+                smt_schedule_enabled: false,
+                smt_schedule_times: [],
+                smt_auto_save_db: true
+            })
+        });
+        var result = await response.json();
+
+        if (result.success) {
+            showToast('Vendor ID saved: ' + vendorId, 'success');
+            // Sync to settings tab if it exists
+            var settingsInput = document.getElementById('smt-vendor-id');
+            if (settingsInput) settingsInput.value = vendorId;
+        } else {
+            showToast(result.error || 'Failed to save', 'error');
+        }
+    } catch (error) {
+        console.error('Save vendor ID error:', error);
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     initFromUrl();
     populateYearDropdowns();
     loadScheduleSettings();
+    loadSmtSettings();
+
+    // SMT settings form
+    var smtForm = document.getElementById('smt-settings-form');
+    if (smtForm) {
+        smtForm.addEventListener('submit', saveSmtSettings);
+    }
 
     // Bulk estimate listeners
     ['bulk-start-month', 'bulk-start-year', 'bulk-end-month', 'bulk-end-year'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('change', updateBulkEstimate);
+    });
+
+    // Scheme checkbox listeners for estimate update
+    document.querySelectorAll('input[name="bulk-schemes"]').forEach(function(cb) {
+        cb.addEventListener('change', updateBulkEstimate);
     });
 
     updateBulkEstimate();
