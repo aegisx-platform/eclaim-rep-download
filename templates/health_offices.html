@@ -1,0 +1,514 @@
+{% extends "base.html" %}
+
+{% block title %}Health Offices - NHSO Revenue Intelligence{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Health Offices Master Data</h1>
+            <p class="text-gray-600 mt-1">ข้อมูลหลักสถานพยาบาล จาก <a href="https://hcode.moph.go.th/code/" target="_blank" class="text-blue-600 hover:underline">hcode.moph.go.th</a></p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-sm text-gray-500">Total Records</div>
+            <div id="stat-total" class="text-2xl font-bold text-gray-800">-</div>
+        </div>
+        <div class="bg-blue-50 rounded-xl shadow-md p-4">
+            <div class="text-sm text-blue-600">Active</div>
+            <div id="stat-active" class="text-2xl font-bold text-blue-700">-</div>
+        </div>
+        <div class="bg-green-50 rounded-xl shadow-md p-4">
+            <div class="text-sm text-green-600">Provinces</div>
+            <div id="stat-provinces" class="text-2xl font-bold text-green-700">-</div>
+        </div>
+        <div class="bg-purple-50 rounded-xl shadow-md p-4">
+            <div class="text-sm text-purple-600">Last Import</div>
+            <div id="stat-last-import" class="text-xl font-bold text-purple-700">-</div>
+        </div>
+    </div>
+
+    <!-- Import Section -->
+    <div class="bg-white rounded-xl shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+            </svg>
+            Import Data
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Upload Form -->
+            <div class="border border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <input type="file" id="import-file" accept=".xlsx,.xls" class="hidden" onchange="handleFileSelect(this)">
+                <div id="upload-area" onclick="document.getElementById('import-file').click()" class="cursor-pointer">
+                    <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <p class="text-gray-600">Click to upload Excel file</p>
+                    <p class="text-sm text-gray-400 mt-1">(.xlsx, .xls from hcode.moph.go.th)</p>
+                </div>
+                <div id="file-selected" class="hidden">
+                    <div class="flex items-center justify-center gap-2 text-green-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span id="file-name">filename.xlsx</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Import Options -->
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Import Mode</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="import-mode" value="upsert" checked class="w-4 h-4 text-blue-600">
+                            <span class="ml-2">
+                                <span class="font-medium">Update/Insert (Upsert)</span>
+                                <span class="text-sm text-gray-500 block">อัพเดทข้อมูลที่มีอยู่ เพิ่มข้อมูลใหม่</span>
+                            </span>
+                        </label>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="import-mode" value="replace" class="w-4 h-4 text-red-600">
+                            <span class="ml-2">
+                                <span class="font-medium text-red-600">Clear and Replace</span>
+                                <span class="text-sm text-gray-500 block">ลบข้อมูลเก่าทั้งหมด แล้ว import ใหม่</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button onclick="importData()" id="btn-import" disabled
+                            class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 px-4 rounded-lg font-medium flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                        </svg>
+                        Import
+                    </button>
+                    <button onclick="clearAllData()"
+                            class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg font-medium">
+                        Clear All
+                    </button>
+                </div>
+
+                <div id="import-progress" class="hidden">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span>Importing...</span>
+                        <span id="import-percent">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div id="import-bar" class="bg-green-600 h-2 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div id="import-result" class="hidden p-4 rounded-lg"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="bg-white rounded-xl shadow-md p-4">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <input type="text" id="search-input" placeholder="ชื่อ, รหัส 5 หลัก, รหัส 9 หลัก"
+                       onkeyup="debounceSearch()"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Province</label>
+                <select id="filter-province" onchange="loadData()" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    <option value="">All Provinces</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Region</label>
+                <select id="filter-region" onchange="loadData()" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    <option value="">All Regions</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                <select id="filter-level" onchange="loadData()" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    <option value="">All Levels</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="text-lg font-semibold text-gray-800">Health Offices List</h3>
+            <div class="text-sm text-gray-500">
+                <span id="showing-count">0</span> of <span id="total-count">0</span> records
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">รหัส 5 หลัก</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ชื่อ</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ประเภท</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ระดับ</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">เขต</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">จังหวัด</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">เตียง</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody id="data-tbody" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="8" class="px-6 py-8 text-center text-gray-500">
+                            <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                            </svg>
+                            <p>No data</p>
+                            <p class="text-sm">Import data from hcode.moph.go.th to get started</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-gray-500">Per page:</span>
+                <select id="per-page" onchange="loadData()" class="border border-gray-300 rounded px-2 py-1 text-sm">
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                </select>
+            </div>
+            <div id="pagination" class="flex gap-2">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPage = 1;
+let searchTimeout;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+    loadData();
+});
+
+async function loadStats() {
+    try {
+        var response = await fetch('/api/health-offices/stats');
+        var result = await response.json();
+
+        if (result.success) {
+            var stats = result.stats;
+            document.getElementById('stat-total').textContent = stats.total.toLocaleString();
+
+            var active = stats.by_status.find(function(s) { return s.status === 'กำลังใช้งาน'; });
+            document.getElementById('stat-active').textContent = active ? active.count.toLocaleString() : '0';
+
+            document.getElementById('stat-provinces').textContent = stats.provinces.length;
+
+            if (stats.last_import) {
+                document.getElementById('stat-last-import').textContent = stats.last_import.date || '-';
+            }
+
+            populateFilter('filter-province', stats.provinces);
+            populateFilter('filter-region', stats.regions);
+            populateFilter('filter-level', stats.levels);
+        }
+    } catch (e) {
+        console.error('Error loading stats:', e);
+    }
+}
+
+function populateFilter(elementId, options) {
+    var select = document.getElementById(elementId);
+    var firstOption = select.options[0];
+    select.textContent = '';
+    select.appendChild(firstOption);
+
+    options.forEach(function(opt) {
+        var option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        select.appendChild(option);
+    });
+}
+
+async function loadData() {
+    var search = document.getElementById('search-input').value;
+    var province = document.getElementById('filter-province').value;
+    var region = document.getElementById('filter-region').value;
+    var level = document.getElementById('filter-level').value;
+    var perPage = document.getElementById('per-page').value;
+
+    var params = new URLSearchParams();
+    params.append('page', currentPage);
+    params.append('per_page', perPage);
+    if (search) params.append('search', search);
+    if (province) params.append('province', province);
+    if (region) params.append('region', region);
+    if (level) params.append('level', level);
+
+    try {
+        var response = await fetch('/api/health-offices?' + params.toString());
+        var result = await response.json();
+
+        if (result.success) {
+            renderTable(result.data);
+            document.getElementById('showing-count').textContent = result.data.length;
+            document.getElementById('total-count').textContent = result.total.toLocaleString();
+            renderPagination(result.page, result.total_pages, result.total);
+        }
+    } catch (e) {
+        console.error('Error loading data:', e);
+    }
+}
+
+function renderTable(data) {
+    var tbody = document.getElementById('data-tbody');
+    tbody.textContent = '';
+
+    if (!data || data.length === 0) {
+        var emptyRow = document.createElement('tr');
+        var emptyCell = document.createElement('td');
+        emptyCell.colSpan = 8;
+        emptyCell.className = 'px-6 py-8 text-center text-gray-500';
+        emptyCell.textContent = 'No data found';
+        emptyRow.appendChild(emptyCell);
+        tbody.appendChild(emptyRow);
+        return;
+    }
+
+    data.forEach(function(row) {
+        var tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+
+        var cells = [
+            { text: row.hcode5 || '-', class: 'font-mono' },
+            { text: row.name || '-' },
+            { text: row.service_type || '-', class: 'text-gray-600' },
+            { text: row.hospital_level || '-', class: 'text-gray-600' },
+            { text: row.health_region || '-', class: 'text-gray-600' },
+            { text: row.province || '-', class: 'text-gray-600' },
+            { text: String(row.actual_beds || 0), class: 'text-center' }
+        ];
+
+        cells.forEach(function(cell) {
+            var td = document.createElement('td');
+            td.className = 'px-4 py-3 text-sm ' + (cell.class || '');
+            td.textContent = cell.text;
+            tr.appendChild(td);
+        });
+
+        // Status cell with badge
+        var statusTd = document.createElement('td');
+        statusTd.className = 'px-4 py-3 text-center';
+        var statusSpan = document.createElement('span');
+        statusSpan.className = 'px-2 py-1 text-xs rounded-full ' +
+            (row.status === 'กำลังใช้งาน' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800');
+        statusSpan.textContent = row.status || '-';
+        statusTd.appendChild(statusSpan);
+        tr.appendChild(statusTd);
+
+        tbody.appendChild(tr);
+    });
+}
+
+function renderPagination(page, totalPages, total) {
+    var pagination = document.getElementById('pagination');
+    pagination.textContent = '';
+
+    if (totalPages <= 1) return;
+
+    function createButton(text, pageNum, isActive) {
+        var btn = document.createElement('button');
+        btn.textContent = text;
+        btn.className = 'px-3 py-1 border rounded ' + (isActive ? 'bg-blue-600 text-white' : 'hover:bg-gray-100');
+        btn.onclick = function() { goToPage(pageNum); };
+        return btn;
+    }
+
+    if (page > 1) {
+        pagination.appendChild(createButton('Prev', page - 1, false));
+    }
+
+    var start = Math.max(1, page - 2);
+    var end = Math.min(totalPages, page + 2);
+
+    if (start > 1) {
+        pagination.appendChild(createButton('1', 1, false));
+        if (start > 2) {
+            var dots = document.createElement('span');
+            dots.className = 'px-2';
+            dots.textContent = '...';
+            pagination.appendChild(dots);
+        }
+    }
+
+    for (var i = start; i <= end; i++) {
+        pagination.appendChild(createButton(String(i), i, i === page));
+    }
+
+    if (end < totalPages) {
+        if (end < totalPages - 1) {
+            var dots = document.createElement('span');
+            dots.className = 'px-2';
+            dots.textContent = '...';
+            pagination.appendChild(dots);
+        }
+        pagination.appendChild(createButton(String(totalPages), totalPages, false));
+    }
+
+    if (page < totalPages) {
+        pagination.appendChild(createButton('Next', page + 1, false));
+    }
+}
+
+function goToPage(page) {
+    currentPage = page;
+    loadData();
+}
+
+function debounceSearch() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(function() {
+        currentPage = 1;
+        loadData();
+    }, 300);
+}
+
+function handleFileSelect(input) {
+    if (input.files && input.files[0]) {
+        document.getElementById('file-name').textContent = input.files[0].name;
+        document.getElementById('upload-area').classList.add('hidden');
+        document.getElementById('file-selected').classList.remove('hidden');
+        document.getElementById('btn-import').disabled = false;
+    }
+}
+
+async function importData() {
+    var fileInput = document.getElementById('import-file');
+    if (!fileInput.files || !fileInput.files[0]) {
+        showToast('Please select a file', 'error');
+        return;
+    }
+
+    var mode = document.querySelector('input[name="import-mode"]:checked').value;
+
+    if (mode === 'replace') {
+        if (!confirm('This will DELETE all existing data and import new data. Are you sure?')) {
+            return;
+        }
+    }
+
+    var formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('mode', mode);
+
+    document.getElementById('btn-import').disabled = true;
+    document.getElementById('import-progress').classList.remove('hidden');
+    document.getElementById('import-result').classList.add('hidden');
+
+    var progress = 0;
+    var progressInterval = setInterval(function() {
+        progress += Math.random() * 10;
+        if (progress > 90) progress = 90;
+        document.getElementById('import-percent').textContent = Math.round(progress) + '%';
+        document.getElementById('import-bar').style.width = progress + '%';
+    }, 500);
+
+    try {
+        var response = await fetch('/api/health-offices/import', {
+            method: 'POST',
+            body: formData
+        });
+        var result = await response.json();
+
+        clearInterval(progressInterval);
+        document.getElementById('import-percent').textContent = '100%';
+        document.getElementById('import-bar').style.width = '100%';
+
+        var resultDiv = document.getElementById('import-result');
+        resultDiv.textContent = '';
+
+        if (result.success) {
+            resultDiv.className = 'p-4 rounded-lg bg-green-100 text-green-800';
+            var titleDiv = document.createElement('div');
+            titleDiv.className = 'font-medium';
+            titleDiv.textContent = 'Import completed!';
+            resultDiv.appendChild(titleDiv);
+
+            var detailDiv = document.createElement('div');
+            detailDiv.className = 'text-sm mt-1';
+            detailDiv.textContent = 'Total: ' + result.total.toLocaleString() +
+                ' | Imported: ' + result.imported.toLocaleString() +
+                ' | Skipped: ' + result.skipped.toLocaleString() +
+                ' | Errors: ' + result.errors.toLocaleString() +
+                ' | Time: ' + result.duration + 's';
+            resultDiv.appendChild(detailDiv);
+
+            showToast('Import completed: ' + result.imported + ' records', 'success');
+            loadStats();
+            loadData();
+        } else {
+            resultDiv.className = 'p-4 rounded-lg bg-red-100 text-red-800';
+            resultDiv.textContent = 'Error: ' + result.error;
+            showToast('Import failed: ' + result.error, 'error');
+        }
+        resultDiv.classList.remove('hidden');
+
+    } catch (error) {
+        clearInterval(progressInterval);
+        showToast('Import error: ' + error.message, 'error');
+    }
+
+    document.getElementById('btn-import').disabled = false;
+    setTimeout(function() {
+        document.getElementById('import-progress').classList.add('hidden');
+    }, 2000);
+}
+
+async function clearAllData() {
+    if (!confirm('Are you sure you want to DELETE ALL health offices data? This cannot be undone.')) {
+        return;
+    }
+    if (!confirm('Really sure? This will remove ' + document.getElementById('stat-total').textContent + ' records.')) {
+        return;
+    }
+
+    try {
+        var response = await fetch('/api/health-offices/clear', { method: 'POST' });
+        var result = await response.json();
+
+        if (result.success) {
+            showToast('All data cleared', 'success');
+            loadStats();
+            loadData();
+        } else {
+            showToast('Error: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+function showToast(message, type) {
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+    } else {
+        alert(message);
+    }
+}
+</script>
+{% endblock %}

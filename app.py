@@ -698,6 +698,117 @@ def date_range_stats():
         return jsonify({'error': str(e)}), 500
 
 
+# ==================== STM (Statement) Download Routes ====================
+
+@app.route('/api/stm/download', methods=['POST'])
+def trigger_stm_download():
+    """Trigger STM (Statement) download"""
+    try:
+        data = request.get_json()
+
+        year = data.get('year')
+        month = data.get('month')  # Optional
+        scheme = data.get('scheme', 'ucs')
+        person_type = data.get('person_type', 'all')
+
+        # Validate inputs
+        if not year:
+            return jsonify({'success': False, 'error': 'Year is required'}), 400
+
+        year = int(year)
+
+        # Validate scheme
+        valid_schemes = ['ucs', 'ofc', 'sss', 'lgo']
+        if scheme not in valid_schemes:
+            return jsonify({'success': False, 'error': f'Invalid scheme. Valid: {valid_schemes}'}), 400
+
+        # Validate person_type
+        valid_types = ['ip', 'op', 'all']
+        if person_type not in valid_types:
+            return jsonify({'success': False, 'error': f'Invalid person_type. Valid: {valid_types}'}), 400
+
+        # Start STM download in background
+        import subprocess
+        import threading
+
+        def run_stm_download():
+            cmd = ['python3', 'stm_downloader_http.py', '--year', str(year), '--scheme', scheme, '--type', person_type]
+            if month:
+                cmd.extend(['--month', str(int(month))])
+
+            log_file = Path('logs') / f"stm_download_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+            log_file.parent.mkdir(exist_ok=True)
+
+            with open(log_file, 'w') as f:
+                subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+
+        thread = threading.Thread(target=run_stm_download)
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'message': f'STM download started for {scheme.upper()} year {year}'
+        })
+
+    except Exception as e:
+        app.logger.error(f"STM download error: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/stm/history')
+def get_stm_history():
+    """Get STM download history"""
+    try:
+        history_file = Path('stm_download_history.json')
+        if history_file.exists():
+            with open(history_file, 'r', encoding='utf-8') as f:
+                history = json.load(f)
+                return jsonify({
+                    'success': True,
+                    'last_run': history.get('last_run'),
+                    'downloads': history.get('downloads', [])[-50:],  # Last 50
+                    'total': len(history.get('downloads', []))
+                })
+        return jsonify({
+            'success': True,
+            'last_run': None,
+            'downloads': [],
+            'total': 0
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/stm/files')
+def list_stm_files():
+    """List downloaded STM files"""
+    try:
+        download_dir = Path('downloads')
+        stm_files = []
+
+        if download_dir.exists():
+            for f in download_dir.glob('STM_*.xls'):
+                stat = f.stat()
+                stm_files.append({
+                    'filename': f.name,
+                    'size': stat.st_size,
+                    'size_formatted': humanize.naturalsize(stat.st_size),
+                    'modified': datetime.fromtimestamp(stat.st_mtime).isoformat()
+                })
+
+        # Sort by modified date desc
+        stm_files.sort(key=lambda x: x['modified'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'files': stm_files[:100],
+            'total': len(stm_files)
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/settings')
 def settings():
     """Settings page"""

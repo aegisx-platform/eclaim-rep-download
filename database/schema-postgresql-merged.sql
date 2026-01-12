@@ -682,5 +682,72 @@ GROUP BY s.rep_period, s.file_type
 ORDER BY s.rep_period DESC;
 
 -- ============================================================================
+-- HEALTH OFFICES MASTER DATA (from hcode.moph.go.th)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS health_offices (
+    id                      SERIAL PRIMARY KEY,
+    name                    VARCHAR(500) NOT NULL,
+    hcode9_new              VARCHAR(20),           -- รหัส 9 หลักใหม่
+    hcode9                  VARCHAR(20),           -- รหัส 9 หลัก
+    hcode5                  VARCHAR(10),           -- รหัส 5 หลัก (vendor_id)
+    license_no              VARCHAR(20),           -- เลขอนุญาตให้ประกอบสถานบริการสุขภาพ 11 หลัก
+    org_type                VARCHAR(100),          -- ประเภทองค์กร
+    service_type            VARCHAR(200),          -- ประเภทหน่วยบริการสุขภาพ
+    affiliation             VARCHAR(200),          -- สังกัด
+    department              VARCHAR(200),          -- แผนก/กรม
+    hospital_level          VARCHAR(100),          -- ระดับโรงพยาบาล
+    actual_beds             INTEGER DEFAULT 0,     -- เตียงที่ใช้จริง
+    status                  VARCHAR(50),           -- สถานะการใช้งาน
+    health_region           VARCHAR(50),           -- เขตบริการ
+    address                 TEXT,                  -- ที่อยู่
+    province_code           VARCHAR(10),           -- รหัสจังหวัด
+    province                VARCHAR(100),          -- จังหวัด
+    district_code           VARCHAR(10),           -- รหัสอำเภอ
+    district                VARCHAR(100),          -- อำเภอ/เขต
+    subdistrict_code        VARCHAR(10),           -- รหัสตำบล
+    subdistrict             VARCHAR(100),          -- ตำบล/แขวง
+    moo                     VARCHAR(10),           -- หมู่
+    postal_code             VARCHAR(10),           -- รหัสไปรษณีย์
+    parent_code             VARCHAR(100),          -- แม่ข่าย (can be text, not just code)
+    established_date        DATE,                  -- วันที่ก่อตั้ง
+    closed_date             DATE,                  -- วันที่ปิดบริการ
+    source_updated_at       DATE,                  -- อัพเดตล่าสุด(เริ่ม 05/09/2566)
+    created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_health_offices_hcode5 UNIQUE (hcode5)
+);
+
+-- Indexes for common lookups
+CREATE INDEX IF NOT EXISTS idx_health_offices_hcode5 ON health_offices(hcode5);
+CREATE INDEX IF NOT EXISTS idx_health_offices_hcode9 ON health_offices(hcode9);
+CREATE INDEX IF NOT EXISTS idx_health_offices_province ON health_offices(province_code);
+CREATE INDEX IF NOT EXISTS idx_health_offices_status ON health_offices(status);
+CREATE INDEX IF NOT EXISTS idx_health_offices_level ON health_offices(hospital_level);
+CREATE INDEX IF NOT EXISTS idx_health_offices_region ON health_offices(health_region);
+CREATE INDEX IF NOT EXISTS idx_health_offices_name ON health_offices(name);
+
+-- Trigger for updated_at
+CREATE TRIGGER tr_health_offices_updated
+    BEFORE UPDATE ON health_offices
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Import tracking for health offices
+CREATE TABLE IF NOT EXISTS health_offices_import_log (
+    id              SERIAL PRIMARY KEY,
+    import_date     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    filename        VARCHAR(255),
+    total_records   INTEGER DEFAULT 0,
+    imported        INTEGER DEFAULT 0,
+    updated         INTEGER DEFAULT 0,
+    skipped         INTEGER DEFAULT 0,
+    errors          INTEGER DEFAULT 0,
+    import_mode     VARCHAR(20) DEFAULT 'upsert',  -- 'upsert' or 'replace'
+    status          VARCHAR(20) DEFAULT 'completed',
+    error_message   TEXT,
+    duration_seconds NUMERIC(10,2)
+);
+
+-- ============================================================================
 -- END OF SCHEMA
 -- ============================================================================
