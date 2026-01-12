@@ -1017,6 +1017,7 @@ def api_schedule():
             enabled = data.get('schedule_enabled', False)
             times = data.get('schedule_times', [])
             auto_import = data.get('schedule_auto_import', True)
+            schemes = data.get('schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
 
             # Validate times format
             for time_config in times:
@@ -1032,8 +1033,17 @@ def api_schedule():
                 if not (0 <= hour <= 23) or not (0 <= minute <= 59):
                     return jsonify({'success': False, 'error': 'Invalid hour or minute value'}), 400
 
-            # Save settings
+            # Validate schemes
+            valid_schemes = ['ucs', 'ofc', 'sss', 'lgo', 'nhs', 'bkk', 'bmt', 'srt']
+            schemes = [s for s in schemes if s in valid_schemes]
+            if not schemes:
+                schemes = ['ucs']  # Default fallback
+
+            # Save settings (including schemes)
             success = settings_manager.update_schedule_settings(enabled, times, auto_import)
+            if success:
+                # Also update enabled_schemes
+                settings_manager.update_enabled_schemes(schemes)
 
             if not success:
                 return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
@@ -1042,7 +1052,7 @@ def api_schedule():
             init_scheduler()
 
             log_streamer.write_log(
-                f"✓ Schedule updated: {len(times)} times, enabled={enabled}",
+                f"✓ Schedule updated: {len(times)} times, {len(schemes)} schemes, enabled={enabled}",
                 'success',
                 'system'
             )
@@ -4611,6 +4621,505 @@ def api_db_pool_status():
             'pool': status
         })
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================
+# Health Offices Master Data Management
+# ============================================
+
+@app.route('/health-offices')
+def health_offices_page():
+    """Health Offices Management page"""
+    return render_template('health_offices.html')
+
+
+@app.route('/api/health-offices')
+def api_health_offices_list():
+    """Get health offices with filtering and pagination"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Get filter parameters
+        search = request.args.get('search', '').strip()
+        province = request.args.get('province', '')
+        status = request.args.get('status', '')
+        level = request.args.get('level', '')
+        region = request.args.get('region', '')
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        offset = (page - 1) * per_page
+
+        # Build query
+        where_clauses = []
+        params = []
+
+        if search:
+            where_clauses.append("(name ILIKE %s OR hcode5 ILIKE %s OR hcode9 ILIKE %s)")
+            params.extend([f'%{search}%', f'%{search}%', f'%{search}%'])
+        if province:
+            where_clauses.append("province = %s")
+            params.append(province)
+        if status:
+            where_clauses.append("status = %s")
+            params.append(status)
+        if level:
+            where_clauses.append("hospital_level = %s")
+            params.append(level)
+        if region:
+            where_clauses.append("health_region = %s")
+            params.append(region)
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+        # Get total count
+        cursor.execute(f"SELECT COUNT(*) FROM health_offices WHERE {where_sql}", params)
+        total = cursor.fetchone()[0]
+
+        # Get data
+        cursor.execute(f"""
+            SELECT id, name, hcode5, hcode9, org_type, service_type, hospital_level,
+                   actual_beds, status, health_region, province, district, address
+            FROM health_offices
+            WHERE {where_sql}
+            ORDER BY name
+            LIMIT %s OFFSET %s
+        """, params + [per_page, offset])
+
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        offices = []
+        for row in rows:
+            offices.append({
+                'id': row[0],
+                'name': row[1],
+                'hcode5': row[2],
+                'hcode9': row[3],
+                'org_type': row[4],
+                'service_type': row[5],
+                'hospital_level': row[6],
+                'actual_beds': row[7],
+                'status': row[8],
+                'health_region': row[9],
+                'province': row[10],
+                'district': row[11],
+                'address': row[12]
+            })
+
+        return jsonify({
+            'success': True,
+            'data': offices,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': (total + per_page - 1) // per_page
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/health-offices/stats')
+def api_health_offices_stats():
+    """Get health offices statistics"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        stats = {}
+
+        # Total count
+        cursor.execute("SELECT COUNT(*) FROM health_offices")
+        stats['total'] = cursor.fetchone()[0]
+
+        # By status
+        cursor.execute("""
+            SELECT status, COUNT(*) FROM health_offices
+            WHERE status IS NOT NULL
+            GROUP BY status ORDER BY COUNT(*) DESC
+        """)
+        stats['by_status'] = [{'status': r[0], 'count': r[1]} for r in cursor.fetchall()]
+
+        # By hospital level
+        cursor.execute("""
+            SELECT hospital_level, COUNT(*) FROM health_offices
+            WHERE hospital_level IS NOT NULL
+            GROUP BY hospital_level ORDER BY COUNT(*) DESC
+        """)
+        stats['by_level'] = [{'level': r[0], 'count': r[1]} for r in cursor.fetchall()]
+
+        # By region
+        cursor.execute("""
+            SELECT health_region, COUNT(*) FROM health_offices
+            WHERE health_region IS NOT NULL
+            GROUP BY health_region ORDER BY health_region
+        """)
+        stats['by_region'] = [{'region': r[0], 'count': r[1]} for r in cursor.fetchall()]
+
+        # By province (top 10)
+        cursor.execute("""
+            SELECT province, COUNT(*) FROM health_offices
+            WHERE province IS NOT NULL
+            GROUP BY province ORDER BY COUNT(*) DESC LIMIT 10
+        """)
+        stats['by_province_top10'] = [{'province': r[0], 'count': r[1]} for r in cursor.fetchall()]
+
+        # Get distinct values for filters
+        cursor.execute("SELECT DISTINCT province FROM health_offices WHERE province IS NOT NULL ORDER BY province")
+        stats['provinces'] = [r[0] for r in cursor.fetchall()]
+
+        cursor.execute("SELECT DISTINCT health_region FROM health_offices WHERE health_region IS NOT NULL ORDER BY health_region")
+        stats['regions'] = [r[0] for r in cursor.fetchall()]
+
+        cursor.execute("SELECT DISTINCT hospital_level FROM health_offices WHERE hospital_level IS NOT NULL ORDER BY hospital_level")
+        stats['levels'] = [r[0] for r in cursor.fetchall()]
+
+        # Last import info
+        cursor.execute("""
+            SELECT import_date, filename, total_records, imported, import_mode
+            FROM health_offices_import_log
+            ORDER BY import_date DESC LIMIT 1
+        """)
+        last_import = cursor.fetchone()
+        if last_import:
+            stats['last_import'] = {
+                'date': last_import[0].strftime('%Y-%m-%d %H:%M') if last_import[0] else None,
+                'filename': last_import[1],
+                'total_records': last_import[2],
+                'imported': last_import[3],
+                'mode': last_import[4]
+            }
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'stats': stats})
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/health-offices/import', methods=['POST'])
+def api_health_offices_import():
+    """Import health offices from uploaded Excel file"""
+    import time
+    import pandas as pd
+
+    try:
+        start_time = time.time()
+
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+
+        import_mode = request.form.get('mode', 'upsert')  # 'upsert' or 'replace'
+
+        # Read Excel file
+        df = pd.read_excel(file)
+
+        # Column mapping
+        column_map = {
+            'ชื่อ': 'name',
+            'รหัส 9 หลักใหม่': 'hcode9_new',
+            'รหัส 9 หลัก': 'hcode9',
+            'รหัส 5 หลัก': 'hcode5',
+            'เลขอนุญาตให้ประกอบสถานบริการสุขภาพ 11 หลัก': 'license_no',
+            'ประเภทองค์กร': 'org_type',
+            'ประเภทหน่วยบริการสุขภาพ': 'service_type',
+            'สังกัด': 'affiliation',
+            'แผนก/กรม': 'department',
+            'ระดับโรงพยาบาล': 'hospital_level',
+            'เตียงที่ใช้จริง': 'actual_beds',
+            'สถานะการใช้งาน': 'status',
+            'เขตบริการ': 'health_region',
+            'ที่อยู่': 'address',
+            'รหัสจังหวัด': 'province_code',
+            'จังหวัด': 'province',
+            'รหัสอำเภอ': 'district_code',
+            'อำเภอ/เขต': 'district',
+            'รหัสตำบล': 'subdistrict_code',
+            'ตำบล/แขวง': 'subdistrict',
+            'หมู่': 'moo',
+            'รหัสไปรษณีย์': 'postal_code',
+            'แม่ข่าย': 'parent_code',
+            'วันที่ก่อตั้ง': 'established_date',
+            'วันที่ปิดบริการ': 'closed_date',
+            'อัพเดตล่าสุด(เริ่ม 05/09/2566)': 'source_updated_at'
+        }
+
+        # Rename columns
+        df = df.rename(columns=column_map)
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Clear existing data if replace mode
+        if import_mode == 'replace':
+            cursor.execute("TRUNCATE TABLE health_offices RESTART IDENTITY")
+
+        imported = 0
+        updated = 0
+        skipped = 0
+        errors = 0
+        total_records = len(df)
+
+        for idx, row in df.iterrows():
+            try:
+                # Convert codes to string
+                hcode5 = str(int(row['hcode5'])) if pd.notna(row.get('hcode5')) else None
+                hcode9 = str(int(row['hcode9'])) if pd.notna(row.get('hcode9')) else None
+                hcode9_new = str(int(row['hcode9_new'])) if pd.notna(row.get('hcode9_new')) else None
+
+                # Parse dates
+                def parse_date(val):
+                    if pd.isna(val):
+                        return None
+                    if isinstance(val, str):
+                        try:
+                            # Try dd/mm/yyyy format
+                            parts = val.split('/')
+                            if len(parts) == 3:
+                                day, month, year = parts
+                                if int(year) > 2500:
+                                    year = str(int(year) - 543)
+                                return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+                        except:
+                            pass
+                    return None
+
+                established = parse_date(row.get('established_date'))
+                closed = parse_date(row.get('closed_date'))
+                source_updated = parse_date(row.get('source_updated_at'))
+
+                # Prepare values
+                values = {
+                    'name': row.get('name'),
+                    'hcode9_new': hcode9_new,
+                    'hcode9': hcode9,
+                    'hcode5': hcode5,
+                    'license_no': str(int(row['license_no'])) if pd.notna(row.get('license_no')) else None,
+                    'org_type': row.get('org_type'),
+                    'service_type': row.get('service_type'),
+                    'affiliation': row.get('affiliation'),
+                    'department': row.get('department'),
+                    'hospital_level': row.get('hospital_level'),
+                    'actual_beds': int(row['actual_beds']) if pd.notna(row.get('actual_beds')) else 0,
+                    'status': row.get('status'),
+                    'health_region': row.get('health_region'),
+                    'address': row.get('address'),
+                    'province_code': str(int(row['province_code'])) if pd.notna(row.get('province_code')) else None,
+                    'province': row.get('province'),
+                    'district_code': str(int(row['district_code'])) if pd.notna(row.get('district_code')) else None,
+                    'district': row.get('district'),
+                    'subdistrict_code': str(int(row['subdistrict_code'])) if pd.notna(row.get('subdistrict_code')) else None,
+                    'subdistrict': row.get('subdistrict'),
+                    'moo': row.get('moo'),
+                    'postal_code': row.get('postal_code'),
+                    'parent_code': row.get('parent_code'),
+                    'established_date': established,
+                    'closed_date': closed,
+                    'source_updated_at': source_updated
+                }
+
+                # Skip if no name
+                if not values['name'] or pd.isna(values['name']):
+                    skipped += 1
+                    continue
+
+                # Insert or update
+                if import_mode == 'replace' or not hcode5:
+                    # Insert only
+                    cursor.execute("""
+                        INSERT INTO health_offices (
+                            name, hcode9_new, hcode9, hcode5, license_no, org_type, service_type,
+                            affiliation, department, hospital_level, actual_beds, status, health_region,
+                            address, province_code, province, district_code, district, subdistrict_code,
+                            subdistrict, moo, postal_code, parent_code, established_date, closed_date,
+                            source_updated_at
+                        ) VALUES (
+                            %(name)s, %(hcode9_new)s, %(hcode9)s, %(hcode5)s, %(license_no)s, %(org_type)s,
+                            %(service_type)s, %(affiliation)s, %(department)s, %(hospital_level)s,
+                            %(actual_beds)s, %(status)s, %(health_region)s, %(address)s, %(province_code)s,
+                            %(province)s, %(district_code)s, %(district)s, %(subdistrict_code)s,
+                            %(subdistrict)s, %(moo)s, %(postal_code)s, %(parent_code)s, %(established_date)s,
+                            %(closed_date)s, %(source_updated_at)s
+                        )
+                    """, values)
+                    imported += 1
+                else:
+                    # Upsert by hcode5
+                    cursor.execute("""
+                        INSERT INTO health_offices (
+                            name, hcode9_new, hcode9, hcode5, license_no, org_type, service_type,
+                            affiliation, department, hospital_level, actual_beds, status, health_region,
+                            address, province_code, province, district_code, district, subdistrict_code,
+                            subdistrict, moo, postal_code, parent_code, established_date, closed_date,
+                            source_updated_at
+                        ) VALUES (
+                            %(name)s, %(hcode9_new)s, %(hcode9)s, %(hcode5)s, %(license_no)s, %(org_type)s,
+                            %(service_type)s, %(affiliation)s, %(department)s, %(hospital_level)s,
+                            %(actual_beds)s, %(status)s, %(health_region)s, %(address)s, %(province_code)s,
+                            %(province)s, %(district_code)s, %(district)s, %(subdistrict_code)s,
+                            %(subdistrict)s, %(moo)s, %(postal_code)s, %(parent_code)s, %(established_date)s,
+                            %(closed_date)s, %(source_updated_at)s
+                        )
+                        ON CONFLICT (hcode5) DO UPDATE SET
+                            name = EXCLUDED.name,
+                            hcode9_new = EXCLUDED.hcode9_new,
+                            hcode9 = EXCLUDED.hcode9,
+                            license_no = EXCLUDED.license_no,
+                            org_type = EXCLUDED.org_type,
+                            service_type = EXCLUDED.service_type,
+                            affiliation = EXCLUDED.affiliation,
+                            department = EXCLUDED.department,
+                            hospital_level = EXCLUDED.hospital_level,
+                            actual_beds = EXCLUDED.actual_beds,
+                            status = EXCLUDED.status,
+                            health_region = EXCLUDED.health_region,
+                            address = EXCLUDED.address,
+                            province_code = EXCLUDED.province_code,
+                            province = EXCLUDED.province,
+                            district_code = EXCLUDED.district_code,
+                            district = EXCLUDED.district,
+                            subdistrict_code = EXCLUDED.subdistrict_code,
+                            subdistrict = EXCLUDED.subdistrict,
+                            moo = EXCLUDED.moo,
+                            postal_code = EXCLUDED.postal_code,
+                            parent_code = EXCLUDED.parent_code,
+                            established_date = EXCLUDED.established_date,
+                            closed_date = EXCLUDED.closed_date,
+                            source_updated_at = EXCLUDED.source_updated_at,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, values)
+                    if cursor.rowcount > 0:
+                        imported += 1
+
+            except Exception as e:
+                errors += 1
+                if errors <= 5:
+                    app.logger.error(f"Error importing row {idx}: {e}")
+
+        # Log import
+        duration = time.time() - start_time
+        cursor.execute("""
+            INSERT INTO health_offices_import_log
+            (filename, total_records, imported, updated, skipped, errors, import_mode, duration_seconds)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (file.filename, total_records, imported, updated, skipped, errors, import_mode, duration))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': f'Import completed',
+            'total': total_records,
+            'imported': imported,
+            'updated': updated,
+            'skipped': skipped,
+            'errors': errors,
+            'duration': round(duration, 2)
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/health-offices/clear', methods=['POST'])
+def api_health_offices_clear():
+    """Clear all health offices data"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        cursor.execute("TRUNCATE TABLE health_offices RESTART IDENTITY")
+        conn.commit()
+
+        cursor.execute("SELECT COUNT(*) FROM health_offices")
+        count = cursor.fetchone()[0]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': 'All health offices data cleared',
+            'remaining': count
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/health-offices/lookup/<code>')
+def api_health_offices_lookup(code):
+    """Lookup health office by code (hcode5 or hcode9)"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, hcode5, hcode9, hcode9_new, org_type, service_type,
+                   hospital_level, actual_beds, status, health_region, province,
+                   district, address
+            FROM health_offices
+            WHERE hcode5 = %s OR hcode9 = %s OR hcode5 = %s
+            LIMIT 1
+        """, (code, code, code.zfill(5)))
+
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not row:
+            return jsonify({'success': False, 'error': 'Not found'}), 404
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': row[0],
+                'name': row[1],
+                'hcode5': row[2],
+                'hcode9': row[3],
+                'hcode9_new': row[4],
+                'org_type': row[5],
+                'service_type': row[6],
+                'hospital_level': row[7],
+                'actual_beds': row[8],
+                'status': row[9],
+                'health_region': row[10],
+                'province': row[11],
+                'district': row[12],
+                'address': row[13]
+            }
+        })
+
+    except Exception as e:
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

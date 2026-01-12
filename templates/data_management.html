@@ -53,7 +53,7 @@
                 </svg>
                 <p class="text-sm text-blue-800">
                     <span class="font-medium">Data Source:</span>
-                    <a href="https://eclaim.nhso.go.th" target="_blank" class="underline hover:text-blue-600">
+                    <a href="https://eclaim.nhso.go.th/webComponent/" target="_blank" class="underline hover:text-blue-600">
                         https://eclaim.nhso.go.th
                     </a>
                     - ระบบ E-Claim สำนักงานหลักประกันสุขภาพแห่งชาติ (สปสช.)
@@ -62,7 +62,7 @@
         </div>
 
         <!-- Download E-Claim Data Form -->
-        <div class="border border-gray-200 rounded-lg p-6 max-w-2xl">
+        <div class="border border-gray-200 rounded-lg p-6">
             <h3 class="text-lg font-semibold mb-4 flex items-center text-blue-700">
                 <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -209,7 +209,7 @@
                     <svg class="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    Auto Download Schedule
+                    ตั้งเวลาดาวน์โหลดอัตโนมัติ (Auto Download Schedule)
                 </h3>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="schedule-enabled" class="sr-only peer">
@@ -217,20 +217,65 @@
                 </label>
             </div>
 
-            <div id="schedule-times-container" class="space-y-2 mb-4">
-                <p class="text-sm text-gray-500" id="no-schedules-message">ยังไม่มีเวลาที่ตั้งไว้</p>
+            <p class="text-sm text-gray-600 mb-4">ระบบจะดาวน์โหลดข้อมูลเดือนปัจจุบันโดยอัตโนมัติตามเวลาที่กำหนด</p>
+
+            <!-- Schedule Scheme Selection -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">สิทธิที่ต้องการดาวน์โหลด</label>
+                <div class="grid grid-cols-4 gap-2 text-sm">
+                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                        <input type="checkbox" name="schedule-schemes" value="ucs" class="w-4 h-4 text-purple-600 rounded" checked>
+                        <span class="ml-2">UCS</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                        <input type="checkbox" name="schedule-schemes" value="ofc" class="w-4 h-4 text-purple-600 rounded" checked>
+                        <span class="ml-2">OFC</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                        <input type="checkbox" name="schedule-schemes" value="sss" class="w-4 h-4 text-purple-600 rounded" checked>
+                        <span class="ml-2">SSS</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                        <input type="checkbox" name="schedule-schemes" value="lgo" class="w-4 h-4 text-purple-600 rounded" checked>
+                        <span class="ml-2">LGO</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                        <input type="checkbox" name="schedule-schemes" value="nhs" class="w-4 h-4 text-purple-600 rounded">
+                        <span class="ml-2">NHS</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                        <input type="checkbox" name="schedule-schemes" value="bkk" class="w-4 h-4 text-purple-600 rounded">
+                        <span class="ml-2">BKK</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                        <input type="checkbox" name="schedule-schemes" value="bmt" class="w-4 h-4 text-purple-600 rounded">
+                        <span class="ml-2">BMT</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                        <input type="checkbox" name="schedule-schemes" value="srt" class="w-4 h-4 text-purple-600 rounded">
+                        <span class="ml-2">SRT</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Schedule Times -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">เวลาที่ต้องการดาวน์โหลด</label>
+                <div id="schedule-times-container" class="space-y-2">
+                    <p class="text-sm text-gray-500" id="no-schedules-message">ยังไม่มีเวลาที่ตั้งไว้</p>
+                </div>
             </div>
 
             <div class="flex items-center gap-3">
                 <button onclick="addScheduleTime()" class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md font-medium text-sm">
-                    + Add Time
+                    + เพิ่มเวลา
                 </button>
                 <label class="flex items-center cursor-pointer">
                     <input type="checkbox" id="schedule-auto-import" class="w-4 h-4 text-purple-600 rounded">
-                    <span class="ml-2 text-sm text-gray-700">Auto-import</span>
+                    <span class="ml-2 text-sm text-gray-700">นำเข้าฐานข้อมูลอัตโนมัติ</span>
                 </label>
                 <button onclick="saveScheduleSettings()" class="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md font-medium text-sm">
-                    Save Schedule
+                    บันทึกการตั้งค่า
                 </button>
             </div>
 
@@ -823,6 +868,8 @@ async function loadScheduleSettings() {
             scheduleTimes = data.settings.schedule_times || [];
             renderScheduleTimes();
             displayScheduleStatus(data.jobs);
+            // Load schedule schemes
+            setScheduleSchemes(data.settings.schedule_schemes || data.settings.enabled_schemes);
         }
     } catch (error) {
         console.error('Error loading schedule:', error);
@@ -913,27 +960,51 @@ function removeScheduleTime(index) {
     renderScheduleTimes();
 }
 
+function getScheduleSchemes() {
+    var schemes = [];
+    document.querySelectorAll('input[name="schedule-schemes"]:checked').forEach(function(cb) {
+        schemes.push(cb.value);
+    });
+    return schemes;
+}
+
+function setScheduleSchemes(schemes) {
+    if (!schemes || schemes.length === 0) {
+        schemes = ['ucs', 'ofc', 'sss', 'lgo']; // Default
+    }
+    document.querySelectorAll('input[name="schedule-schemes"]').forEach(function(cb) {
+        cb.checked = schemes.includes(cb.value);
+    });
+}
+
 async function saveScheduleSettings() {
     try {
+        var scheduleSchemes = getScheduleSchemes();
+        if (scheduleSchemes.length === 0) {
+            showToast('กรุณาเลือกอย่างน้อย 1 สิทธิ', 'error');
+            return;
+        }
+
         var response = await fetch('/api/schedule', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 schedule_enabled: document.getElementById('schedule-enabled').checked,
                 schedule_times: scheduleTimes,
-                schedule_auto_import: document.getElementById('schedule-auto-import').checked
+                schedule_auto_import: document.getElementById('schedule-auto-import').checked,
+                schedule_schemes: scheduleSchemes
             })
         });
 
         var result = await response.json();
         if (result.success) {
-            showToast('Schedule saved!', 'success');
+            showToast('บันทึกการตั้งค่าสำเร็จ', 'success');
             loadScheduleSettings();
         } else {
-            showToast(result.error || 'Failed to save', 'error');
+            showToast(result.error || 'ไม่สามารถบันทึกได้', 'error');
         }
     } catch (error) {
-        showToast('Error saving schedule', 'error');
+        showToast('เกิดข้อผิดพลาดในการบันทึก', 'error');
     }
 }
 
