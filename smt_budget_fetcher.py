@@ -318,11 +318,11 @@ class SMTBudgetFetcher:
         try:
             from config.database import get_db_config, DB_TYPE
         except ImportError:
-            print("Error: Database configuration not available")
+            stream_log("✗ Database configuration not available", 'error')
             return 0
 
         if not records:
-            print("No records to save")
+            stream_log("No records to save", 'warning')
             return 0
 
         # Create database connection
@@ -337,11 +337,11 @@ class SMTBudgetFetcher:
                 import pymysql
                 conn = pymysql.connect(**db_config)
         except Exception as e:
-            print(f"Error: Could not connect to database: {e}")
+            stream_log(f"✗ Could not connect to database: {e}", 'error')
             return 0
 
         if not conn:
-            print("Error: Could not connect to database")
+            stream_log("✗ Could not connect to database", 'error')
             return 0
 
         cursor = conn.cursor()
@@ -472,14 +472,14 @@ class SMTBudgetFetcher:
                 cursor.execute(insert_sql, values)
                 insert_count += 1
             except Exception as e:
-                print(f"Error inserting record: {e}")
+                stream_log(f"  Error inserting record: {e}", 'error')
                 continue
 
         conn.commit()
         cursor.close()
         conn.close()
 
-        print(f"Saved {insert_count} records to database")
+        stream_log(f"✓ Saved {insert_count} records to database", 'success')
         return insert_count
 
 
