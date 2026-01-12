@@ -2044,7 +2044,7 @@ def api_smt_files():
             total_bytes += stat.st_size
             files.append({
                 'filename': f.name,
-                'size': format_size(stat.st_size),
+                'size': humanize.naturalsize(stat.st_size),
                 'size_bytes': stat.st_size,
                 'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M'),
                 'imported': False  # TODO: Track import status if needed
@@ -2056,7 +2056,7 @@ def api_smt_files():
         return jsonify({
             'success': True,
             'files': files,
-            'total_size': format_size(total_bytes)
+            'total_size': humanize.naturalsize(total_bytes)
         })
 
     except Exception as e:
