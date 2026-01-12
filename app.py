@@ -1042,8 +1042,8 @@ def api_schedule():
             # Save settings (including schemes)
             success = settings_manager.update_schedule_settings(enabled, times, auto_import)
             if success:
-                # Also update enabled_schemes
-                settings_manager.update_enabled_schemes(schemes)
+                # Save schedule_schemes separately
+                settings_manager.update_schedule_schemes(schemes)
 
             if not success:
                 return jsonify({'success': False, 'error': 'Failed to save settings'}), 500

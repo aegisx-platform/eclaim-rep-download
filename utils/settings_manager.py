@@ -24,6 +24,7 @@ class SettingsManager:
             'schedule_enabled': False,
             'schedule_times': [],
             'schedule_auto_import': True,
+            'schedule_schemes': ['ucs', 'ofc', 'sss', 'lgo'],  # Schemes for scheduled downloads
             # Insurance scheme settings
             'enabled_schemes': ['ucs', 'ofc', 'sss', 'lgo'],  # Default 4 main schemes
             # SMT Budget settings
@@ -229,3 +230,36 @@ class SettingsManager:
         """
         settings = self.load_settings()
         return settings.get(key, default)
+
+    # ===== Schedule Schemes Settings =====
+
+    def get_schedule_schemes(self) -> list:
+        """
+        Get list of schemes for scheduled downloads
+
+        Returns:
+            List of scheme codes
+        """
+        settings = self.load_settings()
+        return settings.get('schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
+
+    def update_schedule_schemes(self, schemes: list) -> bool:
+        """
+        Update schemes for scheduled downloads
+
+        Args:
+            schemes: List of scheme codes
+
+        Returns:
+            True if successful
+        """
+        # Validate schemes
+        valid_schemes = ['ucs', 'ofc', 'sss', 'lgo', 'nhs', 'bkk', 'bmt', 'srt']
+        schemes = [s.lower() for s in schemes if s.lower() in valid_schemes]
+
+        if not schemes:
+            schemes = ['ucs']  # Default fallback
+
+        settings = self.load_settings()
+        settings['schedule_schemes'] = schemes
+        return self.save_settings(settings)

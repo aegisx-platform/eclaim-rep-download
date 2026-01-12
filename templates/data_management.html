@@ -869,7 +869,7 @@ async function loadScheduleSettings() {
             renderScheduleTimes();
             displayScheduleStatus(data.jobs);
             // Load schedule schemes
-            setScheduleSchemes(data.settings.schedule_schemes || data.settings.enabled_schemes);
+            setScheduleSchemes(data.settings.schedule_schemes);
         }
     } catch (error) {
         console.error('Error loading schedule:', error);
