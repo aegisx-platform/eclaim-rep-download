@@ -28,6 +28,8 @@ class SettingsManager:
             'schedule_schemes': ['ucs', 'ofc', 'sss', 'lgo'],  # Schemes for scheduled downloads
             'schedule_type_rep': True,   # Download REP files in schedule
             'schedule_type_stm': False,  # Download Statement files in schedule
+            'schedule_type_smt': False,  # Download SMT Budget in schedule
+            'schedule_smt_vendor_id': '', # Vendor ID for SMT schedule (uses smt_vendor_id if empty)
             # Insurance scheme settings
             'enabled_schemes': ['ucs', 'ofc', 'sss', 'lgo'],  # Default 4 main schemes
             # SMT Budget settings
@@ -109,20 +111,29 @@ class SettingsManager:
 
         Returns:
             Dict with schedule_enabled, schedule_times, schedule_auto_import,
-            schedule_schemes, schedule_type_rep, schedule_type_stm
+            schedule_schemes, schedule_type_rep, schedule_type_stm, schedule_type_smt,
+            schedule_smt_vendor_id
         """
         settings = self.load_settings()
+        # For SMT vendor ID, fallback to smt_vendor_id from SMT settings if not set
+        smt_vendor = settings.get('schedule_smt_vendor_id', '')
+        if not smt_vendor:
+            smt_vendor = settings.get('smt_vendor_id', '')
+
         return {
             'schedule_enabled': settings.get('schedule_enabled', False),
             'schedule_times': settings.get('schedule_times', []),
             'schedule_auto_import': settings.get('schedule_auto_import', True),
             'schedule_schemes': settings.get('schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo']),
             'schedule_type_rep': settings.get('schedule_type_rep', True),
-            'schedule_type_stm': settings.get('schedule_type_stm', False)
+            'schedule_type_stm': settings.get('schedule_type_stm', False),
+            'schedule_type_smt': settings.get('schedule_type_smt', False),
+            'schedule_smt_vendor_id': smt_vendor
         }
 
     def update_schedule_settings(self, enabled: bool, times: list, auto_import: bool,
-                                   type_rep: bool = True, type_stm: bool = False) -> bool:
+                                   type_rep: bool = True, type_stm: bool = False,
+                                   type_smt: bool = False, smt_vendor_id: str = '') -> bool:
         """
         Update unified schedule settings
 
@@ -132,6 +143,8 @@ class SettingsManager:
             auto_import: Whether to auto-import after download
             type_rep: Download REP files in schedule
             type_stm: Download Statement files in schedule
+            type_smt: Download SMT Budget in schedule
+            smt_vendor_id: Vendor ID for SMT schedule
 
         Returns:
             True if successful
@@ -142,6 +155,8 @@ class SettingsManager:
         settings['schedule_auto_import'] = auto_import
         settings['schedule_type_rep'] = type_rep
         settings['schedule_type_stm'] = type_stm
+        settings['schedule_type_smt'] = type_smt
+        settings['schedule_smt_vendor_id'] = smt_vendor_id
         return self.save_settings(settings)
 
     def get_smt_settings(self) -> Dict:

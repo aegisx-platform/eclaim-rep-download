@@ -51,6 +51,7 @@ def init_scheduler():
             if job['id'].startswith('download_'):
                 download_scheduler.remove_scheduled_download(job['id'])
         download_scheduler.remove_stm_jobs()
+        download_scheduler.remove_smt_jobs()
 
         if not schedule_settings['schedule_enabled']:
             log_streamer.write_log(
@@ -66,6 +67,8 @@ def init_scheduler():
         schemes = schedule_settings.get('schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
         type_rep = schedule_settings.get('schedule_type_rep', True)
         type_stm = schedule_settings.get('schedule_type_stm', False)
+        type_smt = schedule_settings.get('schedule_type_smt', False)
+        smt_vendor_id = schedule_settings.get('schedule_smt_vendor_id', '')
 
         if not times:
             log_streamer.write_log(
@@ -88,7 +91,7 @@ def init_scheduler():
                 'system'
             )
 
-        # Schedule STM jobs if enabled
+        # Schedule Statement (STM) jobs if enabled
         if type_stm:
             for time_config in times:
                 hour = time_config.get('hour', 0)
@@ -96,7 +99,20 @@ def init_scheduler():
                 download_scheduler.add_stm_scheduled_download(hour, minute, auto_import, schemes)
 
             log_streamer.write_log(
-                f"✓ STM Scheduler initialized with {len(times)} jobs",
+                f"✓ Statement Scheduler initialized with {len(times)} jobs",
+                'success',
+                'system'
+            )
+
+        # Schedule SMT Budget jobs if enabled
+        if type_smt and smt_vendor_id:
+            for time_config in times:
+                hour = time_config.get('hour', 0)
+                minute = time_config.get('minute', 0)
+                download_scheduler.add_smt_scheduled_fetch(hour, minute, smt_vendor_id, auto_import)
+
+            log_streamer.write_log(
+                f"✓ SMT Budget Scheduler initialized with {len(times)} jobs (vendor: {smt_vendor_id})",
                 'success',
                 'system'
             )
@@ -106,7 +122,9 @@ def init_scheduler():
         if type_rep:
             data_types.append('REP')
         if type_stm:
-            data_types.append('STM')
+            data_types.append('Statement')
+        if type_smt:
+            data_types.append('SMT')
         log_streamer.write_log(
             f"📅 Unified scheduler active: {len(times)} times, types=[{', '.join(data_types)}]",
             'info',
@@ -1432,10 +1450,21 @@ def api_schedule():
             schemes = data.get('schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
             type_rep = data.get('schedule_type_rep', True)
             type_stm = data.get('schedule_type_stm', False)
+            type_smt = data.get('schedule_type_smt', False)
+            smt_vendor_id = data.get('schedule_smt_vendor_id', '')
 
             # Validate at least one data type is selected when enabled
-            if enabled and not type_rep and not type_stm:
+            if enabled and not type_rep and not type_stm and not type_smt:
                 return jsonify({'success': False, 'error': 'กรุณาเลือกอย่างน้อย 1 ประเภทข้อมูล'}), 400
+
+            # Validate SMT vendor ID if SMT is selected
+            if enabled and type_smt:
+                # If no vendor ID provided, try to get from SMT settings
+                if not smt_vendor_id:
+                    smt_settings = settings_manager.get_smt_settings()
+                    smt_vendor_id = smt_settings.get('smt_vendor_id', '')
+                if not smt_vendor_id:
+                    return jsonify({'success': False, 'error': 'กรุณาระบุ Vendor ID สำหรับ SMT Budget'}), 400
 
             # Validate times format
             for time_config in times:
@@ -1457,9 +1486,9 @@ def api_schedule():
             if not schemes:
                 schemes = ['ucs']  # Default fallback
 
-            # Save unified settings (including data type flags)
+            # Save unified settings (including all data type flags)
             success = settings_manager.update_schedule_settings(
-                enabled, times, auto_import, type_rep, type_stm
+                enabled, times, auto_import, type_rep, type_stm, type_smt, smt_vendor_id
             )
             if success:
                 # Save schedule_schemes separately
@@ -1476,7 +1505,9 @@ def api_schedule():
             if type_rep:
                 data_types.append('REP')
             if type_stm:
-                data_types.append('STM')
+                data_types.append('Statement')
+            if type_smt:
+                data_types.append('SMT')
             data_types_str = ', '.join(data_types) if data_types else 'None'
 
             log_streamer.write_log(
