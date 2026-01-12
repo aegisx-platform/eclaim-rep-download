@@ -28,6 +28,27 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Real-time log file for web UI
+import json as json_module
+REALTIME_LOG_FILE = Path('logs/realtime.log')
+
+
+def stream_log(message: str, level: str = 'info'):
+    """Write log to both console and real-time stream file"""
+    print(message, flush=True)
+    try:
+        REALTIME_LOG_FILE.parent.mkdir(exist_ok=True)
+        log_entry = {
+            'timestamp': datetime.now().isoformat(),
+            'level': level,
+            'source': 'smt',
+            'message': message
+        }
+        with open(REALTIME_LOG_FILE, 'a', encoding='utf-8') as f:
+            f.write(json_module.dumps(log_entry) + '\n')
+    except Exception:
+        pass
+
 
 class SMTBudgetFetcher:
     """
