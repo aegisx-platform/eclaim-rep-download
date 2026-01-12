@@ -292,11 +292,11 @@ class SMTBudgetFetcher:
 
         filepath = self.output_dir / filename
 
-        # Select important fields for CSV export
+        # Select important fields for CSV export (must match save_to_database fields)
         fields = [
             'runDt', 'postingDate', 'refDocNo', 'vndrNo',
-            'fundName', 'fundGroupDescr', 'efundDesc',
-            'amount', 'wait', 'debt', 'bond', 'total',
+            'fundName', 'fundGroup', 'fundGroupDescr', 'fundDescr', 'efundDesc',
+            'mouGrpCode', 'amount', 'wait', 'debt', 'bond', 'total',
             'bankNm', 'pmntStts', 'batchNo',
             'mophId', 'mophDesc', 'budgetSource'
         ]
@@ -429,28 +429,45 @@ class SMTBudgetFetcher:
 
         for record in records:
             try:
+                # Handle numeric fields - convert empty strings to 0
+                def to_decimal(val):
+                    if val is None or val == '':
+                        return 0
+                    try:
+                        return float(val)
+                    except (ValueError, TypeError):
+                        return 0
+
+                def to_int(val):
+                    if val is None or val == '':
+                        return None
+                    try:
+                        return int(val)
+                    except (ValueError, TypeError):
+                        return None
+
                 values = (
-                    record.get('runDt'),
-                    record.get('postingDate'),
-                    record.get('batchNo'),
-                    record.get('refDocNo'),
-                    record.get('vndrNo'),
-                    record.get('fundName'),
-                    record.get('fundGroup'),
-                    record.get('fundGroupDescr'),
-                    record.get('fundDescr'),
-                    record.get('efundDesc'),
-                    record.get('mouGrpCode'),
-                    record.get('amount', 0),
-                    record.get('wait', 0),
-                    record.get('debt', 0),
-                    record.get('bond', 0),
-                    record.get('total', 0),
-                    record.get('bankNm'),
-                    record.get('pmntStts'),
-                    record.get('budgetSource'),
-                    record.get('mophId'),
-                    record.get('mophDesc'),
+                    record.get('runDt') or None,
+                    record.get('postingDate') or None,
+                    record.get('batchNo') or None,
+                    record.get('refDocNo') or None,
+                    record.get('vndrNo') or None,
+                    record.get('fundName') or None,
+                    to_int(record.get('fundGroup')),
+                    record.get('fundGroupDescr') or record.get('fundGroupDesc') or None,
+                    record.get('fundDescr') or record.get('fundDesc') or None,
+                    record.get('efundDesc') or None,
+                    record.get('mouGrpCode') or None,
+                    to_decimal(record.get('amount')),
+                    to_decimal(record.get('wait')),
+                    to_decimal(record.get('debt')),
+                    to_decimal(record.get('bond')),
+                    to_decimal(record.get('total')),
+                    record.get('bankNm') or None,
+                    record.get('pmntStts') or None,
+                    record.get('budgetSource') or None,
+                    record.get('mophId') or None,
+                    record.get('mophDesc') or None,
                 )
                 cursor.execute(insert_sql, values)
                 insert_count += 1
