@@ -18,11 +18,11 @@
             </svg>
             Download
         </button>
-        <button onclick="switchTab('files')" id="tab-files" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+        <button onclick="switchTab('rep')" id="tab-rep" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
             <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
-            Files ({{ stats.total_files }})
+            REP Files ({{ stats.total_files }})
         </button>
         <button onclick="switchTab('smt')" id="tab-smt" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
             <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -292,8 +292,28 @@
         </div>
     </div>
 
-    <!-- ==================== FILES TAB ==================== -->
-    <div id="content-files" class="tab-content p-6 hidden">
+    <!-- ==================== REP FILES TAB ==================== -->
+    <div id="content-rep" class="tab-content p-6 hidden">
+        <!-- REP Header -->
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                REP Files (Request for Electronic Payment)
+            </h2>
+            <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p class="text-sm text-blue-800">
+                    <strong>REP</strong> (Request for Electronic Payment) คือ ใบขออนุมัติเบิกเงินอิเล็กทรอนิกส์
+                    ที่หน่วยบริการใช้ส่งมายัง <strong>สปสช.</strong> (สำนักงานหลักประกันสุขภาพแห่งชาติ)
+                    เพื่อขอเบิกค่ารักษาพยาบาลตามสิทธิหลักประกันสุขภาพ
+                </p>
+                <p class="text-xs text-blue-600 mt-1">
+                    Data Source: <a href="https://eclaim.nhso.go.th" target="_blank" class="underline hover:text-blue-800">eclaim.nhso.go.th</a>
+                </p>
+            </div>
+        </div>
+
         <!-- File Stats -->
         <div class="grid grid-cols-4 gap-4 mb-6">
             <div class="bg-blue-50 rounded-lg p-4 text-center">
@@ -1010,7 +1030,7 @@ function applyFilesFilter() {
     var schemeSelect = document.getElementById('filter-scheme');
 
     var params = new URLSearchParams();
-    params.set('tab', 'files');
+    params.set('tab', 'rep');
     params.set('page', '1');
 
     // Date range
