@@ -28,6 +28,21 @@ except ImportError:
     def get_schemes_sorted_by_priority(codes):
         return [INSURANCE_SCHEMES.get(c, {'code': c}) for c in codes]
 
+# Try to import log_streamer for real-time logs
+try:
+    from utils.log_stream import log_streamer
+    HAS_LOG_STREAMER = True
+except ImportError:
+    HAS_LOG_STREAMER = False
+    log_streamer = None
+
+
+def stream_log(message: str, level: str = 'info'):
+    """Write log to both console and real-time stream"""
+    print(message)
+    if HAS_LOG_STREAMER and log_streamer:
+        log_streamer.write_log(message, level, 'download')
+
 
 class BulkDownloader:
     def __init__(self):
@@ -171,29 +186,28 @@ class BulkDownloader:
 
         self.save_progress(progress)
 
-        print("="*60)
-        print("Bulk Download Started (Multi-Scheme)")
-        print("="*60)
-        print(f"Date range: {start_month}/{start_year} to {end_month}/{end_year}")
-        print(f"Total months: {len(date_range)}")
-        print(f"Schemes: {', '.join(s.upper() for s in scheme_codes)}")
-        print(f"Total iterations: {total_iterations} (months × schemes)")
-        print(f"Bulk ID: {bulk_id}")
-        print("="*60)
-        print()
+        stream_log("="*60)
+        stream_log("Bulk Download Started (Multi-Scheme)")
+        stream_log("="*60)
+        stream_log(f"Date range: {start_month}/{start_year} to {end_month}/{end_year}")
+        stream_log(f"Total months: {len(date_range)}")
+        stream_log(f"Schemes: {', '.join(s.upper() for s in scheme_codes)}")
+        stream_log(f"Total iterations: {total_iterations} (months × schemes)")
+        stream_log(f"Bulk ID: {bulk_id}")
 
         iteration = 0
         # Process each month
         for month_idx, (month, year) in enumerate(date_range, 1):
-            print(f"\n{'='*60}", flush=True)
-            print(f"[Month {month_idx}/{len(date_range)}] Processing {month}/{year}...", flush=True)
-            print(f"{'='*60}", flush=True)
+            stream_log(f"\n{'='*60}")
+            stream_log(f"[Month {month_idx}/{len(date_range)}] Processing {month}/{year}...")
+            stream_log(f"{'='*60}")
 
             # Process each scheme for this month
             for scheme_idx, scheme in enumerate(scheme_codes, 1):
                 iteration += 1
-                print(f"\n[{iteration}/{total_iterations}] {month}/{year} - Scheme: {scheme.upper()}", flush=True)
-                print("-"*60, flush=True)
+                pct = int(iteration / total_iterations * 100)
+                stream_log(f"\n[{iteration}/{total_iterations}] ({pct}%) {month}/{year} - Scheme: {scheme.upper()}")
+                stream_log("-"*60)
 
                 # Update progress
                 progress['current_month'] = {'month': month, 'year': year}
@@ -257,10 +271,10 @@ class BulkDownloader:
                     progress['scheme_progress'][scheme]['completed_months'] += 1
                     progress['scheme_progress'][scheme]['files'] += files_downloaded
 
-                    print(f"✓ {scheme.upper()} {month}/{year}: {files_downloaded} files", flush=True)
+                    stream_log(f"✓ {scheme.upper()} {month}/{year}: {files_downloaded} files", 'success')
 
                 except Exception as e:
-                    print(f"✗ Error {scheme.upper()} {month}/{year}: {str(e)}", flush=True)
+                    stream_log(f"✗ Error {scheme.upper()} {month}/{year}: {str(e)}", 'error')
                     result['status'] = 'failed'
                     result['error'] = str(e)
                     result['completed_at'] = datetime.now().isoformat()
@@ -273,7 +287,7 @@ class BulkDownloader:
                 # Delay between schemes (except for last scheme of last month)
                 if scheme_idx < len(scheme_codes) or month_idx < len(date_range):
                     delay = self.delay_between_schemes if scheme_idx < len(scheme_codes) else self.delay_between_months
-                    print(f"\nWaiting {delay} seconds...", flush=True)
+                    stream_log(f"Waiting {delay} seconds...")
                     time.sleep(delay)
 
             # Update completed months
@@ -286,18 +300,19 @@ class BulkDownloader:
         self.save_progress(progress)
 
         # Summary
-        print("\n" + "="*60)
-        print("Bulk Download Summary (Multi-Scheme)")
-        print("="*60)
-        print(f"Total iterations: {total_iterations}")
-        print(f"Completed: {progress['completed_iterations']}")
-        print(f"Failed: {sum(1 for r in progress['monthly_results'] if r['status'] == 'failed')}")
-        print(f"\nBy Scheme:")
+        stream_log("\n" + "="*60)
+        stream_log("Bulk Download Summary (Multi-Scheme)", 'success')
+        stream_log("="*60)
+        stream_log(f"Total iterations: {total_iterations}")
+        stream_log(f"Completed: {progress['completed_iterations']}", 'success')
+        failed_count = sum(1 for r in progress['monthly_results'] if r['status'] == 'failed')
+        stream_log(f"Failed: {failed_count}", 'error' if failed_count > 0 else 'info')
+        stream_log("By Scheme:")
         for scheme, data in progress['scheme_progress'].items():
-            print(f"  {scheme.upper()}: {data['files']} files from {data['completed_months']} months")
-        print(f"\nStarted at: {progress['started_at']}")
-        print(f"Completed at: {progress['completed_at']}")
-        print("="*60)
+            stream_log(f"  {scheme.upper()}: {data['files']} files from {data['completed_months']} months")
+        stream_log(f"Started at: {progress['started_at']}")
+        stream_log(f"Completed at: {progress['completed_at']}", 'success')
+        stream_log("="*60)
 
 
 def main():
@@ -403,7 +418,7 @@ Insurance Schemes:
         print("Use: python bulk_downloader.py month,year month,year")
         sys.exit(1)
     except Exception as e:
-        print(f"\n✗ Bulk download error: {str(e)}")
+        stream_log(f"✗ Bulk download error: {str(e)}", 'error')
         import traceback
         traceback.print_exc()
         sys.exit(1)

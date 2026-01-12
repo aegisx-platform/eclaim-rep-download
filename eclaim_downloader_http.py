@@ -18,6 +18,21 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Try to import log_streamer for real-time logs
+try:
+    from utils.log_stream import log_streamer
+    HAS_LOG_STREAMER = True
+except ImportError:
+    HAS_LOG_STREAMER = False
+    log_streamer = None
+
+
+def stream_log(message: str, level: str = 'info'):
+    """Write log to both console and real-time stream"""
+    print(message)
+    if HAS_LOG_STREAMER and log_streamer:
+        log_streamer.write_log(message, level, 'download')
+
 class EClaimDownloader:
     def __init__(self, month=None, year=None, scheme='ucs', import_each=False):
         """
@@ -140,7 +155,7 @@ class EClaimDownloader:
             filename (str): Filename
         """
         try:
-            print(f"    ⚡ Importing {filename} to database...")
+            stream_log(f"    ⚡ Importing {filename} to database...")
 
             # Import from eclaim_import module (V2 with Schema V2)
             from utils.eclaim.importer_v2 import import_eclaim_file
@@ -155,17 +170,17 @@ class EClaimDownloader:
             if result['success']:
                 imported = result.get('imported_records', 0)
                 total = result.get('total_records', 0)
-                print(f"    ✓ Imported: {imported}/{total} records")
+                stream_log(f"    ✓ Imported: {imported}/{total} records", 'success')
             else:
                 error = result.get('error', 'Unknown error')
-                print(f"    ✗ Import failed: {error}")
+                stream_log(f"    ✗ Import failed: {error}", 'error')
 
         except Exception as e:
-            print(f"    ✗ Import error: {str(e)}")
+            stream_log(f"    ✗ Import error: {str(e)}", 'error')
 
     def login(self):
         """Login to e-claim system"""
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Logging in...")
+        stream_log(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Logging in...")
 
         try:
             # First, get the login page to establish session
@@ -191,16 +206,16 @@ class EClaimDownloader:
             if 'login' in response.url.lower() and 'error' in response.text.lower():
                 raise Exception("Login failed - invalid credentials or error page")
 
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Login successful!")
+            stream_log(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Login successful!", 'success')
             return True
 
         except Exception as e:
-            print(f"✗ Login error: {str(e)}")
+            stream_log(f"✗ Login error: {str(e)}", 'error')
             raise
 
     def get_download_links(self):
         """Get all download Excel links from validation page"""
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetching validation page...")
+        stream_log(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetching validation page...")
 
         try:
             response = self.session.get(self.validation_url, timeout=120)
@@ -268,11 +283,11 @@ class EClaimDownloader:
                     unique_links.append(link)
                     seen_filenames.add(link['filename'])
 
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Found {len(unique_links)} unique download links")
+            stream_log(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Found {len(unique_links)} unique download links")
             return unique_links
 
         except Exception as e:
-            print(f"✗ Error fetching download links: {str(e)}")
+            stream_log(f"✗ Error fetching download links: {str(e)}", 'error')
             raise
 
     def download_files(self, download_links):
@@ -287,7 +302,7 @@ class EClaimDownloader:
 
             # Check if already downloaded
             if self._is_already_downloaded(filename):
-                print(f"[{idx}/{len(download_links)}] Skipping {filename} (already downloaded)")
+                stream_log(f"[{idx}/{len(download_links)}] Skipping {filename} (already downloaded)")
                 skipped_count += 1
                 continue
 
@@ -299,10 +314,10 @@ class EClaimDownloader:
             while retry_count <= max_retries and not success:
                 try:
                     if retry_count > 0:
-                        print(f"[{idx}/{len(download_links)}] Retry {retry_count}/{max_retries} for {filename}...")
+                        stream_log(f"[{idx}/{len(download_links)}] Retry {retry_count}/{max_retries} for {filename}...", 'warning')
                         time.sleep(2)  # Wait before retry
                     else:
-                        print(f"[{idx}/{len(download_links)}] Downloading {filename}...")
+                        stream_log(f"[{idx}/{len(download_links)}] Downloading {filename}...")
 
                     # Download file with increased timeout
                     response = self.session.get(url, timeout=120, stream=True)
@@ -336,7 +351,7 @@ class EClaimDownloader:
                     })
 
                     downloaded_count += 1
-                    print(f"[{idx}/{len(download_links)}] ✓ Downloaded: {filename} ({file_size:,} bytes)")
+                    stream_log(f"[{idx}/{len(download_links)}] ✓ Downloaded: {filename} ({file_size:,} bytes)", 'success')
                     success = True
 
                     # Save history after each download for real-time tracking
@@ -352,8 +367,8 @@ class EClaimDownloader:
                 except Exception as e:
                     retry_count += 1
                     if retry_count > max_retries:
-                        print(f"[{idx}/{len(download_links)}] ✗ Failed after {max_retries} retries: {filename}")
-                        print(f"    Error: {str(e)}")
+                        stream_log(f"[{idx}/{len(download_links)}] ✗ Failed after {max_retries} retries: {filename}", 'error')
+                        stream_log(f"    Error: {str(e)}", 'error')
                         error_count += 1
                     continue
 
@@ -361,13 +376,12 @@ class EClaimDownloader:
 
     def run(self):
         """Main execution"""
-        print("="*60)
-        print("E-Claim Excel File Downloader (HTTP Client)")
-        print("="*60)
-        print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"Month/Year: {self.month}/{self.year} BE")
-        print(f"Insurance Scheme: {self.scheme.upper()}")
-        print()
+        stream_log("="*60)
+        stream_log("E-Claim Excel File Downloader (HTTP Client)")
+        stream_log("="*60)
+        stream_log(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        stream_log(f"Month/Year: {self.month}/{self.year} BE")
+        stream_log(f"Insurance Scheme: {self.scheme.upper()}")
 
         try:
             # Login
@@ -377,7 +391,7 @@ class EClaimDownloader:
             download_links = self.get_download_links()
 
             if not download_links:
-                print("No download links found!")
+                stream_log("No download links found!", 'warning')
                 return
 
             # Download files
@@ -390,21 +404,19 @@ class EClaimDownloader:
             self._save_history()
 
             # Summary
-            print()
-            print("="*60)
-            print("Download Summary")
-            print("="*60)
-            print(f"Total files found: {len(download_links)}")
-            print(f"✓ Downloaded: {downloaded}")
-            print(f"⊘ Skipped (already downloaded): {skipped}")
-            print(f"✗ Errors: {errors}")
-            print(f"Total downloads in history: {len(self.download_history['downloads'])}")
-            print(f"Download directory: {self.download_dir.absolute()}")
-            print(f"Completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            print("="*60)
+            stream_log("="*60)
+            stream_log("Download Summary", 'success')
+            stream_log("="*60)
+            stream_log(f"Total files found: {len(download_links)}")
+            stream_log(f"✓ Downloaded: {downloaded}", 'success')
+            stream_log(f"⊘ Skipped (already downloaded): {skipped}")
+            stream_log(f"✗ Errors: {errors}", 'error' if errors > 0 else 'info')
+            stream_log(f"Download directory: {self.download_dir.absolute()}")
+            stream_log(f"Completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 'success')
+            stream_log("="*60)
 
         except Exception as e:
-            print(f"\n✗ Error: {str(e)}")
+            stream_log(f"✗ Error: {str(e)}", 'error')
             import traceback
             traceback.print_exc()
             raise
