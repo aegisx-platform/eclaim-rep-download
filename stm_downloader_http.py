@@ -46,30 +46,13 @@ def stream_log(message: str, level: str = 'info'):
 
 
 class STMDownloader:
-    """Statement (STM) File Downloader"""
+    """Statement (STM) File Downloader - UCS Only"""
 
-    # Statement URL patterns by scheme
-    SCHEME_URLS = {
-        'ucs': {
-            'list': '/webComponent/ucs/statementUCSAction.do',
-            'view': '/webComponent/ucs/statementUCSViewAction.do',
-            'name': 'UCS (หลักประกันสุขภาพถ้วนหน้า)'
-        },
-        'ofc': {
-            'list': '/webComponent/ofc/statementOFCAction.do',
-            'view': '/webComponent/ofc/statementOFCViewAction.do',
-            'name': 'OFC (ข้าราชการ)'
-        },
-        'sss': {
-            'list': '/webComponent/sss/statementSSSAction.do',
-            'view': '/webComponent/sss/statementSSSViewAction.do',
-            'name': 'SSS (ประกันสังคม)'
-        },
-        'lgo': {
-            'list': '/webComponent/lgo/statementLGOAction.do',
-            'view': '/webComponent/lgo/statementLGOViewAction.do',
-            'name': 'LGO (อปท.)'
-        }
+    # Statement URL - UCS only (NHSO only provides UCS Statement)
+    STATEMENT_URL = {
+        'list': '/webComponent/ucs/statementUCSAction.do',
+        'view': '/webComponent/ucs/statementUCSViewAction.do',
+        'name': 'UC Statement (หลักประกันสุขภาพถ้วนหน้า)'
     }
 
     # Person types
@@ -79,20 +62,18 @@ class STMDownloader:
         'all': {'code': '', 'name': 'ทั้งหมด'}
     }
 
-    def __init__(self, year=None, month=None, scheme='ucs', person_type='all'):
+    def __init__(self, year=None, month=None, person_type='all'):
         """
-        Initialize STM Downloader
+        Initialize STM Downloader (UCS Statement only)
 
         Args:
             year (int, optional): Fiscal year in Buddhist Era. Defaults to current fiscal year.
             month (int, optional): Month (1-12). None = all months.
-            scheme (str): Insurance scheme (ucs, ofc, sss, lgo). Defaults to 'ucs'.
             person_type (str): Patient type (ip, op, all). Defaults to 'all'.
         """
         self.username, self.password = self._load_credentials()
         self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads'))
         self.tracking_file = Path('stm_download_history.json')
-        self.scheme = scheme.lower()
         self.person_type = person_type.lower()
 
         # Set year and month
@@ -101,18 +82,12 @@ class STMDownloader:
         self.year = year if year is not None else current_fiscal_year
         self.month = month  # None = all months
 
-        # Validate scheme
-        if self.scheme not in self.SCHEME_URLS:
-            raise ValueError(f"Invalid scheme: {self.scheme}. Valid: {list(self.SCHEME_URLS.keys())}")
-
-        # URLs
+        # URLs - UCS Statement only
         self.base_url = 'https://eclaim.nhso.go.th'
         self.login_url = f'{self.base_url}/webComponent/login/LoginAction.do'
-
-        scheme_urls = self.SCHEME_URLS[self.scheme]
-        self.list_url = f'{self.base_url}{scheme_urls["list"]}'
-        self.view_url = f'{self.base_url}{scheme_urls["view"]}'
-        self.scheme_name = scheme_urls['name']
+        self.list_url = f'{self.base_url}{self.STATEMENT_URL["list"]}'
+        self.view_url = f'{self.base_url}{self.STATEMENT_URL["view"]}'
+        self.scheme_name = self.STATEMENT_URL['name']
 
         # Create session
         self.session = requests.Session()
@@ -173,7 +148,7 @@ class STMDownloader:
     def _is_already_downloaded(self, filename):
         """Check if file was already downloaded"""
         for d in self.download_history['downloads']:
-            if d['filename'] == filename and d.get('scheme', 'ucs') == self.scheme:
+            if d['filename'] == filename and d.get('scheme', 'ucs') == 'ucs':
                 return True
         return False
 
@@ -328,8 +303,8 @@ class STMDownloader:
 
             stream_log(f"  ⬇ Downloading: {filename}")
 
-            # Build download URL based on scheme
-            download_url = f'{self.base_url}/webComponent/{self.scheme}/statement{self.scheme.upper()}DownloadAction.do'
+            # Build download URL - UCS only
+            download_url = f'{self.base_url}/webComponent/ucs/statementUCSDownloadAction.do'
 
             # POST form data
             form_data = {
@@ -359,7 +334,7 @@ class STMDownloader:
             self.download_history['downloads'].append({
                 'filename': filename,
                 'document_no': document_no,
-                'scheme': self.scheme,
+                'scheme': 'ucs',
                 'year': self.year,
                 'month': self.month,
                 'stmt_type': stmt_info.get('type', ''),
@@ -441,20 +416,19 @@ def main():
     """CLI Entry point"""
     import argparse
 
-    parser = argparse.ArgumentParser(description='E-Claim Statement (STM) Downloader')
+    parser = argparse.ArgumentParser(description='E-Claim UC Statement Downloader (UCS only)')
     parser.add_argument('--year', type=int, help='Fiscal year (Buddhist Era)')
     parser.add_argument('--month', type=int, help='Month (1-12)')
-    parser.add_argument('--scheme', default='ucs', choices=['ucs', 'ofc', 'sss', 'lgo'],
-                        help='Insurance scheme')
     parser.add_argument('--type', dest='person_type', default='all',
                         choices=['ip', 'op', 'all'], help='Patient type')
+    # --scheme is kept for backward compatibility but ignored
+    parser.add_argument('--scheme', help='(Deprecated - only UCS is supported)')
 
     args = parser.parse_args()
 
     downloader = STMDownloader(
         year=args.year,
         month=args.month,
-        scheme=args.scheme,
         person_type=args.person_type
     )
 

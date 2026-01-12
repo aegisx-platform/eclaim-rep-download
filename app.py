@@ -91,15 +91,15 @@ def init_scheduler():
                 'system'
             )
 
-        # Schedule Statement (STM) jobs if enabled
+        # Schedule Statement (STM) jobs if enabled - UCS only
         if type_stm:
             for time_config in times:
                 hour = time_config.get('hour', 0)
                 minute = time_config.get('minute', 0)
-                download_scheduler.add_stm_scheduled_download(hour, minute, auto_import, schemes)
+                download_scheduler.add_stm_scheduled_download(hour, minute, auto_import)
 
             log_streamer.write_log(
-                f"✓ Statement Scheduler initialized with {len(times)} jobs",
+                f"✓ UC Statement Scheduler initialized with {len(times)} jobs",
                 'success',
                 'system'
             )

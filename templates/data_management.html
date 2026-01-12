@@ -299,7 +299,7 @@
                         </label>
                         <label class="flex items-center cursor-pointer p-3 hover:bg-purple-50 rounded-lg border border-purple-200 schedule-type-label" id="label-type-stm">
                             <input type="checkbox" id="schedule-type-stm" class="w-4 h-4 text-purple-600 rounded" onchange="updateScheduleSchemeVisibility()">
-                            <span class="ml-2 text-sm font-medium text-purple-700">📊 Statement</span>
+                            <span class="ml-2 text-sm font-medium text-purple-700">📊 UC Statement</span>
                         </label>
                         <label class="flex items-center cursor-pointer p-3 hover:bg-green-50 rounded-lg border border-green-200 schedule-type-label" id="label-type-smt">
                             <input type="checkbox" id="schedule-type-smt" class="w-4 h-4 text-green-600 rounded" onchange="updateScheduleSchemeVisibility()">
@@ -309,27 +309,36 @@
                     <p class="text-xs text-gray-500 mt-1">เลือกประเภทข้อมูลที่ต้องการดาวน์โหลดอัตโนมัติ (เลือกได้หลายประเภท)</p>
                 </div>
 
-                <!-- Schedule Scheme Selection (for REP and Statement) -->
+                <!-- Statement Info (UCS only) -->
+                <div id="schedule-stm-info" class="mb-4 hidden">
+                    <div class="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <p class="text-sm text-purple-800">
+                            <strong>UC Statement</strong> - ดาวน์โหลดใบแจ้งยอด UCS (หลักประกันสุขภาพถ้วนหน้า) เท่านั้น
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Schedule Scheme Selection (for REP only) -->
                 <div id="schedule-schemes-section" class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        สิทธิที่ต้องการดาวน์โหลด
-                        <span id="schemes-hint" class="text-xs font-normal text-gray-500 ml-2">(REP: 8 สิทธิ, Statement: 4 สิทธิหลัก)</span>
+                        สิทธิที่ต้องการดาวน์โหลด (REP Files)
+                        <span id="schemes-hint" class="text-xs font-normal text-gray-500 ml-2"></span>
                     </label>
                     <div class="grid grid-cols-4 gap-2 text-sm">
-                        <!-- 4 สิทธิหลัก (REP + Statement) -->
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep,stm">
+                        <!-- 4 สิทธิหลัก -->
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep">
                             <input type="checkbox" name="schedule-schemes" value="ucs" class="w-4 h-4 text-purple-600 rounded" checked>
                             <span class="ml-2">UCS (บัตรทอง)</span>
                         </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep,stm">
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep">
                             <input type="checkbox" name="schedule-schemes" value="ofc" class="w-4 h-4 text-purple-600 rounded" checked>
                             <span class="ml-2">OFC (ข้าราชการ)</span>
                         </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep,stm">
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep">
                             <input type="checkbox" name="schedule-schemes" value="sss" class="w-4 h-4 text-purple-600 rounded" checked>
                             <span class="ml-2">SSS (ประกันสังคม)</span>
                         </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep,stm">
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep">
                             <input type="checkbox" name="schedule-schemes" value="lgo" class="w-4 h-4 text-purple-600 rounded" checked>
                             <span class="ml-2">LGO (อปท.)</span>
                         </label>
@@ -1405,10 +1414,10 @@ function updateScheduleSchemeVisibility() {
             : 'flex items-center cursor-pointer p-3 hover:bg-green-50 rounded-lg border border-gray-200 schedule-type-label';
     }
 
-    // Show/hide scheme section (only for REP and Statement)
+    // Show/hide scheme section (only for REP - Statement is UCS only)
     var schemesSection = document.getElementById('schedule-schemes-section');
     if (schemesSection) {
-        if (repSelected || stmSelected) {
+        if (repSelected) {
             schemesSection.classList.remove('hidden');
         } else {
             schemesSection.classList.add('hidden');
@@ -1431,14 +1440,20 @@ function updateScheduleSchemeVisibility() {
     // Update hint text
     var schemesHint = document.getElementById('schemes-hint');
     if (schemesHint) {
-        if (repSelected && stmSelected) {
-            schemesHint.textContent = '(REP: 8 สิทธิ, Statement: 4 สิทธิหลัก)';
-        } else if (repSelected) {
-            schemesHint.textContent = '(REP: 8 สิทธิทั้งหมด)';
-        } else if (stmSelected) {
-            schemesHint.textContent = '(Statement: 4 สิทธิหลักเท่านั้น)';
+        if (repSelected) {
+            schemesHint.textContent = '(เลือกสิทธิ์สำหรับ REP Files)';
         } else {
             schemesHint.textContent = '';
+        }
+    }
+
+    // Show Statement info (UCS only)
+    var stmInfoSection = document.getElementById('schedule-stm-info');
+    if (stmInfoSection) {
+        if (stmSelected) {
+            stmInfoSection.classList.remove('hidden');
+        } else {
+            stmInfoSection.classList.add('hidden');
         }
     }
 
