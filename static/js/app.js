@@ -335,6 +335,7 @@ function switchDownloadType(type) {
     if (formTitle) formTitle.textContent = info.title;
 
     // Show/hide type-specific sections
+    const yearMonthSection = document.getElementById('dl-year-month-section');
     const patientTypeSection = document.getElementById('dl-patient-type-section');
     const vendorSection = document.getElementById('dl-vendor-section');
     const schemesSection = document.getElementById('dl-schemes-section');
@@ -350,15 +351,19 @@ function switchDownloadType(type) {
 
     // Show relevant sections based on type
     if (type === 'rep') {
+        if (yearMonthSection) yearMonthSection.classList.remove('hidden');
         if (schemesSection) schemesSection.classList.remove('hidden');
         if (dateRangeSection) dateRangeSection.classList.remove('hidden');
         if (estimateSection) estimateSection.classList.remove('hidden');
     } else if (type === 'statement') {
+        if (yearMonthSection) yearMonthSection.classList.remove('hidden');
         if (patientTypeSection) patientTypeSection.classList.remove('hidden');
         if (statementSchemeSection) statementSchemeSection.classList.remove('hidden');
         if (dateRangeSection) dateRangeSection.classList.add('hidden');
         if (estimateSection) estimateSection.classList.add('hidden');
     } else if (type === 'smt') {
+        // SMT: Hide year/month, show SMT-specific options
+        if (yearMonthSection) yearMonthSection.classList.add('hidden');
         if (vendorSection) vendorSection.classList.remove('hidden');
         if (dateRangeSection) dateRangeSection.classList.add('hidden');
         if (estimateSection) estimateSection.classList.add('hidden');
