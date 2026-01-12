@@ -2042,15 +2042,34 @@ def api_smt_files():
         files = []
         total_bytes = 0
 
+        # Check which files have been imported by querying database
+        imported_vendors = set()
+        try:
+            conn = get_pooled_connection()
+            if conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT DISTINCT vendor_no FROM smt_budget_transfers")
+                imported_vendors = {row[0] for row in cursor.fetchall()}
+                cursor.close()
+                conn.close()
+        except Exception:
+            pass
+
         for f in smt_dir.glob('smt_budget_*.csv'):
             stat = f.stat()
             total_bytes += stat.st_size
+
+            # Extract vendor_id from filename: smt_budget_0000010670_20260113_050850.csv
+            parts = f.name.replace('.csv', '').split('_')
+            vendor_id = parts[2] if len(parts) >= 3 else None
+            is_imported = vendor_id in imported_vendors if vendor_id else False
+
             files.append({
                 'filename': f.name,
                 'size': humanize.naturalsize(stat.st_size),
                 'size_bytes': stat.st_size,
                 'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M'),
-                'imported': False  # TODO: Track import status if needed
+                'imported': is_imported
             })
 
         # Sort by modified date, newest first
