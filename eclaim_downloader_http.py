@@ -18,20 +18,26 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Try to import log_streamer for real-time logs
-try:
-    from utils.log_stream import log_streamer
-    HAS_LOG_STREAMER = True
-except ImportError:
-    HAS_LOG_STREAMER = False
-    log_streamer = None
+# Direct log writing for real-time logs (works in subprocess)
+import json as json_module
+REALTIME_LOG_FILE = Path('logs/realtime.log')
 
 
 def stream_log(message: str, level: str = 'info'):
-    """Write log to both console and real-time stream"""
-    print(message)
-    if HAS_LOG_STREAMER and log_streamer:
-        log_streamer.write_log(message, level, 'download')
+    """Write log to both console and real-time stream file"""
+    print(message, flush=True)
+    try:
+        REALTIME_LOG_FILE.parent.mkdir(exist_ok=True)
+        log_entry = {
+            'timestamp': datetime.now().isoformat(),
+            'level': level,
+            'source': 'download',
+            'message': message
+        }
+        with open(REALTIME_LOG_FILE, 'a', encoding='utf-8') as f:
+            f.write(json_module.dumps(log_entry) + '\n')
+    except Exception:
+        pass  # Silently ignore log errors
 
 class EClaimDownloader:
     def __init__(self, month=None, year=None, scheme='ucs', import_each=False):
