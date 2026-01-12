@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}Benchmark Comparison - NHSO Revenue Intelligence{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Benchmark Comparison</h1>
+            <p class="text-gray-600 mt-1">เปรียบเทียบประสิทธิภาพกับค่าเฉลี่ยระดับประเทศ/ภูมิภาค</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <!-- Region Selector -->
+            <select id="region-select" onchange="loadBenchmark()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <option value="national">ระดับประเทศ</option>
+                <option value="central">ภาคกลาง</option>
+                <option value="north">ภาคเหนือ</option>
+                <option value="northeast">ภาคตะวันออกเฉียงเหนือ</option>
+                <option value="south">ภาคใต้</option>
+            </select>
+            <!-- Fiscal Year Selector -->
+            <select id="fy-select" onchange="loadBenchmark()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <option value="2568">ปีงบ 2568</option>
+            </select>
+            <button onclick="loadBenchmark()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Overall Score Card -->
+    <div id="score-card" class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-bold mb-2">Overall Performance Score</h2>
+                <p class="text-blue-100">เทียบกับ <span id="compare-region">ค่าเฉลี่ยระดับประเทศ</span></p>
+            </div>
+            <div class="text-center">
+                <div id="overall-score" class="text-6xl font-bold">-</div>
+                <div id="overall-status" class="text-lg mt-1">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="comparison-grid">
+        <!-- Cards will be populated by JavaScript -->
+        <div class="bg-white rounded-xl shadow-md p-6 animate-pulse">
+            <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+            <div class="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/3"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-6 animate-pulse">
+            <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+            <div class="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/3"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-6 animate-pulse">
+            <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+            <div class="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/3"></div>
+        </div>
+    </div>
+
+    <!-- Detailed Comparison Table -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">Detailed Comparison</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">โรงพยาบาล</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Benchmark</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Difference</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="comparison-tbody" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="5" class="px-6 py-8 text-center text-gray-500">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Hospital Summary -->
+    <div class="bg-white rounded-xl shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Hospital Summary</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="hospital-summary">
+            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                <div class="text-sm text-gray-500">Total Claims</div>
+                <div id="summary-total" class="text-2xl font-bold text-gray-800">-</div>
+            </div>
+            <div class="bg-blue-50 rounded-lg p-4 text-center">
+                <div class="text-sm text-blue-600">Reimb Rate</div>
+                <div id="summary-reimb" class="text-2xl font-bold text-blue-700">-</div>
+            </div>
+            <div class="bg-red-50 rounded-lg p-4 text-center">
+                <div class="text-sm text-red-600">Denial Rate</div>
+                <div id="summary-denial" class="text-2xl font-bold text-red-700">-</div>
+            </div>
+            <div class="bg-green-50 rounded-lg p-4 text-center">
+                <div class="text-sm text-green-600">Avg RW</div>
+                <div id="summary-rw" class="text-2xl font-bold text-green-700">-</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Source Note -->
+    <div class="text-sm text-gray-500 text-center">
+        <p>ข้อมูล Benchmark อ้างอิงจาก NHSO Annual Report 2567</p>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadBenchmark();
+});
+
+async function loadBenchmark() {
+    var region = document.getElementById('region-select').value;
+    var fiscalYear = document.getElementById('fy-select').value;
+
+    try {
+        var response = await fetch('/api/analytics/benchmark?region=' + region + '&fiscal_year=' + fiscalYear);
+        var result = await response.json();
+
+        if (result.success) {
+            renderBenchmark(result.data);
+        } else {
+            console.error('Error:', result.error);
+        }
+    } catch (e) {
+        console.error('Error loading benchmark:', e);
+    }
+}
+
+function renderBenchmark(data) {
+    // Update region label
+    var regionLabels = {
+        'national': 'ค่าเฉลี่ยระดับประเทศ',
+        'central': 'ค่าเฉลี่ยภาคกลาง',
+        'north': 'ค่าเฉลี่ยภาคเหนือ',
+        'northeast': 'ค่าเฉลี่ยภาคตะวันออกเฉียงเหนือ',
+        'south': 'ค่าเฉลี่ยภาคใต้'
+    };
+    document.getElementById('compare-region').textContent = regionLabels[data.region] || data.region;
+
+    // Update overall score
+    document.getElementById('overall-score').textContent = data.overall_score + '%';
+
+    var statusLabels = {
+        'excellent': 'ดีเยี่ยม',
+        'good': 'ดี',
+        'fair': 'พอใช้',
+        'needs_improvement': 'ต้องปรับปรุง',
+        'unknown': 'ไม่มีข้อมูล'
+    };
+    document.getElementById('overall-status').textContent = statusLabels[data.overall_status] || data.overall_status;
+
+    // Update score card color
+    var scoreCard = document.getElementById('score-card');
+    if (data.overall_status === 'excellent') {
+        scoreCard.className = 'bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white';
+    } else if (data.overall_status === 'good') {
+        scoreCard.className = 'bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg p-6 text-white';
+    } else if (data.overall_status === 'fair') {
+        scoreCard.className = 'bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl shadow-lg p-6 text-white';
+    } else {
+        scoreCard.className = 'bg-gradient-to-r from-red-500 to-pink-600 rounded-xl shadow-lg p-6 text-white';
+    }
+
+    // Render comparison cards
+    renderComparisonCards(data.comparisons);
+
+    // Render comparison table
+    renderComparisonTable(data.comparisons);
+
+    // Update hospital summary
+    var metrics = data.hospital_metrics;
+    document.getElementById('summary-total').textContent = metrics.total_claims.toLocaleString();
+    document.getElementById('summary-reimb').textContent = metrics.reimb_rate.toFixed(1) + '%';
+    document.getElementById('summary-denial').textContent = metrics.denial_rate.toFixed(1) + '%';
+    document.getElementById('summary-rw').textContent = metrics.avg_rw.toFixed(2);
+}
+
+function renderComparisonCards(comparisons) {
+    var grid = document.getElementById('comparison-grid');
+    grid.textContent = '';
+
+    comparisons.forEach(function(comp) {
+        var card = document.createElement('div');
+        card.className = 'bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow';
+
+        // Header row
+        var headerRow = document.createElement('div');
+        headerRow.className = 'flex items-center justify-between mb-4';
+
+        var title = document.createElement('h4');
+        title.className = 'font-semibold text-gray-800';
+        title.textContent = comp.metric;
+        headerRow.appendChild(title);
+
+        // Status icon
+        var iconContainer = document.createElement('div');
+        var svgNS = 'http://www.w3.org/2000/svg';
+        var svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('class', 'w-5 h-5');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        var path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('stroke-width', '2');
+
+        if (comp.is_good === true) {
+            iconContainer.className = 'bg-green-50 p-2 rounded-full';
+            svg.setAttribute('class', 'w-5 h-5 text-green-600');
+            path.setAttribute('d', 'M5 13l4 4L19 7');
+        } else if (comp.is_good === false) {
+            iconContainer.className = 'bg-red-50 p-2 rounded-full';
+            svg.setAttribute('class', 'w-5 h-5 text-red-600');
+            path.setAttribute('d', 'M6 18L18 6M6 6l12 12');
+        } else {
+            iconContainer.className = 'bg-gray-50 p-2 rounded-full';
+            svg.setAttribute('class', 'w-5 h-5 text-gray-600');
+            path.setAttribute('d', 'M20 12H4');
+        }
+        svg.appendChild(path);
+        iconContainer.appendChild(svg);
+        headerRow.appendChild(iconContainer);
+        card.appendChild(headerRow);
+
+        // Subtitle
+        var subtitle = document.createElement('div');
+        subtitle.className = 'text-sm text-gray-500 mb-1';
+        subtitle.textContent = comp.metric_th;
+        card.appendChild(subtitle);
+
+        // Values row
+        var valuesRow = document.createElement('div');
+        valuesRow.className = 'flex items-end justify-between';
+
+        // Hospital value
+        var hospitalDiv = document.createElement('div');
+        var hospitalValue = document.createElement('div');
+        hospitalValue.className = 'text-3xl font-bold text-gray-800';
+        hospitalValue.textContent = formatValue(comp.hospital_value, comp.unit);
+        hospitalDiv.appendChild(hospitalValue);
+        var hospitalLabel = document.createElement('div');
+        hospitalLabel.className = 'text-sm text-gray-500';
+        hospitalLabel.textContent = 'โรงพยาบาล';
+        hospitalDiv.appendChild(hospitalLabel);
+        valuesRow.appendChild(hospitalDiv);
+
+        // Difference
+        var diffDiv = document.createElement('div');
+        diffDiv.className = 'text-right';
+        var diffValue = document.createElement('div');
+        var diffDisplay = comp.difference > 0 ? '+' + comp.difference : comp.difference;
+        var diffClass = comp.status === 'above' ? 'text-green-600' : comp.status === 'below' ? 'text-red-600' : 'text-gray-600';
+        if (comp.metric === 'Denial Rate') {
+            diffClass = comp.status === 'below' ? 'text-green-600' : comp.status === 'above' ? 'text-red-600' : 'text-gray-600';
+        }
+        diffValue.className = 'text-lg font-semibold ' + diffClass;
+        diffValue.textContent = diffDisplay;
+        diffDiv.appendChild(diffValue);
+        var benchmarkLabel = document.createElement('div');
+        benchmarkLabel.className = 'text-sm text-gray-500';
+        benchmarkLabel.textContent = 'vs ' + formatValue(comp.benchmark_value, comp.unit);
+        diffDiv.appendChild(benchmarkLabel);
+        valuesRow.appendChild(diffDiv);
+
+        card.appendChild(valuesRow);
+        grid.appendChild(card);
+    });
+}
+
+function renderComparisonTable(comparisons) {
+    var tbody = document.getElementById('comparison-tbody');
+    tbody.textContent = '';
+
+    comparisons.forEach(function(comp) {
+        var tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+
+        // Metric column
+        var metricTd = document.createElement('td');
+        metricTd.className = 'px-6 py-4 whitespace-nowrap';
+        var metricName = document.createElement('div');
+        metricName.className = 'font-medium text-gray-900';
+        metricName.textContent = comp.metric;
+        metricTd.appendChild(metricName);
+        var metricTh = document.createElement('div');
+        metricTh.className = 'text-sm text-gray-500';
+        metricTh.textContent = comp.metric_th;
+        metricTd.appendChild(metricTh);
+        tr.appendChild(metricTd);
+
+        // Hospital value column
+        var hospitalTd = document.createElement('td');
+        hospitalTd.className = 'px-6 py-4 whitespace-nowrap text-right font-semibold text-gray-900';
+        hospitalTd.textContent = formatValue(comp.hospital_value, comp.unit);
+        tr.appendChild(hospitalTd);
+
+        // Benchmark value column
+        var benchmarkTd = document.createElement('td');
+        benchmarkTd.className = 'px-6 py-4 whitespace-nowrap text-right text-gray-600';
+        benchmarkTd.textContent = formatValue(comp.benchmark_value, comp.unit);
+        tr.appendChild(benchmarkTd);
+
+        // Difference column
+        var diffTd = document.createElement('td');
+        var diffDisplay = comp.difference > 0 ? '+' + comp.difference : comp.difference;
+        var diffClass = comp.status === 'above' ? 'text-green-600' : comp.status === 'below' ? 'text-red-600' : 'text-gray-600';
+        if (comp.metric === 'Denial Rate') {
+            diffClass = comp.status === 'below' ? 'text-green-600' : comp.status === 'above' ? 'text-red-600' : 'text-gray-600';
+        }
+        diffTd.className = 'px-6 py-4 whitespace-nowrap text-right font-semibold ' + diffClass;
+        diffTd.textContent = diffDisplay + ' ' + comp.unit;
+        tr.appendChild(diffTd);
+
+        // Status column
+        var statusTd = document.createElement('td');
+        statusTd.className = 'px-6 py-4 whitespace-nowrap text-center';
+        var statusBadge = document.createElement('span');
+        if (comp.is_good === true) {
+            statusBadge.className = 'px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800';
+            statusBadge.textContent = 'Good';
+        } else if (comp.is_good === false) {
+            statusBadge.className = 'px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800';
+            statusBadge.textContent = 'Below';
+        } else {
+            statusBadge.className = 'px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800';
+            statusBadge.textContent = 'Neutral';
+        }
+        statusTd.appendChild(statusBadge);
+        tr.appendChild(statusTd);
+
+        tbody.appendChild(tr);
+    });
+}
+
+function formatValue(value, unit) {
+    if (unit === 'percent' || unit === '%') {
+        return value.toFixed(1) + '%';
+    } else if (unit === 'baht') {
+        return value.toLocaleString() + ' ฿';
+    } else if (unit === 'RW' || unit === 'rw') {
+        return value.toFixed(2);
+    }
+    return value.toString();
+}
+</script>
+{% endblock %}

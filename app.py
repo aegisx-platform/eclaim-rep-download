@@ -3115,6 +3115,213 @@ def api_export_report(report_type):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/analytics/benchmark')
+def api_benchmark():
+    """
+    Benchmark Comparison API
+    Compare hospital metrics with national/regional averages
+    """
+    try:
+        region = request.args.get('region', 'national')
+        fiscal_year = request.args.get('fiscal_year', 2568, type=int)
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Get hospital's actual metrics
+        # 1. Reimbursement rate
+        cursor.execute("""
+            SELECT
+                ROUND(SUM(COALESCE(reimb_nhso, 0)) * 100.0 / NULLIF(SUM(COALESCE(claim_drg, 0)), 0), 2) as reimb_rate,
+                ROUND(COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' AND error_code != '0' THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0), 2) as denial_rate,
+                ROUND(AVG(CASE WHEN service_type = 'IP' THEN claim_drg END), 2) as avg_claim_ip,
+                ROUND(AVG(CASE WHEN service_type = 'OP' THEN claim_drg END), 2) as avg_claim_op,
+                ROUND(AVG(CASE WHEN rw IS NOT NULL THEN rw END), 4) as avg_rw,
+                COUNT(*) as total_claims
+            FROM claim_rep_opip_nhso_item
+            WHERE claim_drg IS NOT NULL AND claim_drg > 0
+        """)
+        hospital_row = cursor.fetchone()
+
+        hospital_metrics = {
+            'reimb_rate': float(hospital_row[0]) if hospital_row[0] else 0,
+            'denial_rate': float(hospital_row[1]) if hospital_row[1] else 0,
+            'avg_claim_ip': float(hospital_row[2]) if hospital_row[2] else 0,
+            'avg_claim_op': float(hospital_row[3]) if hospital_row[3] else 0,
+            'avg_rw': float(hospital_row[4]) if hospital_row[4] else 0,
+            'total_claims': hospital_row[5] or 0
+        }
+
+        # Get benchmark data
+        cursor.execute("""
+            SELECT metric_name, value, unit, description
+            FROM analytics_benchmarks
+            WHERE (region = %s OR region = 'national')
+            AND fiscal_year = %s
+            ORDER BY metric_name, region DESC
+        """, (region, fiscal_year))
+
+        benchmarks = {}
+        for row in cursor.fetchall():
+            metric_name = row[0]
+            if metric_name not in benchmarks:
+                benchmarks[metric_name] = {
+                    'value': float(row[1]),
+                    'unit': row[2],
+                    'description': row[3]
+                }
+
+        # Calculate comparison
+        comparisons = []
+
+        # Reimbursement Rate
+        if 'reimb_rate' in benchmarks:
+            benchmark_val = benchmarks['reimb_rate']['value']
+            hospital_val = hospital_metrics['reimb_rate']
+            diff = hospital_val - benchmark_val
+            comparisons.append({
+                'metric': 'Reimbursement Rate',
+                'metric_th': 'อัตราได้รับชดเชย',
+                'hospital_value': hospital_val,
+                'benchmark_value': benchmark_val,
+                'difference': round(diff, 2),
+                'unit': '%',
+                'status': 'above' if diff > 0 else 'below' if diff < 0 else 'equal',
+                'is_good': diff >= 0
+            })
+
+        # Denial Rate (lower is better)
+        if 'denial_rate' in benchmarks:
+            benchmark_val = benchmarks['denial_rate']['value']
+            hospital_val = hospital_metrics['denial_rate']
+            diff = hospital_val - benchmark_val
+            comparisons.append({
+                'metric': 'Denial Rate',
+                'metric_th': 'อัตราปฏิเสธเคลม',
+                'hospital_value': hospital_val,
+                'benchmark_value': benchmark_val,
+                'difference': round(diff, 2),
+                'unit': '%',
+                'status': 'above' if diff > 0 else 'below' if diff < 0 else 'equal',
+                'is_good': diff <= 0  # Lower is better for denial rate
+            })
+
+        # Average Claim IP
+        if 'avg_claim_ip' in benchmarks:
+            benchmark_val = benchmarks['avg_claim_ip']['value']
+            hospital_val = hospital_metrics['avg_claim_ip']
+            diff = hospital_val - benchmark_val
+            diff_pct = (diff / benchmark_val * 100) if benchmark_val > 0 else 0
+            comparisons.append({
+                'metric': 'Avg Claim (IP)',
+                'metric_th': 'ค่าเฉลี่ยเคลม IP',
+                'hospital_value': hospital_val,
+                'benchmark_value': benchmark_val,
+                'difference': round(diff, 2),
+                'difference_pct': round(diff_pct, 1),
+                'unit': 'baht',
+                'status': 'above' if diff > 0 else 'below' if diff < 0 else 'equal',
+                'is_good': None  # Neutral - depends on context
+            })
+
+        # Average Claim OP
+        if 'avg_claim_op' in benchmarks:
+            benchmark_val = benchmarks['avg_claim_op']['value']
+            hospital_val = hospital_metrics['avg_claim_op']
+            diff = hospital_val - benchmark_val
+            diff_pct = (diff / benchmark_val * 100) if benchmark_val > 0 else 0
+            comparisons.append({
+                'metric': 'Avg Claim (OP)',
+                'metric_th': 'ค่าเฉลี่ยเคลม OP',
+                'hospital_value': hospital_val,
+                'benchmark_value': benchmark_val,
+                'difference': round(diff, 2),
+                'difference_pct': round(diff_pct, 1),
+                'unit': 'baht',
+                'status': 'above' if diff > 0 else 'below' if diff < 0 else 'equal',
+                'is_good': None
+            })
+
+        # Average RW
+        if 'avg_rw' in benchmarks:
+            benchmark_val = benchmarks['avg_rw']['value']
+            hospital_val = hospital_metrics['avg_rw']
+            diff = hospital_val - benchmark_val
+            comparisons.append({
+                'metric': 'Average RW',
+                'metric_th': 'ค่า RW เฉลี่ย',
+                'hospital_value': hospital_val,
+                'benchmark_value': benchmark_val,
+                'difference': round(diff, 4),
+                'unit': 'RW',
+                'status': 'above' if diff > 0 else 'below' if diff < 0 else 'equal',
+                'is_good': diff >= 0
+            })
+
+        # Get available regions
+        cursor.execute("""
+            SELECT DISTINCT region FROM analytics_benchmarks ORDER BY region
+        """)
+        available_regions = [row[0] for row in cursor.fetchall()]
+
+        # Get available fiscal years
+        cursor.execute("""
+            SELECT DISTINCT fiscal_year FROM analytics_benchmarks ORDER BY fiscal_year DESC
+        """)
+        available_years = [row[0] for row in cursor.fetchall()]
+
+        cursor.close()
+        conn.close()
+
+        # Calculate overall score
+        good_count = sum(1 for c in comparisons if c.get('is_good') == True)
+        bad_count = sum(1 for c in comparisons if c.get('is_good') == False)
+        total_scored = good_count + bad_count
+
+        if total_scored > 0:
+            score = round(good_count / total_scored * 100)
+            if score >= 80:
+                overall_status = 'excellent'
+            elif score >= 60:
+                overall_status = 'good'
+            elif score >= 40:
+                overall_status = 'fair'
+            else:
+                overall_status = 'needs_improvement'
+        else:
+            score = 0
+            overall_status = 'unknown'
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'hospital_metrics': hospital_metrics,
+                'comparisons': comparisons,
+                'overall_score': score,
+                'overall_status': overall_status,
+                'region': region,
+                'fiscal_year': fiscal_year,
+                'available_regions': available_regions,
+                'available_years': available_years
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in benchmark comparison: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/benchmark')
+def benchmark_page():
+    """Benchmark Comparison page"""
+    return render_template('benchmark.html')
+
+
 # ============================================
 # Phase 3: Predictive & AI Analytics
 # ============================================
