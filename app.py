@@ -2152,7 +2152,7 @@ def api_smt_import_file(filename):
         fetcher = SMTBudgetFetcher()
         records = []
 
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 records.append(row)
@@ -2196,7 +2196,7 @@ def api_smt_import_all():
         for f in smt_dir.glob('smt_budget_*.csv'):
             try:
                 records = []
-                with open(f, 'r', encoding='utf-8') as file:
+                with open(f, 'r', encoding='utf-8-sig') as file:
                     reader = csv.DictReader(file)
                     for row in reader:
                         records.append(row)
