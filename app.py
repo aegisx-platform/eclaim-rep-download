@@ -1435,6 +1435,36 @@ def api_smt_stats():
         return jsonify({'success': True, 'record_count': 0, 'last_sync': None})
 
 
+@app.route('/api/smt/clear', methods=['POST'])
+def api_smt_clear():
+    """Clear all SMT budget data from database"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Delete all SMT budget transfers
+        cursor.execute("DELETE FROM smt_budget_transfers")
+        deleted_count = cursor.rowcount
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        log_streamer.write_log(f"Cleared {deleted_count} SMT budget records", 'info', 'smt')
+
+        return jsonify({
+            'success': True,
+            'deleted_count': deleted_count,
+            'message': f'Deleted {deleted_count} records'
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 def init_smt_scheduler():
     """Initialize SMT scheduler with saved settings"""
     try:
@@ -3461,19 +3491,24 @@ def api_benchmark_hospitals():
 
         cursor = conn.cursor()
 
-        # Get summary by vendor from smt_budget_transfers
+        # Get summary by vendor from smt_budget_transfers with hospital name lookup
         cursor.execute("""
             SELECT
-                vendor_no,
+                s.vendor_no,
                 COUNT(*) as records,
-                COALESCE(SUM(total_amount), 0) as total_amount,
-                COALESCE(SUM(wait_amount), 0) as wait_amount,
-                COALESCE(SUM(debt_amount), 0) as debt_amount,
-                COALESCE(SUM(bond_amount), 0) as bond_amount,
-                MIN(run_date) as first_date,
-                MAX(run_date) as last_date
-            FROM smt_budget_transfers
-            GROUP BY vendor_no
+                COALESCE(SUM(s.total_amount), 0) as total_amount,
+                COALESCE(SUM(s.wait_amount), 0) as wait_amount,
+                COALESCE(SUM(s.debt_amount), 0) as debt_amount,
+                COALESCE(SUM(s.bond_amount), 0) as bond_amount,
+                MIN(s.run_date) as first_date,
+                MAX(s.run_date) as last_date,
+                h.name as hospital_name
+            FROM smt_budget_transfers s
+            LEFT JOIN health_offices h ON (
+                h.hcode5 = LTRIM(s.vendor_no, '0')
+                OR h.hcode5 = s.vendor_no
+            )
+            GROUP BY s.vendor_no, h.name
             ORDER BY total_amount DESC
         """)
 
@@ -3483,21 +3518,145 @@ def api_benchmark_hospitals():
 
         hospitals = []
         for row in rows:
+            vendor_no = row[0]
+            hospital_name = row[8] if row[8] else None
             hospitals.append({
-                'vendor_no': row[0],
+                'vendor_no': vendor_no,
                 'records': row[1],
                 'total_amount': float(row[2]) if row[2] else 0,
                 'wait_amount': float(row[3]) if row[3] else 0,
                 'debt_amount': float(row[4]) if row[4] else 0,
                 'bond_amount': float(row[5]) if row[5] else 0,
                 'first_date': row[6].strftime('%Y-%m-%d') if row[6] else None,
-                'last_date': row[7].strftime('%Y-%m-%d') if row[7] else None
+                'last_date': row[7].strftime('%Y-%m-%d') if row[7] else None,
+                'hospital_name': hospital_name
             })
 
         return jsonify({
             'success': True,
             'hospitals': hospitals,
             'count': len(hospitals)
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/benchmark/timeseries')
+def api_benchmark_timeseries():
+    """Get time-series data for hospital comparison charts"""
+    try:
+        fiscal_year = request.args.get('fiscal_year')
+        start_month = request.args.get('start_month')
+        end_month = request.args.get('end_month')
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Build date filter based on fiscal year and month range
+        # Thai fiscal year: Oct (year-1) to Sep (year)
+        where_clause = ""
+        params = []
+
+        if fiscal_year:
+            fiscal_year_int = int(fiscal_year)
+            # Convert Buddhist Era to Gregorian
+            gregorian_year = fiscal_year_int - 543
+            # Fiscal year starts Oct of previous year, ends Sep of the year
+            start_date = f"{gregorian_year - 1}-10-01"
+            end_date = f"{gregorian_year}-09-30"
+            where_clause = "WHERE run_date >= %s AND run_date <= %s"
+            params = [start_date, end_date]
+
+            # If specific month range is specified
+            if start_month and end_month:
+                start_m = int(start_month)
+                end_m = int(end_month)
+                # Adjust dates based on month in fiscal year
+                if start_m >= 10:
+                    start_date = f"{gregorian_year - 1}-{start_m:02d}-01"
+                else:
+                    start_date = f"{gregorian_year}-{start_m:02d}-01"
+                if end_m >= 10:
+                    end_date = f"{gregorian_year - 1}-{end_m:02d}-28"
+                else:
+                    end_date = f"{gregorian_year}-{end_m:02d}-28"
+                params = [start_date, end_date]
+
+        # Get monthly summary by vendor
+        query = f"""
+            SELECT
+                s.vendor_no,
+                h.name as hospital_name,
+                EXTRACT(YEAR FROM s.run_date) as year,
+                EXTRACT(MONTH FROM s.run_date) as month,
+                COUNT(*) as records,
+                COALESCE(SUM(s.total_amount), 0) as total_amount,
+                COALESCE(SUM(s.wait_amount), 0) as wait_amount,
+                COALESCE(SUM(s.debt_amount), 0) as debt_amount
+            FROM smt_budget_transfers s
+            LEFT JOIN health_offices h ON (
+                h.hcode5 = LTRIM(s.vendor_no, '0')
+                OR h.hcode5 = s.vendor_no
+            )
+            {where_clause}
+            GROUP BY s.vendor_no, h.name, EXTRACT(YEAR FROM s.run_date), EXTRACT(MONTH FROM s.run_date)
+            ORDER BY s.vendor_no, year, month
+        """
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        # Also get available fiscal years
+        cursor.execute("""
+            SELECT DISTINCT
+                CASE
+                    WHEN EXTRACT(MONTH FROM run_date) >= 10 THEN EXTRACT(YEAR FROM run_date) + 544
+                    ELSE EXTRACT(YEAR FROM run_date) + 543
+                END as fiscal_year
+            FROM smt_budget_transfers
+            ORDER BY fiscal_year DESC
+        """)
+        fiscal_years = [int(r[0]) for r in cursor.fetchall()]
+
+        cursor.close()
+        conn.close()
+
+        # Organize data by vendor
+        vendors = {}
+        months = set()
+
+        for row in rows:
+            vendor_no = row[0]
+            hospital_name = row[1]
+            year = int(row[2])
+            month = int(row[3])
+            month_key = f"{year}-{month:02d}"
+            months.add(month_key)
+
+            if vendor_no not in vendors:
+                vendors[vendor_no] = {
+                    'vendor_no': vendor_no,
+                    'hospital_name': hospital_name or f'รพ. {vendor_no.lstrip("0")}',
+                    'data': {}
+                }
+
+            vendors[vendor_no]['data'][month_key] = {
+                'records': row[4],
+                'total_amount': float(row[5]) if row[5] else 0,
+                'wait_amount': float(row[6]) if row[6] else 0,
+                'debt_amount': float(row[7]) if row[7] else 0
+            }
+
+        return jsonify({
+            'success': True,
+            'vendors': list(vendors.values()),
+            'months': sorted(list(months)),
+            'fiscal_years': fiscal_years
         })
 
     except Exception as e:
