@@ -432,18 +432,27 @@ function toThaiDateFormat(dateStr) {
 }
 
 /**
- * Download SMT Budget
+ * Download SMT Budget with progress indicator
  */
 async function downloadSmtBudget() {
+    const downloadBtn = document.getElementById('download-btn');
+    const downloadBtnText = document.getElementById('download-btn-text');
+
     const vendorId = document.getElementById('dl-vendor-id')?.value || '';
     const startDate = document.getElementById('dl-smt-start-date')?.value || '';
     const endDate = document.getElementById('dl-smt-end-date')?.value || '';
     const scheme = document.getElementById('dl-smt-scheme')?.value || '';
     const smtType = document.getElementById('dl-smt-type')?.value || '';
-    const autoImport = document.getElementById('bulk-auto-import')?.checked || false;
+    const autoImport = document.getElementById('dl-smt-auto-import')?.checked || false;
 
     if (!vendorId) {
         showToast('กรุณาระบุ Vendor ID', 'error');
+        return;
+    }
+
+    // Check if already downloading
+    if (downloadBtn && downloadBtn.disabled) {
+        showToast('กำลังดาวน์โหลดอยู่ กรุณารอให้เสร็จก่อน', 'warning');
         return;
     }
 
@@ -451,8 +460,18 @@ async function downloadSmtBudget() {
     const thaiStartDate = toThaiDateFormat(startDate);
     const thaiEndDate = toThaiDateFormat(endDate);
 
+    // Show loading state
+    const originalText = downloadBtnText?.textContent || 'ดาวน์โหลดข้อมูล';
+
+    if (downloadBtn) {
+        downloadBtn.disabled = true;
+        downloadBtn.classList.add('opacity-75', 'cursor-wait');
+    }
+    if (downloadBtnText) {
+        downloadBtnText.textContent = autoImport ? '⏳ กำลังดึงข้อมูลและนำเข้า...' : '⏳ กำลังดึงข้อมูล...';
+    }
+
     try {
-        showToast('เริ่มดาวน์โหลด SMT Budget...', 'info');
         const response = await fetch('/api/smt/download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -478,6 +497,15 @@ async function downloadSmtBudget() {
         }
     } catch (error) {
         showToast('Error: ' + error.message, 'error');
+    } finally {
+        // Restore button state
+        if (downloadBtn) {
+            downloadBtn.disabled = false;
+            downloadBtn.classList.remove('opacity-75', 'cursor-wait');
+        }
+        if (downloadBtnText) {
+            downloadBtnText.textContent = originalText;
+        }
     }
 }
 
@@ -1309,25 +1337,35 @@ async function deleteSmtFile(filename) {
 }
 
 /**
- * Clear all SMT files
+ * Clear all SMT files and database records
  */
 async function clearAllSmtFiles() {
-    if (!confirm('ลบไฟล์ SMT ทั้งหมด? การดำเนินการนี้ไม่สามารถย้อนกลับได้')) return;
-    if (!confirm('ยืนยันอีกครั้ง - ลบไฟล์ SMT ทั้งหมด?')) return;
+    if (!confirm('ลบไฟล์ SMT และข้อมูลในฐานข้อมูลทั้งหมด?\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้!')) return;
+    if (!confirm('ยืนยันอีกครั้ง - ลบไฟล์ SMT และข้อมูลในฐานข้อมูลทั้งหมด?')) return;
 
     try {
-        const response = await fetch('/api/smt/clear-files', {
+        // 1. Delete database records first
+        const dbResponse = await fetch('/api/smt/clear', {
             method: 'POST'
         });
+        const dbData = await dbResponse.json();
 
-        const data = await response.json();
-        if (data.success) {
-            showToast(data.message || 'All SMT files cleared', 'success');
+        // 2. Delete CSV files
+        const filesResponse = await fetch('/api/smt/clear-files', {
+            method: 'POST'
+        });
+        const filesData = await filesResponse.json();
+
+        if (dbData.success && filesData.success) {
+            showToast(`ลบข้อมูลสำเร็จ: ${dbData.deleted_count || 0} records, ${filesData.deleted_count || 0} files`, 'success');
             loadSmtFiles();
         } else {
-            showToast('Error: ' + data.error, 'error');
+            const errors = [];
+            if (!dbData.success) errors.push('Database: ' + dbData.error);
+            if (!filesData.success) errors.push('Files: ' + filesData.error);
+            showToast('Error: ' + errors.join(', '), 'error');
         }
     } catch (error) {
-        showToast('Error clearing files', 'error');
+        showToast('Error clearing data: ' + error.message, 'error');
     }
 }

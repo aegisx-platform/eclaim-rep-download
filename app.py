@@ -2087,7 +2087,7 @@ def api_smt_files():
 
 @app.route('/api/smt/download', methods=['POST'])
 def api_smt_download():
-    """Download SMT budget data and export to CSV"""
+    """Download SMT budget data and export to CSV, with optional auto-import to database"""
     try:
         data = request.get_json() or {}
         vendor_id = data.get('vendor_id')
@@ -2095,6 +2095,7 @@ def api_smt_download():
         end_date = data.get('end_date')      # dd/mm/yyyy BE format
         budget_source = data.get('budget_source', '')  # UC, OF, SS, LG, or empty for all
         budget_type = data.get('budget_type', '')      # OP, IP, PP, or empty for all
+        auto_import = data.get('auto_import', False)   # Auto-import to database after download
 
         if not vendor_id:
             # Try to get from settings
@@ -2134,6 +2135,25 @@ def api_smt_download():
         # Calculate summary
         summary = fetcher.calculate_summary(records)
 
+        # Auto-import to database if requested
+        imported_count = 0
+        if auto_import:
+            log_streamer.write_log(
+                f"Auto-importing {len(records)} records to database...",
+                'info',
+                'smt'
+            )
+            imported_count = fetcher.save_to_database(records)
+            log_streamer.write_log(
+                f"✓ Auto-imported {imported_count} records to database",
+                'success',
+                'smt'
+            )
+
+        message = f'Downloaded {len(records)} records'
+        if auto_import:
+            message += f', imported {imported_count} to database'
+
         log_streamer.write_log(
             f"✓ SMT download completed: {len(records)} records exported to {export_path}",
             'success',
@@ -2142,8 +2162,9 @@ def api_smt_download():
 
         return jsonify({
             'success': True,
-            'message': f'Downloaded {len(records)} records',
+            'message': message,
             'records': len(records),
+            'imported': imported_count,
             'total_amount': summary['total_amount'],
             'export_path': export_path
         })
