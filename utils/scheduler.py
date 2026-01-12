@@ -313,13 +313,22 @@ class DownloadScheduler:
         """
         Execute SMT budget fetch
 
-        This runs as a background job
+        This runs as a background job.
+        Date range: 1st of current month to today (auto-calculated)
         """
         try:
             from utils.log_stream import log_streamer
 
+            # Calculate date range: 1st of month to today
+            now = datetime.now()
+            first_of_month = datetime(now.year, now.month, 1)
+            be_year_start = first_of_month.year + 543
+            be_year_end = now.year + 543
+            start_date = f"{first_of_month.day:02d}/{first_of_month.month:02d}/{be_year_start}"
+            end_date = f"{now.day:02d}/{now.month:02d}/{be_year_end}"
+
             log_streamer.write_log(
-                f"⏰ Scheduled SMT fetch started (vendor={vendor_id}, save_db={auto_save_db})",
+                f"⏰ Scheduled SMT fetch started (vendor={vendor_id}, {start_date} - {end_date})",
                 'info',
                 'scheduler'
             )
@@ -327,11 +336,13 @@ class DownloadScheduler:
             # Get project root directory
             project_root = Path(__file__).parent.parent
 
-            # Build command
+            # Build command with date range
             cmd = [
                 sys.executable,
                 str(project_root / 'smt_budget_fetcher.py'),
                 '--vendor-id', str(vendor_id),
+                '--start-date', start_date,
+                '--end-date', end_date,
                 '--quiet'
             ]
 

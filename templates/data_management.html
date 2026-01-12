@@ -140,11 +140,53 @@
                     </div>
                 </div>
 
-                <!-- SMT: Vendor ID (hidden by default) -->
-                <div id="dl-vendor-section" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Vendor ID (รหัสโรงพยาบาล)</label>
-                    <input type="text" id="dl-vendor-id" placeholder="เช่น 10670 หรือ 0000010670" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                    <p class="text-xs text-gray-500 mt-1">รหัสหน่วยบริการที่ใช้ใน SMT</p>
+                <!-- SMT: Full Options (hidden by default) -->
+                <div id="dl-vendor-section" class="hidden space-y-4">
+                    <!-- Vendor ID -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Vendor ID (รหัสโรงพยาบาล) <span class="text-red-500">*</span></label>
+                        <input type="text" id="dl-vendor-id" placeholder="เช่น 10670 หรือ 0000010670" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <p class="text-xs text-gray-500 mt-1">รหัสหน่วยบริการ 5 หรือ 10 หลัก</p>
+                    </div>
+
+                    <!-- Date Range -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ช่วงวันที่</label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">ตั้งแต่</label>
+                                <input type="date" id="dl-smt-start-date" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">ถึง</label>
+                                <input type="date" id="dl-smt-end-date" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Default: วันที่ 1 ของเดือนปัจจุบัน ถึง วันนี้</p>
+                    </div>
+
+                    <!-- Scheme (สิทธิ์) -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">สิทธิ์</label>
+                        <select id="dl-smt-scheme" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <option value="">ทั้งหมด</option>
+                            <option value="UC">UC (บัตรทอง)</option>
+                            <option value="OF">OF (ข้าราชการ)</option>
+                            <option value="SS">SS (ประกันสังคม)</option>
+                            <option value="LG">LG (อปท.)</option>
+                        </select>
+                    </div>
+
+                    <!-- Type (ประเภท) -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ประเภท</label>
+                        <select id="dl-smt-type" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <option value="">ทั้งหมด</option>
+                            <option value="OP">OP (ผู้ป่วยนอก)</option>
+                            <option value="IP">IP (ผู้ป่วยใน)</option>
+                            <option value="PP">PP (ส่งเสริมป้องกัน)</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Advanced Settings (Collapsible) -->

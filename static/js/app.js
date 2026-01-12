@@ -362,6 +362,8 @@ function switchDownloadType(type) {
         if (vendorSection) vendorSection.classList.remove('hidden');
         if (dateRangeSection) dateRangeSection.classList.add('hidden');
         if (estimateSection) estimateSection.classList.add('hidden');
+        // Initialize SMT date fields with defaults
+        initSmtDateFields();
     }
 }
 
@@ -379,17 +381,53 @@ async function downloadByType() {
 }
 
 /**
+ * Initialize SMT date fields with default values (1st of month to today)
+ */
+function initSmtDateFields() {
+    const startDateInput = document.getElementById('dl-smt-start-date');
+    const endDateInput = document.getElementById('dl-smt-end-date');
+
+    if (startDateInput && endDateInput) {
+        const now = new Date();
+        const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // Format as YYYY-MM-DD for input[type=date]
+        startDateInput.value = firstOfMonth.toISOString().split('T')[0];
+        endDateInput.value = now.toISOString().split('T')[0];
+    }
+}
+
+/**
+ * Convert date to Thai Buddhist Era format (dd/mm/yyyy)
+ */
+function toThaiDateFormat(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const beYear = date.getFullYear() + 543;
+    return `${day}/${month}/${beYear}`;
+}
+
+/**
  * Download SMT Budget
  */
 async function downloadSmtBudget() {
-    const year = parseInt(document.getElementById('bulk-start-year').value);
-    const month = document.getElementById('bulk-start-month').value;
     const vendorId = document.getElementById('dl-vendor-id')?.value || '';
+    const startDate = document.getElementById('dl-smt-start-date')?.value || '';
+    const endDate = document.getElementById('dl-smt-end-date')?.value || '';
+    const scheme = document.getElementById('dl-smt-scheme')?.value || '';
+    const smtType = document.getElementById('dl-smt-type')?.value || '';
+    const autoImport = document.getElementById('bulk-auto-import')?.checked || false;
 
     if (!vendorId) {
         showToast('กรุณาระบุ Vendor ID', 'error');
         return;
     }
+
+    // Convert dates to Thai format (dd/mm/yyyy BE)
+    const thaiStartDate = toThaiDateFormat(startDate);
+    const thaiEndDate = toThaiDateFormat(endDate);
 
     try {
         showToast('เริ่มดาวน์โหลด SMT Budget...', 'info');
@@ -397,15 +435,22 @@ async function downloadSmtBudget() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                year: year,
-                month: month || null,
-                vendor_id: vendorId
+                vendor_id: vendorId,
+                start_date: thaiStartDate,
+                end_date: thaiEndDate,
+                budget_source: scheme,
+                budget_type: smtType,
+                auto_import: autoImport
             })
         });
 
         const result = await response.json();
         if (result.success) {
-            showToast(result.message || 'Download started', 'success');
+            showToast(result.message || 'Download completed', 'success');
+            // Reload SMT files list if on SMT tab
+            if (typeof loadSmtFiles === 'function') {
+                loadSmtFiles();
+            }
         } else {
             showToast(result.error || 'Download failed', 'error');
         }

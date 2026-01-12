@@ -2068,9 +2068,11 @@ def api_smt_download():
     """Download SMT budget data and export to CSV"""
     try:
         data = request.get_json() or {}
-        year = data.get('year')
-        month = data.get('month')
         vendor_id = data.get('vendor_id')
+        start_date = data.get('start_date')  # dd/mm/yyyy BE format
+        end_date = data.get('end_date')      # dd/mm/yyyy BE format
+        budget_source = data.get('budget_source', '')  # UC, OF, SS, LG, or empty for all
+        budget_type = data.get('budget_type', '')      # OP, IP, PP, or empty for all
 
         if not vendor_id:
             # Try to get from settings
@@ -2084,13 +2086,17 @@ def api_smt_download():
         from smt_budget_fetcher import SMTBudgetFetcher
 
         log_streamer.write_log(
-            f"Starting SMT download for vendor {vendor_id}, FY {year}...",
+            f"Starting SMT download for vendor {vendor_id} ({start_date} - {end_date})...",
             'info',
             'smt'
         )
 
         fetcher = SMTBudgetFetcher(vendor_id=vendor_id)
-        result = fetcher.fetch_budget_summary(budget_year=int(year) if year else None)
+        result = fetcher.fetch_budget_summary(
+            start_date=start_date,
+            end_date=end_date,
+            budget_source=budget_source
+        )
         records = result.get('datas', [])
 
         if not records:
