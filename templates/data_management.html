@@ -184,11 +184,11 @@
                 </div>
 
                 <!-- Download Button -->
-                <button onclick="downloadBulk()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-md font-medium transition-colors text-lg">
-                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button id="download-btn" onclick="downloadBulk()" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3 px-4 rounded-md font-medium transition-colors text-lg">
+                    <svg id="download-icon" class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
-                    ดาวน์โหลดข้อมูล
+                    <span id="download-btn-text">ดาวน์โหลดข้อมูล</span>
                 </button>
             </div>
         </div>

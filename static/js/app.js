@@ -282,6 +282,15 @@ async function downloadSingleMonth() {
  * Download bulk (date range)
  */
 async function downloadBulk() {
+    const downloadBtn = document.getElementById('download-btn');
+    const downloadBtnText = document.getElementById('download-btn-text');
+
+    // Check if already downloading
+    if (downloadBtn && downloadBtn.disabled) {
+        showToast('กำลังดาวน์โหลดอยู่ กรุณารอให้เสร็จก่อน', 'warning');
+        return;
+    }
+
     const startMonth = parseInt(document.getElementById('bulk-start-month').value);
     const startYear = parseInt(document.getElementById('bulk-start-year').value);
     const endMonth = parseInt(document.getElementById('bulk-end-month').value);
@@ -302,6 +311,9 @@ async function downloadBulk() {
         return;
     }
 
+    // Disable button
+    setDownloadButtonState(true, 'กำลังเริ่มต้น...');
+
     try {
         const response = await fetch('/download/trigger/bulk', {
             method: 'POST',
@@ -321,13 +333,31 @@ async function downloadBulk() {
 
         if (data.success) {
             showToast(`Bulk download started!${autoImport ? ' (with auto-import)' : ''}`, 'success');
+            setDownloadButtonState(true, 'กำลังดาวน์โหลด...');
             startBulkProgressPolling();
         } else {
             showToast(data.error || 'Failed to start bulk download', 'error');
+            setDownloadButtonState(false);
         }
     } catch (error) {
         console.error('Error starting bulk download:', error);
         showToast('Error starting bulk download', 'error');
+        setDownloadButtonState(false);
+    }
+}
+
+/**
+ * Set download button state (enabled/disabled)
+ */
+function setDownloadButtonState(disabled, text = null) {
+    const downloadBtn = document.getElementById('download-btn');
+    const downloadBtnText = document.getElementById('download-btn-text');
+
+    if (downloadBtn) {
+        downloadBtn.disabled = disabled;
+    }
+    if (downloadBtnText) {
+        downloadBtnText.textContent = text || 'ดาวน์โหลดข้อมูล';
     }
 }
 
@@ -388,6 +418,7 @@ function startBulkProgressPolling() {
                 progressPercentage.textContent = '100%';
 
                 showToast('Bulk download completed!', 'success');
+                setDownloadButtonState(false);
 
                 // Refresh page after 2 seconds
                 setTimeout(() => {
@@ -399,11 +430,17 @@ function startBulkProgressPolling() {
                 pollingInterval = null;
 
                 showToast('Bulk download failed. Check logs for details.', 'error');
+                setDownloadButtonState(false);
 
                 // Hide progress after 3 seconds
                 setTimeout(() => {
                     progressDiv.classList.add('hidden');
                 }, 3000);
+            } else if (!progress.running) {
+                // Download stopped unexpectedly
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+                setDownloadButtonState(false);
             }
         } catch (error) {
             console.error('Error polling bulk progress:', error);
@@ -653,7 +690,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const bulkProgress = await bulkResponse.json();
 
         if (bulkProgress.running && bulkProgress.status === 'running') {
-            // Resume bulk progress polling
+            // Resume bulk progress polling and disable button
+            setDownloadButtonState(true, 'กำลังดาวน์โหลด...');
             startBulkProgressPolling();
         }
 
