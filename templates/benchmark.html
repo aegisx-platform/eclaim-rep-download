@@ -8,27 +8,66 @@
     <div class="flex justify-between items-center">
         <div>
             <h1 class="text-3xl font-bold text-gray-800">Benchmark Comparison</h1>
-            <p class="text-gray-600 mt-1">เปรียบเทียบประสิทธิภาพกับค่าเฉลี่ยระดับประเทศ/ภูมิภาค</p>
+            <p class="text-gray-600 mt-1">เปรียบเทียบประสิทธิภาพกับค่าเฉลี่ยระดับประเทศ/ภูมิภาค/ระดับโรงพยาบาล</p>
         </div>
-        <div class="flex items-center gap-4">
+        <button onclick="loadBenchmark()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Refresh
+        </button>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="bg-white rounded-xl shadow-md p-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <!-- Region Selector -->
-            <select id="region-select" onchange="loadBenchmark()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                <option value="national">ระดับประเทศ</option>
-                <option value="central">ภาคกลาง</option>
-                <option value="north">ภาคเหนือ</option>
-                <option value="northeast">ภาคตะวันออกเฉียงเหนือ</option>
-                <option value="south">ภาคใต้</option>
-            </select>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ภูมิภาค</label>
+                <select id="region-select" onchange="updateCompareType(); loadBenchmark()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="national">ระดับประเทศ</option>
+                    <option value="central">ภาคกลาง</option>
+                    <option value="north">ภาคเหนือ</option>
+                    <option value="northeast">ภาคตะวันออกเฉียงเหนือ</option>
+                    <option value="south">ภาคใต้</option>
+                </select>
+            </div>
+
+            <!-- Hospital Level Selector -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ระดับโรงพยาบาล</label>
+                <select id="level-select" onchange="updateCompareType(); loadBenchmark()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- ไม่ระบุ --</option>
+                    <option value="level_community">รพ.ชุมชน</option>
+                    <option value="level_general">รพ.ทั่วไป</option>
+                    <option value="level_regional">รพ.ศูนย์</option>
+                    <option value="level_university">รพ.มหาวิทยาลัย</option>
+                    <option value="level_private">รพ.เอกชน</option>
+                </select>
+            </div>
+
+            <!-- Start Date -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่มต้น</label>
+                <input type="date" id="start-date" onchange="loadBenchmark()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- End Date -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">วันที่สิ้นสุด</label>
+                <input type="date" id="end-date" onchange="loadBenchmark()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+
             <!-- Fiscal Year Selector -->
-            <select id="fy-select" onchange="loadBenchmark()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                <option value="2568">ปีงบ 2568</option>
-            </select>
-            <button onclick="loadBenchmark()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                </svg>
-                Refresh
-            </button>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ปีงบประมาณ (Benchmark)</label>
+                <select id="fy-select" onchange="loadBenchmark()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="2568">ปีงบ 2568</option>
+                </select>
+            </div>
+        </div>
+        <div class="mt-3 text-sm text-gray-500">
+            <span id="data-range-info">กำลังโหลดข้อมูล...</span>
         </div>
     </div>
 
@@ -125,12 +164,35 @@ document.addEventListener('DOMContentLoaded', function() {
     loadBenchmark();
 });
 
+function updateCompareType() {
+    // If hospital level is selected, it takes precedence
+    var level = document.getElementById('level-select').value;
+    if (level) {
+        document.getElementById('region-select').disabled = true;
+        document.getElementById('region-select').classList.add('bg-gray-100');
+    } else {
+        document.getElementById('region-select').disabled = false;
+        document.getElementById('region-select').classList.remove('bg-gray-100');
+    }
+}
+
 async function loadBenchmark() {
     var region = document.getElementById('region-select').value;
+    var hospitalLevel = document.getElementById('level-select').value;
+    var startDate = document.getElementById('start-date').value;
+    var endDate = document.getElementById('end-date').value;
     var fiscalYear = document.getElementById('fy-select').value;
 
+    // Build URL with parameters
+    var params = new URLSearchParams();
+    params.append('region', region);
+    params.append('fiscal_year', fiscalYear);
+    if (hospitalLevel) params.append('hospital_level', hospitalLevel);
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+
     try {
-        var response = await fetch('/api/analytics/benchmark?region=' + region + '&fiscal_year=' + fiscalYear);
+        var response = await fetch('/api/analytics/benchmark?' + params.toString());
         var result = await response.json();
 
         if (result.success) {
@@ -144,7 +206,7 @@ async function loadBenchmark() {
 }
 
 function renderBenchmark(data) {
-    // Update region label
+    // Update compare label based on hospital_level or region
     var regionLabels = {
         'national': 'ค่าเฉลี่ยระดับประเทศ',
         'central': 'ค่าเฉลี่ยภาคกลาง',
@@ -152,7 +214,31 @@ function renderBenchmark(data) {
         'northeast': 'ค่าเฉลี่ยภาคตะวันออกเฉียงเหนือ',
         'south': 'ค่าเฉลี่ยภาคใต้'
     };
-    document.getElementById('compare-region').textContent = regionLabels[data.region] || data.region;
+    var levelLabels = {
+        'level_community': 'ค่าเฉลี่ย รพ.ชุมชน',
+        'level_general': 'ค่าเฉลี่ย รพ.ทั่วไป',
+        'level_regional': 'ค่าเฉลี่ย รพ.ศูนย์',
+        'level_university': 'ค่าเฉลี่ย รพ.มหาวิทยาลัย',
+        'level_private': 'ค่าเฉลี่ย รพ.เอกชน'
+    };
+
+    var compareLabel = data.hospital_level
+        ? levelLabels[data.hospital_level] || data.hospital_level
+        : regionLabels[data.region] || data.region;
+    document.getElementById('compare-region').textContent = compareLabel;
+
+    // Update data range info
+    var rangeInfo = 'ข้อมูลทั้งหมด';
+    if (data.hospital_metrics && data.hospital_metrics.date_range) {
+        var dr = data.hospital_metrics.date_range;
+        if (dr.min_date && dr.max_date) {
+            rangeInfo = 'ข้อมูลตั้งแต่ ' + dr.min_date + ' ถึง ' + dr.max_date;
+        }
+    }
+    if (data.date_filter && (data.date_filter.start_date || data.date_filter.end_date)) {
+        rangeInfo += ' (กรองตามช่วงเวลาที่เลือก)';
+    }
+    document.getElementById('data-range-info').textContent = rangeInfo + ' | Claims: ' + (data.hospital_metrics.total_claims || 0).toLocaleString();
 
     // Update overall score
     document.getElementById('overall-score').textContent = data.overall_score + '%';

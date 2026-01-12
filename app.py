@@ -3119,11 +3119,21 @@ def api_export_report(report_type):
 def api_benchmark():
     """
     Benchmark Comparison API
-    Compare hospital metrics with national/regional averages
+    Compare hospital metrics with national/regional/level averages
+
+    Parameters:
+    - region: national, central, north, northeast, south
+    - hospital_level: level_community, level_general, level_regional, level_university, level_private
+    - fiscal_year: Buddhist Era year (e.g., 2568)
+    - start_date: YYYY-MM-DD format
+    - end_date: YYYY-MM-DD format
     """
     try:
         region = request.args.get('region', 'national')
+        hospital_level = request.args.get('hospital_level', '')
         fiscal_year = request.args.get('fiscal_year', 2568, type=int)
+        start_date = _validate_date_param(request.args.get('start_date'))
+        end_date = _validate_date_param(request.args.get('end_date'))
 
         conn = get_db_connection()
         if not conn:
@@ -3131,19 +3141,31 @@ def api_benchmark():
 
         cursor = conn.cursor()
 
+        # Build date filter for hospital metrics
+        date_filter = "claim_drg IS NOT NULL AND claim_drg > 0"
+        date_params = []
+        if start_date:
+            date_filter += " AND dateadm >= %s"
+            date_params.append(start_date)
+        if end_date:
+            date_filter += " AND dateadm <= %s"
+            date_params.append(end_date)
+
         # Get hospital's actual metrics
-        # 1. Reimbursement rate
-        cursor.execute("""
+        query = f"""
             SELECT
                 ROUND(SUM(COALESCE(reimb_nhso, 0)) * 100.0 / NULLIF(SUM(COALESCE(claim_drg, 0)), 0), 2) as reimb_rate,
                 ROUND(COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' AND error_code != '0' THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0), 2) as denial_rate,
                 ROUND(AVG(CASE WHEN service_type = 'IP' THEN claim_drg END), 2) as avg_claim_ip,
                 ROUND(AVG(CASE WHEN service_type = 'OP' THEN claim_drg END), 2) as avg_claim_op,
                 ROUND(AVG(CASE WHEN rw IS NOT NULL THEN rw END), 4) as avg_rw,
-                COUNT(*) as total_claims
+                COUNT(*) as total_claims,
+                MIN(dateadm) as min_date,
+                MAX(dateadm) as max_date
             FROM claim_rep_opip_nhso_item
-            WHERE claim_drg IS NOT NULL AND claim_drg > 0
-        """)
+            WHERE {date_filter}
+        """
+        cursor.execute(query, date_params)
         hospital_row = cursor.fetchone()
 
         hospital_metrics = {
@@ -3152,8 +3174,15 @@ def api_benchmark():
             'avg_claim_ip': float(hospital_row[2]) if hospital_row[2] else 0,
             'avg_claim_op': float(hospital_row[3]) if hospital_row[3] else 0,
             'avg_rw': float(hospital_row[4]) if hospital_row[4] else 0,
-            'total_claims': hospital_row[5] or 0
+            'total_claims': hospital_row[5] or 0,
+            'date_range': {
+                'min_date': hospital_row[6].strftime('%Y-%m-%d') if hospital_row[6] else None,
+                'max_date': hospital_row[7].strftime('%Y-%m-%d') if hospital_row[7] else None
+            }
         }
+
+        # Determine which benchmark to use: hospital_level takes precedence over region
+        benchmark_region = hospital_level if hospital_level else region
 
         # Get benchmark data
         cursor.execute("""
@@ -3161,8 +3190,8 @@ def api_benchmark():
             FROM analytics_benchmarks
             WHERE (region = %s OR region = 'national')
             AND fiscal_year = %s
-            ORDER BY metric_name, region DESC
-        """, (region, fiscal_year))
+            ORDER BY metric_name, CASE WHEN region = %s THEN 0 ELSE 1 END
+        """, (benchmark_region, fiscal_year, benchmark_region))
 
         benchmarks = {}
         for row in cursor.fetchall():
@@ -3261,11 +3290,21 @@ def api_benchmark():
                 'is_good': diff >= 0
             })
 
-        # Get available regions
+        # Get available regions (geographic)
         cursor.execute("""
-            SELECT DISTINCT region FROM analytics_benchmarks ORDER BY region
+            SELECT DISTINCT region FROM analytics_benchmarks
+            WHERE region NOT LIKE 'level_%'
+            ORDER BY region
         """)
         available_regions = [row[0] for row in cursor.fetchall()]
+
+        # Get available hospital levels
+        cursor.execute("""
+            SELECT DISTINCT region FROM analytics_benchmarks
+            WHERE region LIKE 'level_%'
+            ORDER BY region
+        """)
+        available_levels = [row[0] for row in cursor.fetchall()]
 
         # Get available fiscal years
         cursor.execute("""
@@ -3303,8 +3342,14 @@ def api_benchmark():
                 'overall_score': score,
                 'overall_status': overall_status,
                 'region': region,
+                'hospital_level': hospital_level,
                 'fiscal_year': fiscal_year,
+                'date_filter': {
+                    'start_date': start_date,
+                    'end_date': end_date
+                },
                 'available_regions': available_regions,
+                'available_levels': available_levels,
                 'available_years': available_years
             }
         })

@@ -836,22 +836,44 @@ async function fetchSmtData() {
     try {
         showToast('Fetching SMT data...', 'info');
 
-        var url = month
-            ? '/api/smt/fetch?fiscal_year=' + fiscalYear + '&month=' + month
-            : '/api/smt/fetch?fiscal_year=' + fiscalYear;
+        // Build date range from fiscal year and month
+        var startDate = null;
+        var endDate = null;
 
-        var response = await fetch(url, { method: 'POST' });
+        if (month) {
+            // Calculate start and end date for specific month
+            var monthInt = parseInt(month);
+            var yearInt = parseInt(fiscalYear);
+            // Thai fiscal year: Oct (yearBE-1) to Sep (yearBE)
+            // So for month 10-12, use yearBE-1, for month 1-9, use yearBE
+            var gregorianYear = monthInt >= 10 ? yearInt - 544 : yearInt - 543;
+            var daysInMonth = new Date(gregorianYear, monthInt, 0).getDate();
+            startDate = '01/' + String(monthInt).padStart(2, '0') + '/' + yearInt;
+            endDate = String(daysInMonth).padStart(2, '0') + '/' + String(monthInt).padStart(2, '0') + '/' + yearInt;
+        }
+
+        var response = await fetch('/api/smt/fetch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                budget_year: fiscalYear,
+                start_date: startDate,
+                end_date: endDate,
+                save_db: true
+            })
+        });
         var result = await response.json();
 
         if (result.success) {
-            showToast('SMT data fetched successfully!', 'success');
+            showToast('SMT data fetched successfully! ' + (result.records || 0) + ' records', 'success');
             document.getElementById('smt-last-sync').textContent = new Date().toLocaleString('th-TH');
             document.getElementById('smt-record-count').textContent = result.records || 0;
         } else {
             showToast(result.error || 'Failed to fetch', 'error');
         }
     } catch (error) {
-        showToast('Error fetching SMT data', 'error');
+        console.error('SMT fetch error:', error);
+        showToast('Error fetching SMT data: ' + error.message, 'error');
     }
 }
 
