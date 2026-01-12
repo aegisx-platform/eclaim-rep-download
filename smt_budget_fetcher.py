@@ -80,9 +80,9 @@ class SMTBudgetFetcher:
             'Referer': 'https://smt.nhso.go.th/smtf/',
         })
 
-        # Output directory
-        self.output_dir = Path('exports')
-        self.output_dir.mkdir(exist_ok=True)
+        # Output directory - use downloads/smt for consistency
+        self.output_dir = Path('downloads/smt')
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def _format_vendor_id(self, vendor_id: str) -> str:
         """Format vendor ID to 10-digit format."""

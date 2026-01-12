@@ -2026,10 +2026,10 @@ def api_smt_clear():
 
 @app.route('/api/smt/files')
 def api_smt_files():
-    """List SMT files in exports directory"""
+    """List SMT files in downloads/smt directory"""
     try:
-        exports_dir = Path('exports')
-        if not exports_dir.exists():
+        smt_dir = Path('downloads/smt')
+        if not smt_dir.exists():
             return jsonify({
                 'success': True,
                 'files': [],
@@ -2039,7 +2039,7 @@ def api_smt_files():
         files = []
         total_bytes = 0
 
-        for f in exports_dir.glob('smt_budget_*.csv'):
+        for f in smt_dir.glob('smt_budget_*.csv'):
             stat = f.stat()
             total_bytes += stat.st_size
             files.append({
@@ -2137,7 +2137,7 @@ def api_smt_import_file(filename):
     try:
         # Sanitize filename
         safe_filename = secure_filename(filename)
-        file_path = Path('exports') / safe_filename
+        file_path = Path('downloads/smt') / safe_filename
 
         if not file_path.exists():
             return jsonify({'success': False, 'error': 'File not found'}), 404
@@ -2179,9 +2179,9 @@ def api_smt_import_file(filename):
 def api_smt_import_all():
     """Import all SMT files to database"""
     try:
-        exports_dir = Path('exports')
-        if not exports_dir.exists():
-            return jsonify({'success': False, 'error': 'No exports directory'}), 400
+        smt_dir = Path('downloads/smt')
+        if not smt_dir.exists():
+            return jsonify({'success': False, 'error': 'No SMT files directory'}), 400
 
         from smt_budget_fetcher import SMTBudgetFetcher
         import csv
@@ -2190,7 +2190,7 @@ def api_smt_import_all():
         total_imported = 0
         files_processed = 0
 
-        for f in exports_dir.glob('smt_budget_*.csv'):
+        for f in smt_dir.glob('smt_budget_*.csv'):
             try:
                 records = []
                 with open(f, 'r', encoding='utf-8') as file:
@@ -2232,7 +2232,7 @@ def api_smt_delete_file(filename):
     try:
         # Sanitize filename
         safe_filename = secure_filename(filename)
-        file_path = Path('exports') / safe_filename
+        file_path = Path('downloads/smt') / safe_filename
 
         if not file_path.exists():
             return jsonify({'success': False, 'error': 'File not found'}), 404
@@ -2257,14 +2257,14 @@ def api_smt_delete_file(filename):
 
 @app.route('/api/smt/clear-files', methods=['POST'])
 def api_smt_clear_files():
-    """Clear all SMT files from exports directory"""
+    """Clear all SMT files from downloads/smt directory"""
     try:
-        exports_dir = Path('exports')
-        if not exports_dir.exists():
+        smt_dir = Path('downloads/smt')
+        if not smt_dir.exists():
             return jsonify({'success': True, 'deleted_count': 0})
 
         deleted_count = 0
-        for f in exports_dir.glob('smt_budget_*.csv'):
+        for f in smt_dir.glob('smt_budget_*.csv'):
             try:
                 f.unlink()
                 deleted_count += 1
@@ -2272,7 +2272,7 @@ def api_smt_clear_files():
                 app.logger.error(f"Error deleting {f.name}: {e}")
 
         log_streamer.write_log(
-            f"Cleared {deleted_count} SMT files from exports",
+            f"Cleared {deleted_count} SMT files from downloads/smt",
             'info',
             'smt'
         )
