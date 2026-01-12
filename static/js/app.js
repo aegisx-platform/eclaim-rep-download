@@ -386,7 +386,8 @@ async function downloadByType() {
 }
 
 /**
- * Initialize SMT date fields with default values (1st of month to today)
+ * Initialize SMT date fields with default values (fiscal year start to today)
+ * Thai fiscal year: October 1st to September 30th
  */
 function initSmtDateFields() {
     const startDateInput = document.getElementById('dl-smt-start-date');
@@ -394,7 +395,16 @@ function initSmtDateFields() {
 
     if (startDateInput && endDateInput) {
         const now = new Date();
-        const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // Calculate fiscal year start (October 1st)
+        // If current month >= October (10), fiscal year started this year
+        // If current month < October, fiscal year started last year
+        let fiscalYearStart;
+        if (now.getMonth() >= 9) { // October = month 9 (0-indexed)
+            fiscalYearStart = new Date(now.getFullYear(), 9, 1); // Oct 1 this year
+        } else {
+            fiscalYearStart = new Date(now.getFullYear() - 1, 9, 1); // Oct 1 last year
+        }
 
         // Format as YYYY-MM-DD for input[type=date] using local date (not UTC)
         const formatDate = (d) => {
@@ -404,7 +414,7 @@ function initSmtDateFields() {
             return `${year}-${month}-${day}`;
         };
 
-        startDateInput.value = formatDate(firstOfMonth);
+        startDateInput.value = formatDate(fiscalYearStart);
         endDateInput.value = formatDate(now);
     }
 }

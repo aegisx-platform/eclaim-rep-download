@@ -314,17 +314,26 @@ class DownloadScheduler:
         Execute SMT budget fetch
 
         This runs as a background job.
-        Date range: 1st of current month to today (auto-calculated)
+        Date range: Fiscal year start (Oct 1) to today (auto-calculated)
+        Thai fiscal year: October 1st to September 30th
         """
         try:
             from utils.log_stream import log_streamer
 
-            # Calculate date range: 1st of month to today
+            # Calculate date range: Fiscal year start (Oct 1) to today
             now = datetime.now()
-            first_of_month = datetime(now.year, now.month, 1)
-            be_year_start = first_of_month.year + 543
+
+            # Determine fiscal year start
+            # If current month >= October (10), fiscal year started this year
+            # If current month < October, fiscal year started last year
+            if now.month >= 10:
+                fiscal_year_start = datetime(now.year, 10, 1)
+            else:
+                fiscal_year_start = datetime(now.year - 1, 10, 1)
+
+            be_year_start = fiscal_year_start.year + 543
             be_year_end = now.year + 543
-            start_date = f"{first_of_month.day:02d}/{first_of_month.month:02d}/{be_year_start}"
+            start_date = f"{fiscal_year_start.day:02d}/{fiscal_year_start.month:02d}/{be_year_start}"
             end_date = f"{now.day:02d}/{now.month:02d}/{be_year_end}"
 
             log_streamer.write_log(
