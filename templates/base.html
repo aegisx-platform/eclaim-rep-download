@@ -129,34 +129,13 @@
                         Data Management
                     </a>
 
-                    <!-- Quick Download Button -->
-                    <div class="relative ml-2" id="download-menu-container">
-                        <button onclick="toggleDownloadMenu()" id="trigger-btn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                            </svg>
-                            <span id="trigger-text">Download</span>
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                            </svg>
-                        </button>
-
-                        <!-- Dropdown Menu -->
-                        <div id="download-menu" class="hidden absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                            <div class="p-4">
-                                <div class="mb-3">
-                                    <label class="flex items-center cursor-pointer">
-                                        <input type="checkbox" id="auto-import-checkbox" class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
-                                        <span class="ml-2 text-sm text-gray-700">Auto-import after download</span>
-                                    </label>
-                                    <p class="ml-6 mt-1 text-xs text-gray-500">Automatically import files to database when download completes</p>
-                                </div>
-                                <button onclick="startDownload()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all">
-                                    Start Download
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Download Link Button -->
+                    <a href="{{ url_for('data_management') }}?tab=download" class="ml-2 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Download
+                    </a>
                 </div>
             </div>
         </div>

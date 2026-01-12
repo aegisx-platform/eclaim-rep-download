@@ -57,41 +57,114 @@
 
     <!-- ==================== DOWNLOAD TAB ==================== -->
     <div id="content-download" class="tab-content p-6">
-        <!-- Data Source Reference -->
-        <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <!-- Data Type Selector -->
+        <div class="mb-6">
+            <div class="flex gap-2 p-1 bg-gray-100 rounded-lg inline-flex">
+                <button onclick="switchDownloadType('rep')" id="dl-type-rep" class="dl-type-btn px-4 py-2 rounded-md font-medium text-sm bg-blue-600 text-white">
+                    📄 REP Files
+                </button>
+                <button onclick="switchDownloadType('statement')" id="dl-type-statement" class="dl-type-btn px-4 py-2 rounded-md font-medium text-sm text-gray-600 hover:bg-gray-200">
+                    📊 Statement
+                </button>
+                <button onclick="switchDownloadType('smt')" id="dl-type-smt" class="dl-type-btn px-4 py-2 rounded-md font-medium text-sm text-gray-600 hover:bg-gray-200">
+                    💰 SMT Budget
+                </button>
+            </div>
+        </div>
+
+        <!-- Data Source Info -->
+        <div id="dl-source-info" class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div class="flex items-center">
                 <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
                 <p class="text-sm text-blue-800">
-                    <span class="font-medium">Data Source:</span>
-                    <a href="https://eclaim.nhso.go.th/webComponent/" target="_blank" class="underline hover:text-blue-600">
-                        https://eclaim.nhso.go.th
-                    </a>
-                    - ระบบ E-Claim สำนักงานหลักประกันสุขภาพแห่งชาติ (สปสช.)
+                    <span id="dl-source-label" class="font-medium">REP (Request for Electronic Payment)</span> -
+                    <a id="dl-source-link" href="https://eclaim.nhso.go.th" target="_blank" class="underline hover:text-blue-600">eclaim.nhso.go.th</a>
                 </p>
             </div>
         </div>
 
-        <!-- Download E-Claim Data Form -->
+        <!-- Download Form -->
         <div class="border border-gray-200 rounded-lg p-6">
-            <h3 class="text-lg font-semibold mb-4 flex items-center text-blue-700">
+            <h3 id="dl-form-title" class="text-lg font-semibold mb-4 flex items-center text-blue-700">
                 <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                 </svg>
-                Download E-Claim Data
+                ดาวน์โหลดข้อมูล REP
             </h3>
-            <p class="text-gray-600 text-sm mb-4">เลือกช่วงเวลาและสิทธิที่ต้องการดาวน์โหลดข้อมูล</p>
 
             <div class="space-y-4">
-                <!-- Date Range Selection -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">ช่วงเวลา (Date Range)</label>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-1">เริ่มต้น</label>
-                            <div class="flex gap-2">
-                                <select id="bulk-start-month" class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                <!-- Basic Options: Year/Month -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ปีงบประมาณ</label>
+                        <select id="bulk-start-year" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">เดือน</label>
+                        <select id="bulk-start-month" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                            <option value="10">ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Statement: Patient Type (hidden by default) -->
+                <div id="dl-patient-type-section" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ประเภทผู้ป่วย</label>
+                    <select id="dl-patient-type" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <option value="all">ทั้งหมด</option>
+                        <option value="op">ผู้ป่วยนอก (OP)</option>
+                        <option value="ip">ผู้ป่วยใน (IP)</option>
+                    </select>
+                </div>
+
+                <!-- Statement: Single Scheme (hidden by default) -->
+                <div id="dl-statement-scheme-section" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">สิทธิ</label>
+                    <select id="dl-statement-scheme" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <option value="ucs">UCS (หลักประกันสุขภาพถ้วนหน้า)</option>
+                        <option value="ofc">OFC (ข้าราชการ)</option>
+                        <option value="sss">SSS (ประกันสังคม)</option>
+                        <option value="lgo">LGO (อปท.)</option>
+                    </select>
+                </div>
+
+                <!-- SMT: Vendor ID (hidden by default) -->
+                <div id="dl-vendor-section" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Vendor ID (รหัสโรงพยาบาล)</label>
+                    <input type="text" id="dl-vendor-id" placeholder="เช่น 10670 หรือ 0000010670" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    <p class="text-xs text-gray-500 mt-1">รหัสหน่วยบริการที่ใช้ใน SMT</p>
+                </div>
+
+                <!-- Advanced Settings (Collapsible) -->
+                <details id="dl-advanced-settings" class="border border-gray-200 rounded-lg">
+                    <summary class="px-4 py-3 cursor-pointer bg-gray-50 hover:bg-gray-100 rounded-t-lg font-medium text-gray-700 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                        ตั้งค่าขั้นสูง
+                    </summary>
+                    <div class="p-4 space-y-4 border-t">
+                        <!-- Date Range (REP only) -->
+                        <div id="dl-date-range-section">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ดาวน์โหลดถึงเดือน (ถ้าต้องการหลายเดือน)</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <select id="bulk-end-month" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                                    <option value="">เดือนเดียวกัน</option>
                                     <option value="1">มกราคม</option>
                                     <option value="2">กุมภาพันธ์</option>
                                     <option value="3">มีนาคม</option>
@@ -105,92 +178,71 @@
                                     <option value="11">พฤศจิกายน</option>
                                     <option value="12">ธันวาคม</option>
                                 </select>
-                                <select id="bulk-start-year" class="w-24 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                                <select id="bulk-end-year" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
                                 </select>
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-1">สิ้นสุด</label>
-                            <div class="flex gap-2">
-                                <select id="bulk-end-month" class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                                    <option value="1">มกราคม</option>
-                                    <option value="2">กุมภาพันธ์</option>
-                                    <option value="3">มีนาคม</option>
-                                    <option value="4">เมษายน</option>
-                                    <option value="5">พฤษภาคม</option>
-                                    <option value="6">มิถุนายน</option>
-                                    <option value="7">กรกฎาคม</option>
-                                    <option value="8">สิงหาคม</option>
-                                    <option value="9">กันยายน</option>
-                                    <option value="10">ตุลาคม</option>
-                                    <option value="11">พฤศจิกายน</option>
-                                    <option value="12">ธันวาคม</option>
-                                </select>
-                                <select id="bulk-end-year" class="w-24 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                                </select>
+
+                        <!-- Insurance Schemes (REP only) -->
+                        <div id="dl-schemes-section">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">สิทธิการรักษา</label>
+                            <div class="grid grid-cols-4 gap-2 text-sm">
+                                <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                                    <input type="checkbox" name="bulk-schemes" value="ucs" class="w-4 h-4 text-blue-600 rounded" checked>
+                                    <span class="ml-2">UCS (บัตรทอง)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                                    <input type="checkbox" name="bulk-schemes" value="ofc" class="w-4 h-4 text-blue-600 rounded" checked>
+                                    <span class="ml-2">OFC (ข้าราชการ)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                                    <input type="checkbox" name="bulk-schemes" value="sss" class="w-4 h-4 text-blue-600 rounded" checked>
+                                    <span class="ml-2">SSS (ประกันสังคม)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                                    <input type="checkbox" name="bulk-schemes" value="lgo" class="w-4 h-4 text-blue-600 rounded" checked>
+                                    <span class="ml-2">LGO (อปท.)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                                    <input type="checkbox" name="bulk-schemes" value="nhs" class="w-4 h-4 text-blue-600 rounded">
+                                    <span class="ml-2">NHS (สปสช.)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                                    <input type="checkbox" name="bulk-schemes" value="bkk" class="w-4 h-4 text-blue-600 rounded">
+                                    <span class="ml-2">BKK (กทม.)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                                    <input type="checkbox" name="bulk-schemes" value="bmt" class="w-4 h-4 text-blue-600 rounded">
+                                    <span class="ml-2">BMT (ขสมก.)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                                    <input type="checkbox" name="bulk-schemes" value="srt" class="w-4 h-4 text-blue-600 rounded">
+                                    <span class="ml-2">SRT (รฟท.)</span>
+                                </label>
+                            </div>
+                            <div class="flex gap-2 mt-2">
+                                <button type="button" onclick="selectAllSchemes('bulk')" class="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded">เลือกทั้งหมด</button>
+                                <button type="button" onclick="selectDefaultSchemes('bulk')" class="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded">ค่าเริ่มต้น (4 สิทธิหลัก)</button>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- Insurance Schemes Selection -->
-                <div class="border-t pt-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">สิทธิการรักษา (Insurance Schemes)</label>
-                    <div class="grid grid-cols-4 gap-2 text-sm">
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                            <input type="checkbox" name="bulk-schemes" value="ucs" class="w-4 h-4 text-blue-600 rounded" checked>
-                            <span class="ml-2">UCS (บัตรทอง)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                            <input type="checkbox" name="bulk-schemes" value="ofc" class="w-4 h-4 text-blue-600 rounded" checked>
-                            <span class="ml-2">OFC (ข้าราชการ)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                            <input type="checkbox" name="bulk-schemes" value="sss" class="w-4 h-4 text-blue-600 rounded" checked>
-                            <span class="ml-2">SSS (ประกันสังคม)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                            <input type="checkbox" name="bulk-schemes" value="lgo" class="w-4 h-4 text-blue-600 rounded" checked>
-                            <span class="ml-2">LGO (อปท.)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                            <input type="checkbox" name="bulk-schemes" value="nhs" class="w-4 h-4 text-blue-600 rounded">
-                            <span class="ml-2">NHS (สปสช.)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                            <input type="checkbox" name="bulk-schemes" value="bkk" class="w-4 h-4 text-blue-600 rounded">
-                            <span class="ml-2">BKK (กทม.)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                            <input type="checkbox" name="bulk-schemes" value="bmt" class="w-4 h-4 text-blue-600 rounded">
-                            <span class="ml-2">BMT (ขสมก.)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                            <input type="checkbox" name="bulk-schemes" value="srt" class="w-4 h-4 text-blue-600 rounded">
-                            <span class="ml-2">SRT (รฟท.)</span>
-                        </label>
+                        <!-- Auto Import -->
+                        <div class="border-t pt-4">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="bulk-auto-import" class="w-4 h-4 text-blue-600 rounded" checked>
+                                <span class="ml-2 text-sm text-gray-700">นำเข้าฐานข้อมูลอัตโนมัติ (Auto-import)</span>
+                            </label>
+                        </div>
                     </div>
-                    <div class="flex gap-2 mt-2">
-                        <button type="button" onclick="selectAllSchemes('bulk')" class="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded">เลือกทั้งหมด</button>
-                        <button type="button" onclick="selectDefaultSchemes('bulk')" class="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded">ค่าเริ่มต้น (4 สิทธิหลัก)</button>
-                    </div>
-                </div>
+                </details>
 
-                <!-- Estimate -->
-                <div class="bg-gray-50 rounded-lg p-3">
+                <!-- Estimate (REP only) -->
+                <div id="dl-estimate-section" class="bg-gray-50 rounded-lg p-3">
                     <p id="bulk-estimate" class="text-sm text-gray-600"></p>
                 </div>
 
-                <!-- Options -->
-                <div class="flex items-center justify-between">
-                    <label class="flex items-center cursor-pointer">
-                        <input type="checkbox" id="bulk-auto-import" class="w-4 h-4 text-blue-600 rounded" checked>
-                        <span class="ml-2 text-sm text-gray-700">นำเข้าฐานข้อมูลอัตโนมัติ (Auto-import)</span>
-                    </label>
-                </div>
-
                 <!-- Download Button -->
-                <button id="download-btn" onclick="downloadBulk()" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3 px-4 rounded-md font-medium transition-colors text-lg">
+                <button id="download-btn" onclick="downloadByType()" class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3 px-4 rounded-md font-medium transition-colors text-lg">
                     <svg id="download-icon" class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
@@ -214,88 +266,95 @@
             <span id="progress-percentage" class="text-lg font-bold text-blue-900">0%</span>
         </div>
 
-        <!-- Scheduler Section -->
-        <div class="mt-6 border border-gray-200 rounded-lg p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold flex items-center">
+        <!-- Scheduler Section (Collapsible) -->
+        <details class="mt-6 border border-gray-200 rounded-lg">
+            <summary class="p-4 cursor-pointer hover:bg-gray-50 rounded-lg flex items-center justify-between list-none">
+                <div class="flex items-center">
                     <svg class="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    ตั้งเวลาดาวน์โหลดอัตโนมัติ (Auto Download Schedule)
-                </h3>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="schedule-enabled" class="sr-only peer">
-                    <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                </label>
-            </div>
+                    <span class="text-lg font-semibold text-gray-800">ตั้งเวลาดาวน์โหลดอัตโนมัติ (Auto Schedule)</span>
+                    <span id="schedule-summary" class="ml-3 text-sm text-gray-500"></span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                        <input type="checkbox" id="schedule-enabled" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                    <svg class="w-5 h-5 text-gray-400 transition-transform details-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </div>
+            </summary>
+            <div class="p-6 pt-2 border-t border-gray-100">
+                <p class="text-sm text-gray-600 mb-4">ระบบจะดาวน์โหลดข้อมูลเดือนปัจจุบันโดยอัตโนมัติตามเวลาที่กำหนด</p>
 
-            <p class="text-sm text-gray-600 mb-4">ระบบจะดาวน์โหลดข้อมูลเดือนปัจจุบันโดยอัตโนมัติตามเวลาที่กำหนด</p>
+                <!-- Schedule Scheme Selection -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">สิทธิที่ต้องการดาวน์โหลด</label>
+                    <div class="grid grid-cols-4 gap-2 text-sm">
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="schedule-schemes" value="ucs" class="w-4 h-4 text-purple-600 rounded" checked>
+                            <span class="ml-2">UCS (บัตรทอง)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="schedule-schemes" value="ofc" class="w-4 h-4 text-purple-600 rounded" checked>
+                            <span class="ml-2">OFC (ข้าราชการ)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="schedule-schemes" value="sss" class="w-4 h-4 text-purple-600 rounded" checked>
+                            <span class="ml-2">SSS (ประกันสังคม)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="schedule-schemes" value="lgo" class="w-4 h-4 text-purple-600 rounded" checked>
+                            <span class="ml-2">LGO (อปท.)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="schedule-schemes" value="nhs" class="w-4 h-4 text-purple-600 rounded">
+                            <span class="ml-2">NHS (สปสช.)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="schedule-schemes" value="bkk" class="w-4 h-4 text-purple-600 rounded">
+                            <span class="ml-2">BKK (กทม.)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="schedule-schemes" value="bmt" class="w-4 h-4 text-purple-600 rounded">
+                            <span class="ml-2">BMT (ขสมก.)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="schedule-schemes" value="srt" class="w-4 h-4 text-purple-600 rounded">
+                            <span class="ml-2">SRT (รฟท.)</span>
+                        </label>
+                    </div>
+                </div>
 
-            <!-- Schedule Scheme Selection -->
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">สิทธิที่ต้องการดาวน์โหลด</label>
-                <div class="grid grid-cols-4 gap-2 text-sm">
-                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                        <input type="checkbox" name="schedule-schemes" value="ucs" class="w-4 h-4 text-purple-600 rounded" checked>
-                        <span class="ml-2">UCS (บัตรทอง)</span>
+                <!-- Schedule Times -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">เวลาที่ต้องการดาวน์โหลด</label>
+                    <div id="schedule-times-container" class="space-y-2">
+                        <p class="text-sm text-gray-500" id="no-schedules-message">ยังไม่มีเวลาที่ตั้งไว้</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button onclick="addScheduleTime()" class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md font-medium text-sm">
+                        + เพิ่มเวลา
+                    </button>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="schedule-auto-import" class="w-4 h-4 text-purple-600 rounded">
+                        <span class="ml-2 text-sm text-gray-700">นำเข้าฐานข้อมูลอัตโนมัติ</span>
                     </label>
-                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                        <input type="checkbox" name="schedule-schemes" value="ofc" class="w-4 h-4 text-purple-600 rounded" checked>
-                        <span class="ml-2">OFC (ข้าราชการ)</span>
-                    </label>
-                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                        <input type="checkbox" name="schedule-schemes" value="sss" class="w-4 h-4 text-purple-600 rounded" checked>
-                        <span class="ml-2">SSS (ประกันสังคม)</span>
-                    </label>
-                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                        <input type="checkbox" name="schedule-schemes" value="lgo" class="w-4 h-4 text-purple-600 rounded" checked>
-                        <span class="ml-2">LGO (อปท.)</span>
-                    </label>
-                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                        <input type="checkbox" name="schedule-schemes" value="nhs" class="w-4 h-4 text-purple-600 rounded">
-                        <span class="ml-2">NHS (สปสช.)</span>
-                    </label>
-                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                        <input type="checkbox" name="schedule-schemes" value="bkk" class="w-4 h-4 text-purple-600 rounded">
-                        <span class="ml-2">BKK (กทม.)</span>
-                    </label>
-                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                        <input type="checkbox" name="schedule-schemes" value="bmt" class="w-4 h-4 text-purple-600 rounded">
-                        <span class="ml-2">BMT (ขสมก.)</span>
-                    </label>
-                    <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
-                        <input type="checkbox" name="schedule-schemes" value="srt" class="w-4 h-4 text-purple-600 rounded">
-                        <span class="ml-2">SRT (รฟท.)</span>
-                    </label>
+                    <button onclick="saveScheduleSettings()" class="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md font-medium text-sm">
+                        บันทึกการตั้งค่า
+                    </button>
+                </div>
+
+                <!-- Schedule Status -->
+                <div id="schedule-status-box" class="mt-4 p-3 bg-gray-50 rounded-lg text-sm">
+                    <span id="schedule-status">Loading...</span>
                 </div>
             </div>
-
-            <!-- Schedule Times -->
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">เวลาที่ต้องการดาวน์โหลด</label>
-                <div id="schedule-times-container" class="space-y-2">
-                    <p class="text-sm text-gray-500" id="no-schedules-message">ยังไม่มีเวลาที่ตั้งไว้</p>
-                </div>
-            </div>
-
-            <div class="flex items-center gap-3">
-                <button onclick="addScheduleTime()" class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md font-medium text-sm">
-                    + เพิ่มเวลา
-                </button>
-                <label class="flex items-center cursor-pointer">
-                    <input type="checkbox" id="schedule-auto-import" class="w-4 h-4 text-purple-600 rounded">
-                    <span class="ml-2 text-sm text-gray-700">นำเข้าฐานข้อมูลอัตโนมัติ</span>
-                </label>
-                <button onclick="saveScheduleSettings()" class="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md font-medium text-sm">
-                    บันทึกการตั้งค่า
-                </button>
-            </div>
-
-            <!-- Schedule Status -->
-            <div id="schedule-status-box" class="mt-4 p-3 bg-gray-50 rounded-lg text-sm">
-                <span id="schedule-status">Loading...</span>
-            </div>
-        </div>
+        </details>
     </div>
 
     <!-- ==================== REP FILES TAB ==================== -->
@@ -523,168 +582,142 @@
             </div>
         </div>
 
-        <!-- Download Form -->
-        <div class="border border-gray-200 rounded-lg p-6 mb-6">
-            <h3 class="text-lg font-semibold mb-4 text-purple-700">Download Statement</h3>
-
-            <div class="grid grid-cols-4 gap-4 mb-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">ปีงบประมาณ</label>
-                    <select id="stm-year" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">เดือน</label>
-                    <select id="stm-month" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                        <option value="">ทั้งหมด</option>
-                        <option value="1">มกราคม</option>
-                        <option value="2">กุมภาพันธ์</option>
-                        <option value="3">มีนาคม</option>
-                        <option value="4">เมษายน</option>
-                        <option value="5">พฤษภาคม</option>
-                        <option value="6">มิถุนายน</option>
-                        <option value="7">กรกฎาคม</option>
-                        <option value="8">สิงหาคม</option>
-                        <option value="9">กันยายน</option>
-                        <option value="10">ตุลาคม</option>
-                        <option value="11">พฤศจิกายน</option>
-                        <option value="12">ธันวาคม</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">สิทธิ</label>
-                    <select id="stm-scheme" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                        <option value="ucs">UCS (หลักประกันสุขภาพถ้วนหน้า)</option>
-                        <option value="ofc">OFC (ข้าราชการ)</option>
-                        <option value="sss">SSS (ประกันสังคม)</option>
-                        <option value="lgo">LGO (อปท.)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">ประเภทผู้ป่วย</label>
-                    <select id="stm-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                        <option value="all">ทั้งหมด</option>
-                        <option value="ip">ผู้ป่วยใน (IP)</option>
-                        <option value="op">ผู้ป่วยนอก (OP)</option>
-                    </select>
-                </div>
+        <!-- File Stats -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-purple-50 rounded-lg p-4 text-center">
+                <p id="stm-stat-total" class="text-2xl font-bold text-purple-700">0</p>
+                <p class="text-sm text-purple-600">Total Files</p>
             </div>
-
-            <button onclick="downloadStatement()" class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                </svg>
-                Download Statement
-            </button>
-
-            <div id="stm-download-result" class="hidden mt-4 p-3 rounded-lg"></div>
+            <div class="bg-green-50 rounded-lg p-4 text-center">
+                <p id="stm-stat-imported" class="text-2xl font-bold text-green-700">0</p>
+                <p class="text-sm text-green-600">Imported</p>
+            </div>
+            <div class="bg-yellow-50 rounded-lg p-4 text-center">
+                <p id="stm-stat-pending" class="text-2xl font-bold text-yellow-700">0</p>
+                <p class="text-sm text-yellow-600">Pending</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                <p id="stm-stat-size" class="text-2xl font-bold text-gray-700">0 B</p>
+                <p class="text-sm text-gray-600">Total Size</p>
+            </div>
         </div>
 
-        <!-- Statement File List -->
-        <div class="border border-gray-200 rounded-lg">
-            <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="font-semibold text-gray-800">Downloaded Statement Files</h3>
-                <button onclick="loadStatementFiles()" class="text-purple-600 hover:text-purple-800 text-sm flex items-center gap-1">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        <!-- Actions Bar -->
+        <div class="flex items-center justify-between mb-4">
+            <div id="stm-file-count" class="text-sm text-gray-600">
+                แสดง 0 ไฟล์
+            </div>
+            <div class="flex gap-2">
+                <button id="stm-import-all-btn" onclick="importAllStatementFiles()" class="hidden bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium text-sm">
+                    นำเข้าทั้งหมด (<span id="stm-pending-count">0</span>)
+                </button>
+                <button id="stm-clear-btn" onclick="clearAllStatementFiles()" class="hidden bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium text-sm">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                     </svg>
-                    Refresh
+                    ล้างข้อมูลทั้งหมด
                 </button>
             </div>
-            <div id="stm-file-list" class="divide-y divide-gray-100">
-                <div class="px-4 py-8 text-center text-gray-500">Loading...</div>
-            </div>
+        </div>
+
+        <!-- Statement Files Table -->
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">FILENAME</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATE</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SIZE</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STATUS</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody id="stm-file-list" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
     <!-- ==================== SMT TAB ==================== -->
     <div id="content-smt" class="tab-content p-6 hidden">
-        <div class="max-w-2xl">
-            <h3 class="text-lg font-semibold mb-4 flex items-center">
+        <!-- SMT Header -->
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 flex items-center">
                 <svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
-                Smart Money Transfer Data Sync
-            </h3>
-
-            <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                Smart Money Transfer Files (SMT Budget)
+            </h2>
+            <div class="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p class="text-sm text-green-800">
-                    <span class="font-medium">Data Source:</span>
-                    <a href="https://smt.nhso.go.th" target="_blank" class="underline hover:text-green-600">
-                        https://smt.nhso.go.th
-                    </a>
-                    - ระบบงบประมาณ สปสช.
+                    <strong>SMT</strong> (Smart Money Transfer) คือ ระบบงบประมาณจาก สปสช.
+                    ข้อมูลการจ่ายเงินตามปีงบประมาณ สำหรับกระทบยอดกับ E-Claim
+                </p>
+                <p class="text-xs text-green-600 mt-1">
+                    Data Source: <a href="https://smt.nhso.go.th" target="_blank" class="underline hover:text-green-800">smt.nhso.go.th</a>
                 </p>
             </div>
+        </div>
 
-            <p class="text-gray-600 mb-6">
-                ดึงข้อมูลการจ่ายเงินจากระบบ SMT เพื่อนำมากระทบยอดกับข้อมูล E-Claim
-            </p>
+        <!-- File Stats -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-green-50 rounded-lg p-4 text-center">
+                <p id="smt-stat-total" class="text-2xl font-bold text-green-700">0</p>
+                <p class="text-sm text-green-600">Total Files</p>
+            </div>
+            <div class="bg-blue-50 rounded-lg p-4 text-center">
+                <p id="smt-stat-imported" class="text-2xl font-bold text-blue-700">0</p>
+                <p class="text-sm text-blue-600">Imported</p>
+            </div>
+            <div class="bg-yellow-50 rounded-lg p-4 text-center">
+                <p id="smt-stat-pending" class="text-2xl font-bold text-yellow-700">0</p>
+                <p class="text-sm text-yellow-600">Pending</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                <p id="smt-stat-size" class="text-2xl font-bold text-gray-700">0 B</p>
+                <p class="text-sm text-gray-600">Total Size</p>
+            </div>
+        </div>
 
-            <div class="space-y-4">
-                <!-- Vendor ID Input -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Vendor ID (รหัสโรงพยาบาล) <span class="text-red-500">*</span>
-                    </label>
-                    <div class="flex gap-2">
-                        <input type="text" id="smt-vendor-id-input"
-                               placeholder="เช่น 10670 หรือ 0000010670"
-                               class="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-green-500">
-                        <button onclick="saveSmtVendorId()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm">
-                            Save
-                        </button>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1">รหัสหน่วยบริการที่ใช้ใน SMT (เปลี่ยนได้เมื่อใช้กับ รพ. อื่น)</p>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Fiscal Year (ปีงบประมาณ)</label>
-                        <select id="smt-fiscal-year" class="w-full border border-gray-300 rounded-md px-3 py-2">
-                            <!-- Generated dynamically -->
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
-                        <select id="smt-month" class="w-full border border-gray-300 rounded-md px-3 py-2">
-                            <option value="">All Months</option>
-                            <option value="10">ตุลาคม</option>
-                            <option value="11">พฤศจิกายน</option>
-                            <option value="12">ธันวาคม</option>
-                            <option value="1">มกราคม</option>
-                            <option value="2">กุมภาพันธ์</option>
-                            <option value="3">มีนาคม</option>
-                            <option value="4">เมษายน</option>
-                            <option value="5">พฤษภาคม</option>
-                            <option value="6">มิถุนายน</option>
-                            <option value="7">กรกฎาคม</option>
-                            <option value="8">สิงหาคม</option>
-                            <option value="9">กันยายน</option>
-                        </select>
-                    </div>
-                </div>
-
-                <button onclick="fetchSmtData()" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">
-                    Fetch Smart Money Transfer Data
+        <!-- Actions Bar -->
+        <div class="flex items-center justify-between mb-4">
+            <div id="smt-file-count" class="text-sm text-gray-600">
+                แสดง 0 ไฟล์
+            </div>
+            <div class="flex gap-2">
+                <button id="smt-import-all-btn" onclick="importAllSmtFiles()" class="hidden bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium text-sm">
+                    นำเข้าทั้งหมด (<span id="smt-pending-count">0</span>)
+                </button>
+                <button id="smt-clear-btn" onclick="clearAllSmtFiles()" class="hidden bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium text-sm">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    ล้างข้อมูลทั้งหมด
                 </button>
             </div>
+        </div>
 
-            <!-- SMT Sync Status -->
-            <div id="smt-status" class="mt-6 p-4 bg-gray-50 rounded-lg">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <p class="text-sm text-gray-600">Last sync: <span id="smt-last-sync">-</span></p>
-                        <p class="text-sm text-gray-600">Records: <span id="smt-record-count">-</span></p>
-                    </div>
-                    <button onclick="clearSmtData()" class="bg-red-600 hover:bg-red-700 text-white py-1.5 px-3 rounded-md font-medium text-sm">
-                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                        ล้างข้อมูล SMT
-                    </button>
-                </div>
-            </div>
+        <!-- SMT Files Table -->
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">FILENAME</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATE</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SIZE</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STATUS</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody id="smt-file-list" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -1037,6 +1070,13 @@ function switchTab(tab) {
     var activeBtn = document.getElementById('tab-' + tab);
     activeBtn.classList.remove('border-transparent', 'text-gray-500');
     activeBtn.classList.add('border-blue-600', 'text-blue-600');
+
+    // Load data for specific tabs
+    if (tab === 'smt' && typeof loadSmtFiles === 'function') {
+        loadSmtFiles();
+    } else if (tab === 'statement' && typeof loadStatementFiles === 'function') {
+        loadStatementFiles();
+    }
 
     // Update URL without reload
     var url = new URL(window.location);
@@ -1891,52 +1931,196 @@ async function downloadStatement() {
 }
 
 async function loadStatementFiles() {
-    var listDiv = document.getElementById('stm-file-list');
-    listDiv.textContent = '';
-
-    var loadingDiv = document.createElement('div');
-    loadingDiv.className = 'px-4 py-4 text-center text-gray-500';
-    loadingDiv.textContent = 'Loading...';
-    listDiv.appendChild(loadingDiv);
+    const listDiv = document.getElementById('stm-file-list');
+    listDiv.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">Loading...</td></tr>';
 
     try {
-        var response = await fetch('/api/stm/files');
-        var result = await response.json();
+        const response = await fetch('/api/stm/stats');
+        const result = await response.json();
 
-        listDiv.textContent = '';
+        // Update stats
+        document.getElementById('stm-stat-total').textContent = result.total_files || 0;
+        document.getElementById('stm-stat-imported').textContent = result.imported_count || 0;
+        document.getElementById('stm-stat-pending').textContent = result.pending_count || 0;
+        document.getElementById('stm-stat-size').textContent = result.total_size || '0 B';
+        document.getElementById('stm-file-count').textContent = `แสดง ${result.total_files || 0} ไฟล์`;
 
-        if (result.success && result.files.length > 0) {
+        // Show/hide action buttons
+        const importAllBtn = document.getElementById('stm-import-all-btn');
+        const clearBtn = document.getElementById('stm-clear-btn');
+        const pendingCountSpan = document.getElementById('stm-pending-count');
+
+        if (result.pending_count > 0) {
+            importAllBtn.classList.remove('hidden');
+            pendingCountSpan.textContent = result.pending_count;
+        } else {
+            importAllBtn.classList.add('hidden');
+        }
+
+        if (result.total_files > 0) {
+            clearBtn.classList.remove('hidden');
+        } else {
+            clearBtn.classList.add('hidden');
+        }
+
+        listDiv.innerHTML = '';
+
+        if (result.success && result.files && result.files.length > 0) {
             result.files.forEach(function(f) {
-                var row = document.createElement('div');
-                row.className = 'px-4 py-3 flex justify-between items-center hover:bg-gray-50';
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
 
-                var infoDiv = document.createElement('div');
+                // Filename
+                const nameCell = document.createElement('td');
+                nameCell.className = 'px-4 py-3';
+                nameCell.innerHTML = `<span class="text-blue-600">&#9679;</span> ${f.filename}`;
+                row.appendChild(nameCell);
 
-                var nameDiv = document.createElement('div');
-                nameDiv.className = 'font-medium text-gray-800';
-                nameDiv.textContent = f.filename;
-                infoDiv.appendChild(nameDiv);
+                // Date
+                const dateCell = document.createElement('td');
+                dateCell.className = 'px-4 py-3 text-gray-600';
+                const modDate = new Date(f.modified);
+                dateCell.textContent = modDate.toLocaleString('th-TH');
+                row.appendChild(dateCell);
 
-                var metaDiv = document.createElement('div');
-                metaDiv.className = 'text-sm text-gray-500';
-                metaDiv.textContent = f.size_formatted + ' | ' + f.modified;
-                infoDiv.appendChild(metaDiv);
+                // Size
+                const sizeCell = document.createElement('td');
+                sizeCell.className = 'px-4 py-3 text-gray-600';
+                sizeCell.textContent = f.size_formatted;
+                row.appendChild(sizeCell);
 
-                row.appendChild(infoDiv);
+                // Status
+                const statusCell = document.createElement('td');
+                statusCell.className = 'px-4 py-3';
+                if (f.is_imported) {
+                    let statusInfo = 'Imported';
+                    if (f.imported_records) {
+                        statusInfo += ` (${f.imported_records} records)`;
+                    }
+                    if (f.file_type) {
+                        statusInfo = f.file_type.replace('_STM', '') + ' - ' + statusInfo;
+                    }
+                    statusCell.innerHTML = `<span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">${statusInfo}</span>`;
+                } else if (f.status === 'failed') {
+                    statusCell.innerHTML = '<span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Failed</span>';
+                } else if (f.status === 'processing') {
+                    statusCell.innerHTML = '<span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Processing...</span>';
+                } else {
+                    statusCell.innerHTML = '<span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Pending</span>';
+                }
+                row.appendChild(statusCell);
+
+                // Actions
+                const actionsCell = document.createElement('td');
+                actionsCell.className = 'px-4 py-3 text-right space-x-2';
+
+                if (!f.is_imported) {
+                    const importBtn = document.createElement('a');
+                    importBtn.href = '#';
+                    importBtn.className = 'text-blue-600 hover:text-blue-800 text-sm';
+                    importBtn.textContent = 'Import';
+                    importBtn.onclick = (e) => { e.preventDefault(); importStatementFile(f.filename); };
+                    actionsCell.appendChild(importBtn);
+                }
+
+                const downloadBtn = document.createElement('a');
+                downloadBtn.href = `/downloads/${f.filename}`;
+                downloadBtn.className = 'text-purple-600 hover:text-purple-800 text-sm ml-2';
+                downloadBtn.textContent = 'Download';
+                downloadBtn.target = '_blank';
+                actionsCell.appendChild(downloadBtn);
+
+                const deleteBtn = document.createElement('a');
+                deleteBtn.href = '#';
+                deleteBtn.className = 'text-red-600 hover:text-red-800 text-sm ml-2';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.onclick = (e) => { e.preventDefault(); deleteStatementFile(f.filename); };
+                actionsCell.appendChild(deleteBtn);
+
+                row.appendChild(actionsCell);
                 listDiv.appendChild(row);
             });
         } else {
-            var emptyDiv = document.createElement('div');
-            emptyDiv.className = 'px-4 py-8 text-center text-gray-500';
-            emptyDiv.textContent = 'No Statement files found';
-            listDiv.appendChild(emptyDiv);
+            listDiv.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">No Statement files found</td></tr>';
         }
     } catch (error) {
-        listDiv.textContent = '';
-        var errorDiv = document.createElement('div');
-        errorDiv.className = 'px-4 py-8 text-center text-red-500';
-        errorDiv.textContent = 'Error loading files: ' + error.message;
-        listDiv.appendChild(errorDiv);
+        listDiv.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-red-500">Error loading files: ${error.message}</td></tr>`;
+    }
+}
+
+async function importStatementFile(filename) {
+    if (!confirm(`Import file: ${filename}?`)) return;
+
+    try {
+        showToast('Importing...', 'info');
+        const response = await fetch(`/api/stm/import/${encodeURIComponent(filename)}`, { method: 'POST' });
+        const result = await response.json();
+
+        if (result.success) {
+            const records = result.claim_records || result.imported_records || 0;
+            const fileType = result.file_type ? ` (${result.file_type})` : '';
+            showToast(`Imported ${records} records${fileType}`, 'success');
+            loadStatementFiles();
+        } else {
+            showToast('Import failed: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+async function deleteStatementFile(filename) {
+    if (!confirm(`Delete file: ${filename}?`)) return;
+
+    try {
+        const response = await fetch(`/api/stm/delete/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('File deleted', 'success');
+            loadStatementFiles();
+        } else {
+            showToast('Delete failed: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+async function importAllStatementFiles() {
+    if (!confirm('Import all pending Statement files?')) return;
+
+    try {
+        showToast('Importing all files...', 'info');
+        const response = await fetch('/api/stm/import-all', { method: 'POST' });
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(`Imported ${result.success} files, ${result.skipped} skipped`, 'success');
+            loadStatementFiles();
+        } else {
+            showToast('Import failed: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+async function clearAllStatementFiles() {
+    if (!confirm('Delete ALL Statement files? This cannot be undone.')) return;
+
+    try {
+        const response = await fetch('/api/stm/clear', { method: 'POST' });
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(result.message, 'success');
+            loadStatementFiles();
+        } else {
+            showToast('Clear failed: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
     }
 }
 

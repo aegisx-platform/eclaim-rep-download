@@ -809,6 +809,255 @@ def list_stm_files():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/stm/stats')
+def get_stm_stats():
+    """Get Statement files statistics"""
+    try:
+        download_dir = Path('downloads')
+        stm_files = []
+        total_size = 0
+        imported_count = 0
+        pending_count = 0
+
+        # Get imported file list from database
+        imported_filenames = set()
+        import_info = {}
+        try:
+            from config.database import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT filename, status, imported_records, total_records,
+                          import_completed_at, file_type, scheme
+                   FROM stm_imported_files"""
+            )
+            for row in cursor.fetchall():
+                imported_filenames.add(row[0])
+                import_info[row[0]] = {
+                    'status': row[1],
+                    'imported_records': row[2],
+                    'total_records': row[3],
+                    'import_completed_at': row[4].isoformat() if row[4] else None,
+                    'file_type': row[5],
+                    'scheme': row[6]
+                }
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            logger.warning(f"Could not fetch STM import status: {e}")
+
+        if download_dir.exists():
+            for f in download_dir.glob('STM_*.xls'):
+                stat = f.stat()
+                file_size = stat.st_size
+                total_size += file_size
+
+                is_imported = f.name in imported_filenames and import_info.get(f.name, {}).get('status') == 'completed'
+
+                if is_imported:
+                    imported_count += 1
+                else:
+                    pending_count += 1
+
+                file_info = {
+                    'filename': f.name,
+                    'size': file_size,
+                    'size_formatted': humanize.naturalsize(file_size),
+                    'modified': datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    'is_imported': is_imported
+                }
+
+                # Add import details if available
+                if f.name in import_info:
+                    file_info.update(import_info[f.name])
+
+                stm_files.append(file_info)
+
+        # Sort by modified date desc
+        stm_files.sort(key=lambda x: x['modified'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'total_files': len(stm_files),
+            'imported_count': imported_count,
+            'pending_count': pending_count,
+            'total_size': humanize.naturalsize(total_size),
+            'total_size_bytes': total_size,
+            'files': stm_files[:100]
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/stm/import/<filename>', methods=['POST'])
+def import_stm_file_route(filename):
+    """Import a single Statement file"""
+    try:
+        file_path = Path('downloads') / filename
+        if not file_path.exists():
+            return jsonify({'success': False, 'error': 'File not found'}), 404
+
+        # Check if file is a valid STM file
+        if not filename.startswith('STM_'):
+            return jsonify({'success': False, 'error': 'Not a valid STM file'}), 400
+
+        from config.database import get_db_config, DB_TYPE
+        from utils.stm.importer import STMImporter
+
+        db_config = get_db_config()
+        importer = STMImporter(db_config, DB_TYPE)
+
+        try:
+            importer.connect()
+            result = importer.import_file(str(file_path))
+            return jsonify(result)
+        finally:
+            importer.disconnect()
+
+    except Exception as e:
+        logger.error(f"STM import error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/stm/import-all', methods=['POST'])
+def import_all_stm_files():
+    """Import all pending Statement files"""
+    try:
+        download_dir = Path('downloads')
+        from config.database import get_db_config, get_db_connection, DB_TYPE
+        from utils.stm.importer import STMImporter
+
+        db_config = get_db_config()
+        results = {
+            'total': 0,
+            'success': 0,
+            'failed': 0,
+            'skipped': 0,
+            'details': []
+        }
+
+        # Get list of already imported files
+        imported_files = set()
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT filename FROM stm_imported_files WHERE status = 'completed'"
+            )
+            imported_files = {row[0] for row in cursor.fetchall()}
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            logger.warning(f"Could not check existing STM imports: {e}")
+
+        importer = STMImporter(db_config, DB_TYPE)
+        try:
+            importer.connect()
+
+            for f in sorted(download_dir.glob('STM_*.xls')):
+                results['total'] += 1
+
+                # Check if already imported
+                if f.name in imported_files:
+                    results['skipped'] += 1
+                    continue
+
+                # Import file
+                try:
+                    result = importer.import_file(str(f))
+                    if result.get('success'):
+                        results['success'] += 1
+                    else:
+                        results['failed'] += 1
+                    results['details'].append({
+                        'filename': f.name,
+                        'success': result.get('success', False),
+                        'records': result.get('claim_records', 0),
+                        'file_type': result.get('file_type'),
+                        'scheme': result.get('scheme'),
+                        'error': result.get('error')
+                    })
+                except Exception as e:
+                    results['failed'] += 1
+                    results['details'].append({
+                        'filename': f.name,
+                        'success': False,
+                        'error': str(e)
+                    })
+
+        finally:
+            importer.disconnect()
+
+        return jsonify({'success': True, **results})
+
+    except Exception as e:
+        logger.error(f"STM import-all error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/stm/delete/<filename>', methods=['DELETE'])
+def delete_stm_file(filename):
+    """Delete a Statement file"""
+    try:
+        file_path = Path('downloads') / filename
+        if not file_path.exists():
+            return jsonify({'success': False, 'error': 'File not found'}), 404
+
+        # Delete import record if exists (cascade will delete related records)
+        try:
+            from config.database import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM stm_imported_files WHERE filename = %s", (filename,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            logger.warning(f"Could not delete STM import record: {e}")
+
+        # Delete file
+        file_path.unlink()
+
+        return jsonify({'success': True, 'message': f'Deleted {filename}'})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/stm/clear', methods=['POST'])
+def clear_stm_files():
+    """Clear all Statement files"""
+    try:
+        download_dir = Path('downloads')
+        deleted_count = 0
+
+        # Delete all STM import records first
+        try:
+            from config.database import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM stm_imported_files")
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            logger.warning(f"Could not clear STM import records: {e}")
+
+        # Delete files
+        for f in download_dir.glob('STM_*.xls'):
+            f.unlink()
+            deleted_count += 1
+
+        return jsonify({
+            'success': True,
+            'message': f'Deleted {deleted_count} Statement files'
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/settings')
 def settings():
     """Settings page"""
@@ -1570,6 +1819,263 @@ def api_smt_clear():
             'success': True,
             'deleted_count': deleted_count,
             'message': f'Deleted {deleted_count} records'
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/smt/files')
+def api_smt_files():
+    """List SMT files in exports directory"""
+    try:
+        exports_dir = Path('exports')
+        if not exports_dir.exists():
+            return jsonify({
+                'success': True,
+                'files': [],
+                'total_size': '0 B'
+            })
+
+        files = []
+        total_bytes = 0
+
+        for f in exports_dir.glob('smt_budget_*.csv'):
+            stat = f.stat()
+            total_bytes += stat.st_size
+            files.append({
+                'filename': f.name,
+                'size': format_size(stat.st_size),
+                'size_bytes': stat.st_size,
+                'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M'),
+                'imported': False  # TODO: Track import status if needed
+            })
+
+        # Sort by modified date, newest first
+        files.sort(key=lambda x: x['modified'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'files': files,
+            'total_size': format_size(total_bytes)
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/smt/download', methods=['POST'])
+def api_smt_download():
+    """Download SMT budget data and export to CSV"""
+    try:
+        data = request.get_json() or {}
+        year = data.get('year')
+        month = data.get('month')
+        vendor_id = data.get('vendor_id')
+
+        if not vendor_id:
+            # Try to get from settings
+            smt_settings = settings_manager.get_smt_settings()
+            vendor_id = smt_settings.get('smt_vendor_id')
+
+        if not vendor_id:
+            return jsonify({'success': False, 'error': 'Vendor ID is required'}), 400
+
+        # Import and run fetcher
+        from smt_budget_fetcher import SMTBudgetFetcher
+
+        log_streamer.write_log(
+            f"Starting SMT download for vendor {vendor_id}, FY {year}...",
+            'info',
+            'smt'
+        )
+
+        fetcher = SMTBudgetFetcher(vendor_id=vendor_id)
+        result = fetcher.fetch_budget_summary(budget_year=int(year) if year else None)
+        records = result.get('datas', [])
+
+        if not records:
+            return jsonify({
+                'success': True,
+                'message': 'No records found',
+                'records': 0
+            })
+
+        # Always export to CSV
+        export_path = fetcher.export_to_csv(records)
+
+        # Calculate summary
+        summary = fetcher.calculate_summary(records)
+
+        log_streamer.write_log(
+            f"✓ SMT download completed: {len(records)} records exported to {export_path}",
+            'success',
+            'smt'
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Downloaded {len(records)} records',
+            'records': len(records),
+            'total_amount': summary['total_amount'],
+            'export_path': export_path
+        })
+
+    except Exception as e:
+        log_streamer.write_log(f"✗ SMT download failed: {str(e)}", 'error', 'smt')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/smt/import/<path:filename>', methods=['POST'])
+def api_smt_import_file(filename):
+    """Import a specific SMT file to database"""
+    try:
+        # Sanitize filename
+        safe_filename = secure_filename(filename)
+        file_path = Path('exports') / safe_filename
+
+        if not file_path.exists():
+            return jsonify({'success': False, 'error': 'File not found'}), 404
+
+        # Import CSV to database
+        from smt_budget_fetcher import SMTBudgetFetcher
+        import csv
+
+        fetcher = SMTBudgetFetcher()
+        records = []
+
+        with open(file_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                records.append(row)
+
+        if not records:
+            return jsonify({'success': False, 'error': 'No records in file'}), 400
+
+        saved_count = fetcher.save_to_database(records)
+
+        log_streamer.write_log(
+            f"✓ Imported {saved_count} records from {safe_filename}",
+            'success',
+            'smt'
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Imported {saved_count} records',
+            'imported': saved_count
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/smt/import-all', methods=['POST'])
+def api_smt_import_all():
+    """Import all SMT files to database"""
+    try:
+        exports_dir = Path('exports')
+        if not exports_dir.exists():
+            return jsonify({'success': False, 'error': 'No exports directory'}), 400
+
+        from smt_budget_fetcher import SMTBudgetFetcher
+        import csv
+
+        fetcher = SMTBudgetFetcher()
+        total_imported = 0
+        files_processed = 0
+
+        for f in exports_dir.glob('smt_budget_*.csv'):
+            try:
+                records = []
+                with open(f, 'r', encoding='utf-8') as file:
+                    reader = csv.DictReader(file)
+                    for row in reader:
+                        records.append(row)
+
+                if records:
+                    saved = fetcher.save_to_database(records)
+                    total_imported += saved
+                    files_processed += 1
+            except Exception as e:
+                log_streamer.write_log(
+                    f"Error importing {f.name}: {str(e)}",
+                    'error',
+                    'smt'
+                )
+
+        log_streamer.write_log(
+            f"✓ Imported {total_imported} records from {files_processed} files",
+            'success',
+            'smt'
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Imported {total_imported} records from {files_processed} files',
+            'imported': total_imported,
+            'files': files_processed
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/smt/delete/<path:filename>', methods=['DELETE'])
+def api_smt_delete_file(filename):
+    """Delete a specific SMT file"""
+    try:
+        # Sanitize filename
+        safe_filename = secure_filename(filename)
+        file_path = Path('exports') / safe_filename
+
+        if not file_path.exists():
+            return jsonify({'success': False, 'error': 'File not found'}), 404
+
+        # Delete the file
+        file_path.unlink()
+
+        log_streamer.write_log(
+            f"Deleted SMT file: {safe_filename}",
+            'info',
+            'smt'
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Deleted {safe_filename}'
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/smt/clear-files', methods=['POST'])
+def api_smt_clear_files():
+    """Clear all SMT files from exports directory"""
+    try:
+        exports_dir = Path('exports')
+        if not exports_dir.exists():
+            return jsonify({'success': True, 'deleted_count': 0})
+
+        deleted_count = 0
+        for f in exports_dir.glob('smt_budget_*.csv'):
+            try:
+                f.unlink()
+                deleted_count += 1
+            except Exception as e:
+                app.logger.error(f"Error deleting {f.name}: {e}")
+
+        log_streamer.write_log(
+            f"Cleared {deleted_count} SMT files from exports",
+            'info',
+            'smt'
+        )
+
+        return jsonify({
+            'success': True,
+            'deleted_count': deleted_count,
+            'message': f'Deleted {deleted_count} SMT files'
         })
 
     except Exception as e:

@@ -55,3 +55,20 @@
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+/* Details/Summary collapsible styles */
+details summary::-webkit-details-marker {
+    display: none;
+}
+
+details summary::marker {
+    display: none;
+}
+
+details[open] .details-arrow {
+    transform: rotate(180deg);
+}
+
+details .details-arrow {
+    transition: transform 0.2s ease-in-out;
+}

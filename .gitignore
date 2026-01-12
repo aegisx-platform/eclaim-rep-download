@@ -1,6 +1,7 @@
 .env
 downloads/
 download_history.json
+stm_download_history.json
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -9,3 +10,6 @@ config/settings.json
 logs/*.log
 *_progress.json
 *.backup
+exports/
+*.xlsx
+.DS_Store

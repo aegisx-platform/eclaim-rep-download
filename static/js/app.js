@@ -279,6 +279,142 @@ async function downloadSingleMonth() {
 }
 
 /**
+ * Current download type state
+ */
+let currentDownloadType = 'rep';
+
+/**
+ * Switch download type (REP, Statement, SMT)
+ */
+function switchDownloadType(type) {
+    currentDownloadType = type;
+
+    // Update button styles
+    document.querySelectorAll('.dl-type-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('text-gray-600', 'hover:bg-gray-200');
+    });
+    const activeBtn = document.getElementById(`dl-type-${type}`);
+    if (activeBtn) {
+        activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-200');
+        activeBtn.classList.add('bg-blue-600', 'text-white');
+    }
+
+    // Update source info
+    const sourceLabel = document.getElementById('dl-source-label');
+    const sourceLink = document.getElementById('dl-source-link');
+    const formTitle = document.getElementById('dl-form-title');
+
+    const typeInfo = {
+        rep: {
+            label: 'REP (Request for Electronic Payment)',
+            link: 'eclaim.nhso.go.th',
+            url: 'https://eclaim.nhso.go.th',
+            title: 'ดาวน์โหลดข้อมูล REP'
+        },
+        statement: {
+            label: 'Statement (ใบแจ้งยอดสรุปรายการเบิกจ่าย)',
+            link: 'eclaim.nhso.go.th',
+            url: 'https://eclaim.nhso.go.th',
+            title: 'ดาวน์โหลด Statement'
+        },
+        smt: {
+            label: 'SMT Budget (งบประมาณ Smart Money Transfer)',
+            link: 'smt.nhso.go.th',
+            url: 'https://smt.nhso.go.th',
+            title: 'ดาวน์โหลด SMT Budget'
+        }
+    };
+
+    const info = typeInfo[type];
+    if (sourceLabel) sourceLabel.textContent = info.label;
+    if (sourceLink) {
+        sourceLink.textContent = info.link;
+        sourceLink.href = info.url;
+    }
+    if (formTitle) formTitle.textContent = info.title;
+
+    // Show/hide type-specific sections
+    const patientTypeSection = document.getElementById('dl-patient-type-section');
+    const vendorSection = document.getElementById('dl-vendor-section');
+    const schemesSection = document.getElementById('dl-schemes-section');
+    const statementSchemeSection = document.getElementById('dl-statement-scheme-section');
+    const dateRangeSection = document.getElementById('dl-date-range-section');
+    const estimateSection = document.getElementById('dl-estimate-section');
+
+    // Hide all type-specific sections first
+    if (patientTypeSection) patientTypeSection.classList.add('hidden');
+    if (vendorSection) vendorSection.classList.add('hidden');
+    if (schemesSection) schemesSection.classList.add('hidden');
+    if (statementSchemeSection) statementSchemeSection.classList.add('hidden');
+
+    // Show relevant sections based on type
+    if (type === 'rep') {
+        if (schemesSection) schemesSection.classList.remove('hidden');
+        if (dateRangeSection) dateRangeSection.classList.remove('hidden');
+        if (estimateSection) estimateSection.classList.remove('hidden');
+    } else if (type === 'statement') {
+        if (patientTypeSection) patientTypeSection.classList.remove('hidden');
+        if (statementSchemeSection) statementSchemeSection.classList.remove('hidden');
+        if (dateRangeSection) dateRangeSection.classList.add('hidden');
+        if (estimateSection) estimateSection.classList.add('hidden');
+    } else if (type === 'smt') {
+        if (vendorSection) vendorSection.classList.remove('hidden');
+        if (dateRangeSection) dateRangeSection.classList.add('hidden');
+        if (estimateSection) estimateSection.classList.add('hidden');
+    }
+}
+
+/**
+ * Download based on selected type
+ */
+async function downloadByType() {
+    if (currentDownloadType === 'rep') {
+        downloadBulk();
+    } else if (currentDownloadType === 'statement') {
+        downloadStatement();
+    } else if (currentDownloadType === 'smt') {
+        downloadSmtBudget();
+    }
+}
+
+/**
+ * Download SMT Budget
+ */
+async function downloadSmtBudget() {
+    const year = parseInt(document.getElementById('bulk-start-year').value);
+    const month = document.getElementById('bulk-start-month').value;
+    const vendorId = document.getElementById('dl-vendor-id')?.value || '';
+
+    if (!vendorId) {
+        showToast('กรุณาระบุ Vendor ID', 'error');
+        return;
+    }
+
+    try {
+        showToast('เริ่มดาวน์โหลด SMT Budget...', 'info');
+        const response = await fetch('/api/smt/download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                year: year,
+                month: month || null,
+                vendor_id: vendorId
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showToast(result.message || 'Download started', 'success');
+        } else {
+            showToast(result.error || 'Download failed', 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+/**
  * Download bulk (date range)
  */
 async function downloadBulk() {
@@ -386,26 +522,49 @@ function startBulkProgressPolling() {
             const progress = await response.json();
 
             if (progress.running && progress.current_month) {
-                // Update current month with file count
+                // Get iteration progress (X/Y files)
+                const currentIdx = progress.iteration_current_idx || 0;
+                const totalFiles = progress.iteration_total_files || 0;
                 const fileCount = progress.current_files || 0;
-                currentMonthSpan.textContent = `Month ${progress.current_month.month}/${progress.current_month.year} (${fileCount} files)`;
+
+                // Format file progress string
+                let fileProgressText;
+                if (totalFiles > 0) {
+                    fileProgressText = `${currentIdx}/${totalFiles} files`;
+                } else if (fileCount > 0) {
+                    fileProgressText = `${fileCount} files`;
+                } else {
+                    fileProgressText = 'loading...';
+                }
+
+                // Update current month with file progress
+                currentMonthSpan.textContent = `Month ${progress.current_month.month}/${progress.current_month.year} (${fileProgressText})`;
 
                 // Update progress count
                 progressCountSpan.textContent = `${progress.completed_months} / ${progress.total_months} months`;
 
-                // Update progress bar
-                // Show at least 5% progress when downloading to indicate activity
-                const completedPercentage = (progress.completed_months / progress.total_months) * 100;
-                const percentage = progress.completed_months === 0 ? 5 : completedPercentage;
+                // Calculate progress percentage based on iterations and current file
+                const totalIterations = progress.total_iterations || 1;
+                const completedIterations = progress.completed_iterations || 0;
+                let percentage;
+                if (totalFiles > 0 && currentIdx > 0) {
+                    // Include partial progress of current iteration
+                    const iterationProgress = currentIdx / totalFiles;
+                    percentage = ((completedIterations + iterationProgress) / totalIterations) * 100;
+                } else {
+                    percentage = (completedIterations / totalIterations) * 100;
+                }
+                // Show at least 2% to indicate activity
+                percentage = Math.max(percentage, progress.status === 'running' ? 2 : 0);
                 progressBar.style.width = `${percentage}%`;
 
-                // Show file count when downloading first month
-                if (progress.completed_months === 0 && fileCount > 0) {
-                    progressPercentage.textContent = `${fileCount} files`;
-                } else if (progress.completed_months === 0) {
+                // Show file progress or percentage
+                if (totalFiles > 0) {
+                    progressPercentage.textContent = `${currentIdx}/${totalFiles}`;
+                } else if (completedIterations === 0) {
                     progressPercentage.textContent = 'Starting...';
                 } else {
-                    progressPercentage.textContent = `${Math.round(completedPercentage)}%`;
+                    progressPercentage.textContent = `${Math.round(percentage)}%`;
                 }
             }
 
@@ -858,5 +1017,250 @@ async function clearAllData() {
     } catch (error) {
         console.error('Error clearing data:', error);
         showToast('Error clearing data', 'error');
+    }
+}
+
+// =============================================================================
+// SMT FILE MANAGEMENT
+// =============================================================================
+
+/**
+ * Load SMT files list
+ */
+async function loadSmtFiles() {
+    try {
+        const response = await fetch('/api/smt/files');
+        const data = await response.json();
+
+        if (data.success) {
+            updateSmtStats(data);
+            renderSmtFileTable(data.files);
+        } else {
+            showToast('Error loading SMT files: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error loading SMT files:', error);
+        showToast('Error loading SMT files', 'error');
+    }
+}
+
+/**
+ * Update SMT stats display
+ */
+function updateSmtStats(data) {
+    const total = data.files ? data.files.length : 0;
+    const imported = data.files ? data.files.filter(f => f.imported).length : 0;
+    const pending = total - imported;
+    const totalSize = data.total_size || '0 B';
+
+    document.getElementById('smt-stat-total').textContent = total;
+    document.getElementById('smt-stat-imported').textContent = imported;
+    document.getElementById('smt-stat-pending').textContent = pending;
+    document.getElementById('smt-stat-size').textContent = totalSize;
+    document.getElementById('smt-file-count').textContent = `แสดง ${total} ไฟล์`;
+    document.getElementById('smt-pending-count').textContent = pending;
+
+    // Show/hide buttons
+    const importAllBtn = document.getElementById('smt-import-all-btn');
+    const clearBtn = document.getElementById('smt-clear-btn');
+
+    if (importAllBtn) {
+        if (pending > 0) {
+            importAllBtn.classList.remove('hidden');
+        } else {
+            importAllBtn.classList.add('hidden');
+        }
+    }
+    if (clearBtn) {
+        if (total > 0) {
+            clearBtn.classList.remove('hidden');
+        } else {
+            clearBtn.classList.add('hidden');
+        }
+    }
+}
+
+/**
+ * Render SMT file table using DOM methods for safety
+ */
+function renderSmtFileTable(files) {
+    const tbody = document.getElementById('smt-file-list');
+    if (!tbody) return;
+
+    // Clear existing content
+    tbody.textContent = '';
+
+    if (!files || files.length === 0) {
+        const emptyRow = document.createElement('tr');
+        const emptyCell = document.createElement('td');
+        emptyCell.setAttribute('colspan', '5');
+        emptyCell.className = 'px-4 py-8 text-center text-gray-500';
+        emptyCell.textContent = 'ไม่พบไฟล์ SMT - ไปที่ Download tab เพื่อดาวน์โหลดข้อมูล';
+        emptyRow.appendChild(emptyCell);
+        tbody.appendChild(emptyRow);
+        return;
+    }
+
+    files.forEach(file => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+
+        // Filename cell
+        const filenameCell = document.createElement('td');
+        filenameCell.className = 'px-4 py-3';
+        const filenameDiv = document.createElement('div');
+        filenameDiv.className = 'flex items-center';
+        const dot = document.createElement('span');
+        dot.className = 'w-2 h-2 bg-green-500 rounded-full mr-2';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'text-sm font-medium text-gray-900';
+        nameSpan.textContent = file.filename;
+        filenameDiv.appendChild(dot);
+        filenameDiv.appendChild(nameSpan);
+        filenameCell.appendChild(filenameDiv);
+        row.appendChild(filenameCell);
+
+        // Date cell
+        const dateCell = document.createElement('td');
+        dateCell.className = 'px-4 py-3 text-sm text-gray-500';
+        dateCell.textContent = file.modified || '-';
+        row.appendChild(dateCell);
+
+        // Size cell
+        const sizeCell = document.createElement('td');
+        sizeCell.className = 'px-4 py-3 text-sm text-gray-500';
+        sizeCell.textContent = file.size || '-';
+        row.appendChild(sizeCell);
+
+        // Status cell
+        const statusCell = document.createElement('td');
+        statusCell.className = 'px-4 py-3';
+        const statusBadge = document.createElement('span');
+        statusBadge.className = file.imported
+            ? 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800'
+            : 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800';
+        statusBadge.textContent = file.imported ? 'Imported' : 'Pending';
+        statusCell.appendChild(statusBadge);
+        row.appendChild(statusCell);
+
+        // Actions cell
+        const actionsCell = document.createElement('td');
+        actionsCell.className = 'px-4 py-3 text-right';
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'flex justify-end gap-2';
+
+        if (!file.imported) {
+            const importBtn = document.createElement('button');
+            importBtn.className = 'text-blue-600 hover:text-blue-800 text-sm font-medium';
+            importBtn.textContent = 'Import';
+            importBtn.onclick = () => importSmtFile(file.filename);
+            actionsDiv.appendChild(importBtn);
+        }
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'text-red-600 hover:text-red-800 text-sm font-medium';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.onclick = () => deleteSmtFile(file.filename);
+        actionsDiv.appendChild(deleteBtn);
+
+        actionsCell.appendChild(actionsDiv);
+        row.appendChild(actionsCell);
+
+        tbody.appendChild(row);
+    });
+}
+
+/**
+ * Import single SMT file
+ */
+async function importSmtFile(filename) {
+    if (!confirm(`นำเข้าไฟล์ ${filename}?`)) return;
+
+    try {
+        showToast(`กำลังนำเข้า ${filename}...`, 'info');
+        const response = await fetch(`/api/smt/import/${encodeURIComponent(filename)}`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showToast(data.message || 'Import successful', 'success');
+            loadSmtFiles();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error importing file', 'error');
+    }
+}
+
+/**
+ * Import all pending SMT files
+ */
+async function importAllSmtFiles() {
+    if (!confirm('นำเข้าไฟล์ SMT ทั้งหมดที่รอนำเข้า?')) return;
+
+    try {
+        showToast('กำลังนำเข้าไฟล์ทั้งหมด...', 'info');
+        const response = await fetch('/api/smt/import-all', {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showToast(data.message || 'All files imported', 'success');
+            loadSmtFiles();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error importing files', 'error');
+    }
+}
+
+/**
+ * Delete single SMT file
+ */
+async function deleteSmtFile(filename) {
+    if (!confirm(`ลบไฟล์ ${filename}?`)) return;
+
+    try {
+        const response = await fetch(`/api/smt/delete/${encodeURIComponent(filename)}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showToast('File deleted', 'success');
+            loadSmtFiles();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error deleting file', 'error');
+    }
+}
+
+/**
+ * Clear all SMT files
+ */
+async function clearAllSmtFiles() {
+    if (!confirm('ลบไฟล์ SMT ทั้งหมด? การดำเนินการนี้ไม่สามารถย้อนกลับได้')) return;
+    if (!confirm('ยืนยันอีกครั้ง - ลบไฟล์ SMT ทั้งหมด?')) return;
+
+    try {
+        const response = await fetch('/api/smt/clear-files', {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showToast(data.message || 'All SMT files cleared', 'success');
+            loadSmtFiles();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error clearing files', 'error');
     }
 }

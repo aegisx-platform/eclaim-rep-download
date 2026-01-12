@@ -56,6 +56,68 @@ class BulkDownloader:
         self.delay_between_months = 10  # seconds between each month download
         self.delay_between_schemes = 5  # seconds between each scheme download
         self.stop_monitoring = False  # Flag to stop monitoring thread
+        self.delay_before_import = 2  # seconds to wait before starting import
+
+    def import_downloaded_files(self, downloaded_files: list, progress: dict) -> dict:
+        """
+        Import downloaded files to database
+
+        Args:
+            downloaded_files: List of file paths to import
+            progress: Progress dict to update
+
+        Returns:
+            dict: Import results with success count and errors
+        """
+        from config.database import get_db_config, DB_TYPE
+        from utils.eclaim.importer_v2 import import_eclaim_file
+
+        results = {
+            'total': len(downloaded_files),
+            'success': 0,
+            'failed': 0,
+            'records': 0,
+            'errors': []
+        }
+
+        if not downloaded_files:
+            return results
+
+        stream_log(f"\n📥 Starting import of {len(downloaded_files)} files...")
+
+        try:
+            db_config = get_db_config()
+        except Exception as e:
+            stream_log(f"✗ Database config error: {e}", 'error')
+            results['errors'].append(str(e))
+            return results
+
+        for idx, filepath in enumerate(downloaded_files, 1):
+            filename = Path(filepath).name
+            stream_log(f"[{idx}/{len(downloaded_files)}] Importing: {filename}")
+
+            try:
+                result = import_eclaim_file(filepath, db_config, DB_TYPE)
+
+                if result.get('success'):
+                    results['success'] += 1
+                    records = result.get('imported_records', 0)
+                    results['records'] += records
+                    stream_log(f"  ✓ Imported: {records} records", 'success')
+                else:
+                    results['failed'] += 1
+                    error_msg = result.get('error', 'Unknown error')
+                    results['errors'].append(f"{filename}: {error_msg}")
+                    stream_log(f"  ✗ Failed: {error_msg}", 'error')
+
+            except Exception as e:
+                results['failed'] += 1
+                results['errors'].append(f"{filename}: {str(e)}")
+                stream_log(f"  ✗ Error: {str(e)}", 'error')
+
+        stream_log(f"📥 Import complete: {results['success']}/{results['total']} files, {results['records']} records", 'success')
+
+        return results
 
     def generate_date_range(self, start_month, start_year, end_month, end_year):
         """
@@ -120,6 +182,7 @@ class BulkDownloader:
             progress (dict): Progress dictionary to update
         """
         from utils.history_manager import HistoryManager
+        iteration_progress_file = Path('download_iteration_progress.json')
 
         while not self.stop_monitoring:
             try:
@@ -134,17 +197,32 @@ class BulkDownloader:
                 # Update progress
                 progress['current_files'] = current_files
 
+                # Read iteration progress for current_idx and total_files
+                if iteration_progress_file.exists():
+                    try:
+                        with open(iteration_progress_file, 'r', encoding='utf-8') as f:
+                            iter_progress = json.load(f)
+                            # Only update if it's for the current month/year/scheme
+                            if (iter_progress.get('month') == month and
+                                iter_progress.get('year') == year and
+                                iter_progress.get('scheme') == scheme):
+                                progress['iteration_current_idx'] = iter_progress.get('current_idx', 0)
+                                progress['iteration_total_files'] = iter_progress.get('total_files', 0)
+                                progress['iteration_current_file'] = iter_progress.get('current_file')
+                    except Exception:
+                        pass
+
                 # Save progress (this will make UI update)
                 self.save_progress(progress)
 
                 # Sleep before next check
-                time.sleep(5)  # Update every 5 seconds
+                time.sleep(2)  # Update every 2 seconds for more responsive UI
 
             except Exception as e:
                 print(f"Monitor error: {e}", flush=True)
                 break
 
-    def run_bulk_download(self, start_month, start_year, end_month, end_year, schemes=None):
+    def run_bulk_download(self, start_month, start_year, end_month, end_year, schemes=None, auto_import=False):
         """
         Execute downloads sequentially for each month and scheme in the date range
 
@@ -155,6 +233,7 @@ class BulkDownloader:
             end_year (int): Ending year in BE
             schemes (list, optional): List of scheme codes to download.
                                      Defaults to DEFAULT_ENABLED_SCHEMES.
+            auto_import (bool): Whether to auto-import files after each download iteration.
         """
         # Get schemes to download
         if schemes is None:
@@ -190,6 +269,16 @@ class BulkDownloader:
             'scheme_progress': {s: {'completed_months': 0, 'files': 0} for s in scheme_codes}
         }
 
+        # Add import tracking if auto_import is enabled
+        if auto_import:
+            progress['auto_import'] = True
+            progress['import_results'] = {
+                'total_files': 0,
+                'success': 0,
+                'failed': 0,
+                'total_records': 0
+            }
+
         self.save_progress(progress)
 
         stream_log("="*60)
@@ -200,6 +289,8 @@ class BulkDownloader:
         stream_log(f"Schemes: {', '.join(s.upper() for s in scheme_codes)}")
         stream_log(f"Total iterations: {total_iterations} (months × schemes)")
         stream_log(f"Bulk ID: {bulk_id}")
+        if auto_import:
+            stream_log(f"Auto-import: ENABLED", 'success')
 
         iteration = 0
         # Process each month
@@ -244,14 +335,14 @@ class BulkDownloader:
                     # Create downloader for this specific month/year/scheme
                     downloader = EClaimDownloader(month=month, year=year, scheme=scheme)
 
-                    # Get initial file count
+                    # Get initial files list (using filenames)
                     from utils.history_manager import HistoryManager
                     history_mgr = HistoryManager()
-                    initial_count = len([
-                        d for d in history_mgr.get_all_downloads()
+                    initial_filenames = set(
+                        d.get('filename') for d in history_mgr.get_all_downloads()
                         if d.get('month') == month and d.get('year') == year
-                        and d.get('scheme', 'ucs') == scheme
-                    ])
+                        and d.get('scheme', 'ucs') == scheme and d.get('filename')
+                    )
 
                     # Run the download
                     downloader.run()
@@ -260,13 +351,25 @@ class BulkDownloader:
                     self.stop_monitoring = True
                     monitor_thread.join(timeout=2)
 
-                    # Get final file count
-                    final_count = len([
+                    # Get final files list and find new downloads
+                    final_files = [
                         d for d in history_mgr.get_all_downloads()
                         if d.get('month') == month and d.get('year') == year
-                        and d.get('scheme', 'ucs') == scheme
-                    ])
-                    files_downloaded = final_count - initial_count
+                        and d.get('scheme', 'ucs') == scheme and d.get('filename')
+                    ]
+                    new_filenames = [
+                        d.get('filename') for d in final_files
+                        if d.get('filename') not in initial_filenames
+                    ]
+
+                    # Convert filenames to full paths (downloads/filename)
+                    downloads_dir = Path('downloads')
+                    new_file_paths = [
+                        str(downloads_dir / filename)
+                        for filename in new_filenames
+                        if (downloads_dir / filename).exists()
+                    ]
+                    files_downloaded = len(new_filenames)
 
                     # Update result
                     result['status'] = 'completed'
@@ -278,6 +381,24 @@ class BulkDownloader:
                     progress['scheme_progress'][scheme]['files'] += files_downloaded
 
                     stream_log(f"✓ {scheme.upper()} {month}/{year}: {files_downloaded} files", 'success')
+
+                    # Auto-import if enabled and files were downloaded
+                    if auto_import and new_file_paths:
+                        time.sleep(self.delay_before_import)
+                        import_results = self.import_downloaded_files(new_file_paths, progress)
+
+                        # Update import tracking
+                        progress['import_results']['total_files'] += import_results['total']
+                        progress['import_results']['success'] += import_results['success']
+                        progress['import_results']['failed'] += import_results['failed']
+                        progress['import_results']['total_records'] += import_results['records']
+
+                        result['import'] = {
+                            'files': import_results['total'],
+                            'success': import_results['success'],
+                            'records': import_results['records']
+                        }
+                        self.save_progress(progress)
 
                 except Exception as e:
                     stream_log(f"✗ Error {scheme.upper()} {month}/{year}: {str(e)}", 'error')
@@ -316,7 +437,17 @@ class BulkDownloader:
         stream_log("By Scheme:")
         for scheme, data in progress['scheme_progress'].items():
             stream_log(f"  {scheme.upper()}: {data['files']} files from {data['completed_months']} months")
-        stream_log(f"Started at: {progress['started_at']}")
+
+        # Import summary if auto_import was enabled
+        if auto_import and progress.get('import_results'):
+            ir = progress['import_results']
+            stream_log("\nImport Summary:")
+            stream_log(f"  Files imported: {ir['success']}/{ir['total_files']}", 'success' if ir['failed'] == 0 else 'info')
+            stream_log(f"  Total records: {ir['total_records']}")
+            if ir['failed'] > 0:
+                stream_log(f"  Failed imports: {ir['failed']}", 'error')
+
+        stream_log(f"\nStarted at: {progress['started_at']}")
         stream_log(f"Completed at: {progress['completed_at']}", 'success')
         stream_log("="*60)
 
@@ -376,7 +507,7 @@ Insurance Schemes:
     parser.add_argument(
         '--auto-import',
         action='store_true',
-        help='Auto-import files after download (not implemented yet)'
+        help='Auto-import files to database after each download iteration'
     )
 
     args = parser.parse_args()
@@ -416,7 +547,8 @@ Insurance Schemes:
         bulk_downloader.run_bulk_download(
             start_month, start_year,
             end_month, end_year,
-            schemes=schemes
+            schemes=schemes,
+            auto_import=args.auto_import
         )
 
     except ValueError as e:

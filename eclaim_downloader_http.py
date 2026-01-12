@@ -55,6 +55,7 @@ class EClaimDownloader:
         self.username, self.password = self._load_credentials()
         self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads'))
         self.tracking_file = Path('download_history.json')
+        self.iteration_progress_file = Path('download_iteration_progress.json')
         self.import_each = import_each
         self.scheme = scheme
 
@@ -86,6 +87,30 @@ class EClaimDownloader:
 
         # Load download history
         self.download_history = self._load_history()
+
+    def _update_iteration_progress(self, current_idx: int, total_files: int, current_file: str = None):
+        """
+        Update download iteration progress for real-time tracking
+
+        Args:
+            current_idx: Current file index (1-based)
+            total_files: Total number of files to download
+            current_file: Name of current file being downloaded
+        """
+        try:
+            progress = {
+                'month': self.month,
+                'year': self.year,
+                'scheme': self.scheme,
+                'current_idx': current_idx,
+                'total_files': total_files,
+                'current_file': current_file,
+                'updated_at': datetime.now().isoformat()
+            }
+            with open(self.iteration_progress_file, 'w', encoding='utf-8') as f:
+                json.dump(progress, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass  # Silently ignore progress update errors
 
     def _load_credentials(self):
         """
@@ -302,13 +327,18 @@ class EClaimDownloader:
         skipped_count = 0
         error_count = 0
 
+        total_files = len(download_links)
+
         for idx, link_info in enumerate(download_links, 1):
             filename = link_info['filename']
             url = link_info['url']
 
+            # Update iteration progress for real-time tracking
+            self._update_iteration_progress(idx, total_files, filename)
+
             # Check if already downloaded
             if self._is_already_downloaded(filename):
-                stream_log(f"[{idx}/{len(download_links)}] Skipping {filename} (already downloaded)")
+                stream_log(f"[{idx}/{total_files}] Skipping {filename} (already downloaded)")
                 skipped_count += 1
                 continue
 
@@ -320,10 +350,10 @@ class EClaimDownloader:
             while retry_count <= max_retries and not success:
                 try:
                     if retry_count > 0:
-                        stream_log(f"[{idx}/{len(download_links)}] Retry {retry_count}/{max_retries} for {filename}...", 'warning')
+                        stream_log(f"[{idx}/{total_files}] Retry {retry_count}/{max_retries} for {filename}...", 'warning')
                         time.sleep(2)  # Wait before retry
                     else:
-                        stream_log(f"[{idx}/{len(download_links)}] Downloading {filename}...")
+                        stream_log(f"[{idx}/{total_files}] Downloading {filename}...")
 
                     # Download file with increased timeout
                     response = self.session.get(url, timeout=120, stream=True)
@@ -357,7 +387,7 @@ class EClaimDownloader:
                     })
 
                     downloaded_count += 1
-                    stream_log(f"[{idx}/{len(download_links)}] ✓ Downloaded: {filename} ({file_size:,} bytes)", 'success')
+                    stream_log(f"[{idx}/{total_files}] ✓ Downloaded: {filename} ({file_size:,} bytes)", 'success')
                     success = True
 
                     # Save history after each download for real-time tracking
@@ -373,7 +403,7 @@ class EClaimDownloader:
                 except Exception as e:
                     retry_count += 1
                     if retry_count > max_retries:
-                        stream_log(f"[{idx}/{len(download_links)}] ✗ Failed after {max_retries} retries: {filename}", 'error')
+                        stream_log(f"[{idx}/{total_files}] ✗ Failed after {max_retries} retries: {filename}", 'error')
                         stream_log(f"    Error: {str(e)}", 'error')
                         error_count += 1
                     continue

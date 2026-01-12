@@ -10,6 +10,7 @@ APScheduler==3.10.4
 # E-Claim Import Dependencies
 pandas==2.1.4
 xlrd==2.0.1
+openpyxl==3.1.2
 psycopg2-binary==2.9.9
 pymysql==1.1.0
 sqlalchemy==2.0.23
