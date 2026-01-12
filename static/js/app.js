@@ -396,9 +396,16 @@ function initSmtDateFields() {
         const now = new Date();
         const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        // Format as YYYY-MM-DD for input[type=date]
-        startDateInput.value = firstOfMonth.toISOString().split('T')[0];
-        endDateInput.value = now.toISOString().split('T')[0];
+        // Format as YYYY-MM-DD for input[type=date] using local date (not UTC)
+        const formatDate = (d) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        startDateInput.value = formatDate(firstOfMonth);
+        endDateInput.value = formatDate(now);
     }
 }
 
