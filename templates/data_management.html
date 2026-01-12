@@ -61,207 +61,129 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Single Month Download -->
-            <div class="border border-gray-200 rounded-lg p-6">
-                <h3 class="text-lg font-semibold mb-4 flex items-center text-blue-700">
-                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                    </svg>
-                    Single Month
-                </h3>
-                <p class="text-gray-600 text-sm mb-4">Download ข้อมูลรายเดือน</p>
+        <!-- Download E-Claim Data Form -->
+        <div class="border border-gray-200 rounded-lg p-6 max-w-2xl">
+            <h3 class="text-lg font-semibold mb-4 flex items-center text-blue-700">
+                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Download E-Claim Data
+            </h3>
+            <p class="text-gray-600 text-sm mb-4">เลือกช่วงเวลาและสิทธิที่ต้องการดาวน์โหลดข้อมูล</p>
 
-                <div class="space-y-4">
-                    <div class="flex gap-3">
-                        <div class="flex-1">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
-                            <select id="single-month" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                                <option value="1">มกราคม</option>
-                                <option value="2">กุมภาพันธ์</option>
-                                <option value="3">มีนาคม</option>
-                                <option value="4">เมษายน</option>
-                                <option value="5">พฤษภาคม</option>
-                                <option value="6">มิถุนายน</option>
-                                <option value="7">กรกฎาคม</option>
-                                <option value="8">สิงหาคม</option>
-                                <option value="9">กันยายน</option>
-                                <option value="10">ตุลาคม</option>
-                                <option value="11">พฤศจิกายน</option>
-                                <option value="12">ธันวาคม</option>
-                            </select>
-                        </div>
-                        <div class="w-32">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Year (พ.ศ.)</label>
-                            <select id="single-year" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Insurance Schemes Selection -->
-                    <div class="border-t pt-4 mt-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Insurance Schemes (สิทธิการรักษา)</label>
-                        <div class="grid grid-cols-2 gap-2 text-sm">
-                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="single-schemes" value="ucs" class="scheme-checkbox w-4 h-4 text-blue-600 rounded" checked>
-                                <span class="ml-2">UCS (บัตรทอง)</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="single-schemes" value="ofc" class="scheme-checkbox w-4 h-4 text-blue-600 rounded" checked>
-                                <span class="ml-2">OFC (ข้าราชการ)</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="single-schemes" value="sss" class="scheme-checkbox w-4 h-4 text-blue-600 rounded" checked>
-                                <span class="ml-2">SSS (ประกันสังคม)</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="single-schemes" value="lgo" class="scheme-checkbox w-4 h-4 text-blue-600 rounded" checked>
-                                <span class="ml-2">LGO (อปท.)</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="single-schemes" value="nhs" class="scheme-checkbox w-4 h-4 text-blue-600 rounded">
-                                <span class="ml-2">NHS (สปสช.)</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="single-schemes" value="bkk" class="scheme-checkbox w-4 h-4 text-blue-600 rounded">
-                                <span class="ml-2">BKK (กทม.)</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="single-schemes" value="bmt" class="scheme-checkbox w-4 h-4 text-blue-600 rounded">
-                                <span class="ml-2">BMT (ขสมก.)</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="single-schemes" value="srt" class="scheme-checkbox w-4 h-4 text-blue-600 rounded">
-                                <span class="ml-2">SRT (รฟท.)</span>
-                            </label>
-                        </div>
-                        <div class="flex gap-2 mt-2">
-                            <button type="button" onclick="selectAllSchemes('single')" class="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded">Select All</button>
-                            <button type="button" onclick="selectDefaultSchemes('single')" class="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded">Default (4)</button>
-                        </div>
-                    </div>
-
-                    <label class="flex items-center cursor-pointer">
-                        <input type="checkbox" id="single-auto-import" class="w-4 h-4 text-blue-600 rounded" checked>
-                        <span class="ml-2 text-sm text-gray-700">Auto-import to database</span>
-                    </label>
-
-                    <button onclick="downloadSingleMonth()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium transition-colors">
-                        Download
-                    </button>
-                </div>
-            </div>
-
-            <!-- Bulk Download -->
-            <div class="border border-gray-200 rounded-lg p-6">
-                <h3 class="text-lg font-semibold mb-4 flex items-center text-orange-700">
-                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                    </svg>
-                    Bulk Download (Date Range)
-                </h3>
-                <p class="text-gray-600 text-sm mb-4">Download ข้อมูลหลายเดือนพร้อมกัน</p>
-
-                <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-4">
+                <!-- Date Range Selection -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ช่วงเวลา (Date Range)</label>
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Start</label>
-                            <div class="flex gap-1">
-                                <select id="bulk-start-month" class="flex-1 border border-gray-300 rounded-md px-2 py-2 text-sm">
-                                    <option value="1">ม.ค.</option>
-                                    <option value="2">ก.พ.</option>
-                                    <option value="3">มี.ค.</option>
-                                    <option value="4">เม.ย.</option>
-                                    <option value="5">พ.ค.</option>
-                                    <option value="6">มิ.ย.</option>
-                                    <option value="7">ก.ค.</option>
-                                    <option value="8">ส.ค.</option>
-                                    <option value="9">ก.ย.</option>
-                                    <option value="10">ต.ค.</option>
-                                    <option value="11">พ.ย.</option>
-                                    <option value="12">ธ.ค.</option>
+                            <label class="block text-xs text-gray-500 mb-1">เริ่มต้น</label>
+                            <div class="flex gap-2">
+                                <select id="bulk-start-month" class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                                    <option value="1">มกราคม</option>
+                                    <option value="2">กุมภาพันธ์</option>
+                                    <option value="3">มีนาคม</option>
+                                    <option value="4">เมษายน</option>
+                                    <option value="5">พฤษภาคม</option>
+                                    <option value="6">มิถุนายน</option>
+                                    <option value="7">กรกฎาคม</option>
+                                    <option value="8">สิงหาคม</option>
+                                    <option value="9">กันยายน</option>
+                                    <option value="10">ตุลาคม</option>
+                                    <option value="11">พฤศจิกายน</option>
+                                    <option value="12">ธันวาคม</option>
                                 </select>
-                                <select id="bulk-start-year" class="w-20 border border-gray-300 rounded-md px-2 py-2 text-sm">
+                                <select id="bulk-start-year" class="w-24 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                                 </select>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">End</label>
-                            <div class="flex gap-1">
-                                <select id="bulk-end-month" class="flex-1 border border-gray-300 rounded-md px-2 py-2 text-sm">
-                                    <option value="1">ม.ค.</option>
-                                    <option value="2">ก.พ.</option>
-                                    <option value="3">มี.ค.</option>
-                                    <option value="4">เม.ย.</option>
-                                    <option value="5">พ.ค.</option>
-                                    <option value="6">มิ.ย.</option>
-                                    <option value="7">ก.ค.</option>
-                                    <option value="8">ส.ค.</option>
-                                    <option value="9">ก.ย.</option>
-                                    <option value="10">ต.ค.</option>
-                                    <option value="11">พ.ย.</option>
-                                    <option value="12">ธ.ค.</option>
+                            <label class="block text-xs text-gray-500 mb-1">สิ้นสุด</label>
+                            <div class="flex gap-2">
+                                <select id="bulk-end-month" class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                                    <option value="1">มกราคม</option>
+                                    <option value="2">กุมภาพันธ์</option>
+                                    <option value="3">มีนาคม</option>
+                                    <option value="4">เมษายน</option>
+                                    <option value="5">พฤษภาคม</option>
+                                    <option value="6">มิถุนายน</option>
+                                    <option value="7">กรกฎาคม</option>
+                                    <option value="8">สิงหาคม</option>
+                                    <option value="9">กันยายน</option>
+                                    <option value="10">ตุลาคม</option>
+                                    <option value="11">พฤศจิกายน</option>
+                                    <option value="12">ธันวาคม</option>
                                 </select>
-                                <select id="bulk-end-year" class="w-20 border border-gray-300 rounded-md px-2 py-2 text-sm">
+                                <select id="bulk-end-year" class="w-24 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
                                 </select>
                             </div>
                         </div>
                     </div>
-
-                    <p id="bulk-estimate" class="text-sm text-gray-500"></p>
-
-                    <!-- Insurance Schemes Selection for Bulk -->
-                    <div class="border-t pt-4 mt-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Insurance Schemes</label>
-                        <div class="grid grid-cols-2 gap-1 text-xs">
-                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="bulk-schemes" value="ucs" class="w-3 h-3 text-orange-600 rounded" checked>
-                                <span class="ml-1.5">UCS</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="bulk-schemes" value="ofc" class="w-3 h-3 text-orange-600 rounded" checked>
-                                <span class="ml-1.5">OFC</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="bulk-schemes" value="sss" class="w-3 h-3 text-orange-600 rounded" checked>
-                                <span class="ml-1.5">SSS</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="bulk-schemes" value="lgo" class="w-3 h-3 text-orange-600 rounded" checked>
-                                <span class="ml-1.5">LGO</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="bulk-schemes" value="nhs" class="w-3 h-3 text-orange-600 rounded">
-                                <span class="ml-1.5">NHS</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="bulk-schemes" value="bkk" class="w-3 h-3 text-orange-600 rounded">
-                                <span class="ml-1.5">BKK</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="bulk-schemes" value="bmt" class="w-3 h-3 text-orange-600 rounded">
-                                <span class="ml-1.5">BMT</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer p-1.5 hover:bg-gray-50 rounded">
-                                <input type="checkbox" name="bulk-schemes" value="srt" class="w-3 h-3 text-orange-600 rounded">
-                                <span class="ml-1.5">SRT</span>
-                            </label>
-                        </div>
-                        <div class="flex gap-2 mt-1">
-                            <button type="button" onclick="selectAllSchemes('bulk')" class="text-xs px-2 py-0.5 bg-gray-100 hover:bg-gray-200 rounded">All</button>
-                            <button type="button" onclick="selectDefaultSchemes('bulk')" class="text-xs px-2 py-0.5 bg-gray-100 hover:bg-gray-200 rounded">Default</button>
-                        </div>
-                    </div>
-
-                    <label class="flex items-center cursor-pointer">
-                        <input type="checkbox" id="bulk-auto-import" class="w-4 h-4 text-orange-600 rounded" checked>
-                        <span class="ml-2 text-sm text-gray-700">Auto-import to database</span>
-                    </label>
-
-                    <button onclick="downloadBulk()" class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md font-medium transition-colors">
-                        Download All Months
-                    </button>
                 </div>
+
+                <!-- Insurance Schemes Selection -->
+                <div class="border-t pt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">สิทธิการรักษา (Insurance Schemes)</label>
+                    <div class="grid grid-cols-4 gap-2 text-sm">
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="bulk-schemes" value="ucs" class="w-4 h-4 text-blue-600 rounded" checked>
+                            <span class="ml-2">UCS (บัตรทอง)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="bulk-schemes" value="ofc" class="w-4 h-4 text-blue-600 rounded" checked>
+                            <span class="ml-2">OFC (ข้าราชการ)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="bulk-schemes" value="sss" class="w-4 h-4 text-blue-600 rounded" checked>
+                            <span class="ml-2">SSS (ประกันสังคม)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="bulk-schemes" value="lgo" class="w-4 h-4 text-blue-600 rounded" checked>
+                            <span class="ml-2">LGO (อปท.)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="bulk-schemes" value="nhs" class="w-4 h-4 text-blue-600 rounded">
+                            <span class="ml-2">NHS (สปสช.)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="bulk-schemes" value="bkk" class="w-4 h-4 text-blue-600 rounded">
+                            <span class="ml-2">BKK (กทม.)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="bulk-schemes" value="bmt" class="w-4 h-4 text-blue-600 rounded">
+                            <span class="ml-2">BMT (ขสมก.)</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100">
+                            <input type="checkbox" name="bulk-schemes" value="srt" class="w-4 h-4 text-blue-600 rounded">
+                            <span class="ml-2">SRT (รฟท.)</span>
+                        </label>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <button type="button" onclick="selectAllSchemes('bulk')" class="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded">เลือกทั้งหมด</button>
+                        <button type="button" onclick="selectDefaultSchemes('bulk')" class="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded">ค่าเริ่มต้น (4 สิทธิหลัก)</button>
+                    </div>
+                </div>
+
+                <!-- Estimate -->
+                <div class="bg-gray-50 rounded-lg p-3">
+                    <p id="bulk-estimate" class="text-sm text-gray-600"></p>
+                </div>
+
+                <!-- Options -->
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="bulk-auto-import" class="w-4 h-4 text-blue-600 rounded" checked>
+                        <span class="ml-2 text-sm text-gray-700">นำเข้าฐานข้อมูลอัตโนมัติ (Auto-import)</span>
+                    </label>
+                </div>
+
+                <!-- Download Button -->
+                <button onclick="downloadBulk()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-md font-medium transition-colors text-lg">
+                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    ดาวน์โหลดข้อมูล
+                </button>
             </div>
         </div>
 
@@ -341,26 +263,78 @@
             </div>
         </div>
 
-        <!-- Filter and Actions -->
-        <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-3">
-                <select id="file-month-filter" onchange="filterFilesByMonth()" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
-                    {% for date in available_dates %}
-                    <option value="{{ date.month }},{{ date.year }}" {% if date.month == filter_month and date.year == filter_year %}selected{% endif %}>
-                        {{ date.label }} ({{ date.count }})
-                    </option>
-                    {% endfor %}
-                </select>
-                <div class="flex gap-1">
-                    <button onclick="filterFilesStatus('all')" id="filter-all" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white">All</button>
-                    <button onclick="filterFilesStatus('imported')" id="filter-imported" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700">Imported</button>
-                    <button onclick="filterFilesStatus('pending')" id="filter-pending" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700">Pending</button>
+        <!-- Filter Section -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+            <div class="flex flex-wrap items-end gap-4">
+                <!-- Date Range Filter -->
+                <div class="flex items-end gap-2">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">จาก</label>
+                        <div class="flex gap-1">
+                            <select id="filter-start-month" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                                <option value="">ทั้งหมด</option>
+                                {% for date in available_dates %}
+                                <option value="{{ date.month }},{{ date.year }}">{{ date.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <span class="text-gray-400 pb-1.5">-</span>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">ถึง</label>
+                        <div class="flex gap-1">
+                            <select id="filter-end-month" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                                <option value="">ทั้งหมด</option>
+                                {% for date in available_dates %}
+                                <option value="{{ date.month }},{{ date.year }}" {% if loop.first %}selected{% endif %}>{{ date.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Scheme Filter -->
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">สิทธิ</label>
+                    <select id="filter-scheme" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                        <option value="">ทุกสิทธิ</option>
+                        <option value="ucs">UCS (บัตรทอง)</option>
+                        <option value="ofc">OFC (ข้าราชการ)</option>
+                        <option value="sss">SSS (ประกันสังคม)</option>
+                        <option value="lgo">LGO (อปท.)</option>
+                        <option value="nhs">NHS (สปสช.)</option>
+                        <option value="bkk">BKK (กทม.)</option>
+                        <option value="bmt">BMT (ขสมก.)</option>
+                        <option value="srt">SRT (รฟท.)</option>
+                    </select>
+                </div>
+
+                <!-- Status Filter -->
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">สถานะ</label>
+                    <div class="flex gap-1">
+                        <button onclick="filterFilesStatus('all')" id="filter-all" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white">ทั้งหมด</button>
+                        <button onclick="filterFilesStatus('imported')" id="filter-imported" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700">นำเข้าแล้ว</button>
+                        <button onclick="filterFilesStatus('pending')" id="filter-pending" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700">รอนำเข้า</button>
+                    </div>
+                </div>
+
+                <!-- Apply Button -->
+                <button onclick="applyFilesFilter()" class="bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-4 rounded-md font-medium text-sm">
+                    แสดงผล
+                </button>
+            </div>
+        </div>
+
+        <!-- Actions Bar -->
+        <div class="flex items-center justify-between mb-4">
+            <div class="text-sm text-gray-600">
+                แสดง {{ files|length }} ไฟล์
             </div>
             <div class="flex gap-2">
                 {% if stats.not_imported_count > 0 %}
-                <button onclick="importAllFiles()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium text-sm">
-                    Import All ({{ stats.not_imported_count }})
+                <button onclick="importAllFiles()" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium text-sm">
+                    นำเข้าทั้งหมด ({{ stats.not_imported_count }})
                 </button>
                 {% endif %}
             </div>
@@ -734,7 +708,7 @@ function populateYearDropdowns() {
     var currentYearBE = currentYear + 543;
     var currentMonth = new Date().getMonth() + 1;
 
-    var yearSelects = ['single-year', 'bulk-start-year', 'bulk-end-year', 'smt-fiscal-year'];
+    var yearSelects = ['bulk-start-year', 'bulk-end-year', 'smt-fiscal-year'];
 
     yearSelects.forEach(function(id) {
         var select = document.getElementById(id);
@@ -752,9 +726,11 @@ function populateYearDropdowns() {
         }
     });
 
-    // Set current month
-    var singleMonthSelect = document.getElementById('single-month');
-    if (singleMonthSelect) singleMonthSelect.value = currentMonth;
+    // Set current month for bulk download
+    var bulkStartMonth = document.getElementById('bulk-start-month');
+    var bulkEndMonth = document.getElementById('bulk-end-month');
+    if (bulkStartMonth) bulkStartMonth.value = currentMonth;
+    if (bulkEndMonth) bulkEndMonth.value = currentMonth;
 }
 
 // Update bulk estimate
@@ -772,7 +748,7 @@ function updateBulkEstimate() {
         var totalIterations = totalMonths * numSchemes;
         var estimatedMinutes = Math.ceil(totalIterations * 0.5); // ~30 sec per iteration
         document.getElementById('bulk-estimate').textContent =
-            totalMonths + ' months x ' + numSchemes + ' schemes = ' + totalIterations + ' downloads (~' + estimatedMinutes + ' min)';
+            totalMonths + ' เดือน x ' + numSchemes + ' สิทธิ = ' + totalIterations + ' รายการ (ประมาณ ' + estimatedMinutes + ' นาที)';
     }
 }
 
@@ -795,11 +771,38 @@ function filterFilesStatus(status) {
 }
 
 function filterFilesByMonth() {
-    var select = document.getElementById('file-month-filter');
-    var parts = select.value.split(',');
-    var month = parts[0];
-    var year = parts[1];
-    window.location.href = '?tab=files&month=' + month + '&year=' + year + '&page=1';
+    // Legacy function - redirect to applyFilesFilter
+    applyFilesFilter();
+}
+
+// Apply files filter with date range and scheme
+function applyFilesFilter() {
+    var startSelect = document.getElementById('filter-start-month');
+    var endSelect = document.getElementById('filter-end-month');
+    var schemeSelect = document.getElementById('filter-scheme');
+
+    var params = new URLSearchParams();
+    params.set('tab', 'files');
+    params.set('page', '1');
+
+    // Date range
+    if (startSelect && startSelect.value) {
+        var startParts = startSelect.value.split(',');
+        params.set('start_month', startParts[0]);
+        params.set('start_year', startParts[1]);
+    }
+    if (endSelect && endSelect.value) {
+        var endParts = endSelect.value.split(',');
+        params.set('end_month', endParts[0]);
+        params.set('end_year', endParts[1]);
+    }
+
+    // Scheme filter
+    if (schemeSelect && schemeSelect.value) {
+        params.set('scheme', schemeSelect.value);
+    }
+
+    window.location.href = '?' + params.toString();
 }
 
 // Password toggle
