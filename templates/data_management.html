@@ -264,14 +264,14 @@
             <span id="progress-percentage" class="text-lg font-bold text-blue-900">0%</span>
         </div>
 
-        <!-- Scheduler Section (Collapsible) -->
-        <details class="mt-6 border border-gray-200 rounded-lg">
+        <!-- Scheduler Section (Collapsible) - REDESIGNED UI -->
+        <details class="mt-6 border border-gray-200 rounded-lg shadow-sm" open>
             <summary class="p-4 cursor-pointer hover:bg-gray-50 rounded-lg flex items-center justify-between list-none">
                 <div class="flex items-center">
                     <svg class="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <span class="text-lg font-semibold text-gray-800">ตั้งเวลาดาวน์โหลดอัตโนมัติ (Auto Schedule)</span>
+                    <span class="text-lg font-semibold text-gray-800">Auto Schedule</span>
                     <span id="schedule-summary" class="ml-3 text-sm text-gray-500"></span>
                 </div>
                 <div class="flex items-center gap-3">
@@ -284,114 +284,168 @@
                     </svg>
                 </div>
             </summary>
-            <div class="p-6 pt-2 border-t border-gray-100">
-                <p class="text-sm text-gray-600 mb-4">ระบบจะดาวน์โหลดข้อมูลเดือนปัจจุบันโดยอัตโนมัติตามเวลาที่กำหนด</p>
+            <div class="p-5 pt-3 border-t border-gray-100 bg-gray-50/50">
 
-                <!-- Data Types Selection -->
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">ประเภทข้อมูลที่ต้องการดาวน์โหลด</label>
-                    <div class="flex flex-wrap gap-3">
-                        <label class="flex items-center cursor-pointer p-3 hover:bg-blue-50 rounded-lg border border-blue-200 bg-blue-50 schedule-type-label" id="label-type-rep">
-                            <input type="checkbox" id="schedule-type-rep" class="w-4 h-4 text-blue-600 rounded" checked onchange="updateScheduleSchemeVisibility()">
-                            <span class="ml-2 text-sm font-medium text-blue-700">📄 REP Files</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-3 hover:bg-purple-50 rounded-lg border border-purple-200 schedule-type-label" id="label-type-stm">
-                            <input type="checkbox" id="schedule-type-stm" class="w-4 h-4 text-purple-600 rounded" onchange="updateScheduleSchemeVisibility()">
-                            <span class="ml-2 text-sm font-medium text-purple-700">📊 UC Statement</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-3 hover:bg-green-50 rounded-lg border border-green-200 schedule-type-label" id="label-type-smt">
-                            <input type="checkbox" id="schedule-type-smt" class="w-4 h-4 text-green-600 rounded" onchange="updateScheduleSchemeVisibility()">
-                            <span class="ml-2 text-sm font-medium text-green-700">💰 SMT Budget</span>
-                        </label>
+                <!-- ===== STEP 1: Schedule Times ===== -->
+                <div class="mb-5">
+                    <div class="flex items-center mb-3">
+                        <span class="w-7 h-7 rounded-full bg-purple-600 text-white text-sm font-bold flex items-center justify-center mr-2">1</span>
+                        <span class="font-semibold text-gray-800">เวลาดาวน์โหลด</span>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">เลือกประเภทข้อมูลที่ต้องการดาวน์โหลดอัตโนมัติ (เลือกได้หลายประเภท)</p>
-                </div>
-
-                <!-- Statement Info (UCS only) -->
-                <div id="schedule-stm-info" class="mb-4 hidden">
-                    <div class="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                        <p class="text-sm text-purple-800">
-                            <strong>UC Statement</strong> - ดาวน์โหลดใบแจ้งยอด UCS (หลักประกันสุขภาพถ้วนหน้า) เท่านั้น
-                        </p>
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
+                        <div id="schedule-times-container" class="flex flex-wrap gap-2 min-h-[40px] items-center">
+                            <p class="text-sm text-gray-400" id="no-schedules-message">ยังไม่ได้ตั้งเวลา คลิก "เพิ่มเวลา" ด้านล่าง</p>
+                        </div>
+                        <button onclick="addScheduleTime()" class="mt-3 inline-flex items-center text-purple-600 hover:text-purple-800 text-sm font-medium transition-colors">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            เพิ่มเวลา
+                        </button>
                     </div>
                 </div>
 
-                <!-- Schedule Scheme Selection (for REP only) -->
-                <div id="schedule-schemes-section" class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        สิทธิที่ต้องการดาวน์โหลด (REP Files)
-                        <span id="schemes-hint" class="text-xs font-normal text-gray-500 ml-2"></span>
-                    </label>
-                    <div class="grid grid-cols-4 gap-2 text-sm">
-                        <!-- 4 สิทธิหลัก -->
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep">
-                            <input type="checkbox" name="schedule-schemes" value="ucs" class="w-4 h-4 text-purple-600 rounded" checked>
-                            <span class="ml-2">UCS (บัตรทอง)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep">
-                            <input type="checkbox" name="schedule-schemes" value="ofc" class="w-4 h-4 text-purple-600 rounded" checked>
-                            <span class="ml-2">OFC (ข้าราชการ)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep">
-                            <input type="checkbox" name="schedule-schemes" value="sss" class="w-4 h-4 text-purple-600 rounded" checked>
-                            <span class="ml-2">SSS (ประกันสังคม)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item" data-types="rep">
-                            <input type="checkbox" name="schedule-schemes" value="lgo" class="w-4 h-4 text-purple-600 rounded" checked>
-                            <span class="ml-2">LGO (อปท.)</span>
-                        </label>
-                        <!-- 4 สิทธิเพิ่มเติม (REP เท่านั้น) -->
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item schedule-scheme-rep-only" data-types="rep">
-                            <input type="checkbox" name="schedule-schemes" value="nhs" class="w-4 h-4 text-purple-600 rounded">
-                            <span class="ml-2">NHS (สปสช.)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item schedule-scheme-rep-only" data-types="rep">
-                            <input type="checkbox" name="schedule-schemes" value="bkk" class="w-4 h-4 text-purple-600 rounded">
-                            <span class="ml-2">BKK (กทม.)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item schedule-scheme-rep-only" data-types="rep">
-                            <input type="checkbox" name="schedule-schemes" value="bmt" class="w-4 h-4 text-purple-600 rounded">
-                            <span class="ml-2">BMT (ขสมก.)</span>
-                        </label>
-                        <label class="flex items-center cursor-pointer p-2 hover:bg-gray-50 rounded border border-gray-100 schedule-scheme-item schedule-scheme-rep-only" data-types="rep">
-                            <input type="checkbox" name="schedule-schemes" value="srt" class="w-4 h-4 text-purple-600 rounded">
-                            <span class="ml-2">SRT (รฟท.)</span>
+                <!-- ===== STEP 2: Data Types Selection (Card Based) ===== -->
+                <div class="mb-5">
+                    <div class="flex items-center mb-3">
+                        <span class="w-7 h-7 rounded-full bg-purple-600 text-white text-sm font-bold flex items-center justify-center mr-2">2</span>
+                        <span class="font-semibold text-gray-800">เลือกประเภทข้อมูล</span>
+                        <span class="ml-2 text-xs text-gray-500">(เลือกได้หลายประเภท)</span>
+                    </div>
+
+                    <!-- REP Files Card -->
+                    <div class="bg-white rounded-lg border border-gray-200 mb-3 overflow-hidden transition-all" id="card-type-rep">
+                        <div class="flex items-center justify-between p-3 cursor-pointer" onclick="toggleScheduleTypeCard('rep')">
+                            <div class="flex items-center">
+                                <span class="text-xl mr-2">📄</span>
+                                <div>
+                                    <span class="font-medium text-gray-800">REP Files</span>
+                                    <span class="text-xs text-gray-500 ml-2">ใบขอเบิกอิเล็กทรอนิกส์</span>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                                <input type="checkbox" id="schedule-type-rep" class="sr-only peer" checked onchange="updateScheduleCardState('rep')">
+                                <div class="w-9 h-5 bg-gray-300 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                        <div id="rep-settings" class="px-4 pb-4 border-t border-gray-100 bg-blue-50/30">
+                            <p class="text-xs text-gray-600 py-2 mb-2">เลือกสิทธิที่ต้องการดาวน์โหลด:</p>
+                            <div class="grid grid-cols-4 gap-2 text-sm">
+                                <label class="flex items-center cursor-pointer p-2 bg-white hover:bg-blue-50 rounded border border-gray-200 transition-colors schedule-scheme-item">
+                                    <input type="checkbox" name="schedule-schemes" value="ucs" class="w-4 h-4 text-blue-600 rounded" checked>
+                                    <span class="ml-2 text-gray-700">UCS</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 bg-white hover:bg-blue-50 rounded border border-gray-200 transition-colors schedule-scheme-item">
+                                    <input type="checkbox" name="schedule-schemes" value="ofc" class="w-4 h-4 text-blue-600 rounded" checked>
+                                    <span class="ml-2 text-gray-700">OFC</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 bg-white hover:bg-blue-50 rounded border border-gray-200 transition-colors schedule-scheme-item">
+                                    <input type="checkbox" name="schedule-schemes" value="sss" class="w-4 h-4 text-blue-600 rounded" checked>
+                                    <span class="ml-2 text-gray-700">SSS</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 bg-white hover:bg-blue-50 rounded border border-gray-200 transition-colors schedule-scheme-item">
+                                    <input type="checkbox" name="schedule-schemes" value="lgo" class="w-4 h-4 text-blue-600 rounded" checked>
+                                    <span class="ml-2 text-gray-700">LGO</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 bg-white hover:bg-blue-50 rounded border border-gray-200 transition-colors schedule-scheme-item">
+                                    <input type="checkbox" name="schedule-schemes" value="nhs" class="w-4 h-4 text-blue-600 rounded">
+                                    <span class="ml-2 text-gray-700">NHS</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 bg-white hover:bg-blue-50 rounded border border-gray-200 transition-colors schedule-scheme-item">
+                                    <input type="checkbox" name="schedule-schemes" value="bkk" class="w-4 h-4 text-blue-600 rounded">
+                                    <span class="ml-2 text-gray-700">BKK</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 bg-white hover:bg-blue-50 rounded border border-gray-200 transition-colors schedule-scheme-item">
+                                    <input type="checkbox" name="schedule-schemes" value="bmt" class="w-4 h-4 text-blue-600 rounded">
+                                    <span class="ml-2 text-gray-700">BMT</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer p-2 bg-white hover:bg-blue-50 rounded border border-gray-200 transition-colors schedule-scheme-item">
+                                    <input type="checkbox" name="schedule-schemes" value="srt" class="w-4 h-4 text-blue-600 rounded">
+                                    <span class="ml-2 text-gray-700">SRT</span>
+                                </label>
+                            </div>
+                            <div class="mt-2 flex gap-2">
+                                <button type="button" onclick="selectAllScheduleSchemes()" class="text-xs text-blue-600 hover:text-blue-800">เลือกทั้งหมด</button>
+                                <span class="text-gray-300">|</span>
+                                <button type="button" onclick="selectMainScheduleSchemes()" class="text-xs text-blue-600 hover:text-blue-800">4 สิทธิหลัก</button>
+                                <span class="text-gray-300">|</span>
+                                <button type="button" onclick="deselectAllScheduleSchemes()" class="text-xs text-gray-500 hover:text-gray-700">ยกเลิกทั้งหมด</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- UC Statement Card -->
+                    <div class="bg-white rounded-lg border border-gray-200 mb-3 overflow-hidden transition-all opacity-60" id="card-type-stm">
+                        <div class="flex items-center justify-between p-3 cursor-pointer" onclick="toggleScheduleTypeCard('stm')">
+                            <div class="flex items-center">
+                                <span class="text-xl mr-2">📊</span>
+                                <div>
+                                    <span class="font-medium text-gray-800">UC Statement</span>
+                                    <span class="text-xs text-purple-600 ml-2 bg-purple-100 px-2 py-0.5 rounded">UCS เท่านั้น</span>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                                <input type="checkbox" id="schedule-type-stm" class="sr-only peer" onchange="updateScheduleCardState('stm')">
+                                <div class="w-9 h-5 bg-gray-300 peer-focus:ring-2 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                            </label>
+                        </div>
+                        <div id="stm-settings" class="px-4 pb-3 border-t border-gray-100 bg-purple-50/30 hidden">
+                            <p class="text-xs text-purple-700 py-2">ดาวน์โหลดใบแจ้งยอด UCS (หลักประกันสุขภาพถ้วนหน้า)</p>
+                        </div>
+                    </div>
+
+                    <!-- SMT Budget Card -->
+                    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden transition-all opacity-60" id="card-type-smt">
+                        <div class="flex items-center justify-between p-3 cursor-pointer" onclick="toggleScheduleTypeCard('smt')">
+                            <div class="flex items-center">
+                                <span class="text-xl mr-2">💰</span>
+                                <div>
+                                    <span class="font-medium text-gray-800">SMT Budget</span>
+                                    <span class="text-xs text-gray-500 ml-2">ข้อมูลงบประมาณ</span>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                                <input type="checkbox" id="schedule-type-smt" class="sr-only peer" onchange="updateScheduleCardState('smt')">
+                                <div class="w-9 h-5 bg-gray-300 peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                            </label>
+                        </div>
+                        <div id="smt-settings" class="px-4 pb-3 border-t border-gray-100 bg-green-50/30 hidden">
+                            <label class="block text-xs text-gray-600 py-2 mb-1">Vendor ID:</label>
+                            <input type="text" id="schedule-smt-vendor-id" placeholder="เช่น 10670"
+                                   class="w-full max-w-xs border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                            <p class="text-xs text-gray-500 mt-1">จะใช้ค่าจาก Settings หากไม่ระบุ</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== STEP 3: Options ===== -->
+                <div class="mb-5">
+                    <div class="flex items-center mb-3">
+                        <span class="w-7 h-7 rounded-full bg-purple-600 text-white text-sm font-bold flex items-center justify-center mr-2">3</span>
+                        <span class="font-semibold text-gray-800">ตัวเลือกเพิ่มเติม</span>
+                    </div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="schedule-auto-import" class="w-5 h-5 text-purple-600 rounded border-gray-300">
+                            <span class="ml-3 text-sm text-gray-700">นำเข้าฐานข้อมูลอัตโนมัติหลังดาวน์โหลดเสร็จ</span>
                         </label>
                     </div>
                 </div>
 
-                <!-- SMT Vendor ID (for SMT Budget only) -->
-                <div id="schedule-smt-vendor-section" class="mb-4 hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Vendor ID สำหรับ SMT Budget</label>
-                    <input type="text" id="schedule-smt-vendor-id" placeholder="เช่น 10670 หรือ 0000010670"
-                           class="w-full max-w-xs border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-500">
-                    <p class="text-xs text-gray-500 mt-1">รหัสหน่วยบริการที่ใช้ใน SMT (จะใช้ค่าจาก Settings หากไม่ระบุ)</p>
-                </div>
+                <!-- ===== Save Button ===== -->
+                <button onclick="saveScheduleSettings()" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg font-medium text-sm transition-colors flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                    </svg>
+                    บันทึกการตั้งค่า
+                </button>
 
-                <!-- Schedule Times -->
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">เวลาที่ต้องการดาวน์โหลด</label>
-                    <div id="schedule-times-container" class="space-y-2">
-                        <p class="text-sm text-gray-500" id="no-schedules-message">ยังไม่มีเวลาที่ตั้งไว้</p>
+                <!-- ===== Status Summary ===== -->
+                <div id="schedule-status-box" class="mt-4 p-4 bg-white rounded-lg border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-gray-700">สถานะ:</span>
+                        <span id="schedule-status" class="text-sm">Loading...</span>
                     </div>
-                </div>
-
-                <div class="flex items-center gap-3">
-                    <button onclick="addScheduleTime()" class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md font-medium text-sm">
-                        + เพิ่มเวลา
-                    </button>
-                    <label class="flex items-center cursor-pointer">
-                        <input type="checkbox" id="schedule-auto-import" class="w-4 h-4 text-purple-600 rounded">
-                        <span class="ml-2 text-sm text-gray-700">นำเข้าฐานข้อมูลอัตโนมัติ</span>
-                    </label>
-                    <button onclick="saveScheduleSettings()" class="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md font-medium text-sm">
-                        บันทึกการตั้งค่า
-                    </button>
-                </div>
-
-                <!-- Schedule Status -->
-                <div id="schedule-status-box" class="mt-4 p-3 bg-gray-50 rounded-lg text-sm">
-                    <span id="schedule-status">Loading...</span>
                 </div>
             </div>
         </details>
@@ -1273,11 +1327,39 @@ async function loadScheduleSettings() {
                 smtVendorInput.value = data.settings.schedule_smt_vendor_id || '';
             }
 
-            // Update visibility based on loaded settings
-            updateScheduleSchemeVisibility();
+            // Update card states based on loaded settings
+            initScheduleCards();
+
+            // Update summary text in header
+            updateScheduleSummary(data.settings);
         }
     } catch (error) {
         console.error('Error loading schedule:', error);
+    }
+}
+
+function updateScheduleSummary(settings) {
+    var summary = document.getElementById('schedule-summary');
+    if (!summary) return;
+
+    if (!settings.schedule_enabled) {
+        summary.innerHTML = '<span class="text-gray-400">ปิดอยู่</span>';
+        return;
+    }
+
+    var times = settings.schedule_times || [];
+    var types = [];
+    if (settings.schedule_type_rep !== false) types.push('REP');
+    if (settings.schedule_type_stm) types.push('STM');
+    if (settings.schedule_type_smt) types.push('SMT');
+
+    if (times.length === 0) {
+        summary.innerHTML = '<span class="text-yellow-600">เปิดอยู่ · ยังไม่ตั้งเวลา</span>';
+    } else {
+        var timeStr = times.map(function(t) {
+            return String(t.hour).padStart(2, '0') + ':' + String(t.minute).padStart(2, '0');
+        }).join(', ');
+        summary.innerHTML = '<span class="text-green-600">เปิดอยู่</span> · ' + timeStr + ' · ' + types.join(', ');
     }
 }
 
@@ -1286,30 +1368,45 @@ function renderScheduleTimes() {
     var msg = document.getElementById('no-schedules-message');
 
     // Remove existing schedule items
-    var existingItems = container.querySelectorAll('.schedule-item');
+    var existingItems = container.querySelectorAll('.schedule-time-chip');
     existingItems.forEach(function(el) { el.remove(); });
 
     if (scheduleTimes.length === 0) {
-        msg.style.display = 'block';
+        if (msg) msg.style.display = 'block';
         return;
     }
 
-    msg.style.display = 'none';
+    if (msg) msg.style.display = 'none';
 
     scheduleTimes.forEach(function(time, index) {
-        var item = document.createElement('div');
-        item.className = 'schedule-item flex items-center gap-2 p-2 bg-gray-50 rounded';
+        // Create chip-style time display
+        var chip = document.createElement('div');
+        chip.className = 'schedule-time-chip inline-flex items-center gap-1 bg-purple-100 border border-purple-200 rounded-full px-3 py-1.5';
+
+        // Time icon
+        var icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        icon.setAttribute('class', 'w-4 h-4 text-purple-600');
+        icon.setAttribute('fill', 'none');
+        icon.setAttribute('stroke', 'currentColor');
+        icon.setAttribute('viewBox', '0 0 24 24');
+        var iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        iconPath.setAttribute('stroke-linecap', 'round');
+        iconPath.setAttribute('stroke-linejoin', 'round');
+        iconPath.setAttribute('stroke-width', '2');
+        iconPath.setAttribute('d', 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z');
+        icon.appendChild(iconPath);
 
         // Hour input
         var hourInput = document.createElement('input');
         hourInput.type = 'number';
         hourInput.min = '0';
         hourInput.max = '23';
-        hourInput.value = time.hour;
-        hourInput.className = 'w-16 px-2 py-1 border rounded text-center text-sm';
-        hourInput.onchange = function() { scheduleTimes[index].hour = parseInt(this.value); };
+        hourInput.value = String(time.hour).padStart(2, '0');
+        hourInput.className = 'w-10 px-1 py-0 border-0 bg-transparent text-center text-sm font-medium text-purple-800 focus:ring-0';
+        hourInput.onchange = function() { scheduleTimes[index].hour = parseInt(this.value) || 0; };
 
         var colon = document.createElement('span');
+        colon.className = 'text-purple-800 font-medium';
         colon.textContent = ':';
 
         // Minute input
@@ -1318,40 +1415,35 @@ function renderScheduleTimes() {
         minuteInput.min = '0';
         minuteInput.max = '59';
         minuteInput.value = String(time.minute).padStart(2, '0');
-        minuteInput.className = 'w-16 px-2 py-1 border rounded text-center text-sm';
-        minuteInput.onchange = function() { scheduleTimes[index].minute = parseInt(this.value); };
-
-        var timeLabel = document.createElement('span');
-        timeLabel.className = 'text-sm text-gray-500';
-        timeLabel.textContent = '(' + String(time.hour).padStart(2, '0') + ':' + String(time.minute).padStart(2, '0') + ')';
+        minuteInput.className = 'w-10 px-1 py-0 border-0 bg-transparent text-center text-sm font-medium text-purple-800 focus:ring-0';
+        minuteInput.onchange = function() { scheduleTimes[index].minute = parseInt(this.value) || 0; };
 
         // Delete button
         var deleteBtn = document.createElement('button');
-        deleteBtn.className = 'text-red-600 hover:text-red-800 ml-auto';
-        deleteBtn.onclick = function() { removeScheduleTime(index); };
+        deleteBtn.className = 'ml-1 text-purple-500 hover:text-red-600 transition-colors';
+        deleteBtn.onclick = function(e) { e.stopPropagation(); removeScheduleTime(index); };
+        deleteBtn.title = 'ลบ';
 
         var deleteIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         deleteIcon.setAttribute('class', 'w-4 h-4');
         deleteIcon.setAttribute('fill', 'none');
         deleteIcon.setAttribute('stroke', 'currentColor');
         deleteIcon.setAttribute('viewBox', '0 0 24 24');
-
         var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('stroke-linecap', 'round');
         path.setAttribute('stroke-linejoin', 'round');
         path.setAttribute('stroke-width', '2');
         path.setAttribute('d', 'M6 18L18 6M6 6l12 12');
-
         deleteIcon.appendChild(path);
         deleteBtn.appendChild(deleteIcon);
 
-        item.appendChild(hourInput);
-        item.appendChild(colon);
-        item.appendChild(minuteInput);
-        item.appendChild(timeLabel);
-        item.appendChild(deleteBtn);
+        chip.appendChild(icon);
+        chip.appendChild(hourInput);
+        chip.appendChild(colon);
+        chip.appendChild(minuteInput);
+        chip.appendChild(deleteBtn);
 
-        container.appendChild(item);
+        container.appendChild(chip);
     });
 }
 
@@ -1382,88 +1474,84 @@ function setScheduleSchemes(schemes) {
     });
 }
 
-function updateScheduleSchemeVisibility() {
-    var typeRep = document.getElementById('schedule-type-rep');
-    var typeStm = document.getElementById('schedule-type-stm');
-    var typeSmt = document.getElementById('schedule-type-smt');
+// ===== NEW Card-Based Schedule UI Functions =====
 
-    var repSelected = typeRep && typeRep.checked;
-    var stmSelected = typeStm && typeStm.checked;
-    var smtSelected = typeSmt && typeSmt.checked;
+function updateScheduleCardState(type) {
+    var checkbox = document.getElementById('schedule-type-' + type);
+    var card = document.getElementById('card-type-' + type);
+    var settings = document.getElementById(type + '-settings');
 
-    // Update label styles
-    var labelRep = document.getElementById('label-type-rep');
-    var labelStm = document.getElementById('label-type-stm');
-    var labelSmt = document.getElementById('label-type-smt');
+    if (!checkbox || !card) return;
 
-    if (labelRep) {
-        labelRep.className = repSelected
-            ? 'flex items-center cursor-pointer p-3 rounded-lg border border-blue-200 bg-blue-50 schedule-type-label'
-            : 'flex items-center cursor-pointer p-3 hover:bg-blue-50 rounded-lg border border-gray-200 schedule-type-label';
-    }
-    if (labelStm) {
-        labelStm.className = stmSelected
-            ? 'flex items-center cursor-pointer p-3 rounded-lg border border-purple-200 bg-purple-50 schedule-type-label'
-            : 'flex items-center cursor-pointer p-3 hover:bg-purple-50 rounded-lg border border-gray-200 schedule-type-label';
-    }
-    if (labelSmt) {
-        labelSmt.className = smtSelected
-            ? 'flex items-center cursor-pointer p-3 rounded-lg border border-green-200 bg-green-50 schedule-type-label'
-            : 'flex items-center cursor-pointer p-3 hover:bg-green-50 rounded-lg border border-gray-200 schedule-type-label';
+    var isChecked = checkbox.checked;
+
+    // Update card opacity and border
+    if (isChecked) {
+        card.classList.remove('opacity-60');
+        card.classList.add('border-' + getTypeColor(type) + '-300');
+        card.classList.add('shadow-sm');
+    } else {
+        card.classList.add('opacity-60');
+        card.classList.remove('border-' + getTypeColor(type) + '-300');
+        card.classList.remove('shadow-sm');
     }
 
-    // Show/hide scheme section (only for REP - Statement is UCS only)
-    var schemesSection = document.getElementById('schedule-schemes-section');
-    if (schemesSection) {
-        if (repSelected) {
-            schemesSection.classList.remove('hidden');
+    // Show/hide settings panel
+    if (settings) {
+        if (isChecked) {
+            settings.classList.remove('hidden');
         } else {
-            schemesSection.classList.add('hidden');
+            settings.classList.add('hidden');
         }
     }
+}
 
-    // Show/hide REP-only schemes (NHS, BKK, BMT, SRT)
-    var repOnlySchemes = document.querySelectorAll('.schedule-scheme-rep-only');
-    repOnlySchemes.forEach(function(el) {
-        if (repSelected) {
-            el.classList.remove('hidden');
-        } else {
-            el.classList.add('hidden');
-            // Uncheck hidden checkboxes
-            var cb = el.querySelector('input[type="checkbox"]');
-            if (cb) cb.checked = false;
-        }
+function getTypeColor(type) {
+    switch(type) {
+        case 'rep': return 'blue';
+        case 'stm': return 'purple';
+        case 'smt': return 'green';
+        default: return 'gray';
+    }
+}
+
+function toggleScheduleTypeCard(type) {
+    var checkbox = document.getElementById('schedule-type-' + type);
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        updateScheduleCardState(type);
+    }
+}
+
+function initScheduleCards() {
+    // Initialize card states based on checkbox values
+    ['rep', 'stm', 'smt'].forEach(function(type) {
+        updateScheduleCardState(type);
     });
+}
 
-    // Update hint text
-    var schemesHint = document.getElementById('schemes-hint');
-    if (schemesHint) {
-        if (repSelected) {
-            schemesHint.textContent = '(เลือกสิทธิ์สำหรับ REP Files)';
-        } else {
-            schemesHint.textContent = '';
-        }
-    }
+function selectAllScheduleSchemes() {
+    document.querySelectorAll('input[name="schedule-schemes"]').forEach(function(cb) {
+        cb.checked = true;
+    });
+}
 
-    // Show Statement info (UCS only)
-    var stmInfoSection = document.getElementById('schedule-stm-info');
-    if (stmInfoSection) {
-        if (stmSelected) {
-            stmInfoSection.classList.remove('hidden');
-        } else {
-            stmInfoSection.classList.add('hidden');
-        }
-    }
+function selectMainScheduleSchemes() {
+    var mainSchemes = ['ucs', 'ofc', 'sss', 'lgo'];
+    document.querySelectorAll('input[name="schedule-schemes"]').forEach(function(cb) {
+        cb.checked = mainSchemes.includes(cb.value);
+    });
+}
 
-    // Show/hide SMT vendor ID section
-    var smtVendorSection = document.getElementById('schedule-smt-vendor-section');
-    if (smtVendorSection) {
-        if (smtSelected) {
-            smtVendorSection.classList.remove('hidden');
-        } else {
-            smtVendorSection.classList.add('hidden');
-        }
-    }
+function deselectAllScheduleSchemes() {
+    document.querySelectorAll('input[name="schedule-schemes"]').forEach(function(cb) {
+        cb.checked = false;
+    });
+}
+
+// Legacy function - now just calls initScheduleCards
+function updateScheduleSchemeVisibility() {
+    initScheduleCards();
 }
 
 async function saveScheduleSettings() {
@@ -1486,10 +1574,10 @@ async function saveScheduleSettings() {
             return;
         }
 
-        // Validate schemes only if REP or Statement is selected
+        // Validate schemes only if REP is selected (Statement is UCS only)
         var scheduleSchemes = getScheduleSchemes();
-        if ((scheduleTypeRep || scheduleTypeStm) && scheduleSchemes.length === 0) {
-            showToast('กรุณาเลือกอย่างน้อย 1 สิทธิ', 'error');
+        if (scheduleTypeRep && scheduleSchemes.length === 0) {
+            showToast('กรุณาเลือกอย่างน้อย 1 สิทธิสำหรับ REP Files', 'error');
             return;
         }
 
@@ -1522,17 +1610,50 @@ async function saveScheduleSettings() {
 
 function displayScheduleStatus(jobs) {
     var statusDiv = document.getElementById('schedule-status');
-    if (!jobs || jobs.length === 0) {
-        statusDiv.textContent = 'No scheduled jobs';
+    var statusBox = document.getElementById('schedule-status-box');
+    var isEnabled = document.getElementById('schedule-enabled').checked;
+
+    if (!isEnabled) {
+        statusDiv.innerHTML = '<span class="text-gray-500">⏸️ ปิดใช้งาน</span>';
+        if (statusBox) statusBox.className = 'mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200';
         return;
     }
 
-    var jobsText = jobs.map(function(job) {
-        var nextRun = job.next_run_time ? new Date(job.next_run_time).toLocaleString('th-TH') : 'N/A';
-        return 'Next: ' + nextRun;
-    }).join(' | ');
+    if (!jobs || jobs.length === 0) {
+        statusDiv.innerHTML = '<span class="text-yellow-600">⚠️ เปิดใช้งานแล้ว แต่ยังไม่มีงานที่กำหนด</span>';
+        if (statusBox) statusBox.className = 'mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200';
+        return;
+    }
 
-    statusDiv.textContent = jobsText;
+    // Find nearest next run
+    var nextRunTimes = jobs
+        .filter(function(job) { return job.next_run_time; })
+        .map(function(job) { return new Date(job.next_run_time); })
+        .sort(function(a, b) { return a - b; });
+
+    var nextRunText = nextRunTimes.length > 0
+        ? nextRunTimes[0].toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })
+        : '-';
+
+    // Get selected data types
+    var dataTypes = [];
+    if (document.getElementById('schedule-type-rep').checked) {
+        var schemes = getScheduleSchemes();
+        dataTypes.push('REP (' + schemes.length + ' สิทธิ)');
+    }
+    if (document.getElementById('schedule-type-stm').checked) {
+        dataTypes.push('UC Statement');
+    }
+    if (document.getElementById('schedule-type-smt').checked) {
+        dataTypes.push('SMT Budget');
+    }
+
+    statusDiv.innerHTML = '<span class="text-green-600 font-medium">✅ ทำงานอยู่</span>' +
+        '<span class="mx-2 text-gray-300">|</span>' +
+        '<span class="text-gray-600">ครั้งถัดไป: ' + nextRunText + '</span>' +
+        (dataTypes.length > 0 ? '<br><span class="text-xs text-gray-500 mt-1 block">📦 ' + dataTypes.join(', ') + '</span>' : '');
+
+    if (statusBox) statusBox.className = 'mt-4 p-4 bg-green-50 rounded-lg border border-green-200';
 }
 
 // Credentials form
