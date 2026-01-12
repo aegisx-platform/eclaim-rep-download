@@ -1809,14 +1809,20 @@ async function loadSmtSettings() {
             // Settings tab fields
             var vendorInput = document.getElementById('smt-vendor-id');
             var autoSaveInput = document.getElementById('smt-auto-save');
-            // SMT tab field
-            var vendorInputTab = document.getElementById('smt-vendor-id-input');
+            // Download tab SMT vendor field
+            var dlVendorInput = document.getElementById('dl-vendor-id');
+            // Schedule SMT vendor field
+            var scheduleSmtVendorInput = document.getElementById('schedule-smt-vendor-id');
 
             if (vendorInput && result.settings.smt_vendor_id) {
                 vendorInput.value = result.settings.smt_vendor_id;
             }
-            if (vendorInputTab && result.settings.smt_vendor_id) {
-                vendorInputTab.value = result.settings.smt_vendor_id;
+            if (dlVendorInput && result.settings.smt_vendor_id) {
+                dlVendorInput.value = result.settings.smt_vendor_id;
+            }
+            if (scheduleSmtVendorInput && result.settings.smt_vendor_id && !scheduleSmtVendorInput.value) {
+                // Only set if not already set (don't overwrite user input)
+                scheduleSmtVendorInput.value = result.settings.smt_vendor_id;
             }
             if (autoSaveInput) {
                 autoSaveInput.checked = result.settings.smt_auto_save_db !== false;
