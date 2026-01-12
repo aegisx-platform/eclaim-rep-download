@@ -105,13 +105,14 @@ class SettingsManager:
         Get schedule settings
 
         Returns:
-            Dict with schedule_enabled, schedule_times, schedule_auto_import
+            Dict with schedule_enabled, schedule_times, schedule_auto_import, schedule_schemes
         """
         settings = self.load_settings()
         return {
             'schedule_enabled': settings.get('schedule_enabled', False),
             'schedule_times': settings.get('schedule_times', []),
-            'schedule_auto_import': settings.get('schedule_auto_import', True)
+            'schedule_auto_import': settings.get('schedule_auto_import', True),
+            'schedule_schemes': settings.get('schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
         }
 
     def update_schedule_settings(self, enabled: bool, times: list, auto_import: bool) -> bool:
