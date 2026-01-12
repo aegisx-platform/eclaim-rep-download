@@ -131,15 +131,13 @@
                     </select>
                 </div>
 
-                <!-- Statement: Single Scheme (hidden by default) -->
+                <!-- Statement: UCS only (no scheme selection needed) -->
                 <div id="dl-statement-scheme-section" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">สิทธิ</label>
-                    <select id="dl-statement-scheme" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                        <option value="ucs">UCS (หลักประกันสุขภาพถ้วนหน้า)</option>
-                        <option value="ofc">OFC (ข้าราชการ)</option>
-                        <option value="sss">SSS (ประกันสังคม)</option>
-                        <option value="lgo">LGO (อปท.)</option>
-                    </select>
+                    <div class="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <p class="text-sm text-purple-800">
+                            <strong>UC Statement</strong> - ดาวน์โหลดใบแจ้งยอด UCS (หลักประกันสุขภาพถ้วนหน้า) เท่านั้น
+                        </p>
+                    </div>
                 </div>
 
                 <!-- SMT: Vendor ID (hidden by default) -->
@@ -611,7 +609,7 @@
                 <svg class="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
-                Statement Files (UCS/OFC/SSS/LGO)
+                UC Statement Files
             </h2>
             <div class="mt-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
                 <p class="text-sm text-purple-800">
