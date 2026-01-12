@@ -7,12 +7,12 @@ from .history_manager import HistoryManager
 
 
 class FileManager:
-    def __init__(self, download_dir='downloads'):
+    def __init__(self, download_dir='downloads/rep'):
         self.download_dir = Path(download_dir).resolve()
         self.history_manager = HistoryManager()
 
         # Ensure download directory exists
-        self.download_dir.mkdir(exist_ok=True)
+        self.download_dir.mkdir(parents=True, exist_ok=True)
 
     def get_file_path(self, filename):
         """Resolve safe file path within downloads directory"""

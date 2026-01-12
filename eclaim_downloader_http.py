@@ -53,7 +53,7 @@ class EClaimDownloader:
         """
         # Load credentials from settings file first, fallback to env vars
         self.username, self.password = self._load_credentials()
-        self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads'))
+        self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads')) / 'rep'
         self.tracking_file = Path('download_history.json')
         self.iteration_progress_file = Path('download_iteration_progress.json')
         self.import_each = import_each
@@ -83,7 +83,7 @@ class EClaimDownloader:
         })
 
         # Create download directory
-        self.download_dir.mkdir(exist_ok=True)
+        self.download_dir.mkdir(parents=True, exist_ok=True)
 
         # Load download history
         self.download_history = self._load_history()

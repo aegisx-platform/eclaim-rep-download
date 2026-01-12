@@ -460,8 +460,8 @@ def import_all_files():
                 'skipped': len(all_files)
             }), 200
 
-        # Start bulk import process in background
-        downloads_dir = Path('downloads')
+        # Start bulk import process in background (REP files in downloads/rep)
+        downloads_dir = Path('downloads/rep')
         result = import_runner.start_bulk_import(str(downloads_dir))
 
         if result['success']:
@@ -853,7 +853,7 @@ def get_stm_history():
 def list_stm_files():
     """List downloaded STM files"""
     try:
-        download_dir = Path('downloads')
+        download_dir = Path('downloads/stm')
         stm_files = []
 
         if download_dir.exists():
@@ -883,7 +883,7 @@ def list_stm_files():
 def get_stm_stats():
     """Get Statement files statistics"""
     try:
-        download_dir = Path('downloads')
+        download_dir = Path('downloads/stm')
         stm_files = []
         total_size = 0
         imported_count = 0
@@ -964,7 +964,7 @@ def get_stm_stats():
 def import_stm_file_route(filename):
     """Import a single Statement file"""
     try:
-        file_path = Path('downloads') / filename
+        file_path = Path('downloads/stm') / filename
         if not file_path.exists():
             return jsonify({'success': False, 'error': 'File not found'}), 404
 
@@ -994,7 +994,7 @@ def import_stm_file_route(filename):
 def import_all_stm_files():
     """Import all pending Statement files"""
     try:
-        download_dir = Path('downloads')
+        download_dir = Path('downloads/stm')
         from config.database import get_db_config, get_db_connection, DB_TYPE
         from utils.stm.importer import STMImporter
 
@@ -1070,7 +1070,7 @@ def import_all_stm_files():
 def delete_stm_file(filename):
     """Delete a Statement file"""
     try:
-        file_path = Path('downloads') / filename
+        file_path = Path('downloads/stm') / filename
         if not file_path.exists():
             return jsonify({'success': False, 'error': 'File not found'}), 404
 
@@ -1099,7 +1099,7 @@ def delete_stm_file(filename):
 def clear_stm_files():
     """Clear all Statement files"""
     try:
-        download_dir = Path('downloads')
+        download_dir = Path('downloads/stm')
         deleted_count = 0
 
         # Delete all STM import records first
@@ -1346,13 +1346,15 @@ def number_format_filter(value):
 def clear_all_data():
     """Clear all data: files, history, and database (DANGER!)"""
     try:
-        # 1. Delete all files in downloads directory
-        downloads_dir = Path('downloads')
+        # 1. Delete all files in downloads subdirectories
         deleted_files = 0
-        for file in downloads_dir.glob('*.*'):
-            if file.is_file():
-                file.unlink()
-                deleted_files += 1
+        for subdir in ['rep', 'stm', 'smt']:
+            subdir_path = Path('downloads') / subdir
+            if subdir_path.exists():
+                for file in subdir_path.glob('*.*'):
+                    if file.is_file():
+                        file.unlink()
+                        deleted_files += 1
 
         # 2. Reset download history
         history_manager.save_history({'last_run': None, 'downloads': []})

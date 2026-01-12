@@ -72,7 +72,7 @@ class STMDownloader:
             person_type (str): Patient type (ip, op, all). Defaults to 'all'.
         """
         self.username, self.password = self._load_credentials()
-        self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads'))
+        self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads')) / 'stm'
         self.tracking_file = Path('stm_download_history.json')
         self.person_type = person_type.lower()
 
@@ -100,7 +100,7 @@ class STMDownloader:
         })
 
         # Create download directory
-        self.download_dir.mkdir(exist_ok=True)
+        self.download_dir.mkdir(parents=True, exist_ok=True)
 
         # Load download history
         self.download_history = self._load_history()
