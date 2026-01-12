@@ -2129,33 +2129,73 @@ def api_smt_download():
                 'records': 0
             })
 
-        # Always export to CSV
-        export_path = fetcher.export_to_csv(records)
-
         # Calculate summary
         summary = fetcher.calculate_summary(records)
 
         # Auto-import to database if requested
         imported_count = 0
+        new_records = 0
+        export_path = None
+
         if auto_import:
+            # Count records before import to detect new records
+            count_before = 0
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT COUNT(*) FROM smt_budget_transfers")
+                    count_before = cursor.fetchone()[0]
+                    cursor.close()
+                    conn.close()
+            except Exception:
+                pass
+
             log_streamer.write_log(
                 f"Auto-importing {len(records)} records to database...",
                 'info',
                 'smt'
             )
             imported_count = fetcher.save_to_database(records)
-            log_streamer.write_log(
-                f"✓ Auto-imported {imported_count} records to database",
-                'success',
-                'smt'
-            )
 
-        message = f'Downloaded {len(records)} records'
-        if auto_import:
-            message += f', imported {imported_count} to database'
+            # Count after import to detect new records
+            count_after = 0
+            try:
+                conn = get_db_connection()
+                if conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT COUNT(*) FROM smt_budget_transfers")
+                    count_after = cursor.fetchone()[0]
+                    cursor.close()
+                    conn.close()
+            except Exception:
+                pass
+
+            new_records = count_after - count_before
+
+            # Only create CSV if there are new records
+            if new_records > 0:
+                export_path = fetcher.export_to_csv(records)
+                log_streamer.write_log(
+                    f"✓ {new_records} new records, exported to {export_path}",
+                    'success',
+                    'smt'
+                )
+            else:
+                log_streamer.write_log(
+                    f"✓ No new records (all {len(records)} already exist), skipping CSV export",
+                    'info',
+                    'smt'
+                )
+
+            message = f'Fetched {len(records)} records: {new_records} new, {len(records) - new_records} existing'
+        else:
+            # Without auto-import, always create CSV
+            export_path = fetcher.export_to_csv(records)
+            message = f'Downloaded {len(records)} records'
 
         log_streamer.write_log(
-            f"✓ SMT download completed: {len(records)} records exported to {export_path}",
+            f"✓ SMT download completed",
             'success',
             'smt'
         )
@@ -2164,6 +2204,7 @@ def api_smt_download():
             'success': True,
             'message': message,
             'records': len(records),
+            'new_records': new_records,
             'imported': imported_count,
             'total_amount': summary['total_amount'],
             'export_path': export_path
