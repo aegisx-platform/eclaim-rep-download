@@ -1403,6 +1403,38 @@ def api_smt_data():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/smt/stats')
+def api_smt_stats():
+    """Get SMT budget statistics (record count and last sync time)"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': True, 'record_count': 0, 'last_sync': None})
+
+        cursor = conn.cursor()
+
+        # Get total record count
+        cursor.execute("SELECT COUNT(*) FROM smt_budget_transfers")
+        record_count = cursor.fetchone()[0]
+
+        # Get last sync time (most recent created_at)
+        cursor.execute("SELECT MAX(created_at) FROM smt_budget_transfers")
+        last_sync_result = cursor.fetchone()[0]
+        last_sync = str(last_sync_result) if last_sync_result else None
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'record_count': record_count,
+            'last_sync': last_sync
+        })
+
+    except Exception as e:
+        return jsonify({'success': True, 'record_count': 0, 'last_sync': None})
+
+
 def init_smt_scheduler():
     """Initialize SMT scheduler with saved settings"""
     try:
@@ -4630,8 +4662,8 @@ def api_db_pool_status():
 
 @app.route('/health-offices')
 def health_offices_page():
-    """Health Offices Management page"""
-    return render_template('health_offices.html')
+    """Redirect to Data Management - Health Offices tab"""
+    return redirect(url_for('data_management') + '?tab=offices')
 
 
 @app.route('/api/health-offices')
@@ -4815,6 +4847,20 @@ def api_health_offices_import():
     """Import health offices from uploaded Excel file"""
     import time
     import pandas as pd
+    from openpyxl import load_workbook
+    import re
+    import io
+
+    def parse_formula_value(val):
+        """Parse Excel formula value like ='32045' or =\"32045\" to plain value"""
+        if val is None:
+            return None
+        val_str = str(val)
+        # Match ="xxx" or ='xxx' format
+        match = re.match(r'^=["\'](.*)["\']\s*$', val_str)
+        if match:
+            return match.group(1)
+        return val_str if val_str.lower() not in ('none', 'nan', '') else None
 
     try:
         start_time = time.time()
@@ -4828,8 +4874,30 @@ def api_health_offices_import():
 
         import_mode = request.form.get('mode', 'upsert')  # 'upsert' or 'replace'
 
-        # Read Excel file
-        df = pd.read_excel(file)
+        # Read Excel file using openpyxl to handle formula values
+        file_bytes = io.BytesIO(file.read())
+        wb = load_workbook(file_bytes, data_only=False)
+        ws = wb.active
+
+        # Get headers from first row
+        headers = [cell.value for cell in ws[1]]
+
+        # Read data rows with formula parsing for code columns
+        data = []
+        formula_columns = {'รหัส 9 หลักใหม่', 'รหัส 9 หลัก', 'รหัส 5 หลัก', 'เลขอนุญาตให้ประกอบสถานบริการสุขภาพ 11 หลัก'}
+
+        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=False), start=2):
+            row_data = {}
+            for col_idx, cell in enumerate(row):
+                if col_idx < len(headers):
+                    header = headers[col_idx]
+                    if header in formula_columns:
+                        row_data[header] = parse_formula_value(cell.value)
+                    else:
+                        row_data[header] = cell.value
+            data.append(row_data)
+
+        df = pd.DataFrame(data)
 
         # Column mapping
         column_map = {
@@ -4882,10 +4950,16 @@ def api_health_offices_import():
 
         for idx, row in df.iterrows():
             try:
-                # Convert codes to string
-                hcode5 = str(int(row['hcode5'])) if pd.notna(row.get('hcode5')) else None
-                hcode9 = str(int(row['hcode9'])) if pd.notna(row.get('hcode9')) else None
-                hcode9_new = str(int(row['hcode9_new'])) if pd.notna(row.get('hcode9_new')) else None
+                # Convert codes to string (handle both formula-parsed strings and numbers)
+                def clean_code(val):
+                    if pd.isna(val) or val is None or str(val).lower() in ('none', 'nan', ''):
+                        return None
+                    # Remove any whitespace and convert to string
+                    return str(val).strip()
+
+                hcode5 = clean_code(row.get('hcode5'))
+                hcode9 = clean_code(row.get('hcode9'))
+                hcode9_new = clean_code(row.get('hcode9_new'))
 
                 # Parse dates
                 def parse_date(val):
@@ -4914,7 +4988,7 @@ def api_health_offices_import():
                     'hcode9_new': hcode9_new,
                     'hcode9': hcode9,
                     'hcode5': hcode5,
-                    'license_no': str(int(row['license_no'])) if pd.notna(row.get('license_no')) else None,
+                    'license_no': clean_code(row.get('license_no')),
                     'org_type': row.get('org_type'),
                     'service_type': row.get('service_type'),
                     'affiliation': row.get('affiliation'),

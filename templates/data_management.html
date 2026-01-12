@@ -37,6 +37,12 @@
             </svg>
             Settings
         </button>
+        <button onclick="switchTab('offices')" id="tab-offices" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            Health Offices
+        </button>
     </nav>
 </div>
 
@@ -658,6 +664,165 @@
             </div>
         </div>
     </div>
+
+    <!-- ==================== HEALTH OFFICES TAB ==================== -->
+    <div id="content-offices" class="tab-content p-6 hidden">
+        <!-- Header and Source -->
+        <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-sm text-blue-800">
+                <span class="font-medium">Data Source:</span>
+                <a href="https://hcode.moph.go.th/code/" target="_blank" class="underline hover:text-blue-600">
+                    https://hcode.moph.go.th
+                </a>
+                - ระบบรหัสมาตรฐานสถานพยาบาล กระทรวงสาธารณสุข
+            </p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                <p id="ho-stat-total" class="text-2xl font-bold text-gray-700">-</p>
+                <p class="text-sm text-gray-600">Total Records</p>
+            </div>
+            <div class="bg-blue-50 rounded-lg p-4 text-center">
+                <p id="ho-stat-active" class="text-2xl font-bold text-blue-700">-</p>
+                <p class="text-sm text-blue-600">Active</p>
+            </div>
+            <div class="bg-green-50 rounded-lg p-4 text-center">
+                <p id="ho-stat-provinces" class="text-2xl font-bold text-green-700">-</p>
+                <p class="text-sm text-green-600">Provinces</p>
+            </div>
+            <div class="bg-purple-50 rounded-lg p-4 text-center">
+                <p id="ho-stat-hospitals" class="text-2xl font-bold text-purple-700">-</p>
+                <p class="text-sm text-purple-600">Hospitals</p>
+            </div>
+        </div>
+
+        <!-- Import Section -->
+        <div class="border border-gray-200 rounded-lg p-6 mb-6">
+            <h3 class="text-lg font-semibold mb-4 flex items-center text-green-700">
+                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                </svg>
+                Import Health Offices Data
+            </h3>
+
+            <div class="grid grid-cols-2 gap-6">
+                <!-- Upload Area -->
+                <div class="border border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <input type="file" id="ho-import-file" accept=".xlsx,.xls" class="hidden" onchange="hoHandleFileSelect(this)">
+                    <div id="ho-upload-area" onclick="document.getElementById('ho-import-file').click()" class="cursor-pointer">
+                        <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        <p class="text-gray-600">Click to upload Excel file</p>
+                        <p class="text-sm text-gray-400 mt-1">.xlsx from hcode.moph.go.th</p>
+                    </div>
+                    <div id="ho-file-selected" class="hidden">
+                        <div class="flex items-center justify-center gap-2 text-green-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span id="ho-file-name">file.xlsx</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Import Options -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Import Mode</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="ho-import-mode" value="upsert" checked class="w-4 h-4 text-blue-600">
+                                <span class="ml-2">
+                                    <span class="font-medium">Update/Insert</span>
+                                    <span class="text-sm text-gray-500">- อัพเดทข้อมูลที่มีอยู่</span>
+                                </span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="ho-import-mode" value="replace" class="w-4 h-4 text-red-600">
+                                <span class="ml-2">
+                                    <span class="font-medium text-red-600">Clear & Replace</span>
+                                    <span class="text-sm text-gray-500">- ลบข้อมูลเก่าทั้งหมด</span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button onclick="hoImportData()" id="ho-btn-import" disabled
+                                class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 px-4 rounded-md font-medium">
+                            Import Data
+                        </button>
+                        <button onclick="hoClearAllData()"
+                                class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium">
+                            Clear All
+                        </button>
+                    </div>
+
+                    <div id="ho-import-progress" class="hidden">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span>Importing...</span>
+                            <span id="ho-import-percent">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="ho-import-bar" class="bg-green-600 h-2 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div id="ho-import-result" class="hidden p-3 rounded-lg"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search and Data Table -->
+        <div class="border border-gray-200 rounded-lg">
+            <div class="p-4 border-b border-gray-200">
+                <div class="grid grid-cols-5 gap-4">
+                    <div class="col-span-2">
+                        <input type="text" id="ho-search-input" placeholder="ค้นหา: ชื่อ, รหัส 5 หลัก..."
+                               onkeyup="hoDebounceSearch()"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <select id="ho-filter-province" onchange="hoLoadData()" class="px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="">All Provinces</option>
+                    </select>
+                    <select id="ho-filter-level" onchange="hoLoadData()" class="px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="">All Levels</option>
+                    </select>
+                    <select id="ho-per-page" onchange="hoLoadData()" class="px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
+                    </select>
+                </div>
+            </div>
+
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">รหัส 5 หลัก</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ชื่อ</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ระดับ</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">จังหวัด</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody id="ho-data-tbody" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="px-4 py-3 border-t border-gray-200 flex justify-between items-center">
+                <div class="text-sm text-gray-500">
+                    <span id="ho-showing-count">0</span> of <span id="ho-total-count">0</span>
+                </div>
+                <div id="ho-pagination" class="flex gap-2"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Import Progress Modal -->
@@ -1194,6 +1359,32 @@ async function loadSmtSettings() {
     }
 }
 
+// Load SMT stats (record count and last sync time)
+async function loadSmtStats() {
+    try {
+        var response = await fetch('/api/smt/stats');
+        var result = await response.json();
+
+        if (result.success) {
+            var lastSyncEl = document.getElementById('smt-last-sync');
+            var recordCountEl = document.getElementById('smt-record-count');
+
+            if (lastSyncEl) {
+                if (result.last_sync) {
+                    lastSyncEl.textContent = new Date(result.last_sync).toLocaleString('th-TH');
+                } else {
+                    lastSyncEl.textContent = '-';
+                }
+            }
+            if (recordCountEl) {
+                recordCountEl.textContent = result.record_count ? result.record_count.toLocaleString() : '0';
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load SMT stats:', error);
+    }
+}
+
 // Quick save vendor ID from SMT tab
 async function saveSmtVendorId() {
     var vendorId = document.getElementById('smt-vendor-id-input').value.trim();
@@ -1230,12 +1421,261 @@ async function saveSmtVendorId() {
     }
 }
 
+// ==================== HEALTH OFFICES FUNCTIONS ====================
+let hoCurrentPage = 1;
+let hoSearchTimeout;
+
+async function hoLoadStats() {
+    try {
+        var response = await fetch('/api/health-offices/stats');
+        var result = await response.json();
+
+        if (result.success) {
+            var stats = result.stats;
+            document.getElementById('ho-stat-total').textContent = stats.total.toLocaleString();
+
+            var active = stats.by_status.find(function(s) { return s.status === 'กำลังใช้งาน'; });
+            document.getElementById('ho-stat-active').textContent = active ? active.count.toLocaleString() : '0';
+            document.getElementById('ho-stat-provinces').textContent = stats.provinces.length;
+            document.getElementById('ho-stat-hospitals').textContent = stats.levels.length > 0 ? stats.levels.length + ' levels' : '0';
+
+            hoPopulateFilter('ho-filter-province', stats.provinces);
+            hoPopulateFilter('ho-filter-level', stats.levels);
+        }
+    } catch (e) {
+        console.error('Error loading HO stats:', e);
+    }
+}
+
+function hoPopulateFilter(elementId, options) {
+    var select = document.getElementById(elementId);
+    var firstOption = select.options[0];
+    select.textContent = '';
+    select.appendChild(firstOption);
+
+    options.forEach(function(opt) {
+        var option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        select.appendChild(option);
+    });
+}
+
+async function hoLoadData() {
+    var search = document.getElementById('ho-search-input').value;
+    var province = document.getElementById('ho-filter-province').value;
+    var level = document.getElementById('ho-filter-level').value;
+    var perPage = document.getElementById('ho-per-page').value;
+
+    var params = new URLSearchParams();
+    params.append('page', hoCurrentPage);
+    params.append('per_page', perPage);
+    if (search) params.append('search', search);
+    if (province) params.append('province', province);
+    if (level) params.append('level', level);
+
+    try {
+        var response = await fetch('/api/health-offices?' + params.toString());
+        var result = await response.json();
+
+        if (result.success) {
+            hoRenderTable(result.data);
+            document.getElementById('ho-showing-count').textContent = result.data.length;
+            document.getElementById('ho-total-count').textContent = result.total.toLocaleString();
+            hoRenderPagination(result.page, result.total_pages);
+        }
+    } catch (e) {
+        console.error('Error loading HO data:', e);
+    }
+}
+
+function hoRenderTable(data) {
+    var tbody = document.getElementById('ho-data-tbody');
+    tbody.textContent = '';
+
+    if (!data || data.length === 0) {
+        var emptyRow = document.createElement('tr');
+        var emptyCell = document.createElement('td');
+        emptyCell.colSpan = 5;
+        emptyCell.className = 'px-4 py-8 text-center text-gray-500';
+        emptyCell.textContent = 'No data found';
+        emptyRow.appendChild(emptyCell);
+        tbody.appendChild(emptyRow);
+        return;
+    }
+
+    data.forEach(function(row) {
+        var tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+
+        // hcode5
+        var td1 = document.createElement('td');
+        td1.className = 'px-4 py-2 text-sm font-mono';
+        td1.textContent = row.hcode5 || '-';
+        tr.appendChild(td1);
+
+        // name
+        var td2 = document.createElement('td');
+        td2.className = 'px-4 py-2 text-sm';
+        td2.textContent = row.name || '-';
+        tr.appendChild(td2);
+
+        // hospital_level
+        var td3 = document.createElement('td');
+        td3.className = 'px-4 py-2 text-sm text-gray-600';
+        td3.textContent = row.hospital_level || '-';
+        tr.appendChild(td3);
+
+        // province
+        var td4 = document.createElement('td');
+        td4.className = 'px-4 py-2 text-sm text-gray-600';
+        td4.textContent = row.province || '-';
+        tr.appendChild(td4);
+
+        // status
+        var td5 = document.createElement('td');
+        td5.className = 'px-4 py-2 text-center';
+        var statusSpan = document.createElement('span');
+        statusSpan.className = 'px-2 py-1 text-xs rounded-full ' +
+            (row.status === 'กำลังใช้งาน' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800');
+        statusSpan.textContent = row.status || '-';
+        td5.appendChild(statusSpan);
+        tr.appendChild(td5);
+
+        tbody.appendChild(tr);
+    });
+}
+
+function hoRenderPagination(page, totalPages) {
+    var pagination = document.getElementById('ho-pagination');
+    pagination.textContent = '';
+    if (totalPages <= 1) return;
+
+    function addBtn(text, pageNum, isActive) {
+        var btn = document.createElement('button');
+        btn.textContent = text;
+        btn.className = 'px-3 py-1 border rounded text-sm ' + (isActive ? 'bg-blue-600 text-white' : 'hover:bg-gray-100');
+        btn.onclick = function() { hoCurrentPage = pageNum; hoLoadData(); };
+        pagination.appendChild(btn);
+    }
+
+    if (page > 1) addBtn('Prev', page - 1, false);
+    for (var i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
+        addBtn(String(i), i, i === page);
+    }
+    if (page < totalPages) addBtn('Next', page + 1, false);
+}
+
+function hoDebounceSearch() {
+    clearTimeout(hoSearchTimeout);
+    hoSearchTimeout = setTimeout(function() {
+        hoCurrentPage = 1;
+        hoLoadData();
+    }, 300);
+}
+
+function hoHandleFileSelect(input) {
+    if (input.files && input.files[0]) {
+        document.getElementById('ho-file-name').textContent = input.files[0].name;
+        document.getElementById('ho-upload-area').classList.add('hidden');
+        document.getElementById('ho-file-selected').classList.remove('hidden');
+        document.getElementById('ho-btn-import').disabled = false;
+    }
+}
+
+async function hoImportData() {
+    var fileInput = document.getElementById('ho-import-file');
+    if (!fileInput.files || !fileInput.files[0]) {
+        showToast('Please select a file', 'error');
+        return;
+    }
+
+    var mode = document.querySelector('input[name="ho-import-mode"]:checked').value;
+    if (mode === 'replace' && !confirm('This will DELETE all existing data. Continue?')) return;
+
+    var formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('mode', mode);
+
+    document.getElementById('ho-btn-import').disabled = true;
+    document.getElementById('ho-import-progress').classList.remove('hidden');
+    document.getElementById('ho-import-result').classList.add('hidden');
+
+    var progress = 0;
+    var progressInterval = setInterval(function() {
+        progress += Math.random() * 10;
+        if (progress > 90) progress = 90;
+        document.getElementById('ho-import-percent').textContent = Math.round(progress) + '%';
+        document.getElementById('ho-import-bar').style.width = progress + '%';
+    }, 500);
+
+    try {
+        var response = await fetch('/api/health-offices/import', {
+            method: 'POST',
+            body: formData
+        });
+        var result = await response.json();
+
+        clearInterval(progressInterval);
+        document.getElementById('ho-import-percent').textContent = '100%';
+        document.getElementById('ho-import-bar').style.width = '100%';
+
+        var resultDiv = document.getElementById('ho-import-result');
+        resultDiv.textContent = '';
+
+        if (result.success) {
+            resultDiv.className = 'p-3 rounded-lg bg-green-100 text-green-800';
+            resultDiv.textContent = 'Success! Imported: ' + result.imported.toLocaleString() +
+                ' | Errors: ' + result.errors + ' | Time: ' + result.duration + 's';
+            showToast('Import completed: ' + result.imported + ' records', 'success');
+            hoLoadStats();
+            hoLoadData();
+        } else {
+            resultDiv.className = 'p-3 rounded-lg bg-red-100 text-red-800';
+            resultDiv.textContent = 'Error: ' + result.error;
+            showToast('Import failed', 'error');
+        }
+        resultDiv.classList.remove('hidden');
+    } catch (error) {
+        clearInterval(progressInterval);
+        showToast('Import error: ' + error.message, 'error');
+    }
+
+    document.getElementById('ho-btn-import').disabled = false;
+    setTimeout(function() {
+        document.getElementById('ho-import-progress').classList.add('hidden');
+    }, 2000);
+}
+
+async function hoClearAllData() {
+    if (!confirm('DELETE ALL health offices data? This cannot be undone.')) return;
+    if (!confirm('Are you really sure?')) return;
+
+    try {
+        var response = await fetch('/api/health-offices/clear', { method: 'POST' });
+        var result = await response.json();
+
+        if (result.success) {
+            showToast('All data cleared', 'success');
+            hoLoadStats();
+            hoLoadData();
+        } else {
+            showToast('Error: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     initFromUrl();
     populateYearDropdowns();
     loadScheduleSettings();
     loadSmtSettings();
+    loadSmtStats();
+    hoLoadStats();
+    hoLoadData();
 
     // SMT settings form
     var smtForm = document.getElementById('smt-settings-form');
