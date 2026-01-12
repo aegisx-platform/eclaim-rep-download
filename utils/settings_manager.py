@@ -232,6 +232,50 @@ class SettingsManager:
         settings = self.load_settings()
         return settings.get(key, default)
 
+    # ===== STM (Statement) Schedule Settings =====
+
+    def get_stm_schedule_settings(self) -> Dict:
+        """
+        Get STM (Statement) schedule settings
+
+        Returns:
+            Dict with stm_schedule_enabled, stm_schedule_times, stm_schedule_auto_import, stm_schedule_schemes
+        """
+        settings = self.load_settings()
+        return {
+            'stm_schedule_enabled': settings.get('stm_schedule_enabled', False),
+            'stm_schedule_times': settings.get('stm_schedule_times', []),
+            'stm_schedule_auto_import': settings.get('stm_schedule_auto_import', True),
+            'stm_schedule_schemes': settings.get('stm_schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
+        }
+
+    def update_stm_schedule_settings(self, enabled: bool, times: list,
+                                      auto_import: bool, schemes: list) -> bool:
+        """
+        Update STM (Statement) schedule settings
+
+        Args:
+            enabled: Whether STM scheduling is enabled
+            times: List of time dicts like [{"hour": 9, "minute": 0}, ...]
+            auto_import: Whether to auto-import after download
+            schemes: List of scheme codes to download
+
+        Returns:
+            True if successful
+        """
+        # Validate schemes
+        valid_schemes = ['ucs', 'ofc', 'sss', 'lgo']
+        schemes = [s.lower() for s in schemes if s.lower() in valid_schemes]
+        if not schemes:
+            schemes = ['ucs']  # Default fallback
+
+        settings = self.load_settings()
+        settings['stm_schedule_enabled'] = enabled
+        settings['stm_schedule_times'] = times
+        settings['stm_schedule_auto_import'] = auto_import
+        settings['stm_schedule_schemes'] = schemes
+        return self.save_settings(settings)
+
     # ===== Schedule Schemes Settings =====
 
     def get_schedule_schemes(self) -> list:

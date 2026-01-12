@@ -41,15 +41,18 @@ settings_manager = SettingsManager()
 
 
 def init_scheduler():
-    """Initialize scheduler with saved settings"""
+    """Initialize scheduler with saved settings for REP and STM"""
     try:
+        # Initialize REP scheduler
         schedule_settings = settings_manager.get_schedule_settings()
 
         if schedule_settings['schedule_enabled']:
-            # Clear existing jobs
-            download_scheduler.clear_all_jobs()
+            # Clear existing REP jobs only
+            for job in download_scheduler.get_all_jobs():
+                if job['id'].startswith('download_'):
+                    download_scheduler.remove_scheduled_download(job['id'])
 
-            # Add scheduled jobs
+            # Add REP scheduled jobs
             auto_import = schedule_settings['schedule_auto_import']
             for time_config in schedule_settings['schedule_times']:
                 hour = time_config.get('hour', 0)
@@ -57,10 +60,33 @@ def init_scheduler():
                 download_scheduler.add_scheduled_download(hour, minute, auto_import)
 
             log_streamer.write_log(
-                f"✓ Scheduler initialized with {len(schedule_settings['schedule_times'])} jobs",
+                f"✓ REP Scheduler initialized with {len(schedule_settings['schedule_times'])} jobs",
                 'success',
                 'system'
             )
+
+        # Initialize STM scheduler
+        stm_settings = settings_manager.get_stm_schedule_settings()
+
+        if stm_settings['stm_schedule_enabled']:
+            # Clear existing STM jobs
+            download_scheduler.remove_stm_jobs()
+
+            # Add STM scheduled jobs
+            auto_import = stm_settings['stm_schedule_auto_import']
+            schemes = stm_settings['stm_schedule_schemes']
+
+            for time_config in stm_settings['stm_schedule_times']:
+                hour = time_config.get('hour', 0)
+                minute = time_config.get('minute', 0)
+                download_scheduler.add_stm_scheduled_download(hour, minute, auto_import, schemes)
+
+            log_streamer.write_log(
+                f"✓ STM Scheduler initialized with {len(stm_settings['stm_schedule_times'])} jobs",
+                'success',
+                'system'
+            )
+
     except Exception as e:
         app.logger.error(f"Error initializing scheduler: {e}")
 
@@ -1436,6 +1462,106 @@ def test_schedule():
         return jsonify({
             'success': True,
             'message': 'Test download initiated'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================
+# STM (Statement) Schedule Routes
+# ============================================
+
+@app.route('/api/stm/schedule', methods=['GET', 'POST'])
+def api_stm_schedule():
+    """Get or update STM schedule settings"""
+    if request.method == 'GET':
+        stm_settings = settings_manager.get_stm_schedule_settings()
+        stm_jobs = [j for j in download_scheduler.get_all_jobs() if j['id'].startswith('stm_')]
+
+        return jsonify({
+            'success': True,
+            **stm_settings,
+            'active_jobs': stm_jobs
+        })
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+
+            enabled = data.get('stm_schedule_enabled', False)
+            times = data.get('stm_schedule_times', [])
+            auto_import = data.get('stm_schedule_auto_import', True)
+            schemes = data.get('stm_schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
+
+            # Validate times format
+            for time_config in times:
+                if not isinstance(time_config, dict):
+                    return jsonify({'success': False, 'error': 'Invalid time format'}), 400
+
+                hour = time_config.get('hour')
+                minute = time_config.get('minute')
+
+                if hour is None or minute is None:
+                    return jsonify({'success': False, 'error': 'Missing hour or minute'}), 400
+
+                if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+                    return jsonify({'success': False, 'error': 'Invalid hour or minute value'}), 400
+
+            # Validate schemes
+            valid_schemes = ['ucs', 'ofc', 'sss', 'lgo']
+            schemes = [s.lower() for s in schemes if s.lower() in valid_schemes]
+            if not schemes:
+                schemes = ['ucs']
+
+            # Save settings
+            success = settings_manager.update_stm_schedule_settings(enabled, times, auto_import, schemes)
+            if not success:
+                return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
+
+            # Update scheduler
+            download_scheduler.remove_stm_jobs()
+
+            if enabled and times:
+                for time_config in times:
+                    download_scheduler.add_stm_scheduled_download(
+                        hour=time_config['hour'],
+                        minute=time_config['minute'],
+                        auto_import=auto_import,
+                        schemes=schemes
+                    )
+
+            log_streamer.write_log(
+                f"✓ STM Schedule updated: {len(times)} times, schemes={schemes}, enabled={enabled}",
+                'success',
+                'system'
+            )
+
+            return jsonify({'success': True, 'message': 'STM schedule settings updated'})
+
+        except Exception as e:
+            logger.error(f"Error updating STM schedule: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/stm/schedule/test', methods=['POST'])
+def test_stm_schedule():
+    """Trigger a test run of STM download"""
+    try:
+        stm_settings = settings_manager.get_stm_schedule_settings()
+        auto_import = stm_settings.get('stm_schedule_auto_import', True)
+        schemes = stm_settings.get('stm_schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
+
+        # Run download manually in background
+        import threading
+        thread = threading.Thread(
+            target=download_scheduler._run_stm_download,
+            args=(auto_import, schemes)
+        )
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'message': f'STM test download initiated for schemes: {", ".join(schemes)}'
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
