@@ -88,9 +88,9 @@ async function loadReconciliation() {
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-gray-50';
 
-                    row.appendChild(createCell(r.tran_id || '-'));
                     row.appendChild(createCell(r.rep_no || '-'));
-                    row.appendChild(createCell(r.patient_name || '-'));
+                    row.appendChild(createCell(formatNumber(r.rep_count), 'text-right'));
+                    row.appendChild(createCell(formatNumber(r.stm_count), 'text-right'));
                     row.appendChild(createCell(formatCurrency(r.rep_amount), 'text-right'));
                     row.appendChild(createCell(formatCurrency(r.stm_amount), 'text-right'));
 

@@ -610,7 +610,7 @@ def data_management():
             cursor.execute("SELECT COUNT(*) FROM claim_rep_opip_nhso_item")
             db_info['claims_count'] = cursor.fetchone()[0]
             try:
-                cursor.execute("SELECT COUNT(*) FROM smt_budget_items")
+                cursor.execute("SELECT COUNT(*) FROM smt_budget_transfers")
                 db_info['budget_count'] = cursor.fetchone()[0]
             except Exception:
                 # Table may not exist in all deployments
@@ -708,13 +708,13 @@ def api_analysis_summary():
         try:
             cursor.execute("""
                 SELECT COUNT(*), COALESCE(SUM(total_amount), 0)
-                FROM smt_budget_items
+                FROM smt_budget_transfers
             """)
             row = cursor.fetchone()
             smt_data['total_records'] = row[0] or 0
             smt_data['total_amount'] = float(row[1] or 0)
 
-            cursor.execute("SELECT COUNT(DISTINCT file_id) FROM smt_budget_items")
+            cursor.execute("SELECT COUNT(DISTINCT run_date) FROM smt_budget_transfers")
             smt_data['files_count'] = cursor.fetchone()[0] or 0
         except Exception as e:
             app.logger.warning(f"Error getting SMT summary: {e}")
@@ -752,42 +752,42 @@ def api_analysis_reconciliation():
         status_filter = request.args.get('status', '').strip()
         limit = request.args.get('limit', 100, type=int)
 
-        # Build base query to compare REP vs Statement by tran_id
+        # Build base query to compare REP vs Statement by rep_no
         query = """
             WITH rep_data AS (
                 SELECT
-                    tran_id,
                     rep_no,
-                    name as patient_name,
-                    COALESCE(reimb_nhso, 0) as rep_amount
+                    SUM(COALESCE(reimb_nhso, 0)) as rep_amount,
+                    COUNT(*) as rep_count
                 FROM claim_rep_opip_nhso_item
-                WHERE tran_id IS NOT NULL
+                WHERE rep_no IS NOT NULL AND rep_no != ''
+                GROUP BY rep_no
             ),
             stm_data AS (
                 SELECT
-                    tran_id,
                     rep_no,
-                    patient_name,
-                    COALESCE(paid_after_deduction, 0) as stm_amount
+                    SUM(COALESCE(paid_after_deduction, 0)) as stm_amount,
+                    COUNT(*) as stm_count
                 FROM stm_claim_item
-                WHERE tran_id IS NOT NULL
+                WHERE rep_no IS NOT NULL AND rep_no != ''
+                GROUP BY rep_no
             )
             SELECT
-                COALESCE(r.tran_id, s.tran_id) as tran_id,
                 COALESCE(r.rep_no, s.rep_no) as rep_no,
-                COALESCE(r.patient_name, s.patient_name) as patient_name,
+                COALESCE(r.rep_count, 0) as rep_count,
+                COALESCE(s.stm_count, 0) as stm_count,
                 COALESCE(r.rep_amount, 0) as rep_amount,
                 COALESCE(s.stm_amount, 0) as stm_amount,
                 COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
                 CASE
-                    WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL
+                    WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL
                          AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
-                    WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL THEN 'diff_amount'
-                    WHEN r.tran_id IS NOT NULL THEN 'rep_only'
+                    WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL THEN 'diff_amount'
+                    WHEN r.rep_no IS NOT NULL THEN 'rep_only'
                     ELSE 'stm_only'
                 END as status
             FROM rep_data r
-            FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
+            FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
         """
 
         where_clauses = []
@@ -798,13 +798,13 @@ def api_analysis_reconciliation():
             params.extend([f'%{rep_no_filter}%', f'%{rep_no_filter}%'])
 
         if status_filter == 'matched':
-            where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01")
+            where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01")
         elif status_filter == 'diff_amount':
-            where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) >= 0.01")
+            where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) >= 0.01")
         elif status_filter == 'rep_only':
-            where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NULL")
+            where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NULL")
         elif status_filter == 'stm_only':
-            where_clauses.append("r.tran_id IS NULL AND s.tran_id IS NOT NULL")
+            where_clauses.append("r.rep_no IS NULL AND s.rep_no IS NOT NULL")
 
         if where_clauses:
             query = f"SELECT * FROM ({query}) sub WHERE " + " AND ".join(where_clauses)
@@ -817,30 +817,36 @@ def api_analysis_reconciliation():
         records = []
         for row in rows:
             records.append({
-                'tran_id': row[0],
-                'rep_no': row[1],
-                'patient_name': row[2],
+                'rep_no': row[0],
+                'rep_count': int(row[1] or 0),
+                'stm_count': int(row[2] or 0),
                 'rep_amount': float(row[3] or 0),
                 'stm_amount': float(row[4] or 0),
                 'diff': float(row[5] or 0),
                 'status': row[6]
             })
 
-        # Get reconciliation stats
+        # Get reconciliation stats by rep_no
         stats_query = """
             WITH rep_data AS (
-                SELECT tran_id, COALESCE(reimb_nhso, 0) as amount FROM claim_rep_opip_nhso_item WHERE tran_id IS NOT NULL
+                SELECT rep_no, SUM(COALESCE(reimb_nhso, 0)) as amount
+                FROM claim_rep_opip_nhso_item
+                WHERE rep_no IS NOT NULL AND rep_no != ''
+                GROUP BY rep_no
             ),
             stm_data AS (
-                SELECT tran_id, COALESCE(paid_after_deduction, 0) as amount FROM stm_claim_item WHERE tran_id IS NOT NULL
+                SELECT rep_no, SUM(COALESCE(paid_after_deduction, 0)) as amount
+                FROM stm_claim_item
+                WHERE rep_no IS NOT NULL AND rep_no != ''
+                GROUP BY rep_no
             )
             SELECT
-                COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(r.amount - s.amount) < 0.01 THEN 1 END) as matched,
-                COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NULL THEN 1 END) as rep_only,
-                COUNT(CASE WHEN r.tran_id IS NULL AND s.tran_id IS NOT NULL THEN 1 END) as stm_only,
-                COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(r.amount - s.amount) >= 0.01 THEN 1 END) as diff_amount
+                COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(r.amount - s.amount) < 0.01 THEN 1 END) as matched,
+                COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NULL THEN 1 END) as rep_only,
+                COUNT(CASE WHEN r.rep_no IS NULL AND s.rep_no IS NOT NULL THEN 1 END) as stm_only,
+                COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(r.amount - s.amount) >= 0.01 THEN 1 END) as diff_amount
             FROM rep_data r
-            FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
+            FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
         """
         cursor.execute(stats_query)
         stats_row = cursor.fetchone()
@@ -931,7 +937,7 @@ def api_analysis_search():
         try:
             cursor.execute("""
                 SELECT posting_date, ref_doc_no, fund_group_desc, total_amount, payment_status
-                FROM smt_budget_items
+                FROM smt_budget_transfers
                 WHERE ref_doc_no ILIKE %s OR fund_group_desc ILIKE %s
                 LIMIT 50
             """, (f'%{query_term}%', f'%{query_term}%'))
@@ -1010,16 +1016,17 @@ def api_analysis_files():
 
         elif data_type == 'smt':
             cursor.execute("""
-                SELECT file_id, COUNT(*) as record_count
-                FROM smt_budget_items
-                GROUP BY file_id
-                ORDER BY file_id DESC
+                SELECT run_date, COUNT(*) as record_count
+                FROM smt_budget_transfers
+                GROUP BY run_date
+                ORDER BY run_date DESC
                 LIMIT 100
             """)
             for row in cursor.fetchall():
+                run_date = row[0]
                 files.append({
-                    'id': row[0],
-                    'filename': f'SMT Batch #{row[0]}',
+                    'id': str(run_date) if run_date else '0',
+                    'filename': f'SMT {run_date.strftime("%Y-%m-%d") if run_date else "Unknown"}',
                     'record_count': row[1] or 0
                 })
 
@@ -1104,13 +1111,15 @@ def api_analysis_file_items():
 
         elif data_type == 'smt':
             columns = ['posting_date', 'ref_doc_no', 'fund_group_desc', 'total_amount', 'payment_status']
+            # For SMT, file_id is actually the run_date string (YYYY-MM-DD)
+            run_date = request.args.get('file_id', '').strip()
             cursor.execute(f"""
                 SELECT {', '.join(columns)}
-                FROM smt_budget_items
-                WHERE file_id = %s
+                FROM smt_budget_transfers
+                WHERE run_date = %s
                 ORDER BY id
                 LIMIT %s OFFSET %s
-            """, (file_id, limit, offset))
+            """, (run_date, limit, offset))
 
             for row in cursor.fetchall():
                 item = {}
