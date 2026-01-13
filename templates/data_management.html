@@ -105,7 +105,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">เดือน</label>
                         <select id="bulk-start-month" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                            <option value="" id="opt-all-months" class="hidden">ทั้งหมด</option>
+                            <option value="" selected>ทุกเดือน</option>
                             <option value="1">มกราคม</option>
                             <option value="2">กุมภาพันธ์</option>
                             <option value="3">มีนาคม</option>
@@ -1433,6 +1433,11 @@ function populateYearDropdowns() {
     var currentYearBE = currentYear + 543;
     var currentMonth = new Date().getMonth() + 1;
 
+    // Determine current fiscal year (fiscal year starts in October)
+    // If we're in Oct-Dec, fiscal year is next year BE
+    // If we're in Jan-Sep, fiscal year is current year BE
+    var currentFiscalYear = currentMonth >= 10 ? currentYearBE + 1 : currentYearBE;
+
     var yearSelects = ['bulk-start-year', 'bulk-end-year', 'smt-fiscal-year'];
 
     yearSelects.forEach(function(id) {
@@ -1442,38 +1447,55 @@ function populateYearDropdowns() {
         while (select.firstChild) select.removeChild(select.firstChild);
 
         for (var i = 0; i <= 8; i++) {
-            var yearBE = currentYearBE - i;
+            var yearBE = currentFiscalYear - i;
             var option = document.createElement('option');
             option.value = yearBE;
             option.textContent = yearBE;
-            if (i === 0) option.selected = true;
+            if (i === 0) option.selected = true;  // Current fiscal year as default
             select.appendChild(option);
         }
     });
 
-    // Set current month for bulk download
-    var bulkStartMonth = document.getElementById('bulk-start-month');
+    // Default month: "ทุกเดือน" (empty value) - no need to set, HTML has selected attribute
+    // Only set end month to match start month if user changes start month
     var bulkEndMonth = document.getElementById('bulk-end-month');
-    if (bulkStartMonth) bulkStartMonth.value = currentMonth;
-    if (bulkEndMonth) bulkEndMonth.value = currentMonth;
+    if (bulkEndMonth) bulkEndMonth.value = '';  // Also default to all months
 }
 
 // Update bulk estimate
 function updateBulkEstimate() {
-    var startMonth = parseInt(document.getElementById('bulk-start-month').value);
-    var startYear = parseInt(document.getElementById('bulk-start-year').value);
-    var endMonth = parseInt(document.getElementById('bulk-end-month').value);
-    var endYear = parseInt(document.getElementById('bulk-end-year').value);
+    var startMonthVal = document.getElementById('bulk-start-month').value;
+    var startYearVal = document.getElementById('bulk-start-year').value;
+    var endMonthVal = document.getElementById('bulk-end-month').value;
+    var endYearVal = document.getElementById('bulk-end-year').value;
 
     var schemes = getSelectedSchemes('bulk');
     var numSchemes = schemes.length || 1;
+
+    // Handle "ทุกเดือน" (all months) - full fiscal year
+    var startMonth, startYear, endMonth, endYear;
+    var fiscalYearText = '';
+
+    if (startMonthVal === '' || startMonthVal === null) {
+        // All months in fiscal year: Oct (year-1) to Sep (year)
+        startMonth = 10;
+        startYear = parseInt(startYearVal) - 1;
+        endMonth = 9;
+        endYear = parseInt(startYearVal);
+        fiscalYearText = ' (ปีงบ ' + startYearVal + ')';
+    } else {
+        startMonth = parseInt(startMonthVal);
+        startYear = parseInt(startYearVal);
+        endMonth = endMonthVal ? parseInt(endMonthVal) : startMonth;
+        endYear = endYearVal ? parseInt(endYearVal) : startYear;
+    }
 
     if (typeof calculateMonthsBetween === 'function') {
         var totalMonths = calculateMonthsBetween(startMonth, startYear, endMonth, endYear);
         var totalIterations = totalMonths * numSchemes;
         var estimatedMinutes = Math.ceil(totalIterations * 0.5); // ~30 sec per iteration
         document.getElementById('bulk-estimate').textContent =
-            totalMonths + ' เดือน x ' + numSchemes + ' สิทธิ = ' + totalIterations + ' รายการ (ประมาณ ' + estimatedMinutes + ' นาที)';
+            totalMonths + ' เดือน x ' + numSchemes + ' สิทธิ = ' + totalIterations + ' รายการ' + fiscalYearText + ' (ประมาณ ' + estimatedMinutes + ' นาที)';
     }
 }
 

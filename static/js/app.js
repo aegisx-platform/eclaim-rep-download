@@ -576,22 +576,45 @@ async function downloadBulk() {
         return;
     }
 
-    const startMonth = parseInt(document.getElementById('bulk-start-month').value);
-    const startYear = parseInt(document.getElementById('bulk-start-year').value);
-    const endMonth = parseInt(document.getElementById('bulk-end-month').value);
-    const endYear = parseInt(document.getElementById('bulk-end-year').value);
+    const startMonthVal = document.getElementById('bulk-start-month').value;
+    const startYearVal = document.getElementById('bulk-start-year').value;
+    const endMonthVal = document.getElementById('bulk-end-month').value;
+    const endYearVal = document.getElementById('bulk-end-year').value;
     const autoImport = document.getElementById('bulk-auto-import')?.checked || false;
+
+    // Handle "ทุกเดือน" (all months) - download full fiscal year
+    // Fiscal year: October to September
+    let startMonth, startYear, endMonth, endYear;
+
+    if (startMonthVal === '' || startMonthVal === null) {
+        // All months in fiscal year: Oct (year-1) to Sep (year)
+        startMonth = 10;  // October
+        startYear = parseInt(startYearVal) - 1;  // Previous year BE
+        endMonth = 9;  // September
+        endYear = parseInt(startYearVal);  // Fiscal year BE
+    } else {
+        startMonth = parseInt(startMonthVal);
+        startYear = parseInt(startYearVal);
+        endMonth = endMonthVal ? parseInt(endMonthVal) : startMonth;
+        endYear = endYearVal ? parseInt(endYearVal) : startYear;
+    }
 
     // Calculate total months
     const totalMonths = calculateMonthsBetween(startMonth, startYear, endMonth, endYear);
 
+    // Format display text
+    const monthNames = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const fromText = `${monthNames[startMonth]} ${startYear}`;
+    const toText = `${monthNames[endMonth]} ${endYear}`;
+    const fiscalYearText = startMonthVal === '' ? ` (ปีงบ ${startYearVal})` : '';
+
     // Confirm with user
     if (!confirm(
-        `Download ${totalMonths} month${totalMonths !== 1 ? 's' : ''} of data?\n\n` +
-        `From: ${startMonth}/${startYear} to ${endMonth}/${endYear}\n` +
-        `Estimated time: ~${totalMonths} minute${totalMonths !== 1 ? 's' : ''}\n` +
+        `ดาวน์โหลด ${totalMonths} เดือน${fiscalYearText}\n\n` +
+        `จาก: ${fromText} ถึง ${toText}\n` +
+        `เวลาโดยประมาณ: ~${totalMonths} นาที\n` +
         `Auto-import: ${autoImport ? 'YES' : 'NO'}\n\n` +
-        `Downloads will be processed sequentially.`
+        `ดำเนินการทีละเดือน`
     )) {
         return;
     }
