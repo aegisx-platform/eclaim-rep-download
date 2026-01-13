@@ -646,6 +646,499 @@ def data_management():
     )
 
 
+@app.route('/data-analysis')
+def data_analysis():
+    """
+    Data Analysis page for viewing linked data across:
+    - REP (E-Claim Reimbursement)
+    - Statement (stm_claim_item)
+    - SMT Budget
+    """
+    return render_template('data_analysis.html')
+
+
+# ==============================================================================
+# Data Analysis API Endpoints
+# ==============================================================================
+
+@app.route('/api/analysis/summary')
+def api_analysis_summary():
+    """Get summary statistics for all data types"""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+
+        # REP data summary
+        rep_data = {'total_records': 0, 'total_amount': 0, 'files_count': 0}
+        try:
+            cursor.execute("""
+                SELECT COUNT(*), COALESCE(SUM(reimb_nhso), 0)
+                FROM claim_rep_opip_nhso_item
+            """)
+            row = cursor.fetchone()
+            rep_data['total_records'] = row[0] or 0
+            rep_data['total_amount'] = float(row[1] or 0)
+
+            cursor.execute("SELECT COUNT(*) FROM eclaim_imported_files WHERE status = 'completed'")
+            rep_data['files_count'] = cursor.fetchone()[0] or 0
+        except Exception as e:
+            app.logger.warning(f"Error getting REP summary: {e}")
+
+        # Statement data summary
+        stm_data = {'total_records': 0, 'total_amount': 0, 'files_count': 0}
+        try:
+            cursor.execute("""
+                SELECT COUNT(*), COALESCE(SUM(paid_after_deduction), 0)
+                FROM stm_claim_item
+            """)
+            row = cursor.fetchone()
+            stm_data['total_records'] = row[0] or 0
+            stm_data['total_amount'] = float(row[1] or 0)
+
+            cursor.execute("SELECT COUNT(*) FROM stm_imported_files WHERE status = 'completed'")
+            stm_data['files_count'] = cursor.fetchone()[0] or 0
+        except Exception as e:
+            app.logger.warning(f"Error getting Statement summary: {e}")
+
+        # SMT Budget summary
+        smt_data = {'total_records': 0, 'total_amount': 0, 'files_count': 0}
+        try:
+            cursor.execute("""
+                SELECT COUNT(*), COALESCE(SUM(total_amount), 0)
+                FROM smt_budget_items
+            """)
+            row = cursor.fetchone()
+            smt_data['total_records'] = row[0] or 0
+            smt_data['total_amount'] = float(row[1] or 0)
+
+            cursor.execute("SELECT COUNT(DISTINCT file_id) FROM smt_budget_items")
+            smt_data['files_count'] = cursor.fetchone()[0] or 0
+        except Exception as e:
+            app.logger.warning(f"Error getting SMT summary: {e}")
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'rep': rep_data,
+            'stm': stm_data,
+            'smt': smt_data
+        })
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error in analysis summary: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/reconciliation')
+def api_analysis_reconciliation():
+    """
+    Reconcile REP and Statement data by tran_id
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+
+        rep_no_filter = request.args.get('rep_no', '').strip()
+        status_filter = request.args.get('status', '').strip()
+        limit = request.args.get('limit', 100, type=int)
+
+        # Build base query to compare REP vs Statement by tran_id
+        query = """
+            WITH rep_data AS (
+                SELECT
+                    tran_id,
+                    rep_no,
+                    name as patient_name,
+                    COALESCE(reimb_nhso, 0) as rep_amount
+                FROM claim_rep_opip_nhso_item
+                WHERE tran_id IS NOT NULL
+            ),
+            stm_data AS (
+                SELECT
+                    tran_id,
+                    rep_no,
+                    patient_name,
+                    COALESCE(paid_after_deduction, 0) as stm_amount
+                FROM stm_claim_item
+                WHERE tran_id IS NOT NULL
+            )
+            SELECT
+                COALESCE(r.tran_id, s.tran_id) as tran_id,
+                COALESCE(r.rep_no, s.rep_no) as rep_no,
+                COALESCE(r.patient_name, s.patient_name) as patient_name,
+                COALESCE(r.rep_amount, 0) as rep_amount,
+                COALESCE(s.stm_amount, 0) as stm_amount,
+                COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
+                CASE
+                    WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL
+                         AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
+                    WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL THEN 'diff_amount'
+                    WHEN r.tran_id IS NOT NULL THEN 'rep_only'
+                    ELSE 'stm_only'
+                END as status
+            FROM rep_data r
+            FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
+        """
+
+        where_clauses = []
+        params = []
+
+        if rep_no_filter:
+            where_clauses.append("(r.rep_no ILIKE %s OR s.rep_no ILIKE %s)")
+            params.extend([f'%{rep_no_filter}%', f'%{rep_no_filter}%'])
+
+        if status_filter == 'matched':
+            where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01")
+        elif status_filter == 'diff_amount':
+            where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) >= 0.01")
+        elif status_filter == 'rep_only':
+            where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NULL")
+        elif status_filter == 'stm_only':
+            where_clauses.append("r.tran_id IS NULL AND s.tran_id IS NOT NULL")
+
+        if where_clauses:
+            query = f"SELECT * FROM ({query}) sub WHERE " + " AND ".join(where_clauses)
+
+        query += f" LIMIT {limit}"
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        records = []
+        for row in rows:
+            records.append({
+                'tran_id': row[0],
+                'rep_no': row[1],
+                'patient_name': row[2],
+                'rep_amount': float(row[3] or 0),
+                'stm_amount': float(row[4] or 0),
+                'diff': float(row[5] or 0),
+                'status': row[6]
+            })
+
+        # Get reconciliation stats
+        stats_query = """
+            WITH rep_data AS (
+                SELECT tran_id, COALESCE(reimb_nhso, 0) as amount FROM claim_rep_opip_nhso_item WHERE tran_id IS NOT NULL
+            ),
+            stm_data AS (
+                SELECT tran_id, COALESCE(paid_after_deduction, 0) as amount FROM stm_claim_item WHERE tran_id IS NOT NULL
+            )
+            SELECT
+                COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(r.amount - s.amount) < 0.01 THEN 1 END) as matched,
+                COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NULL THEN 1 END) as rep_only,
+                COUNT(CASE WHEN r.tran_id IS NULL AND s.tran_id IS NOT NULL THEN 1 END) as stm_only,
+                COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(r.amount - s.amount) >= 0.01 THEN 1 END) as diff_amount
+            FROM rep_data r
+            FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
+        """
+        cursor.execute(stats_query)
+        stats_row = cursor.fetchone()
+
+        stats = {
+            'matched': stats_row[0] or 0,
+            'rep_only': stats_row[1] or 0,
+            'stm_only': stats_row[2] or 0,
+            'diff_amount': stats_row[3] or 0
+        }
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'records': records,
+            'stats': stats
+        })
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error in reconciliation: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/search')
+def api_analysis_search():
+    """
+    Search across all data sources by TRAN_ID, HN, AN, or PID
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+        query_term = request.args.get('q', '').strip()
+
+        if not query_term:
+            return jsonify({'success': False, 'error': 'Search query required'}), 400
+
+        # Search in REP data
+        rep_results = []
+        try:
+            cursor.execute("""
+                SELECT tran_id, rep_no, hn, name, dateadm, reimb_nhso
+                FROM claim_rep_opip_nhso_item
+                WHERE tran_id ILIKE %s OR hn ILIKE %s OR an ILIKE %s OR pid ILIKE %s
+                LIMIT 50
+            """, (f'%{query_term}%', f'%{query_term}%', f'%{query_term}%', f'%{query_term}%'))
+            for row in cursor.fetchall():
+                rep_results.append({
+                    'tran_id': row[0],
+                    'rep_no': row[1],
+                    'hn': row[2],
+                    'name': row[3],
+                    'dateadm': str(row[4]) if row[4] else None,
+                    'reimb_nhso': float(row[5] or 0)
+                })
+        except Exception as e:
+            app.logger.warning(f"Error searching REP: {e}")
+
+        # Search in Statement data
+        stm_results = []
+        try:
+            cursor.execute("""
+                SELECT tran_id, rep_no, hn, patient_name, date_admit, paid_after_deduction
+                FROM stm_claim_item
+                WHERE tran_id ILIKE %s OR hn ILIKE %s OR an ILIKE %s OR pid ILIKE %s
+                LIMIT 50
+            """, (f'%{query_term}%', f'%{query_term}%', f'%{query_term}%', f'%{query_term}%'))
+            for row in cursor.fetchall():
+                stm_results.append({
+                    'tran_id': row[0],
+                    'rep_no': row[1],
+                    'hn': row[2],
+                    'patient_name': row[3],
+                    'date_admit': str(row[4]) if row[4] else None,
+                    'paid_after_deduction': float(row[5] or 0)
+                })
+        except Exception as e:
+            app.logger.warning(f"Error searching Statement: {e}")
+
+        # Search in SMT Budget data
+        smt_results = []
+        try:
+            cursor.execute("""
+                SELECT posting_date, ref_doc_no, fund_group_desc, total_amount, payment_status
+                FROM smt_budget_items
+                WHERE ref_doc_no ILIKE %s OR fund_group_desc ILIKE %s
+                LIMIT 50
+            """, (f'%{query_term}%', f'%{query_term}%'))
+            for row in cursor.fetchall():
+                smt_results.append({
+                    'posting_date': str(row[0]) if row[0] else None,
+                    'ref_doc_no': row[1],
+                    'fund_group_desc': row[2],
+                    'total_amount': float(row[3] or 0),
+                    'payment_status': row[4]
+                })
+        except Exception as e:
+            app.logger.warning(f"Error searching SMT: {e}")
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'rep': rep_results,
+            'stm': stm_results,
+            'smt': smt_results
+        })
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error in search: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/files')
+def api_analysis_files():
+    """
+    Get list of imported files by data type
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+        data_type = request.args.get('type', 'rep').strip().lower()
+
+        files = []
+
+        if data_type == 'rep':
+            cursor.execute("""
+                SELECT id, filename, imported_records
+                FROM eclaim_imported_files
+                WHERE status = 'completed'
+                ORDER BY import_completed_at DESC
+                LIMIT 100
+            """)
+            for row in cursor.fetchall():
+                files.append({
+                    'id': row[0],
+                    'filename': row[1],
+                    'record_count': row[2] or 0
+                })
+
+        elif data_type == 'stm':
+            cursor.execute("""
+                SELECT id, filename, imported_records
+                FROM stm_imported_files
+                WHERE status = 'completed'
+                ORDER BY import_completed_at DESC
+                LIMIT 100
+            """)
+            for row in cursor.fetchall():
+                files.append({
+                    'id': row[0],
+                    'filename': row[1],
+                    'record_count': row[2] or 0
+                })
+
+        elif data_type == 'smt':
+            cursor.execute("""
+                SELECT file_id, COUNT(*) as record_count
+                FROM smt_budget_items
+                GROUP BY file_id
+                ORDER BY file_id DESC
+                LIMIT 100
+            """)
+            for row in cursor.fetchall():
+                files.append({
+                    'id': row[0],
+                    'filename': f'SMT Batch #{row[0]}',
+                    'record_count': row[1] or 0
+                })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'files': files
+        })
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error getting files: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/file-items')
+def api_analysis_file_items():
+    """
+    Get items in a specific file
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+        data_type = request.args.get('type', 'rep').strip().lower()
+        file_id = request.args.get('file_id', 0, type=int)
+        limit = request.args.get('limit', 100, type=int)
+        offset = request.args.get('offset', 0, type=int)
+
+        if not file_id:
+            return jsonify({'success': False, 'error': 'file_id required'}), 400
+
+        items = []
+        columns = []
+
+        if data_type == 'rep':
+            columns = ['tran_id', 'rep_no', 'hn', 'name', 'dateadm', 'datedsc', 'reimb_nhso']
+            cursor.execute(f"""
+                SELECT {', '.join(columns)}
+                FROM claim_rep_opip_nhso_item
+                WHERE file_id = %s
+                ORDER BY row_number
+                LIMIT %s OFFSET %s
+            """, (file_id, limit, offset))
+
+            for row in cursor.fetchall():
+                item = {}
+                for i, col in enumerate(columns):
+                    value = row[i]
+                    if hasattr(value, 'isoformat'):
+                        value = value.strftime('%Y-%m-%d')
+                    elif isinstance(value, (int, float)) and col in ['reimb_nhso']:
+                        value = float(value) if value else 0
+                    item[col] = value
+                items.append(item)
+
+        elif data_type == 'stm':
+            columns = ['tran_id', 'rep_no', 'hn', 'patient_name', 'date_admit', 'date_discharge', 'paid_after_deduction']
+            cursor.execute(f"""
+                SELECT {', '.join(columns)}
+                FROM stm_claim_item
+                WHERE file_id = %s
+                ORDER BY id
+                LIMIT %s OFFSET %s
+            """, (file_id, limit, offset))
+
+            for row in cursor.fetchall():
+                item = {}
+                for i, col in enumerate(columns):
+                    value = row[i]
+                    if hasattr(value, 'isoformat'):
+                        value = value.strftime('%Y-%m-%d')
+                    elif isinstance(value, (int, float)) and col in ['paid_after_deduction']:
+                        value = float(value) if value else 0
+                    item[col] = value
+                items.append(item)
+
+        elif data_type == 'smt':
+            columns = ['posting_date', 'ref_doc_no', 'fund_group_desc', 'total_amount', 'payment_status']
+            cursor.execute(f"""
+                SELECT {', '.join(columns)}
+                FROM smt_budget_items
+                WHERE file_id = %s
+                ORDER BY id
+                LIMIT %s OFFSET %s
+            """, (file_id, limit, offset))
+
+            for row in cursor.fetchall():
+                item = {}
+                for i, col in enumerate(columns):
+                    value = row[i]
+                    if hasattr(value, 'isoformat'):
+                        value = value.strftime('%Y-%m-%d')
+                    elif isinstance(value, (int, float)) and col in ['total_amount']:
+                        value = float(value) if value else 0
+                    item[col] = value
+                items.append(item)
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'columns': columns,
+            'items': items
+        })
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error getting file items: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/download/trigger/single', methods=['POST'])
 def trigger_single_download():
     """Trigger download for specific month/year and schemes"""
