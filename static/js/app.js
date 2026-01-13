@@ -677,6 +677,63 @@ function setDownloadButtonState(disabled, text = null) {
 }
 
 /**
+ * Cancel bulk download in progress
+ */
+async function cancelBulkDownload() {
+    if (!confirm('ยืนยันยกเลิกการดาวน์โหลด?')) {
+        return;
+    }
+
+    const cancelBtn = document.getElementById('cancel-download-btn');
+    if (cancelBtn) {
+        cancelBtn.disabled = true;
+        cancelBtn.textContent = 'กำลังยกเลิก...';
+    }
+
+    try {
+        const response = await fetch('/download/bulk/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('ยกเลิกการดาวน์โหลดแล้ว', 'success');
+
+            // Stop polling
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+
+            // Hide progress and reset button
+            const progressDiv = document.getElementById('bulk-progress');
+            if (progressDiv) {
+                progressDiv.classList.add('hidden');
+            }
+
+            setDownloadButtonState(false);
+        } else {
+            showToast('เกิดข้อผิดพลาด: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error cancelling download:', error);
+        showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
+    } finally {
+        if (cancelBtn) {
+            cancelBtn.disabled = false;
+            cancelBtn.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                ยกเลิก
+            `;
+        }
+    }
+}
+
+/**
  * Start polling bulk download progress
  */
 function startBulkProgressPolling() {

@@ -360,7 +360,15 @@
 
         <!-- Bulk Progress -->
         <div id="bulk-progress" class="hidden mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 class="text-lg font-semibold text-blue-900 mb-4">Downloading...</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-blue-900">Downloading...</h3>
+                <button id="cancel-download-btn" onclick="cancelBulkDownload()" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    ยกเลิก
+                </button>
+            </div>
             <div class="mb-4">
                 <div class="flex justify-between text-sm text-blue-900 mb-2">
                     <span>Current: <span id="current-month" class="font-semibold"></span></span>

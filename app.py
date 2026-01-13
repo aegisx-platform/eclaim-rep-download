@@ -1450,6 +1450,17 @@ def bulk_progress():
         return jsonify({'running': False, 'error': str(e)}), 500
 
 
+@app.route('/download/bulk/cancel', methods=['POST'])
+def cancel_bulk_download():
+    """Cancel a running bulk download"""
+    try:
+        result = downloader_runner.stop()
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/date-range-stats')
 def date_range_stats():
     """Get statistics grouped by month/year"""

@@ -319,3 +319,97 @@ class DownloaderRunner:
                 'running': False,
                 'error': f'Failed to read progress: {str(e)}'
             }
+
+    def stop(self):
+        """Stop the currently running downloader process"""
+        import json
+        import signal
+
+        if not self.pid_file.exists():
+            return {
+                'success': False,
+                'error': 'No download process is running'
+            }
+
+        try:
+            pid = int(self.pid_file.read_text().strip())
+
+            try:
+                process = psutil.Process(pid)
+
+                # Check if process exists and is running
+                if process.is_running() and process.status() != psutil.STATUS_ZOMBIE:
+                    # Terminate the process and all children
+                    children = process.children(recursive=True)
+
+                    # Terminate children first
+                    for child in children:
+                        try:
+                            child.terminate()
+                        except psutil.NoSuchProcess:
+                            pass
+
+                    # Terminate main process
+                    process.terminate()
+
+                    # Wait for termination (max 5 seconds)
+                    gone, alive = psutil.wait_procs([process] + children, timeout=5)
+
+                    # Force kill if still alive
+                    for p in alive:
+                        try:
+                            p.kill()
+                        except psutil.NoSuchProcess:
+                            pass
+
+                    # Update progress file to indicate cancellation
+                    progress_file = self.script_path.parent / 'bulk_download_progress.json'
+                    if progress_file.exists():
+                        try:
+                            with open(progress_file, 'r', encoding='utf-8') as f:
+                                progress = json.load(f)
+
+                            progress['status'] = 'cancelled'
+                            progress['cancelled_at'] = datetime.now().isoformat()
+
+                            with open(progress_file, 'w', encoding='utf-8') as f:
+                                json.dump(progress, f, indent=2, ensure_ascii=False)
+                        except Exception:
+                            pass
+
+                    # Cleanup PID file
+                    if self.pid_file.exists():
+                        self.pid_file.unlink()
+
+                    return {
+                        'success': True,
+                        'message': 'Download cancelled successfully'
+                    }
+                else:
+                    # Process not running, cleanup
+                    if self.pid_file.exists():
+                        self.pid_file.unlink()
+                    return {
+                        'success': False,
+                        'error': 'Process is not running'
+                    }
+
+            except psutil.NoSuchProcess:
+                # Process doesn't exist, cleanup
+                if self.pid_file.exists():
+                    self.pid_file.unlink()
+                return {
+                    'success': False,
+                    'error': 'Process not found'
+                }
+
+        except (ValueError, IOError) as e:
+            return {
+                'success': False,
+                'error': f'Failed to read PID: {str(e)}'
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to stop download: {str(e)}'
+            }
