@@ -187,9 +187,17 @@ class ParallelDownloader:
                 )
                 response.raise_for_status()
 
-                # Verify login
-                if 'login' in response.url.lower() and 'error' in response.text.lower():
-                    raise Exception("Login failed")
+                # Verify login by trying to access validation page
+                test_url = f"{self.base_url}/NHSO.WebClaim.Otp/Validation.aspx?month={self.month}&year={self.year}&scheme={self.scheme}"
+                verify_response = session.get(test_url, timeout=60)
+
+                # If redirected back to login or got error page, login failed
+                if 'login' in verify_response.url.lower():
+                    raise Exception("Redirected back to login page")
+
+                # Check for valid content (should contain tables or download links)
+                if verify_response.status_code != 200:
+                    raise Exception(f"Validation page returned status {verify_response.status_code}")
 
                 session_info['logged_in'] = True
                 successful_logins += 1
