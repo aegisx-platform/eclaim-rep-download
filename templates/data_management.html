@@ -105,7 +105,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">เดือน</label>
                         <select id="bulk-start-month" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                            <option value="" selected>ทุกเดือน</option>
+                            <option value="" id="opt-all-months">ทุกเดือน</option>
                             <option value="1">มกราคม</option>
                             <option value="2">กุมภาพันธ์</option>
                             <option value="3">มีนาคม</option>
@@ -227,29 +227,9 @@
                         ตั้งค่าขั้นสูง
                     </summary>
                     <div class="p-4 space-y-4 border-t">
-                        <!-- Date Range (REP only) -->
-                        <div id="dl-date-range-section">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ดาวน์โหลดถึงเดือน (ถ้าต้องการหลายเดือน)</label>
-                            <div class="grid grid-cols-2 gap-4">
-                                <select id="bulk-end-month" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
-                                    <option value="">เดือนเดียวกัน</option>
-                                    <option value="1">มกราคม</option>
-                                    <option value="2">กุมภาพันธ์</option>
-                                    <option value="3">มีนาคม</option>
-                                    <option value="4">เมษายน</option>
-                                    <option value="5">พฤษภาคม</option>
-                                    <option value="6">มิถุนายน</option>
-                                    <option value="7">กรกฎาคม</option>
-                                    <option value="8">สิงหาคม</option>
-                                    <option value="9">กันยายน</option>
-                                    <option value="10">ตุลาคม</option>
-                                    <option value="11">พฤศจิกายน</option>
-                                    <option value="12">ธันวาคม</option>
-                                </select>
-                                <select id="bulk-end-year" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
-                                </select>
-                            </div>
-                        </div>
+                        <!-- Hidden date range inputs (not needed since "ทุกเดือน" downloads full fiscal year) -->
+                        <input type="hidden" id="bulk-end-month" value="">
+                        <input type="hidden" id="bulk-end-year" value="">
 
                         <!-- Insurance Schemes (REP only) -->
                         <div id="dl-schemes-section">
@@ -1456,10 +1436,17 @@ function populateYearDropdowns() {
         }
     });
 
-    // Default month: "ทุกเดือน" (empty value) - no need to set, HTML has selected attribute
-    // Only set end month to match start month if user changes start month
+    // REP: Default to current month (REP downloads one month at a time, no "ทุกเดือน")
+    // Statement: Default to "ทุกเดือน" (all months)
+    var monthSelect = document.getElementById('bulk-start-month');
+    var allMonthsOption = document.getElementById('opt-all-months');
+
+    // On initial load, REP is default - hide "ทุกเดือน" and set current month
+    if (allMonthsOption) allMonthsOption.classList.add('hidden');
+    if (monthSelect) monthSelect.value = currentMonth.toString();
+
     var bulkEndMonth = document.getElementById('bulk-end-month');
-    if (bulkEndMonth) bulkEndMonth.value = '';  // Also default to all months
+    if (bulkEndMonth) bulkEndMonth.value = '';
 }
 
 // Update bulk estimate

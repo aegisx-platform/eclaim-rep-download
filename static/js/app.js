@@ -362,11 +362,12 @@ function switchDownloadType(type) {
         if (dateRangeSection) dateRangeSection.classList.remove('hidden');
         if (estimateSection) estimateSection.classList.remove('hidden');
         if (bulkAutoImportSection) bulkAutoImportSection.classList.remove('hidden');
-        // Hide "All months" option for REP
+        // Hide "All months" option for REP (REP downloads one month at a time)
         if (allMonthsOption) allMonthsOption.classList.add('hidden');
-        // Reset to first month if currently "all"
+        // Reset to current month if currently "all"
         if (monthSelect && monthSelect.value === '') {
-            monthSelect.value = '1';
+            const currentMonth = new Date().getMonth() + 1;  // 1-12
+            monthSelect.value = currentMonth.toString();
         }
     } else if (type === 'statement') {
         if (yearMonthSection) yearMonthSection.classList.remove('hidden');
@@ -375,8 +376,9 @@ function switchDownloadType(type) {
         if (statementAutoImportSection) statementAutoImportSection.classList.remove('hidden');
         if (dateRangeSection) dateRangeSection.classList.add('hidden');
         if (estimateSection) estimateSection.classList.add('hidden');
-        // Show "All months" option for Statement
+        // Show "All months" option for Statement and set as default
         if (allMonthsOption) allMonthsOption.classList.remove('hidden');
+        if (monthSelect) monthSelect.value = '';  // Default to "ทุกเดือน"
     } else if (type === 'smt') {
         // SMT: Hide year/month, show SMT-specific options
         if (yearMonthSection) yearMonthSection.classList.add('hidden');
@@ -417,10 +419,12 @@ function initSmtDateFields() {
     const thaiYear = now.getFullYear() + 543;
     const currentFiscalYear = currentMonth >= 10 ? thaiYear + 1 : thaiYear;
 
-    // Populate fiscal year dropdown (current year and 2 previous years)
+    // Populate fiscal year dropdown (from 2566 to current fiscal year)
+    // SMT data starts from fiscal year 2566
+    const minFiscalYear = 2566;
     if (fiscalYearSelect) {
         fiscalYearSelect.innerHTML = '';
-        for (let fy = currentFiscalYear; fy >= currentFiscalYear - 2; fy--) {
+        for (let fy = currentFiscalYear; fy >= minFiscalYear; fy--) {
             const option = document.createElement('option');
             option.value = fy;
             option.textContent = 'ปีงบ ' + fy;
