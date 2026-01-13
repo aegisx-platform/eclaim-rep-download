@@ -346,6 +346,7 @@ function switchDownloadType(type) {
     const estimateSection = document.getElementById('dl-estimate-section');
     const allMonthsOption = document.getElementById('opt-all-months');
     const monthSelect = document.getElementById('bulk-start-month');
+    const repHint = document.getElementById('dl-rep-hint');
 
     // Hide all type-specific sections first
     if (patientTypeSection) patientTypeSection.classList.add('hidden');
@@ -354,6 +355,7 @@ function switchDownloadType(type) {
     if (statementSchemeSection) statementSchemeSection.classList.add('hidden');
     if (statementAutoImportSection) statementAutoImportSection.classList.add('hidden');
     if (bulkAutoImportSection) bulkAutoImportSection.classList.add('hidden');
+    if (repHint) repHint.classList.add('hidden');
 
     // Show relevant sections based on type
     if (type === 'rep') {
@@ -362,6 +364,7 @@ function switchDownloadType(type) {
         if (dateRangeSection) dateRangeSection.classList.remove('hidden');
         if (estimateSection) estimateSection.classList.remove('hidden');
         if (bulkAutoImportSection) bulkAutoImportSection.classList.remove('hidden');
+        if (repHint) repHint.classList.remove('hidden');
         // Hide "All months" option for REP (REP downloads one month at a time)
         if (allMonthsOption) allMonthsOption.classList.add('hidden');
         // Reset to current month if currently "all"
