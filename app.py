@@ -750,61 +750,118 @@ def api_analysis_reconciliation():
 
         rep_no_filter = request.args.get('rep_no', '').strip()
         status_filter = request.args.get('status', '').strip()
+        group_by = request.args.get('group_by', 'rep_no').strip()  # 'rep_no' or 'tran_id'
         limit = request.args.get('limit', 100, type=int)
-
-        # Build base query to compare REP vs Statement by rep_no
-        query = """
-            WITH rep_data AS (
-                SELECT
-                    rep_no,
-                    SUM(COALESCE(reimb_nhso, 0)) as rep_amount,
-                    COUNT(*) as rep_count
-                FROM claim_rep_opip_nhso_item
-                WHERE rep_no IS NOT NULL AND rep_no != ''
-                GROUP BY rep_no
-            ),
-            stm_data AS (
-                SELECT
-                    rep_no,
-                    SUM(COALESCE(paid_after_deduction, 0)) as stm_amount,
-                    COUNT(*) as stm_count
-                FROM stm_claim_item
-                WHERE rep_no IS NOT NULL AND rep_no != ''
-                GROUP BY rep_no
-            )
-            SELECT
-                COALESCE(r.rep_no, s.rep_no) as rep_no,
-                COALESCE(r.rep_count, 0) as rep_count,
-                COALESCE(s.stm_count, 0) as stm_count,
-                COALESCE(r.rep_amount, 0) as rep_amount,
-                COALESCE(s.stm_amount, 0) as stm_amount,
-                COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
-                CASE
-                    WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL
-                         AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
-                    WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL THEN 'diff_amount'
-                    WHEN r.rep_no IS NOT NULL THEN 'rep_only'
-                    ELSE 'stm_only'
-                END as status
-            FROM rep_data r
-            FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
-        """
 
         where_clauses = []
         params = []
 
-        if rep_no_filter:
-            where_clauses.append("(r.rep_no ILIKE %s OR s.rep_no ILIKE %s)")
-            params.extend([f'%{rep_no_filter}%', f'%{rep_no_filter}%'])
+        if group_by == 'tran_id':
+            # Transaction-level reconciliation by tran_id
+            query = """
+                WITH rep_data AS (
+                    SELECT
+                        tran_id,
+                        rep_no,
+                        name as patient_name,
+                        hn,
+                        COALESCE(reimb_nhso, 0) as rep_amount
+                    FROM claim_rep_opip_nhso_item
+                    WHERE tran_id IS NOT NULL
+                ),
+                stm_data AS (
+                    SELECT
+                        tran_id,
+                        rep_no,
+                        patient_name,
+                        hn,
+                        COALESCE(paid_after_deduction, 0) as stm_amount
+                    FROM stm_claim_item
+                    WHERE tran_id IS NOT NULL
+                )
+                SELECT
+                    COALESCE(r.tran_id, s.tran_id) as tran_id,
+                    COALESCE(r.rep_no, s.rep_no) as rep_no,
+                    COALESCE(r.patient_name, s.patient_name) as patient_name,
+                    COALESCE(r.hn, s.hn) as hn,
+                    COALESCE(r.rep_amount, 0) as rep_amount,
+                    COALESCE(s.stm_amount, 0) as stm_amount,
+                    COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
+                    CASE
+                        WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL
+                             AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
+                        WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL THEN 'diff_amount'
+                        WHEN r.tran_id IS NOT NULL THEN 'rep_only'
+                        ELSE 'stm_only'
+                    END as status
+                FROM rep_data r
+                FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
+            """
 
-        if status_filter == 'matched':
-            where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01")
-        elif status_filter == 'diff_amount':
-            where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) >= 0.01")
-        elif status_filter == 'rep_only':
-            where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NULL")
-        elif status_filter == 'stm_only':
-            where_clauses.append("r.rep_no IS NULL AND s.rep_no IS NOT NULL")
+            if rep_no_filter:
+                where_clauses.append("(r.rep_no ILIKE %s OR s.rep_no ILIKE %s)")
+                params.extend([f'%{rep_no_filter}%', f'%{rep_no_filter}%'])
+
+            if status_filter == 'matched':
+                where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01")
+            elif status_filter == 'diff_amount':
+                where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) >= 0.01")
+            elif status_filter == 'rep_only':
+                where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NULL")
+            elif status_filter == 'stm_only':
+                where_clauses.append("r.tran_id IS NULL AND s.tran_id IS NOT NULL")
+
+        else:
+            # REP-level reconciliation by rep_no (aggregate)
+            query = """
+                WITH rep_data AS (
+                    SELECT
+                        rep_no,
+                        SUM(COALESCE(reimb_nhso, 0)) as rep_amount,
+                        COUNT(*) as rep_count
+                    FROM claim_rep_opip_nhso_item
+                    WHERE rep_no IS NOT NULL AND rep_no != ''
+                    GROUP BY rep_no
+                ),
+                stm_data AS (
+                    SELECT
+                        rep_no,
+                        SUM(COALESCE(paid_after_deduction, 0)) as stm_amount,
+                        COUNT(*) as stm_count
+                    FROM stm_claim_item
+                    WHERE rep_no IS NOT NULL AND rep_no != ''
+                    GROUP BY rep_no
+                )
+                SELECT
+                    COALESCE(r.rep_no, s.rep_no) as rep_no,
+                    COALESCE(r.rep_count, 0) as rep_count,
+                    COALESCE(s.stm_count, 0) as stm_count,
+                    COALESCE(r.rep_amount, 0) as rep_amount,
+                    COALESCE(s.stm_amount, 0) as stm_amount,
+                    COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
+                    CASE
+                        WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL
+                             AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
+                        WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL THEN 'diff_amount'
+                        WHEN r.rep_no IS NOT NULL THEN 'rep_only'
+                        ELSE 'stm_only'
+                    END as status
+                FROM rep_data r
+                FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
+            """
+
+            if rep_no_filter:
+                where_clauses.append("(r.rep_no ILIKE %s OR s.rep_no ILIKE %s)")
+                params.extend([f'%{rep_no_filter}%', f'%{rep_no_filter}%'])
+
+            if status_filter == 'matched':
+                where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01")
+            elif status_filter == 'diff_amount':
+                where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) >= 0.01")
+            elif status_filter == 'rep_only':
+                where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NULL")
+            elif status_filter == 'stm_only':
+                where_clauses.append("r.rep_no IS NULL AND s.rep_no IS NOT NULL")
 
         if where_clauses:
             query = f"SELECT * FROM ({query}) sub WHERE " + " AND ".join(where_clauses)
@@ -815,39 +872,74 @@ def api_analysis_reconciliation():
         rows = cursor.fetchall()
 
         records = []
-        for row in rows:
-            records.append({
-                'rep_no': row[0],
-                'rep_count': int(row[1] or 0),
-                'stm_count': int(row[2] or 0),
-                'rep_amount': float(row[3] or 0),
-                'stm_amount': float(row[4] or 0),
-                'diff': float(row[5] or 0),
-                'status': row[6]
-            })
+        if group_by == 'tran_id':
+            # Transaction-level records
+            for row in rows:
+                records.append({
+                    'tran_id': row[0],
+                    'rep_no': row[1],
+                    'patient_name': row[2],
+                    'hn': row[3],
+                    'rep_amount': float(row[4] or 0),
+                    'stm_amount': float(row[5] or 0),
+                    'diff': float(row[6] or 0),
+                    'status': row[7]
+                })
 
-        # Get reconciliation stats by rep_no
-        stats_query = """
-            WITH rep_data AS (
-                SELECT rep_no, SUM(COALESCE(reimb_nhso, 0)) as amount
-                FROM claim_rep_opip_nhso_item
-                WHERE rep_no IS NOT NULL AND rep_no != ''
-                GROUP BY rep_no
-            ),
-            stm_data AS (
-                SELECT rep_no, SUM(COALESCE(paid_after_deduction, 0)) as amount
-                FROM stm_claim_item
-                WHERE rep_no IS NOT NULL AND rep_no != ''
-                GROUP BY rep_no
-            )
-            SELECT
-                COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(r.amount - s.amount) < 0.01 THEN 1 END) as matched,
-                COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NULL THEN 1 END) as rep_only,
-                COUNT(CASE WHEN r.rep_no IS NULL AND s.rep_no IS NOT NULL THEN 1 END) as stm_only,
-                COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(r.amount - s.amount) >= 0.01 THEN 1 END) as diff_amount
-            FROM rep_data r
-            FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
-        """
+            # Stats for tran_id mode
+            stats_query = """
+                WITH rep_data AS (
+                    SELECT tran_id, COALESCE(reimb_nhso, 0) as amount
+                    FROM claim_rep_opip_nhso_item WHERE tran_id IS NOT NULL
+                ),
+                stm_data AS (
+                    SELECT tran_id, COALESCE(paid_after_deduction, 0) as amount
+                    FROM stm_claim_item WHERE tran_id IS NOT NULL
+                )
+                SELECT
+                    COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(r.amount - s.amount) < 0.01 THEN 1 END) as matched,
+                    COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NULL THEN 1 END) as rep_only,
+                    COUNT(CASE WHEN r.tran_id IS NULL AND s.tran_id IS NOT NULL THEN 1 END) as stm_only,
+                    COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(r.amount - s.amount) >= 0.01 THEN 1 END) as diff_amount
+                FROM rep_data r
+                FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
+            """
+        else:
+            # REP-level records
+            for row in rows:
+                records.append({
+                    'rep_no': row[0],
+                    'rep_count': int(row[1] or 0),
+                    'stm_count': int(row[2] or 0),
+                    'rep_amount': float(row[3] or 0),
+                    'stm_amount': float(row[4] or 0),
+                    'diff': float(row[5] or 0),
+                    'status': row[6]
+                })
+
+            # Stats for rep_no mode
+            stats_query = """
+                WITH rep_data AS (
+                    SELECT rep_no, SUM(COALESCE(reimb_nhso, 0)) as amount
+                    FROM claim_rep_opip_nhso_item
+                    WHERE rep_no IS NOT NULL AND rep_no != ''
+                    GROUP BY rep_no
+                ),
+                stm_data AS (
+                    SELECT rep_no, SUM(COALESCE(paid_after_deduction, 0)) as amount
+                    FROM stm_claim_item
+                    WHERE rep_no IS NOT NULL AND rep_no != ''
+                    GROUP BY rep_no
+                )
+                SELECT
+                    COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(r.amount - s.amount) < 0.01 THEN 1 END) as matched,
+                    COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NULL THEN 1 END) as rep_only,
+                    COUNT(CASE WHEN r.rep_no IS NULL AND s.rep_no IS NOT NULL THEN 1 END) as stm_only,
+                    COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(r.amount - s.amount) >= 0.01 THEN 1 END) as diff_amount
+                FROM rep_data r
+                FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
+            """
+
         cursor.execute(stats_query)
         stats_row = cursor.fetchone()
 
@@ -863,6 +955,7 @@ def api_analysis_reconciliation():
 
         return jsonify({
             'success': True,
+            'group_by': group_by,
             'records': records,
             'stats': stats
         })

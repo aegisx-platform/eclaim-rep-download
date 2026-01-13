@@ -55,12 +55,29 @@ async function loadSummary() {
     }
 }
 
+function onReconGroupByChange() {
+    const groupBy = document.getElementById('recon-group-by').value;
+    const headerRep = document.getElementById('recon-header-rep');
+    const headerTran = document.getElementById('recon-header-tran');
+
+    if (groupBy === 'tran_id') {
+        headerRep.classList.add('hidden');
+        headerTran.classList.remove('hidden');
+    } else {
+        headerRep.classList.remove('hidden');
+        headerTran.classList.add('hidden');
+    }
+}
+
 async function loadReconciliation() {
     const tbody = document.getElementById('recon-table-body');
+    const groupBy = document.getElementById('recon-group-by').value;
+    const colSpan = groupBy === 'tran_id' ? 8 : 7;
+
     tbody.textContent = '';
     const loadingRow = document.createElement('tr');
     const loadingCell = document.createElement('td');
-    loadingCell.colSpan = 7;
+    loadingCell.colSpan = colSpan;
     loadingCell.className = 'px-4 py-8 text-center text-gray-500';
     loadingCell.textContent = 'กำลังโหลด...';
     loadingRow.appendChild(loadingCell);
@@ -70,7 +87,10 @@ async function loadReconciliation() {
         const repNo = document.getElementById('recon-rep-no').value;
         const status = document.getElementById('recon-status').value;
 
-        const response = await fetch('/api/analysis/reconciliation?rep_no=' + encodeURIComponent(repNo) + '&status=' + encodeURIComponent(status));
+        const url = '/api/analysis/reconciliation?rep_no=' + encodeURIComponent(repNo) +
+                    '&status=' + encodeURIComponent(status) +
+                    '&group_by=' + encodeURIComponent(groupBy);
+        const response = await fetch(url);
         const data = await response.json();
 
         if (data.success) {
@@ -88,9 +108,19 @@ async function loadReconciliation() {
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-gray-50';
 
-                    row.appendChild(createCell(r.rep_no || '-'));
-                    row.appendChild(createCell(formatNumber(r.rep_count), 'text-right'));
-                    row.appendChild(createCell(formatNumber(r.stm_count), 'text-right'));
+                    if (groupBy === 'tran_id') {
+                        // Transaction mode columns
+                        row.appendChild(createCell(r.tran_id || '-'));
+                        row.appendChild(createCell(r.rep_no || '-'));
+                        row.appendChild(createCell(r.hn || '-'));
+                        row.appendChild(createCell(r.patient_name || '-'));
+                    } else {
+                        // REP No mode columns
+                        row.appendChild(createCell(r.rep_no || '-'));
+                        row.appendChild(createCell(formatNumber(r.rep_count), 'text-right'));
+                        row.appendChild(createCell(formatNumber(r.stm_count), 'text-right'));
+                    }
+
                     row.appendChild(createCell(formatCurrency(r.rep_amount), 'text-right'));
                     row.appendChild(createCell(formatCurrency(r.stm_amount), 'text-right'));
 
@@ -111,7 +141,7 @@ async function loadReconciliation() {
             } else {
                 const emptyRow = document.createElement('tr');
                 const emptyCell = document.createElement('td');
-                emptyCell.colSpan = 7;
+                emptyCell.colSpan = colSpan;
                 emptyCell.className = 'px-4 py-8 text-center text-gray-500';
                 emptyCell.textContent = 'ไม่พบข้อมูล';
                 emptyRow.appendChild(emptyCell);
@@ -123,7 +153,7 @@ async function loadReconciliation() {
         tbody.textContent = '';
         const errorRow = document.createElement('tr');
         const errorCell = document.createElement('td');
-        errorCell.colSpan = 7;
+        errorCell.colSpan = colSpan;
         errorCell.className = 'px-4 py-8 text-center text-red-500';
         errorCell.textContent = 'เกิดข้อผิดพลาด';
         errorRow.appendChild(errorCell);

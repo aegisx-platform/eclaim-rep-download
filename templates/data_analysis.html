@@ -151,8 +151,15 @@
         <div class="bg-gray-50 rounded-lg p-4 mb-6">
             <div class="flex flex-wrap items-end gap-4">
                 <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">มุมมอง</label>
+                    <select id="recon-group-by" onchange="onReconGroupByChange()" class="border border-gray-300 rounded px-3 py-2 text-sm w-44">
+                        <option value="rep_no">รวมตาม REP No</option>
+                        <option value="tran_id">รายการ Transaction</option>
+                    </select>
+                </div>
+                <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">REP No</label>
-                    <input type="text" id="recon-rep-no" placeholder="เช่น 10670R6712001" class="border border-gray-300 rounded px-3 py-2 text-sm w-48">
+                    <input type="text" id="recon-rep-no" placeholder="เช่น 681000006" class="border border-gray-300 rounded px-3 py-2 text-sm w-40">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">สถานะ</label>
@@ -193,8 +200,9 @@
         <!-- Results Table -->
         <div class="border rounded-lg overflow-hidden">
             <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
+                <thead id="recon-table-head" class="bg-gray-50">
+                    <!-- REP No mode header -->
+                    <tr id="recon-header-rep">
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">REP No</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">REP Records</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">STM Records</th>
@@ -203,10 +211,21 @@
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Diff</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
                     </tr>
+                    <!-- Transaction mode header (hidden by default) -->
+                    <tr id="recon-header-tran" class="hidden">
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">TRAN_ID</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">REP No</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HN</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ชื่อผู้ป่วย</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">REP Amount</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">STM Amount</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Diff</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                    </tr>
                 </thead>
                 <tbody id="recon-table-body" class="bg-white divide-y divide-gray-200">
                     <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">กดค้นหาเพื่อดูผลลัพธ์</td>
+                        <td colspan="8" class="px-4 py-8 text-center text-gray-500">กดค้นหาเพื่อดูผลลัพธ์</td>
                     </tr>
                 </tbody>
             </table>
