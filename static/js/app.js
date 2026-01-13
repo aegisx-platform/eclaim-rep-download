@@ -402,32 +402,74 @@ async function downloadByType() {
  * Thai fiscal year: October 1st to September 30th
  */
 function initSmtDateFields() {
+    const fiscalYearSelect = document.getElementById('dl-smt-fiscal-year');
     const startDateInput = document.getElementById('dl-smt-start-date');
     const endDateInput = document.getElementById('dl-smt-end-date');
 
-    if (startDateInput && endDateInput) {
-        const now = new Date();
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1; // 1-12
+    const thaiYear = now.getFullYear() + 543;
+    const currentFiscalYear = currentMonth >= 10 ? thaiYear + 1 : thaiYear;
 
-        // Calculate fiscal year start (October 1st)
-        // If current month >= October (10), fiscal year started this year
-        // If current month < October, fiscal year started last year
-        let fiscalYearStart;
-        if (now.getMonth() >= 9) { // October = month 9 (0-indexed)
-            fiscalYearStart = new Date(now.getFullYear(), 9, 1); // Oct 1 this year
-        } else {
-            fiscalYearStart = new Date(now.getFullYear() - 1, 9, 1); // Oct 1 last year
+    // Populate fiscal year dropdown (current year and 2 previous years)
+    if (fiscalYearSelect) {
+        fiscalYearSelect.innerHTML = '';
+        for (let fy = currentFiscalYear; fy >= currentFiscalYear - 2; fy--) {
+            const option = document.createElement('option');
+            option.value = fy;
+            option.textContent = 'ปีงบ ' + fy;
+            fiscalYearSelect.appendChild(option);
         }
+        // Set current fiscal year as default
+        fiscalYearSelect.value = currentFiscalYear;
+    }
 
-        // Format as YYYY-MM-DD for input[type=date] using local date (not UTC)
-        const formatDate = (d) => {
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
+    // Set date range based on selected fiscal year
+    onSmtDownloadFiscalYearChange();
+}
 
-        startDateInput.value = formatDate(fiscalYearStart);
+/**
+ * Handle fiscal year change for SMT download form
+ */
+function onSmtDownloadFiscalYearChange() {
+    const fiscalYearSelect = document.getElementById('dl-smt-fiscal-year');
+    const startDateInput = document.getElementById('dl-smt-start-date');
+    const endDateInput = document.getElementById('dl-smt-end-date');
+
+    if (!fiscalYearSelect || !startDateInput || !endDateInput) return;
+
+    const fiscalYear = parseInt(fiscalYearSelect.value);
+    if (!fiscalYear) return;
+
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const thaiYear = now.getFullYear() + 543;
+    const currentFiscalYear = currentMonth >= 10 ? thaiYear + 1 : thaiYear;
+
+    // Fiscal year 2569 = Oct 1, 2025 (2568 BE = 2025 CE) to Sep 30, 2026 (2569 BE)
+    // Start: Oct 1 of (fiscalYear - 1 - 543) CE
+    // End: Sep 30 of (fiscalYear - 543) CE or today if current fiscal year
+    const startYearCE = fiscalYear - 1 - 543;
+    const endYearCE = fiscalYear - 543;
+
+    const fiscalYearStart = new Date(startYearCE, 9, 1); // Oct 1
+
+    // Format as YYYY-MM-DD for input[type=date]
+    const formatDate = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    startDateInput.value = formatDate(fiscalYearStart);
+
+    // If current fiscal year, end date = today; otherwise Sep 30
+    if (fiscalYear === currentFiscalYear) {
         endDateInput.value = formatDate(now);
+    } else {
+        const fiscalYearEnd = new Date(endYearCE, 8, 30); // Sep 30
+        endDateInput.value = formatDate(fiscalYearEnd);
     }
 }
 
@@ -457,10 +499,7 @@ async function downloadSmtBudget() {
     const smtType = document.getElementById('dl-smt-type')?.value || '';
     const autoImport = document.getElementById('dl-smt-auto-import')?.checked || false;
 
-    if (!vendorId) {
-        showToast('กรุณาระบุ Vendor ID', 'error');
-        return;
-    }
+    // Vendor ID is now optional - empty means all in region
 
     // Check if already downloading
     if (downloadBtn && downloadBtn.disabled) {

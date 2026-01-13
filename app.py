@@ -2214,24 +2214,26 @@ def api_smt_download():
         budget_type = data.get('budget_type', '')      # OP, IP, PP, or empty for all
         auto_import = data.get('auto_import', False)   # Auto-import to database after download
 
+        # Vendor ID is optional - empty means all in region
         if not vendor_id:
-            # Try to get from settings
+            # Try to get from settings if user hasn't explicitly cleared it
             smt_settings = settings_manager.get_smt_settings()
-            vendor_id = smt_settings.get('smt_vendor_id')
-
-        if not vendor_id:
-            return jsonify({'success': False, 'error': 'Vendor ID is required'}), 400
+            default_vendor = smt_settings.get('smt_vendor_id')
+            # Only use default if vendor_id is not explicitly provided as empty string
+            if vendor_id is None and default_vendor:
+                vendor_id = default_vendor
 
         # Import and run fetcher
         from smt_budget_fetcher import SMTBudgetFetcher
 
+        vendor_display = vendor_id if vendor_id else 'ทั้งหมด (All)'
         log_streamer.write_log(
-            f"Starting SMT download for vendor {vendor_id} ({start_date} - {end_date})...",
+            f"Starting SMT download for vendor {vendor_display} ({start_date} - {end_date})...",
             'info',
             'smt'
         )
 
-        fetcher = SMTBudgetFetcher(vendor_id=vendor_id)
+        fetcher = SMTBudgetFetcher(vendor_id=vendor_id if vendor_id else None)
         result = fetcher.fetch_budget_summary(
             start_date=start_date,
             end_date=end_date,

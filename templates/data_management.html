@@ -143,11 +143,19 @@
 
                 <!-- SMT: Full Options (hidden by default) -->
                 <div id="dl-vendor-section" class="hidden space-y-4">
-                    <!-- Vendor ID -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Vendor ID (รหัสโรงพยาบาล) <span class="text-red-500">*</span></label>
-                        <input type="text" id="dl-vendor-id" placeholder="เช่น 10670 หรือ 0000010670" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                        <p class="text-xs text-gray-500 mt-1">รหัสหน่วยบริการ 5 หรือ 10 หลัก</p>
+                    <!-- Vendor ID + Fiscal Year (same row) -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vendor ID (รหัสโรงพยาบาล)</label>
+                            <input type="text" id="dl-vendor-id" placeholder="ว่าง = ทั้งหมด" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <p class="text-xs text-gray-500 mt-1">เว้นว่าง = ทั้งเขต</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">ปีงบประมาณ</label>
+                            <select id="dl-smt-fiscal-year" onchange="onSmtDownloadFiscalYearChange()" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">กำหนดช่วงวันที่อัตโนมัติ</p>
+                        </div>
                     </div>
 
                     <!-- Date Range -->
@@ -163,7 +171,7 @@
                                 <input type="date" id="dl-smt-end-date" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
                             </div>
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">Default: วันที่ 1 ของเดือนปัจจุบัน ถึง วันนี้</p>
+                        <p class="text-xs text-gray-500 mt-1">ปีงบ: 1 ต.ค. ถึง 30 ก.ย. (ปีปัจจุบัน = ถึงวันนี้)</p>
                     </div>
 
                     <!-- Scheme (สิทธิ์) -->
