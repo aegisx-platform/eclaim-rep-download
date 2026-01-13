@@ -822,6 +822,82 @@ def import_eclaim_file(filepath: str, db_config: Dict, db_type: str = None) -> D
     return result
 
 
+def import_files_parallel(
+    filepaths: list,
+    db_config: Dict,
+    db_type: str = None,
+    max_workers: int = 3,
+    progress_callback = None
+) -> Dict:
+    """
+    Import multiple E-Claim files in parallel
+
+    Args:
+        filepaths: List of file paths to import
+        db_config: Database configuration
+        db_type: Database type ('postgresql' or 'mysql')
+        max_workers: Maximum number of parallel imports
+        progress_callback: Optional callback for progress updates
+
+    Returns:
+        Dict with overall import results
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    total_files = len(filepaths)
+    results = []
+    completed = 0
+    failed = 0
+    total_records = 0
+
+    logger.info(f"Starting parallel import of {total_files} files with {max_workers} workers")
+
+    def import_single_file(filepath):
+        """Import a single file"""
+        try:
+            with EClaimImporterV2(db_config, db_type) as importer:
+                result = importer.import_file(filepath)
+            return {'filepath': filepath, 'success': True, 'result': result}
+        except Exception as e:
+            logger.error(f"Error importing {filepath}: {e}")
+            return {'filepath': filepath, 'success': False, 'error': str(e)}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(import_single_file, fp): fp for fp in filepaths}
+
+        for future in as_completed(futures):
+            result = future.result()
+            results.append(result)
+
+            if result['success']:
+                completed += 1
+                if result.get('result'):
+                    total_records += result['result'].get('total_records', 0)
+            else:
+                failed += 1
+
+            if progress_callback:
+                try:
+                    progress_callback({
+                        'total': total_files,
+                        'completed': completed,
+                        'failed': failed,
+                        'total_records': total_records,
+                    })
+                except Exception:
+                    pass
+
+    logger.info(f"Parallel import completed: {completed} success, {failed} failed, {total_records} total records")
+
+    return {
+        'total_files': total_files,
+        'completed': completed,
+        'failed': failed,
+        'total_records': total_records,
+        'results': results,
+    }
+
+
 if __name__ == '__main__':
     import sys
     from config.database import get_db_config, DB_TYPE

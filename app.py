@@ -1461,6 +1461,115 @@ def cancel_bulk_download():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ==================== Parallel Download Routes ====================
+
+@app.route('/api/download/parallel', methods=['POST'])
+def trigger_parallel_download():
+    """Trigger parallel download with multiple browser sessions"""
+    try:
+        from utils.parallel_downloader import ParallelDownloader
+
+        data = request.get_json()
+        month = data.get('month')
+        year = data.get('year')
+        scheme = data.get('scheme', 'ucs')
+        max_workers = data.get('max_workers', 3)
+        auto_import = data.get('auto_import', False)
+
+        # Validate
+        if not month or not year:
+            return jsonify({'success': False, 'error': 'month and year required'}), 400
+
+        month = int(month)
+        year = int(year)
+        max_workers = min(int(max_workers), 5)  # Max 5 workers
+
+        # Get credentials
+        settings = settings_manager.load_settings()
+        username = settings.get('eclaim_username') or os.environ.get('ECLAIM_USERNAME')
+        password = settings.get('eclaim_password') or os.environ.get('ECLAIM_PASSWORD')
+
+        if not username or not password:
+            return jsonify({'success': False, 'error': 'E-Claim credentials not configured'}), 400
+
+        # Run in background thread
+        import threading
+
+        def run_parallel():
+            try:
+                downloader = ParallelDownloader(
+                    username=username,
+                    password=password,
+                    month=month,
+                    year=year,
+                    scheme=scheme,
+                    max_workers=max_workers
+                )
+                result = downloader.run()
+
+                # Auto import if enabled
+                if auto_import and result.get('completed', 0) > 0:
+                    from utils.eclaim.importer_v2 import import_files_parallel
+                    from config.database import get_db_config, DB_TYPE
+                    from pathlib import Path
+
+                    # Get downloaded files
+                    download_dir = Path('downloads/rep')
+                    files = [str(f) for f in download_dir.glob('*.xls')]
+
+                    if files:
+                        db_config = get_db_config()
+                        import_files_parallel(files, db_config, DB_TYPE, max_workers=3)
+
+            except Exception as e:
+                app.logger.error(f"Parallel download error: {e}")
+
+        thread = threading.Thread(target=run_parallel, daemon=True)
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'message': f'Parallel download started with {max_workers} workers',
+            'month': month,
+            'year': year,
+            'scheme': scheme,
+            'max_workers': max_workers,
+            'auto_import': auto_import
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error starting parallel download: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/download/parallel/progress')
+def parallel_download_progress():
+    """Get parallel download progress"""
+    try:
+        import json
+        from pathlib import Path
+
+        progress_file = Path('parallel_download_progress.json')
+
+        if not progress_file.exists():
+            return jsonify({
+                'running': False,
+                'status': 'idle'
+            })
+
+        with open(progress_file, 'r', encoding='utf-8') as f:
+            progress = json.load(f)
+
+        # Check if still running
+        running = progress.get('status') == 'downloading'
+        progress['running'] = running
+
+        return jsonify(progress)
+
+    except Exception as e:
+        return jsonify({'running': False, 'error': str(e)}), 500
+
+
 @app.route('/api/date-range-stats')
 def date_range_stats():
     """Get statistics grouped by month/year"""
