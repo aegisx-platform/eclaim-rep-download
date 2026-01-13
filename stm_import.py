@@ -55,7 +55,7 @@ def import_directory(dirpath: str, run_reconciliation: bool = False) -> dict:
     # Find all STM files
     stm_files = list(path.glob('STM_*.xls'))
     if not stm_files:
-        return {'success': True, 'message': 'No STM files found', 'files': []}
+        return {'success': True, 'message': 'No STM files found', 'total_files': 0, 'imported': 0, 'failed': 0, 'files': []}
 
     results = {
         'success': True,

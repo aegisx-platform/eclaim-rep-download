@@ -46,6 +46,64 @@
     <div id="content-summary" class="analysis-tab-content p-6">
         <h3 class="text-lg font-semibold mb-4">Data Summary</h3>
 
+        <!-- Filter Section -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div class="flex flex-wrap items-end gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ปีงบประมาณ</label>
+                    <select id="summary-fiscal-year" class="border border-gray-300 rounded px-3 py-2 text-sm w-32">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">เดือนเริ่มต้น</label>
+                    <select id="summary-start-month" class="border border-gray-300 rounded px-3 py-2 text-sm w-28">
+                        <option value="">ทั้งหมด</option>
+                        <option value="1">ม.ค.</option>
+                        <option value="2">ก.พ.</option>
+                        <option value="3">มี.ค.</option>
+                        <option value="4">เม.ย.</option>
+                        <option value="5">พ.ค.</option>
+                        <option value="6">มิ.ย.</option>
+                        <option value="7">ก.ค.</option>
+                        <option value="8">ส.ค.</option>
+                        <option value="9">ก.ย.</option>
+                        <option value="10">ต.ค.</option>
+                        <option value="11">พ.ย.</option>
+                        <option value="12">ธ.ค.</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">เดือนสิ้นสุด</label>
+                    <select id="summary-end-month" class="border border-gray-300 rounded px-3 py-2 text-sm w-28">
+                        <option value="">ทั้งหมด</option>
+                        <option value="1">ม.ค.</option>
+                        <option value="2">ก.พ.</option>
+                        <option value="3">มี.ค.</option>
+                        <option value="4">เม.ย.</option>
+                        <option value="5">พ.ค.</option>
+                        <option value="6">มิ.ย.</option>
+                        <option value="7">ก.ค.</option>
+                        <option value="8">ส.ค.</option>
+                        <option value="9">ก.ย.</option>
+                        <option value="10">ต.ค.</option>
+                        <option value="11">พ.ย.</option>
+                        <option value="12">ธ.ค.</option>
+                    </select>
+                </div>
+                <button onclick="loadSummary()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    โหลดข้อมูล
+                </button>
+                <button onclick="resetSummaryFilters()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm">
+                    ล้างตัวกรอง
+                </button>
+            </div>
+            <p id="summary-filter-info" class="text-xs text-gray-500 mt-2"></p>
+        </div>
+
         <!-- Summary Cards -->
         <div class="grid grid-cols-3 gap-6 mb-6">
             <!-- REP Summary -->
@@ -118,26 +176,93 @@
         <!-- Link Diagram -->
         <div class="border rounded-lg p-4 bg-gray-50">
             <h4 class="font-semibold mb-3">Data Relationship</h4>
-            <div class="flex items-center justify-center gap-8 py-4">
-                <div class="text-center">
-                    <div class="w-24 h-24 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">REP</div>
-                    <p class="text-xs mt-2">ข้อมูลเรียกเก็บ</p>
+
+            <!-- Hierarchy explanation -->
+            <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p class="text-sm text-blue-800 mb-2"><strong>โครงสร้างข้อมูล REP:</strong></p>
+                <div class="flex items-center gap-2 text-sm">
+                    <span class="px-2 py-1 bg-blue-600 text-white rounded font-mono text-xs">rep_no</span>
+                    <span class="text-gray-600">รหัสการส่งเบิก (1 ครั้งส่งหลายคนไข้)</span>
                 </div>
+                <div class="flex items-center gap-2 text-sm mt-1 ml-6">
+                    <span class="text-gray-400">└─</span>
+                    <span class="px-2 py-1 bg-blue-400 text-white rounded font-mono text-xs">tran_id</span>
+                    <span class="text-gray-600">รหัสรายการแต่ละ case (1 rep_no → หลาย tran_id)</span>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-center gap-6 py-4">
+                <!-- REP -->
+                <div class="text-center">
+                    <div class="w-28 h-28 bg-blue-500 rounded-lg flex flex-col items-center justify-center text-white">
+                        <span class="font-bold text-lg">REP</span>
+                        <span class="text-xs opacity-80 mt-1">claim_rep_opip</span>
+                    </div>
+                    <p class="text-xs mt-2 font-medium">ข้อมูลเรียกเก็บ</p>
+                    <p class="text-xs text-gray-500">rep_no, tran_id</p>
+                </div>
+
+                <!-- Arrow REP -> STM -->
                 <div class="flex flex-col items-center">
-                    <span class="text-2xl">↔</span>
-                    <span class="text-xs text-gray-500">tran_id, rep_no</span>
+                    <div class="flex items-center">
+                        <span class="text-2xl text-gray-400">←</span>
+                        <span class="text-2xl text-gray-400">→</span>
+                    </div>
+                    <div class="text-center mt-1">
+                        <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">rep_no</span>
+                        <br>
+                        <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded mt-1 inline-block">tran_id</span>
+                    </div>
                 </div>
+
+                <!-- Statement -->
                 <div class="text-center">
-                    <div class="w-24 h-24 bg-purple-500 rounded-lg flex items-center justify-center text-white font-bold">STM</div>
-                    <p class="text-xs mt-2">ใบแจ้งยอด</p>
+                    <div class="w-28 h-28 bg-purple-500 rounded-lg flex flex-col items-center justify-center text-white">
+                        <span class="font-bold text-lg">STM</span>
+                        <span class="text-xs opacity-80 mt-1">stm_claim_item</span>
+                    </div>
+                    <p class="text-xs mt-2 font-medium">ใบแจ้งยอด</p>
+                    <p class="text-xs text-gray-500">rep_no, tran_id</p>
                 </div>
+
+                <!-- Arrow STM -> SMT -->
                 <div class="flex flex-col items-center">
-                    <span class="text-2xl">↔</span>
-                    <span class="text-xs text-gray-500">date, amount</span>
+                    <div class="flex items-center">
+                        <span class="text-2xl text-gray-400">←</span>
+                        <span class="text-2xl text-gray-400">→</span>
+                    </div>
+                    <div class="text-center mt-1">
+                        <span class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded">posting_date</span>
+                        <br>
+                        <span class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded mt-1 inline-block">amount</span>
+                    </div>
                 </div>
+
+                <!-- SMT Budget -->
                 <div class="text-center">
-                    <div class="w-24 h-24 bg-green-500 rounded-lg flex items-center justify-center text-white font-bold">SMT<br>Budget</div>
-                    <p class="text-xs mt-2">งบประมาณ</p>
+                    <div class="w-28 h-28 bg-green-500 rounded-lg flex flex-col items-center justify-center text-white">
+                        <span class="font-bold text-lg">SMT</span>
+                        <span class="text-xs opacity-80">Budget</span>
+                        <span class="text-xs opacity-80 mt-1">smt_budget</span>
+                    </div>
+                    <p class="text-xs mt-2 font-medium">งบประมาณโอน</p>
+                    <p class="text-xs text-gray-500">posting_date</p>
+                </div>
+            </div>
+
+            <!-- Flow description -->
+            <div class="mt-4 grid grid-cols-3 gap-4 text-xs">
+                <div class="p-2 bg-blue-50 rounded border border-blue-200">
+                    <p class="font-medium text-blue-800">1. ส่งเบิก (REP)</p>
+                    <p class="text-blue-600">รพ.ส่งข้อมูลเรียกเก็บ → ได้ rep_no</p>
+                </div>
+                <div class="p-2 bg-purple-50 rounded border border-purple-200">
+                    <p class="font-medium text-purple-800">2. แจ้งยอด (Statement)</p>
+                    <p class="text-purple-600">สปสช.ตรวจสอบ → ออก Statement</p>
+                </div>
+                <div class="p-2 bg-green-50 rounded border border-green-200">
+                    <p class="font-medium text-green-800">3. โอนเงิน (SMT)</p>
+                    <p class="text-green-600">สปสช.โอนงบประมาณ → รพ.รับเงิน</p>
                 </div>
             </div>
         </div>

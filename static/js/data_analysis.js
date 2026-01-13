@@ -2,6 +2,52 @@
 
 let currentAnalysisTab = 'summary';
 
+// Initialize fiscal year dropdown
+function initFiscalYearDropdown() {
+    const select = document.getElementById('summary-fiscal-year');
+    if (!select) return;
+
+    // Clear existing options
+    select.replaceChildren();
+
+    // Add "All" option
+    const allOption = document.createElement('option');
+    allOption.value = '';
+    allOption.textContent = 'ทุกปี';
+    select.appendChild(allOption);
+
+    // Get current Thai Buddhist year
+    const currentYear = new Date().getFullYear();
+    const currentYearBE = currentYear + 543;
+    const currentMonth = new Date().getMonth() + 1;
+
+    // If we're past October, current fiscal year is next year BE
+    // e.g., Nov 2024 (BE 2567) is in FY 2568
+    const currentFiscalYear = currentMonth >= 10 ? currentYearBE + 1 : currentYearBE;
+
+    // Add fiscal years (current and 5 years back)
+    for (let i = 0; i <= 5; i++) {
+        const year = currentFiscalYear - i;
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year + ' (' + (year - 543) + ')';
+        select.appendChild(option);
+    }
+}
+
+// Reset filters
+function resetSummaryFilters() {
+    const fySelect = document.getElementById('summary-fiscal-year');
+    const startMonth = document.getElementById('summary-start-month');
+    const endMonth = document.getElementById('summary-end-month');
+
+    if (fySelect) fySelect.value = '';
+    if (startMonth) startMonth.value = '';
+    if (endMonth) endMonth.value = '';
+
+    loadSummary();
+}
+
 function switchAnalysisTab(tab) {
     currentAnalysisTab = tab;
 
@@ -31,7 +77,20 @@ function switchAnalysisTab(tab) {
 
 async function loadSummary() {
     try {
-        const response = await fetch('/api/analysis/summary');
+        // Get filter values
+        const fiscalYear = document.getElementById('summary-fiscal-year')?.value || '';
+        const startMonth = document.getElementById('summary-start-month')?.value || '';
+        const endMonth = document.getElementById('summary-end-month')?.value || '';
+
+        // Build URL with filters
+        let url = '/api/analysis/summary';
+        const params = [];
+        if (fiscalYear) params.push('fiscal_year=' + fiscalYear);
+        if (startMonth) params.push('start_month=' + startMonth);
+        if (endMonth) params.push('end_month=' + endMonth);
+        if (params.length > 0) url += '?' + params.join('&');
+
+        const response = await fetch(url);
         const data = await response.json();
 
         if (data.success) {
@@ -49,10 +108,34 @@ async function loadSummary() {
             setText('smt-total-records', formatNumber(data.smt.total_records || 0));
             setText('smt-total-amount', formatCurrency(data.smt.total_amount || 0));
             setText('smt-files-count', data.smt.files_count || '0');
+
+            // Update filter info text
+            updateFilterInfo(data.filters);
         }
     } catch (error) {
         console.error('Error loading summary:', error);
     }
+}
+
+function updateFilterInfo(filters) {
+    const infoEl = document.getElementById('summary-filter-info');
+    if (!infoEl) return;
+
+    if (!filters || (!filters.fiscal_year && !filters.start_month && !filters.end_month)) {
+        infoEl.textContent = 'แสดงข้อมูลทั้งหมด';
+        return;
+    }
+
+    const parts = [];
+    if (filters.fiscal_year) {
+        parts.push('ปีงบ ' + filters.fiscal_year);
+    }
+    if (filters.start_month && filters.end_month) {
+        const monthNames = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        parts.push(monthNames[filters.start_month] + ' - ' + monthNames[filters.end_month]);
+    }
+
+    infoEl.textContent = 'กรองตาม: ' + parts.join(', ');
 }
 
 function onReconGroupByChange() {
@@ -391,5 +474,6 @@ function getStatusClass(status) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
+    initFiscalYearDropdown();
     loadSummary();
 });

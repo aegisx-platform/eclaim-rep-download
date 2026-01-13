@@ -663,7 +663,12 @@ def data_analysis():
 
 @app.route('/api/analysis/summary')
 def api_analysis_summary():
-    """Get summary statistics for all data types"""
+    """Get summary statistics for all data types with optional filters"""
+    # Get filter parameters
+    fiscal_year = request.args.get('fiscal_year', type=int)
+    start_month = request.args.get('start_month', type=int)
+    end_month = request.args.get('end_month', type=int)
+
     conn = get_db_connection()
     if not conn:
         return jsonify({'success': False, 'error': 'Database connection failed'}), 500
@@ -671,51 +676,138 @@ def api_analysis_summary():
     try:
         cursor = conn.cursor()
 
+        # Build date range for filtering (fiscal year starts in October)
+        # fiscal_year 2568 means Oct 2024 - Sep 2025 (Gregorian: Oct 2024 = Oct 2024)
+        date_filter_rep = ""
+        date_filter_stm = ""
+        date_filter_smt = ""
+        params_rep = []
+        params_stm = []
+        params_smt = []
+
+        if fiscal_year:
+            # Fiscal year in Thai BE: FY 2569 = Oct 2568 to Sep 2569 (Gregorian: Oct 2025 to Sep 2026)
+            # Convert to Gregorian: BE - 543 = CE
+            gregorian_year = fiscal_year - 543
+            fy_start = f"{gregorian_year - 1}-10-01"  # Oct of previous year
+            fy_end = f"{gregorian_year}-09-30"  # Sep of fiscal year
+
+            # SMT uses Thai BE format YYYYMMDD (e.g., "25681001" for Oct 1, 2568)
+            smt_fy_start = f"{fiscal_year - 1}1001"  # Oct of previous BE year
+            smt_fy_end = f"{fiscal_year}0930"  # Sep of fiscal BE year
+
+            # If specific months are selected
+            if start_month and end_month:
+                # Adjust for fiscal year (Oct=1, Nov=2, ..., Sep=12 in fiscal terms)
+                # But user selects calendar months (1=Jan, ..., 12=Dec)
+                # So we need to convert calendar months to actual dates
+                if start_month >= 10:
+                    start_date = f"{gregorian_year - 1}-{start_month:02d}-01"
+                    smt_start = f"{fiscal_year - 1}{start_month:02d}01"
+                else:
+                    start_date = f"{gregorian_year}-{start_month:02d}-01"
+                    smt_start = f"{fiscal_year}{start_month:02d}01"
+
+                if end_month >= 10:
+                    end_date = f"{gregorian_year - 1}-{end_month:02d}-01"
+                    smt_end_year = fiscal_year - 1
+                else:
+                    end_date = f"{gregorian_year}-{end_month:02d}-01"
+                    smt_end_year = fiscal_year
+
+                # Get last day of end month
+                from calendar import monthrange
+                end_year = gregorian_year if end_month < 10 else gregorian_year - 1
+                _, last_day = monthrange(end_year, end_month)
+                end_date = f"{end_year}-{end_month:02d}-{last_day:02d}"
+                smt_end = f"{smt_end_year}{end_month:02d}{last_day:02d}"
+
+                date_filter_rep = " WHERE dateadm >= %s AND dateadm <= %s"
+                params_rep = [start_date, end_date]
+                date_filter_stm = " WHERE date_admit >= %s AND date_admit <= %s"
+                params_stm = [start_date, end_date]
+                date_filter_smt = " WHERE posting_date >= %s AND posting_date <= %s"
+                params_smt = [smt_start, smt_end]
+            else:
+                date_filter_rep = " WHERE dateadm >= %s AND dateadm <= %s"
+                params_rep = [fy_start, fy_end]
+                date_filter_stm = " WHERE date_admit >= %s AND date_admit <= %s"
+                params_stm = [fy_start, fy_end]
+                date_filter_smt = " WHERE posting_date >= %s AND posting_date <= %s"
+                params_smt = [smt_fy_start, smt_fy_end]
+
         # REP data summary
         rep_data = {'total_records': 0, 'total_amount': 0, 'files_count': 0}
         try:
-            cursor.execute("""
+            query = f"""
                 SELECT COUNT(*), COALESCE(SUM(reimb_nhso), 0)
                 FROM claim_rep_opip_nhso_item
-            """)
+                {date_filter_rep}
+            """
+            cursor.execute(query, params_rep)
             row = cursor.fetchone()
             rep_data['total_records'] = row[0] or 0
             rep_data['total_amount'] = float(row[1] or 0)
 
-            cursor.execute("SELECT COUNT(*) FROM eclaim_imported_files WHERE status = 'completed'")
-            rep_data['files_count'] = cursor.fetchone()[0] or 0
+            if date_filter_rep:
+                cursor.execute(f"""
+                    SELECT COUNT(DISTINCT file_id) FROM claim_rep_opip_nhso_item
+                    {date_filter_rep}
+                """, params_rep)
+                rep_data['files_count'] = cursor.fetchone()[0] or 0
+            else:
+                cursor.execute("SELECT COUNT(*) FROM eclaim_imported_files WHERE status = 'completed'")
+                rep_data['files_count'] = cursor.fetchone()[0] or 0
         except Exception as e:
             app.logger.warning(f"Error getting REP summary: {e}")
 
         # Statement data summary
         stm_data = {'total_records': 0, 'total_amount': 0, 'files_count': 0}
         try:
-            cursor.execute("""
+            query = f"""
                 SELECT COUNT(*), COALESCE(SUM(paid_after_deduction), 0)
                 FROM stm_claim_item
-            """)
+                {date_filter_stm}
+            """
+            cursor.execute(query, params_stm)
             row = cursor.fetchone()
             stm_data['total_records'] = row[0] or 0
             stm_data['total_amount'] = float(row[1] or 0)
 
-            cursor.execute("SELECT COUNT(*) FROM stm_imported_files WHERE status = 'completed'")
-            stm_data['files_count'] = cursor.fetchone()[0] or 0
+            if date_filter_stm:
+                cursor.execute(f"""
+                    SELECT COUNT(DISTINCT file_id) FROM stm_claim_item
+                    {date_filter_stm}
+                """, params_stm)
+                stm_data['files_count'] = cursor.fetchone()[0] or 0
+            else:
+                cursor.execute("SELECT COUNT(*) FROM stm_imported_files WHERE status = 'completed'")
+                stm_data['files_count'] = cursor.fetchone()[0] or 0
         except Exception as e:
             app.logger.warning(f"Error getting Statement summary: {e}")
 
         # SMT Budget summary
         smt_data = {'total_records': 0, 'total_amount': 0, 'files_count': 0}
         try:
-            cursor.execute("""
+            query = f"""
                 SELECT COUNT(*), COALESCE(SUM(total_amount), 0)
                 FROM smt_budget_transfers
-            """)
+                {date_filter_smt}
+            """
+            cursor.execute(query, params_smt)
             row = cursor.fetchone()
             smt_data['total_records'] = row[0] or 0
             smt_data['total_amount'] = float(row[1] or 0)
 
-            cursor.execute("SELECT COUNT(DISTINCT run_date) FROM smt_budget_transfers")
-            smt_data['files_count'] = cursor.fetchone()[0] or 0
+            if date_filter_smt:
+                cursor.execute(f"""
+                    SELECT COUNT(DISTINCT run_date) FROM smt_budget_transfers
+                    {date_filter_smt}
+                """, params_smt)
+                smt_data['files_count'] = cursor.fetchone()[0] or 0
+            else:
+                cursor.execute("SELECT COUNT(DISTINCT run_date) FROM smt_budget_transfers")
+                smt_data['files_count'] = cursor.fetchone()[0] or 0
         except Exception as e:
             app.logger.warning(f"Error getting SMT summary: {e}")
 
@@ -726,7 +818,12 @@ def api_analysis_summary():
             'success': True,
             'rep': rep_data,
             'stm': stm_data,
-            'smt': smt_data
+            'smt': smt_data,
+            'filters': {
+                'fiscal_year': fiscal_year,
+                'start_month': start_month,
+                'end_month': end_month
+            }
         })
 
     except Exception as e:
@@ -3087,6 +3184,197 @@ def api_smt_clear_files():
             'deleted_count': deleted_count,
             'message': f'Deleted {deleted_count} SMT files'
         })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== Download History API ====================
+
+@app.route('/api/download-history/clear', methods=['POST'])
+def clear_download_history():
+    """Clear download history from database"""
+    try:
+        data = request.get_json() or {}
+        download_type = data.get('download_type', 'all')
+
+        # Validate download_type
+        valid_types = ['rep', 'stm', 'smt', 'all']
+        if download_type not in valid_types:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid download_type. Valid: {valid_types}'
+            }), 400
+
+        from utils.download_history_db import DownloadHistoryDB
+
+        with DownloadHistoryDB() as db:
+            if download_type == 'all':
+                # Delete all types
+                total_deleted = 0
+                for dtype in ['rep', 'stm', 'smt']:
+                    db.cursor.execute(
+                        "DELETE FROM download_history WHERE download_type = %s",
+                        (dtype,)
+                    )
+                    total_deleted += db.cursor.rowcount
+                db.conn.commit()
+                deleted_count = total_deleted
+            else:
+                # Delete specific type
+                db.cursor.execute(
+                    "DELETE FROM download_history WHERE download_type = %s",
+                    (download_type,)
+                )
+                deleted_count = db.cursor.rowcount
+                db.conn.commit()
+
+        # Also clear JSON files for backward compatibility
+        json_files = {
+            'rep': 'download_history.json',
+            'stm': 'stm_download_history.json',
+            'smt': 'smt_download_history.json',
+        }
+
+        if download_type == 'all':
+            for jf in json_files.values():
+                json_path = Path(jf)
+                if json_path.exists():
+                    json_path.unlink()
+        else:
+            json_path = Path(json_files.get(download_type, ''))
+            if json_path.exists():
+                json_path.unlink()
+
+        log_streamer.write_log(
+            f"Cleared {deleted_count} download history records (type: {download_type})",
+            'info',
+            'system'
+        )
+
+        return jsonify({
+            'success': True,
+            'deleted_count': deleted_count,
+            'message': f'Cleared {deleted_count} records from {download_type} history'
+        })
+
+    except Exception as e:
+        app.app.logger.error(f"Error clearing download history: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/download-history/stats')
+def get_download_history_stats():
+    """Get download history statistics"""
+    try:
+        from utils.download_history_db import DownloadHistoryDB
+
+        with DownloadHistoryDB() as db:
+            stats = db.get_stats()
+
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/download-history/failed')
+def get_failed_downloads():
+    """Get list of failed downloads that can be retried"""
+    try:
+        from utils.download_history_db import DownloadHistoryDB
+
+        download_type = request.args.get('type')  # Optional filter: rep, stm, smt
+        limit = request.args.get('limit', 100, type=int)
+
+        with DownloadHistoryDB() as db:
+            failed = db.get_failed_downloads(download_type, limit)
+            failed_count = db.get_failed_count(download_type)
+
+        # Convert datetime objects to strings for JSON serialization
+        for item in failed:
+            for key in ['downloaded_at', 'last_attempt_at', 'imported_at', 'created_at', 'updated_at']:
+                if key in item and item[key]:
+                    item[key] = item[key].isoformat() if hasattr(item[key], 'isoformat') else str(item[key])
+
+        return jsonify({
+            'success': True,
+            'failed': failed,
+            'count': failed_count
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/download-history/reset-failed', methods=['POST'])
+def reset_failed_downloads():
+    """Reset all failed downloads for retry (changes status from 'failed' to 'pending')"""
+    try:
+        from utils.download_history_db import DownloadHistoryDB
+
+        data = request.get_json() or {}
+        download_type = data.get('download_type')  # Optional: rep, stm, smt
+
+        with DownloadHistoryDB() as db:
+            count = db.reset_all_failed(download_type)
+
+        type_name = download_type.upper() if download_type else 'ทุกประเภท'
+        return jsonify({
+            'success': True,
+            'message': f'Reset {count} failed downloads ({type_name}) for retry',
+            'count': count
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/download-history/failed', methods=['DELETE'])
+def delete_failed_downloads():
+    """Delete all failed download records"""
+    try:
+        from utils.download_history_db import DownloadHistoryDB
+
+        data = request.get_json() or {}
+        download_type = data.get('download_type')  # Optional: rep, stm, smt
+
+        with DownloadHistoryDB() as db:
+            count = db.delete_failed(download_type)
+
+        type_name = download_type.upper() if download_type else 'ทุกประเภท'
+        return jsonify({
+            'success': True,
+            'message': f'Deleted {count} failed download records ({type_name})',
+            'count': count
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/download-history/reset/<download_type>/<filename>', methods=['POST'])
+def reset_single_failed_download(download_type, filename):
+    """Reset a single failed download for retry"""
+    try:
+        from utils.download_history_db import DownloadHistoryDB
+
+        with DownloadHistoryDB() as db:
+            success = db.reset_for_retry(download_type, filename)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Reset {filename} for retry'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'No failed record found for {filename}'
+            }), 404
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

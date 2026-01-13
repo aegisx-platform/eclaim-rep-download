@@ -980,6 +980,255 @@ function filterFiles(status) {
 }
 
 /**
+ * Clear download history from database
+ * @param {string} downloadType - 'rep', 'stm', 'smt', or 'all'
+ */
+async function clearDownloadHistory(downloadType) {
+    const typeNames = {
+        'rep': 'REP',
+        'stm': 'Statement',
+        'smt': 'SMT',
+        'all': 'ทั้งหมด'
+    };
+
+    const typeName = typeNames[downloadType] || downloadType;
+
+    if (!confirm(`ต้องการล้าง Download History ของ ${typeName} หรือไม่?\n\nหมายเหตุ: จะไม่ลบไฟล์ที่ดาวน์โหลดไว้แล้ว เพียงแค่ลบประวัติ เพื่อให้ระบบดาวน์โหลดใหม่`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/download-history/clear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ download_type: downloadType })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(`ล้าง ${typeName} history สำเร็จ: ${result.deleted_count} records`, 'success');
+        } else {
+            showToast('Error: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Load and display failed downloads
+ */
+async function loadFailedDownloads() {
+    const summaryEl = document.getElementById('failed-downloads-summary');
+    const listEl = document.getElementById('failed-downloads-list');
+
+    if (!summaryEl) return;
+
+    summaryEl.textContent = 'กำลังโหลด...';
+
+    try {
+        const response = await fetch('/api/download-history/failed');
+        const result = await response.json();
+
+        if (!result.success) {
+            summaryEl.textContent = 'เกิดข้อผิดพลาด: ' + result.error;
+            return;
+        }
+
+        const failed = result.failed || [];
+        const count = result.count || 0;
+
+        if (count === 0) {
+            summaryEl.textContent = 'ไม่มีรายการ download ที่ล้มเหลว';
+            summaryEl.className = 'mb-3 p-3 bg-green-50 rounded-lg text-sm text-green-600';
+            if (listEl) listEl.classList.add('hidden');
+            return;
+        }
+
+        // Count by type
+        const typeCounts = { rep: 0, stm: 0, smt: 0 };
+        failed.forEach(item => {
+            if (typeCounts.hasOwnProperty(item.download_type)) {
+                typeCounts[item.download_type]++;
+            }
+        });
+
+        summaryEl.textContent = `พบ ${count} รายการที่ล้มเหลว (REP: ${typeCounts.rep}, STM: ${typeCounts.stm}, SMT: ${typeCounts.smt})`;
+        summaryEl.className = 'mb-3 p-3 bg-orange-50 rounded-lg text-sm text-orange-600 font-medium';
+
+        // Build list using safe DOM methods
+        if (listEl && failed.length > 0) {
+            listEl.replaceChildren(); // Clear existing content
+
+            const container = document.createElement('div');
+            container.className = 'divide-y divide-gray-200';
+
+            failed.slice(0, 20).forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'p-3 hover:bg-gray-50';
+
+                // Header row
+                const header = document.createElement('div');
+                header.className = 'flex items-center justify-between mb-1';
+
+                const headerLeft = document.createElement('div');
+                headerLeft.className = 'flex items-center gap-2';
+
+                const typeSpan = document.createElement('span');
+                const typeColors = {
+                    rep: 'bg-blue-100 text-blue-800',
+                    stm: 'bg-purple-100 text-purple-800',
+                    smt: 'bg-green-100 text-green-800'
+                };
+                typeSpan.className = 'px-2 py-0.5 text-xs rounded ' + (typeColors[item.download_type] || 'bg-gray-100 text-gray-800');
+                typeSpan.textContent = item.download_type.toUpperCase();
+
+                const filenameSpan = document.createElement('span');
+                filenameSpan.className = 'font-medium text-sm text-gray-800';
+                filenameSpan.textContent = item.filename;
+
+                headerLeft.appendChild(typeSpan);
+                headerLeft.appendChild(filenameSpan);
+
+                const resetBtn = document.createElement('button');
+                resetBtn.className = 'text-xs px-2 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded';
+                resetBtn.textContent = 'Reset';
+                resetBtn.onclick = () => resetSingleFailedDownload(item.download_type, item.filename);
+
+                header.appendChild(headerLeft);
+                header.appendChild(resetBtn);
+
+                // Error row
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'text-xs text-gray-500';
+                const errorMsg = item.error_message || 'Unknown error';
+                errorDiv.textContent = 'Error: ' + (errorMsg.length > 50 ? errorMsg.substring(0, 50) + '...' : errorMsg);
+                errorDiv.title = errorMsg;
+
+                // Info row
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'text-xs text-gray-400 mt-1';
+                const lastAttempt = item.last_attempt_at ? new Date(item.last_attempt_at).toLocaleString('th-TH') : '-';
+                infoDiv.textContent = `Retries: ${item.retry_count || 0} | Last: ${lastAttempt}`;
+
+                row.appendChild(header);
+                row.appendChild(errorDiv);
+                row.appendChild(infoDiv);
+                container.appendChild(row);
+            });
+
+            if (failed.length > 20) {
+                const moreDiv = document.createElement('div');
+                moreDiv.className = 'p-3 text-center text-sm text-gray-500';
+                moreDiv.textContent = `... และอีก ${failed.length - 20} รายการ`;
+                container.appendChild(moreDiv);
+            }
+
+            listEl.appendChild(container);
+            listEl.classList.remove('hidden');
+        }
+
+    } catch (error) {
+        summaryEl.textContent = 'เกิดข้อผิดพลาด: ' + error.message;
+        summaryEl.className = 'mb-3 p-3 bg-red-50 rounded-lg text-sm text-red-600';
+    }
+}
+
+/**
+ * Reset all failed downloads for retry
+ * @param {string} downloadType - Optional: 'rep', 'stm', or undefined for all
+ */
+async function resetFailedDownloads(downloadType) {
+    const typeNames = {
+        'rep': 'REP',
+        'stm': 'Statement',
+        'smt': 'SMT'
+    };
+    const typeName = downloadType ? typeNames[downloadType] : 'ทั้งหมด';
+
+    if (!confirm(`Reset failed downloads ของ ${typeName} หรือไม่?\n\nระบบจะเปลี่ยนสถานะเป็น "pending" เพื่อให้ดาวน์โหลดใหม่ได้`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/download-history/reset-failed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ download_type: downloadType || null })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(`Reset สำเร็จ: ${result.count} รายการ`, 'success');
+            loadFailedDownloads(); // Refresh list
+        } else {
+            showToast('Error: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Reset a single failed download for retry
+ * @param {string} downloadType - 'rep', 'stm', 'smt'
+ * @param {string} filename - Filename to reset
+ */
+async function resetSingleFailedDownload(downloadType, filename) {
+    try {
+        const response = await fetch(`/api/download-history/reset/${downloadType}/${encodeURIComponent(filename)}`, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(`Reset ${filename} สำเร็จ`, 'success');
+            loadFailedDownloads(); // Refresh list
+        } else {
+            showToast('Error: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Delete all failed download records
+ * @param {string} downloadType - Optional: 'rep', 'stm', or undefined for all
+ */
+async function deleteFailedDownloads(downloadType) {
+    if (!confirm('ลบรายการ failed downloads ทั้งหมดหรือไม่?\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้!')) {
+        return;
+    }
+
+    if (!confirm('ยืนยันอีกครั้ง - ลบ failed downloads ทั้งหมด?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/download-history/failed', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ download_type: downloadType || null })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(`ลบสำเร็จ: ${result.count} รายการ`, 'success');
+            loadFailedDownloads(); // Refresh list
+        } else {
+            showToast('Error: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+/**
  * Check initial download and import status on page load
  */
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1457,6 +1706,41 @@ async function clearAllSmtFiles() {
         }
     } catch (error) {
         showToast('Error clearing data: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Refresh SMT database records
+ */
+function refreshSmtDbRecords() {
+    loadSmtDbRecords(1);
+}
+
+/**
+ * Clear all SMT database records
+ */
+async function clearSmtDatabase() {
+    if (!confirm('ลบข้อมูล SMT ในฐานข้อมูลทั้งหมด?\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้!')) return;
+    if (!confirm('ยืนยันอีกครั้ง - ลบข้อมูล SMT ทั้งหมด?')) return;
+
+    try {
+        showToast('กำลังลบข้อมูล...', 'info');
+
+        const response = await fetch('/api/smt/clear', {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showToast(`ลบข้อมูลสำเร็จ: ${data.deleted_count || 0} records`, 'success');
+            // Reload SMT data
+            loadSmtDbRecords(1);
+            loadSmtFiscalYears();
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showToast('Error clearing database: ' + error.message, 'error');
     }
 }
 

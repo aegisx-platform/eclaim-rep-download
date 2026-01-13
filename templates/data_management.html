@@ -80,7 +80,7 @@
                 </svg>
                 <p class="text-sm text-blue-800">
                     <span id="dl-source-label" class="font-medium">REP (Request for Electronic Payment)</span> -
-                    <a id="dl-source-link" href="https://eclaim.nhso.go.th" target="_blank" class="underline hover:text-blue-600">eclaim.nhso.go.th</a>
+                    <a id="dl-source-link" href="https://eclaim.nhso.go.th/webComponent/" target="_blank" class="underline hover:text-blue-600">eclaim.nhso.go.th</a>
                 </p>
             </div>
         </div>
@@ -300,6 +300,65 @@
                                 <input type="checkbox" id="bulk-auto-import" class="w-4 h-4 text-blue-600 rounded" checked>
                                 <span class="ml-2 text-sm text-gray-700">นำเข้าฐานข้อมูลอัตโนมัติ (Auto-import)</span>
                             </label>
+                        </div>
+
+                        <!-- Clear Download History -->
+                        <div class="border-t pt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">ล้าง Download History</label>
+                            <p class="text-xs text-gray-500 mb-3">ลบประวัติการดาวน์โหลด เพื่อให้ระบบดาวน์โหลดไฟล์ใหม่ทั้งหมด (ไม่ลบไฟล์ที่ดาวน์โหลดไว้แล้ว)</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="clearDownloadHistory('rep')" class="px-3 py-1.5 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded text-sm">
+                                    ล้าง REP History
+                                </button>
+                                <button type="button" onclick="clearDownloadHistory('stm')" class="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded text-sm">
+                                    ล้าง Statement History
+                                </button>
+                                <button type="button" onclick="clearDownloadHistory('smt')" class="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-800 rounded text-sm">
+                                    ล้าง SMT History
+                                </button>
+                                <button type="button" onclick="clearDownloadHistory('all')" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-800 rounded text-sm">
+                                    ล้างทั้งหมด
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Failed Downloads (Retry) -->
+                        <div class="border-t pt-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-sm font-medium text-gray-700">Failed Downloads</label>
+                                <button type="button" onclick="loadFailedDownloads()" class="text-blue-600 hover:text-blue-800 text-sm">
+                                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                    รีเฟรช
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-500 mb-3">รายการดาวน์โหลดที่ล้มเหลว สามารถ reset เพื่อลองใหม่ได้</p>
+
+                            <!-- Failed downloads count -->
+                            <div id="failed-downloads-summary" class="mb-3 p-3 bg-gray-100 rounded-lg text-sm">
+                                <span class="text-gray-500">กำลังโหลด...</span>
+                            </div>
+
+                            <!-- Failed downloads list (hidden by default) -->
+                            <div id="failed-downloads-list" class="hidden mb-3 max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                                <!-- Populated by JavaScript -->
+                            </div>
+
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="resetFailedDownloads('rep')" class="px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded text-sm">
+                                    Reset REP Failed
+                                </button>
+                                <button type="button" onclick="resetFailedDownloads('stm')" class="px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded text-sm">
+                                    Reset STM Failed
+                                </button>
+                                <button type="button" onclick="resetFailedDownloads()" class="px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded text-sm">
+                                    Reset All Failed
+                                </button>
+                                <button type="button" onclick="deleteFailedDownloads()" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-800 rounded text-sm">
+                                    ลบ Failed ทั้งหมด
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </details>
@@ -538,7 +597,7 @@
                     เพื่อขอเบิกค่ารักษาพยาบาลตามสิทธิหลักประกันสุขภาพ
                 </p>
                 <p class="text-xs text-blue-600 mt-1">
-                    Data Source: <a href="https://eclaim.nhso.go.th" target="_blank" class="underline hover:text-blue-800">eclaim.nhso.go.th</a>
+                    Data Source: <a href="https://eclaim.nhso.go.th/webComponent/" target="_blank" class="underline hover:text-blue-800">eclaim.nhso.go.th</a>
                 </p>
             </div>
         </div>
@@ -903,8 +962,22 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
                     </svg>
                     Database Records
+                    <span id="smt-db-count" class="ml-2 text-sm font-normal text-gray-500">0 records</span>
                 </h3>
-                <span id="smt-db-count" class="text-sm text-gray-500">0 records</span>
+                <div class="flex gap-2">
+                    <button onclick="refreshSmtDbRecords()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-1.5 px-3 rounded-md text-sm">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Refresh
+                    </button>
+                    <button onclick="clearSmtDatabase()" class="bg-red-100 hover:bg-red-200 text-red-700 py-1.5 px-3 rounded-md text-sm">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                        ล้างข้อมูลทั้งหมด
+                    </button>
+                </div>
             </div>
 
             <!-- Filter Controls -->
@@ -1333,7 +1406,9 @@ function switchTab(tab) {
     activeBtn.classList.add('border-blue-600', 'text-blue-600');
 
     // Load data for specific tabs
-    if (tab === 'smt' && typeof loadSmtFiles === 'function') {
+    if (tab === 'download' && typeof loadFailedDownloads === 'function') {
+        loadFailedDownloads();
+    } else if (tab === 'smt' && typeof loadSmtFiles === 'function') {
         loadSmtFiles();
     } else if (tab === 'statement' && typeof loadStatementFiles === 'function') {
         loadStatementFiles();
@@ -2571,7 +2646,8 @@ async function importAllStatementFiles() {
 }
 
 async function clearAllStatementFiles() {
-    if (!confirm('Delete ALL Statement files? This cannot be undone.')) return;
+    if (!confirm('ลบไฟล์ Statement ทั้งหมด?\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้!')) return;
+    if (!confirm('ยืนยันอีกครั้ง - ลบไฟล์ Statement ทั้งหมด?')) return;
 
     try {
         const response = await fetch('/api/stm/clear', { method: 'POST' });
