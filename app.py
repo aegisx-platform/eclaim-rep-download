@@ -894,7 +894,7 @@ def get_stm_stats():
         imported_filenames = set()
         import_info = {}
         try:
-            from config.database import get_db_connection
+            
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute(
@@ -996,7 +996,7 @@ def import_all_stm_files():
     """Import all pending Statement files"""
     try:
         download_dir = Path('downloads/stm')
-        from config.database import get_db_config, get_db_connection, DB_TYPE
+        from config.database import get_db_config, DB_TYPE
         from utils.stm.importer import STMImporter
 
         db_config = get_db_config()
@@ -1077,7 +1077,7 @@ def delete_stm_file(filename):
 
         # Delete import record if exists (cascade will delete related records)
         try:
-            from config.database import get_db_connection
+            
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("DELETE FROM stm_imported_files WHERE filename = %s", (filename,))
@@ -1105,7 +1105,7 @@ def clear_stm_files():
 
         # Delete all STM import records first
         try:
-            from config.database import get_db_connection
+            
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("DELETE FROM stm_imported_files")
