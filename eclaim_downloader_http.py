@@ -117,12 +117,23 @@ class EClaimDownloader:
 
     def _load_credentials(self):
         """
-        Load credentials from settings file or environment variables
+        Load credentials from settings file (with random selection) or environment variables
 
         Returns:
             (username, password) tuple
         """
-        # Try to load from settings file first
+        # Try to use settings manager for random credential selection
+        try:
+            from utils.settings_manager import SettingsManager
+            settings_manager = SettingsManager()
+            username, password = settings_manager.get_eclaim_credentials(random_select=True)
+            if username and password:
+                stream_log(f"Using credential: {username[:4]}***{username[-4:]}", 'info')
+                return username, password
+        except Exception as e:
+            stream_log(f"Settings manager not available: {e}", 'warning')
+
+        # Fallback to direct settings file read
         settings_file = Path('config/settings.json')
         if settings_file.exists():
             try:

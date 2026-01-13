@@ -2392,23 +2392,23 @@ def bulk_update_credentials():
 
 @app.route('/api/settings/test-connection', methods=['POST'])
 def test_eclaim_connection():
-    """Test E-Claim login credentials"""
+    """Test E-Claim login credentials (randomly selected)"""
     import requests
 
     try:
-        # Get credentials from settings
-        current_settings = settings_manager.load_settings()
-        username = current_settings.get('eclaim_username', '')
-        password = current_settings.get('eclaim_password', '')
+        # Get credentials from settings (random selection)
+        username, password = settings_manager.get_eclaim_credentials(random_select=True)
 
         if not username or not password:
             return jsonify({
                 'success': False,
-                'error': 'Credentials not configured. Please enter username and password first.'
+                'error': 'Credentials not configured. Please add at least one account.'
             }), 400
 
+        # Mask username for log
+        masked_user = f"{username[:4]}***{username[-4:]}" if len(username) > 8 else "***"
         log_streamer.write_log(
-            f"Testing E-Claim connection for user: {username}",
+            f"Testing E-Claim connection for user: {masked_user}",
             'info',
             'system'
         )
