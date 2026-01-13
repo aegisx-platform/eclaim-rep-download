@@ -582,6 +582,24 @@
             </div>
         </div>
 
+        <!-- REP Sub-tabs -->
+        <div class="flex space-x-2 mb-6">
+            <button onclick="switchRepSubtab('files')" id="rep-subtab-btn-files" class="rep-subtab-btn px-4 py-2 rounded-md font-medium text-sm bg-blue-600 text-white">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                รายการไฟล์
+            </button>
+            <button onclick="switchRepSubtab('database')" id="rep-subtab-btn-database" class="rep-subtab-btn px-4 py-2 rounded-md font-medium text-sm text-gray-600 hover:bg-gray-200">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                </svg>
+                ข้อมูลในฐานข้อมูล
+            </button>
+        </div>
+
+        <!-- ===== REP Files Sub-tab ===== -->
+        <div id="rep-subtab-files">
         <!-- File Stats -->
         <div class="grid grid-cols-4 gap-4 mb-6">
             <div class="bg-blue-50 rounded-lg p-4 text-center">
@@ -762,6 +780,173 @@
             </div>
         </div>
         {% endif %}
+        </div>
+        <!-- End REP Files Sub-tab -->
+
+        <!-- ===== REP Database Sub-tab ===== -->
+        <div id="rep-subtab-database" class="hidden">
+            <!-- Help/Info Section -->
+            <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="text-sm">
+                        <p class="font-semibold text-blue-800 mb-2">วิธีใช้งาน Reconciliation (กระทบยอด REP กับ Statement)</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-blue-700">
+                            <div>
+                                <p class="font-medium mb-1">Flow การทำงาน:</p>
+                                <ol class="list-decimal list-inside space-y-1 text-xs">
+                                    <li>ดาวน์โหลด REP จาก สปสช. (tab รายการไฟล์)</li>
+                                    <li>นำเข้าข้อมูล REP เข้าฐานข้อมูล</li>
+                                    <li>ดาวน์โหลด Statement จาก สปสช. (tab Statement)</li>
+                                    <li>นำเข้าข้อมูล Statement เข้าฐานข้อมูล</li>
+                                    <li>ระบบจะจับคู่ข้อมูลโดยใช้ <strong>tran_id</strong> เป็น key</li>
+                                </ol>
+                            </div>
+                            <div>
+                                <p class="font-medium mb-1">ความหมายสถานะ:</p>
+                                <ul class="space-y-1 text-xs">
+                                    <li><span class="inline-block px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs">Matched</span> - ข้อมูลตรงกัน (tran_id ตรง, ยอดเงินตรง)</li>
+                                    <li><span class="inline-block px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs">Diff</span> - พบข้อมูลแต่ยอดเงินไม่ตรงกัน</li>
+                                    <li><span class="inline-block px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs">REP Only</span> - มีใน REP แต่ยังไม่พบใน Statement (รอนำเข้า Statement)</li>
+                                </ul>
+                                <p class="mt-2 text-xs text-blue-600">
+                                    <strong>Note:</strong> หาก Statement ยังไม่ได้นำเข้า สถานะจะเป็น "REP Only" ทั้งหมด
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Stats -->
+            <div class="grid grid-cols-4 gap-4 mb-6">
+                <div class="bg-blue-50 rounded-lg p-4 text-center">
+                    <p id="rep-db-stat-total" class="text-2xl font-bold text-blue-700">0</p>
+                    <p class="text-sm text-blue-600">รายการทั้งหมด</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 text-center">
+                    <p id="rep-db-stat-matched" class="text-2xl font-bold text-green-700">0</p>
+                    <p class="text-sm text-green-600">ตรงกับ Statement</p>
+                </div>
+                <div class="bg-yellow-50 rounded-lg p-4 text-center">
+                    <p id="rep-db-stat-diff" class="text-2xl font-bold text-yellow-700">0</p>
+                    <p class="text-sm text-yellow-600">ยอดไม่ตรง</p>
+                </div>
+                <div class="bg-red-50 rounded-lg p-4 text-center">
+                    <p id="rep-db-stat-unmatched" class="text-2xl font-bold text-red-700">0</p>
+                    <p class="text-sm text-red-600">ไม่พบใน Statement</p>
+                </div>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                <div class="flex flex-wrap items-end gap-4">
+                    <!-- View Mode -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">มุมมอง</label>
+                        <select id="rep-db-view-mode" onchange="loadRepDbRecords(1)" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+                            <option value="rep">กลุ่มตาม REP No</option>
+                            <option value="tran">รายการ Transaction</option>
+                        </select>
+                    </div>
+
+                    <!-- Fiscal Year -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">ปีงบประมาณ</label>
+                        <select id="rep-db-fiscal-year" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-28">
+                            <option value="">ทั้งหมด</option>
+                        </select>
+                    </div>
+
+                    <!-- REP No Filter -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">REP No</label>
+                        <input type="text" id="rep-db-rep-no" placeholder="ค้นหา REP" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-32">
+                    </div>
+
+                    <!-- Status Filter -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">สถานะ</label>
+                        <select id="rep-db-status" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+                            <option value="">ทั้งหมด</option>
+                            <option value="matched">Matched</option>
+                            <option value="diff_amount">Amount Diff</option>
+                            <option value="rep_only">REP Only</option>
+                        </select>
+                    </div>
+
+                    <!-- Search Button -->
+                    <button onclick="loadRepDbRecords(1)" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        ค้นหา
+                    </button>
+
+                    <!-- Clear -->
+                    <button onclick="clearRepDbFilter()" class="text-gray-600 hover:text-gray-800 px-3 py-1.5 text-sm">
+                        ล้าง
+                    </button>
+
+                    <!-- Actions -->
+                    <div class="ml-auto flex gap-2">
+                        <button onclick="refreshRepDbRecords()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-1.5 px-3 rounded-md text-sm">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            Refresh
+                        </button>
+                        <button onclick="clearRepDatabase()" class="bg-red-100 hover:bg-red-200 text-red-700 py-1.5 px-3 rounded-md text-sm">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            ล้างข้อมูล
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Count -->
+            <div class="flex items-center justify-between mb-2">
+                <div id="rep-db-result-count" class="text-sm text-gray-600">แสดง 0 รายการ</div>
+            </div>
+
+            <!-- Database Table -->
+            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr id="rep-db-table-header">
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">REP No</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายการ</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">ยอด REP</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">ยอด STM</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">ผลต่าง</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">สถานะ</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rep-db-records-body" class="bg-white divide-y divide-gray-200 text-sm">
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">คลิก Refresh เพื่อโหลดข้อมูล</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div id="rep-db-pagination" class="mt-4 flex items-center justify-between hidden">
+                <div class="text-sm text-gray-500">
+                    Page <span id="rep-db-current-page">1</span> of <span id="rep-db-total-pages">1</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="loadRepDbRecords(currentRepDbPage - 1)" id="rep-db-prev-btn" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>Previous</button>
+                    <button onclick="loadRepDbRecords(currentRepDbPage + 1)" id="rep-db-next-btn" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>Next</button>
+                </div>
+            </div>
+        </div>
+        <!-- End REP Database Sub-tab -->
     </div>
 
     <!-- ==================== STATEMENT TAB ==================== -->
@@ -785,6 +970,24 @@
             </div>
         </div>
 
+        <!-- Statement Sub-tabs -->
+        <div class="flex space-x-2 mb-6">
+            <button onclick="switchStatementSubtab('files')" id="stm-subtab-btn-files" class="stm-subtab-btn px-4 py-2 rounded-md font-medium text-sm bg-purple-600 text-white">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                รายการไฟล์
+            </button>
+            <button onclick="switchStatementSubtab('database')" id="stm-subtab-btn-database" class="stm-subtab-btn px-4 py-2 rounded-md font-medium text-sm text-gray-600 hover:bg-gray-200">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                </svg>
+                ข้อมูลในฐานข้อมูล
+            </button>
+        </div>
+
+        <!-- ===== Statement Files Sub-tab ===== -->
+        <div id="stm-subtab-files">
         <!-- File Stats -->
         <div class="grid grid-cols-4 gap-4 mb-6">
             <div class="bg-purple-50 rounded-lg p-4 text-center">
@@ -842,6 +1045,174 @@
                 </tbody>
             </table>
         </div>
+        </div>
+        <!-- End Statement Files Sub-tab -->
+
+        <!-- ===== Statement Database Sub-tab ===== -->
+        <div id="stm-subtab-database" class="hidden">
+            <!-- Help/Info Section -->
+            <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="text-sm">
+                        <p class="font-semibold text-blue-800 mb-2">วิธีใช้งาน Reconciliation (กระทบยอด Statement กับ REP)</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-blue-700">
+                            <div>
+                                <p class="font-medium mb-1">Flow การทำงาน:</p>
+                                <ol class="list-decimal list-inside space-y-1 text-xs">
+                                    <li>ดาวน์โหลด Statement จาก สปสช. (tab รายการไฟล์)</li>
+                                    <li>นำเข้าข้อมูล Statement เข้าฐานข้อมูล</li>
+                                    <li>ดาวน์โหลด REP จาก สปสช. (tab REP Files)</li>
+                                    <li>นำเข้าข้อมูล REP เข้าฐานข้อมูล</li>
+                                    <li>ระบบจะจับคู่ข้อมูลโดยใช้ <strong>tran_id</strong> เป็น key</li>
+                                </ol>
+                            </div>
+                            <div>
+                                <p class="font-medium mb-1">ความหมายสถานะ:</p>
+                                <ul class="space-y-1 text-xs">
+                                    <li><span class="inline-block px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs">Matched</span> - ข้อมูลตรงกัน (tran_id ตรง, ยอดเงินตรง)</li>
+                                    <li><span class="inline-block px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs">Diff</span> - พบข้อมูลแต่ยอดเงินไม่ตรงกัน</li>
+                                    <li><span class="inline-block px-2 py-0.5 rounded bg-red-100 text-red-700 text-xs">STM Only</span> - มีใน Statement แต่ยังไม่พบใน REP (รอนำเข้า REP)</li>
+                                </ul>
+                                <p class="mt-2 text-xs text-blue-600">
+                                    <strong>Note:</strong> หาก REP ยังไม่ได้นำเข้า สถานะจะเป็น "STM Only" ทั้งหมด
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Stats -->
+            <div class="grid grid-cols-4 gap-4 mb-6">
+                <div class="bg-purple-50 rounded-lg p-4 text-center">
+                    <p id="stm-db-stat-total" class="text-2xl font-bold text-purple-700">0</p>
+                    <p class="text-sm text-purple-600">รายการทั้งหมด</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 text-center">
+                    <p id="stm-db-stat-matched" class="text-2xl font-bold text-green-700">0</p>
+                    <p class="text-sm text-green-600">ตรงกับ REP</p>
+                </div>
+                <div class="bg-yellow-50 rounded-lg p-4 text-center">
+                    <p id="stm-db-stat-diff" class="text-2xl font-bold text-yellow-700">0</p>
+                    <p class="text-sm text-yellow-600">ยอดไม่ตรง</p>
+                </div>
+                <div class="bg-red-50 rounded-lg p-4 text-center">
+                    <p id="stm-db-stat-unmatched" class="text-2xl font-bold text-red-700">0</p>
+                    <p class="text-sm text-red-600">ไม่พบใน REP</p>
+                </div>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                <div class="flex flex-wrap items-end gap-4">
+                    <!-- View Mode -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">มุมมอง</label>
+                        <select id="stm-db-view-mode" onchange="loadStmDbRecords(1)" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+                            <option value="rep">กลุ่มตาม REP No</option>
+                            <option value="tran">รายการ Transaction</option>
+                        </select>
+                    </div>
+
+                    <!-- Fiscal Year -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">ปีงบประมาณ</label>
+                        <select id="stm-db-fiscal-year" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-28">
+                            <option value="">ทั้งหมด</option>
+                        </select>
+                    </div>
+
+                    <!-- REP No Filter -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">REP No</label>
+                        <input type="text" id="stm-db-rep-no" placeholder="ค้นหา REP" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-32">
+                    </div>
+
+                    <!-- Status Filter -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">สถานะ</label>
+                        <select id="stm-db-status" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+                            <option value="">ทั้งหมด</option>
+                            <option value="matched">Matched</option>
+                            <option value="diff_amount">Amount Diff</option>
+                            <option value="stm_only">STM Only</option>
+                        </select>
+                    </div>
+
+                    <!-- Search Button -->
+                    <button onclick="loadStmDbRecords(1)" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 rounded text-sm">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        ค้นหา
+                    </button>
+
+                    <!-- Clear -->
+                    <button onclick="clearStmDbFilter()" class="text-gray-600 hover:text-gray-800 px-3 py-1.5 text-sm">
+                        ล้าง
+                    </button>
+
+                    <!-- Actions -->
+                    <div class="ml-auto flex gap-2">
+                        <button onclick="refreshStmDbRecords()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-1.5 px-3 rounded-md text-sm">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            Refresh
+                        </button>
+                        <button onclick="clearStmDatabase()" class="bg-red-100 hover:bg-red-200 text-red-700 py-1.5 px-3 rounded-md text-sm">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            ล้างข้อมูล
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Count -->
+            <div class="flex items-center justify-between mb-2">
+                <div id="stm-db-result-count" class="text-sm text-gray-600">แสดง 0 รายการ</div>
+            </div>
+
+            <!-- Database Table -->
+            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr id="stm-db-table-header">
+                            <!-- Headers will be set by JS based on view mode -->
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">REP No</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">รายการ</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">ยอด STM</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">ยอด REP</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">ผลต่าง</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">สถานะ</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stm-db-records-body" class="bg-white divide-y divide-gray-200 text-sm">
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">คลิก Refresh เพื่อโหลดข้อมูล</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div id="stm-db-pagination" class="mt-4 flex items-center justify-between hidden">
+                <div class="text-sm text-gray-500">
+                    Page <span id="stm-db-current-page">1</span> of <span id="stm-db-total-pages">1</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="loadStmDbRecords(currentStmDbPage - 1)" id="stm-db-prev-btn" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>Previous</button>
+                    <button onclick="loadStmDbRecords(currentStmDbPage + 1)" id="stm-db-next-btn" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>Next</button>
+                </div>
+            </div>
+        </div>
+        <!-- End Statement Database Sub-tab -->
     </div>
 
     <!-- ==================== SMT TAB ==================== -->
@@ -865,8 +1236,26 @@
             </div>
         </div>
 
-        <!-- File Stats -->
-        <div class="grid grid-cols-4 gap-4 mb-6">
+        <!-- SMT Sub-tabs -->
+        <div class="flex space-x-2 mb-6">
+            <button onclick="switchSmtSubtab('files')" id="smt-subtab-btn-files" class="smt-subtab-btn px-4 py-2 rounded-md font-medium text-sm bg-green-600 text-white">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                รายการไฟล์
+            </button>
+            <button onclick="switchSmtSubtab('database')" id="smt-subtab-btn-database" class="smt-subtab-btn px-4 py-2 rounded-md font-medium text-sm text-gray-600 hover:bg-gray-200">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                </svg>
+                ข้อมูลในฐานข้อมูล
+            </button>
+        </div>
+
+        <!-- ===== SMT Files Sub-tab ===== -->
+        <div id="smt-subtab-files">
+            <!-- File Stats -->
+            <div class="grid grid-cols-4 gap-4 mb-6">
             <div class="bg-green-50 rounded-lg p-4 text-center">
                 <p id="smt-stat-total" class="text-2xl font-bold text-green-700">0</p>
                 <p class="text-sm text-green-600">Total Files</p>
@@ -933,9 +1322,13 @@
                 <button onclick="loadSmtFilesPage(currentSmtFilesPage + 1)" id="smt-files-next" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>Next</button>
             </div>
         </div>
+        </div>
+        <!-- End SMT Files Sub-tab -->
 
+        <!-- ===== SMT Database Sub-tab ===== -->
+        <div id="smt-subtab-database" class="hidden">
         <!-- Database Records Section -->
-        <div class="mt-8">
+        <div>
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-gray-800 flex items-center">
                     <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1033,6 +1426,8 @@
                 </div>
             </div>
         </div>
+        </div>
+        <!-- End SMT Database Sub-tab -->
     </div>
 
     <!-- ==================== SETTINGS TAB ==================== -->
@@ -1342,6 +1737,15 @@
 let scheduleTimes = [];
 let currentTab = 'download';
 
+// Number formatting helper
+function formatNumber(num, decimals) {
+    if (num === null || num === undefined) return '-';
+    if (typeof decimals === 'number') {
+        return parseFloat(num).toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+    return parseFloat(num).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 // Scheme selection helpers
 function selectAllSchemes(prefix) {
     document.querySelectorAll('input[name="' + prefix + '-schemes"]').forEach(function(cb) {
@@ -1398,6 +1802,585 @@ function switchTab(tab) {
     var url = new URL(window.location);
     url.searchParams.set('tab', tab);
     window.history.pushState({}, '', url);
+}
+
+// SMT Sub-tab switching
+function switchSmtSubtab(subtab) {
+    // Hide all SMT sub-tab contents
+    document.getElementById('smt-subtab-files').classList.add('hidden');
+    document.getElementById('smt-subtab-database').classList.add('hidden');
+
+    // Show selected sub-tab content
+    document.getElementById('smt-subtab-' + subtab).classList.remove('hidden');
+
+    // Update button styles
+    document.querySelectorAll('.smt-subtab-btn').forEach(function(btn) {
+        btn.classList.remove('bg-green-600', 'text-white');
+        btn.classList.add('text-gray-600', 'hover:bg-gray-200');
+    });
+    var activeBtn = document.getElementById('smt-subtab-btn-' + subtab);
+    activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-200');
+    activeBtn.classList.add('bg-green-600', 'text-white');
+
+    // Load data if switching to database tab
+    if (subtab === 'database' && typeof loadSmtDbRecords === 'function') {
+        loadSmtDbRecords(1);
+    }
+}
+
+// REP Sub-tab switching
+function switchRepSubtab(subtab) {
+    // Hide all REP sub-tab contents
+    document.getElementById('rep-subtab-files').classList.add('hidden');
+    document.getElementById('rep-subtab-database').classList.add('hidden');
+
+    // Show selected sub-tab content
+    document.getElementById('rep-subtab-' + subtab).classList.remove('hidden');
+
+    // Update button styles
+    document.querySelectorAll('.rep-subtab-btn').forEach(function(btn) {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('text-gray-600', 'hover:bg-gray-200');
+    });
+    var activeBtn = document.getElementById('rep-subtab-btn-' + subtab);
+    activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-200');
+    activeBtn.classList.add('bg-blue-600', 'text-white');
+
+    // Load data if switching to database tab
+    if (subtab === 'database') {
+        initRepDbFiscalYear();
+        loadRepDbRecords(1);
+    }
+}
+
+// REP Database Records
+var currentRepDbPage = 1;
+
+function initRepDbFiscalYear() {
+    var select = document.getElementById('rep-db-fiscal-year');
+    if (!select || select.options.length > 1) return;
+
+    var currentYear = new Date().getFullYear();
+    var currentYearBE = currentYear + 543;
+    var currentMonth = new Date().getMonth() + 1;
+    var currentFiscalYear = currentMonth >= 10 ? currentYearBE + 1 : currentYearBE;
+
+    for (var fy = currentFiscalYear; fy >= 2566; fy--) {
+        var option = document.createElement('option');
+        option.value = fy;
+        option.textContent = 'ปี ' + fy;
+        select.appendChild(option);
+    }
+}
+
+async function loadRepDbRecords(page) {
+    currentRepDbPage = page || 1;
+
+    var viewMode = document.getElementById('rep-db-view-mode').value;
+    var fiscalYear = document.getElementById('rep-db-fiscal-year').value;
+    var repNo = document.getElementById('rep-db-rep-no').value;
+    var status = document.getElementById('rep-db-status').value;
+
+    var params = new URLSearchParams({
+        page: currentRepDbPage,
+        limit: 50,
+        view_mode: viewMode
+    });
+    if (fiscalYear) params.append('fiscal_year', fiscalYear);
+    if (repNo) params.append('rep_no', repNo);
+    if (status) params.append('status', status);
+
+    var tbody = document.getElementById('rep-db-records-body');
+    tbody.textContent = '';
+    var loadingRow = document.createElement('tr');
+    var loadingCell = document.createElement('td');
+    loadingCell.colSpan = 7;
+    loadingCell.className = 'px-4 py-8 text-center text-gray-500';
+    loadingCell.textContent = 'Loading...';
+    loadingRow.appendChild(loadingCell);
+    tbody.appendChild(loadingRow);
+
+    try {
+        var response = await fetch('/api/rep/records?' + params.toString());
+        var data = await response.json();
+
+        if (data.success) {
+            renderRepDbRecords(data.records, viewMode);
+            updateRepDbStats(data.stats);
+            updateRepDbPagination(data.pagination);
+            document.getElementById('rep-db-result-count').textContent =
+                'แสดง ' + data.records.length + ' จาก ' + data.pagination.total + ' รายการ';
+        } else {
+            showErrorInTable(tbody, 7, data.error || 'Error loading data');
+        }
+    } catch (error) {
+        showErrorInTable(tbody, 7, 'Error: ' + error.message);
+    }
+}
+
+function showErrorInTable(tbody, cols, message) {
+    tbody.textContent = '';
+    var row = document.createElement('tr');
+    var cell = document.createElement('td');
+    cell.colSpan = cols;
+    cell.className = 'px-4 py-8 text-center text-red-500';
+    cell.textContent = message;
+    row.appendChild(cell);
+    tbody.appendChild(row);
+}
+
+function renderRepDbRecords(records, viewMode) {
+    var tbody = document.getElementById('rep-db-records-body');
+    tbody.textContent = '';
+
+    if (!records || records.length === 0) {
+        var emptyRow = document.createElement('tr');
+        var emptyCell = document.createElement('td');
+        emptyCell.colSpan = 7;
+        emptyCell.className = 'px-4 py-8 text-center text-gray-500';
+        emptyCell.textContent = 'ไม่พบข้อมูล';
+        emptyRow.appendChild(emptyCell);
+        tbody.appendChild(emptyRow);
+        return;
+    }
+
+    records.forEach(function(rec) {
+        var row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+
+        var statusClass = 'bg-gray-100 text-gray-600';
+        var statusText = rec.status || '-';
+
+        if (rec.status === 'matched') {
+            statusClass = 'bg-green-100 text-green-700';
+            statusText = 'Matched';
+        } else if (rec.status === 'diff_amount') {
+            statusClass = 'bg-yellow-100 text-yellow-700';
+            statusText = 'Diff';
+        } else if (rec.status === 'rep_only') {
+            statusClass = 'bg-red-100 text-red-700';
+            statusText = 'REP Only';
+        }
+
+        var repAmount = parseFloat(rec.rep_amount || 0);
+        var stmAmount = parseFloat(rec.stm_amount || 0);
+        var diff = repAmount - stmAmount;
+
+        if (viewMode === 'rep') {
+            // REP No cell
+            var repCell = document.createElement('td');
+            repCell.className = 'px-3 py-2 font-medium text-blue-600';
+            repCell.textContent = rec.rep_no || '-';
+            row.appendChild(repCell);
+
+            // Count cell
+            var countCell = document.createElement('td');
+            countCell.className = 'px-3 py-2';
+            countCell.textContent = (rec.count || 0) + ' รายการ';
+            row.appendChild(countCell);
+        } else {
+            // REP No cell
+            var repCell = document.createElement('td');
+            repCell.className = 'px-3 py-2 font-medium';
+            repCell.textContent = rec.rep_no || '-';
+            row.appendChild(repCell);
+
+            // Transaction cell
+            var tranCell = document.createElement('td');
+            tranCell.className = 'px-3 py-2';
+            var tranSpan = document.createElement('span');
+            tranSpan.className = 'text-gray-500';
+            tranSpan.textContent = rec.tran_id || '-';
+            tranCell.appendChild(tranSpan);
+            tranCell.appendChild(document.createTextNode(' ' + (rec.patient_name || '')));
+            row.appendChild(tranCell);
+        }
+
+        // REP Amount cell
+        var repAmtCell = document.createElement('td');
+        repAmtCell.className = 'px-3 py-2 text-right';
+        repAmtCell.textContent = formatNumber(repAmount);
+        row.appendChild(repAmtCell);
+
+        // STM Amount cell
+        var stmCell = document.createElement('td');
+        stmCell.className = 'px-3 py-2 text-right';
+        stmCell.textContent = formatNumber(stmAmount);
+        row.appendChild(stmCell);
+
+        // Diff cell
+        var diffCell = document.createElement('td');
+        diffCell.className = 'px-3 py-2 text-right' + (diff !== 0 ? ' text-red-600' : '');
+        diffCell.textContent = formatNumber(diff);
+        row.appendChild(diffCell);
+
+        // Status cell
+        var statusCell = document.createElement('td');
+        statusCell.className = 'px-3 py-2 text-center';
+        var statusSpan = document.createElement('span');
+        statusSpan.className = 'px-2 py-0.5 rounded text-xs ' + statusClass;
+        statusSpan.textContent = statusText;
+        statusCell.appendChild(statusSpan);
+        row.appendChild(statusCell);
+
+        // Actions cell
+        var actionsCell = document.createElement('td');
+        actionsCell.className = 'px-3 py-2 text-center';
+        if (viewMode === 'rep') {
+            var detailBtn = document.createElement('button');
+            detailBtn.className = 'text-blue-600 hover:text-blue-800 text-xs';
+            detailBtn.textContent = 'ดูรายละเอียด';
+            detailBtn.onclick = function() { viewRepDetail(rec.rep_no); };
+            actionsCell.appendChild(detailBtn);
+        } else if (rec.tran_id) {
+            var analysisLink = document.createElement('a');
+            analysisLink.href = '/data-analysis?tran_id=' + rec.tran_id;
+            analysisLink.className = 'text-blue-600 hover:text-blue-800 text-xs';
+            analysisLink.textContent = 'ดู Statement';
+            actionsCell.appendChild(analysisLink);
+        } else {
+            actionsCell.textContent = '-';
+        }
+        row.appendChild(actionsCell);
+
+        tbody.appendChild(row);
+    });
+}
+
+function updateRepDbStats(stats) {
+    if (!stats) return;
+    document.getElementById('rep-db-stat-total').textContent = formatNumber(stats.total || 0, 0);
+    document.getElementById('rep-db-stat-matched').textContent = formatNumber(stats.matched || 0, 0);
+    document.getElementById('rep-db-stat-diff').textContent = formatNumber(stats.diff_amount || 0, 0);
+    document.getElementById('rep-db-stat-unmatched').textContent = formatNumber(stats.rep_only || 0, 0);
+}
+
+function updateRepDbPagination(pagination) {
+    var paginationDiv = document.getElementById('rep-db-pagination');
+    if (!pagination || pagination.total_pages <= 1) {
+        paginationDiv.classList.add('hidden');
+        return;
+    }
+
+    paginationDiv.classList.remove('hidden');
+    document.getElementById('rep-db-current-page').textContent = pagination.page;
+    document.getElementById('rep-db-total-pages').textContent = pagination.total_pages;
+    document.getElementById('rep-db-prev-btn').disabled = pagination.page <= 1;
+    document.getElementById('rep-db-next-btn').disabled = pagination.page >= pagination.total_pages;
+}
+
+function viewRepDetail(repNo) {
+    document.getElementById('rep-db-view-mode').value = 'tran';
+    document.getElementById('rep-db-rep-no').value = repNo;
+    loadRepDbRecords(1);
+}
+
+function refreshRepDbRecords() {
+    loadRepDbRecords(currentRepDbPage);
+}
+
+function clearRepDbFilter() {
+    document.getElementById('rep-db-view-mode').value = 'rep';
+    document.getElementById('rep-db-fiscal-year').value = '';
+    document.getElementById('rep-db-rep-no').value = '';
+    document.getElementById('rep-db-status').value = '';
+    loadRepDbRecords(1);
+}
+
+async function clearRepDatabase() {
+    if (!confirm('ยืนยันลบข้อมูล REP ทั้งหมดในฐานข้อมูล?\n\nการดำเนินการนี้ไม่สามารถยกเลิกได้')) return;
+
+    try {
+        var response = await fetch('/api/rep/clear-database', { method: 'POST' });
+        var data = await response.json();
+        if (data.success) {
+            showToast('ลบข้อมูลสำเร็จ', 'success');
+            loadRepDbRecords(1);
+        } else {
+            showToast(data.error || 'เกิดข้อผิดพลาด', 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+// Statement Sub-tab switching
+function switchStatementSubtab(subtab) {
+    // Hide all Statement sub-tab contents
+    document.getElementById('stm-subtab-files').classList.add('hidden');
+    document.getElementById('stm-subtab-database').classList.add('hidden');
+
+    // Show selected sub-tab content
+    document.getElementById('stm-subtab-' + subtab).classList.remove('hidden');
+
+    // Update button styles
+    document.querySelectorAll('.stm-subtab-btn').forEach(function(btn) {
+        btn.classList.remove('bg-purple-600', 'text-white');
+        btn.classList.add('text-gray-600', 'hover:bg-gray-200');
+    });
+    var activeBtn = document.getElementById('stm-subtab-btn-' + subtab);
+    activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-200');
+    activeBtn.classList.add('bg-purple-600', 'text-white');
+
+    // Load data if switching to database tab
+    if (subtab === 'database') {
+        initStmDbFiscalYear();
+        loadStmDbRecords(1);
+    }
+}
+
+// Statement Database Records
+var currentStmDbPage = 1;
+
+function initStmDbFiscalYear() {
+    var select = document.getElementById('stm-db-fiscal-year');
+    if (!select || select.options.length > 1) return;  // Already initialized
+
+    var currentYear = new Date().getFullYear();
+    var currentYearBE = currentYear + 543;
+    var currentMonth = new Date().getMonth() + 1;
+    var currentFiscalYear = currentMonth >= 10 ? currentYearBE + 1 : currentYearBE;
+
+    for (var fy = currentFiscalYear; fy >= 2566; fy--) {
+        var option = document.createElement('option');
+        option.value = fy;
+        option.textContent = 'ปี ' + fy;
+        select.appendChild(option);
+    }
+}
+
+async function loadStmDbRecords(page) {
+    currentStmDbPage = page || 1;
+
+    var viewMode = document.getElementById('stm-db-view-mode').value;
+    var fiscalYear = document.getElementById('stm-db-fiscal-year').value;
+    var repNo = document.getElementById('stm-db-rep-no').value;
+    var status = document.getElementById('stm-db-status').value;
+
+    var params = new URLSearchParams({
+        page: currentStmDbPage,
+        limit: 50,
+        view_mode: viewMode
+    });
+    if (fiscalYear) params.append('fiscal_year', fiscalYear);
+    if (repNo) params.append('rep_no', repNo);
+    if (status) params.append('status', status);
+
+    var tbody = document.getElementById('stm-db-records-body');
+    tbody.textContent = '';
+    var loadingRow = document.createElement('tr');
+    var loadingCell = document.createElement('td');
+    loadingCell.colSpan = 7;
+    loadingCell.className = 'px-4 py-8 text-center text-gray-500';
+    loadingCell.textContent = 'Loading...';
+    loadingRow.appendChild(loadingCell);
+    tbody.appendChild(loadingRow);
+
+    try {
+        var response = await fetch('/api/stm/records?' + params.toString());
+        var data = await response.json();
+
+        if (data.success) {
+            renderStmDbRecords(data.records, viewMode);
+            updateStmDbStats(data.stats);
+            updateStmDbPagination(data.pagination);
+            document.getElementById('stm-db-result-count').textContent =
+                'แสดง ' + data.records.length + ' จาก ' + data.pagination.total + ' รายการ';
+        } else {
+            tbody.textContent = '';
+            var errorRow = document.createElement('tr');
+            var errorCell = document.createElement('td');
+            errorCell.colSpan = 7;
+            errorCell.className = 'px-4 py-8 text-center text-red-500';
+            errorCell.textContent = data.error || 'Error loading data';
+            errorRow.appendChild(errorCell);
+            tbody.appendChild(errorRow);
+        }
+    } catch (error) {
+        tbody.textContent = '';
+        var errorRow = document.createElement('tr');
+        var errorCell = document.createElement('td');
+        errorCell.colSpan = 7;
+        errorCell.className = 'px-4 py-8 text-center text-red-500';
+        errorCell.textContent = 'Error: ' + error.message;
+        errorRow.appendChild(errorCell);
+        tbody.appendChild(errorRow);
+    }
+}
+
+function renderStmDbRecords(records, viewMode) {
+    var tbody = document.getElementById('stm-db-records-body');
+    tbody.textContent = '';
+
+    if (!records || records.length === 0) {
+        var emptyRow = document.createElement('tr');
+        var emptyCell = document.createElement('td');
+        emptyCell.colSpan = 7;
+        emptyCell.className = 'px-4 py-8 text-center text-gray-500';
+        emptyCell.textContent = 'ไม่พบข้อมูล';
+        emptyRow.appendChild(emptyCell);
+        tbody.appendChild(emptyRow);
+        return;
+    }
+
+    records.forEach(function(rec) {
+        var row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+
+        var statusClass = 'bg-gray-100 text-gray-600';
+        var statusText = rec.status || '-';
+
+        if (rec.status === 'matched') {
+            statusClass = 'bg-green-100 text-green-700';
+            statusText = 'Matched';
+        } else if (rec.status === 'diff_amount') {
+            statusClass = 'bg-yellow-100 text-yellow-700';
+            statusText = 'Diff';
+        } else if (rec.status === 'stm_only') {
+            statusClass = 'bg-red-100 text-red-700';
+            statusText = 'STM Only';
+        }
+
+        var stmAmount = parseFloat(rec.stm_amount || 0);
+        var repAmount = parseFloat(rec.rep_amount || 0);
+        var diff = stmAmount - repAmount;
+
+        if (viewMode === 'rep') {
+            // REP No cell
+            var repCell = document.createElement('td');
+            repCell.className = 'px-3 py-2 font-medium text-blue-600';
+            repCell.textContent = rec.rep_no || '-';
+            row.appendChild(repCell);
+
+            // Count cell
+            var countCell = document.createElement('td');
+            countCell.className = 'px-3 py-2';
+            countCell.textContent = (rec.count || 0) + ' รายการ';
+            row.appendChild(countCell);
+        } else {
+            // REP No cell
+            var repCell = document.createElement('td');
+            repCell.className = 'px-3 py-2 font-medium';
+            repCell.textContent = rec.rep_no || '-';
+            row.appendChild(repCell);
+
+            // Transaction cell
+            var tranCell = document.createElement('td');
+            tranCell.className = 'px-3 py-2';
+            var tranSpan = document.createElement('span');
+            tranSpan.className = 'text-gray-500';
+            tranSpan.textContent = rec.tran_id || '-';
+            tranCell.appendChild(tranSpan);
+            tranCell.appendChild(document.createTextNode(' ' + (rec.patient_name || '')));
+            row.appendChild(tranCell);
+        }
+
+        // STM Amount cell
+        var stmCell = document.createElement('td');
+        stmCell.className = 'px-3 py-2 text-right';
+        stmCell.textContent = formatNumber(stmAmount);
+        row.appendChild(stmCell);
+
+        // REP Amount cell
+        var repAmtCell = document.createElement('td');
+        repAmtCell.className = 'px-3 py-2 text-right';
+        repAmtCell.textContent = formatNumber(repAmount);
+        row.appendChild(repAmtCell);
+
+        // Diff cell
+        var diffCell = document.createElement('td');
+        diffCell.className = 'px-3 py-2 text-right' + (diff !== 0 ? ' text-red-600' : '');
+        diffCell.textContent = formatNumber(diff);
+        row.appendChild(diffCell);
+
+        // Status cell
+        var statusCell = document.createElement('td');
+        statusCell.className = 'px-3 py-2 text-center';
+        var statusSpan = document.createElement('span');
+        statusSpan.className = 'px-2 py-0.5 rounded text-xs ' + statusClass;
+        statusSpan.textContent = statusText;
+        statusCell.appendChild(statusSpan);
+        row.appendChild(statusCell);
+
+        // Actions cell
+        var actionsCell = document.createElement('td');
+        actionsCell.className = 'px-3 py-2 text-center';
+        if (viewMode === 'rep') {
+            var detailBtn = document.createElement('button');
+            detailBtn.className = 'text-blue-600 hover:text-blue-800 text-xs';
+            detailBtn.textContent = 'ดูรายละเอียด';
+            detailBtn.onclick = function() { viewStmRepDetail(rec.rep_no); };
+            actionsCell.appendChild(detailBtn);
+        } else if (rec.tran_id) {
+            var repLink = document.createElement('a');
+            repLink.href = '/data-analysis?tran_id=' + rec.tran_id;
+            repLink.className = 'text-blue-600 hover:text-blue-800 text-xs';
+            repLink.textContent = 'ดู REP';
+            actionsCell.appendChild(repLink);
+        } else {
+            actionsCell.textContent = '-';
+        }
+        row.appendChild(actionsCell);
+
+        tbody.appendChild(row);
+    });
+}
+
+function updateStmDbStats(stats) {
+    if (!stats) return;
+    document.getElementById('stm-db-stat-total').textContent = formatNumber(stats.total || 0, 0);
+    document.getElementById('stm-db-stat-matched').textContent = formatNumber(stats.matched || 0, 0);
+    document.getElementById('stm-db-stat-diff').textContent = formatNumber(stats.diff_amount || 0, 0);
+    document.getElementById('stm-db-stat-unmatched').textContent = formatNumber(stats.stm_only || 0, 0);
+}
+
+function updateStmDbPagination(pagination) {
+    var paginationDiv = document.getElementById('stm-db-pagination');
+    if (!pagination || pagination.total_pages <= 1) {
+        paginationDiv.classList.add('hidden');
+        return;
+    }
+
+    paginationDiv.classList.remove('hidden');
+    document.getElementById('stm-db-current-page').textContent = pagination.page;
+    document.getElementById('stm-db-total-pages').textContent = pagination.total_pages;
+    document.getElementById('stm-db-prev-btn').disabled = pagination.page <= 1;
+    document.getElementById('stm-db-next-btn').disabled = pagination.page >= pagination.total_pages;
+}
+
+function viewStmRepDetail(repNo) {
+    document.getElementById('stm-db-view-mode').value = 'tran';
+    document.getElementById('stm-db-rep-no').value = repNo;
+    loadStmDbRecords(1);
+}
+
+function refreshStmDbRecords() {
+    loadStmDbRecords(currentStmDbPage);
+}
+
+function clearStmDbFilter() {
+    document.getElementById('stm-db-view-mode').value = 'rep';
+    document.getElementById('stm-db-fiscal-year').value = '';
+    document.getElementById('stm-db-rep-no').value = '';
+    document.getElementById('stm-db-status').value = '';
+    loadStmDbRecords(1);
+}
+
+async function clearStmDatabase() {
+    if (!confirm('ยืนยันลบข้อมูล Statement ทั้งหมดในฐานข้อมูล?\n\nการดำเนินการนี้ไม่สามารถยกเลิกได้')) return;
+
+    try {
+        var response = await fetch('/api/stm/clear-database', { method: 'POST' });
+        var data = await response.json();
+        if (data.success) {
+            showToast('ลบข้อมูลสำเร็จ', 'success');
+            loadStmDbRecords(1);
+        } else {
+            showToast(data.error || 'เกิดข้อผิดพลาด', 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
 }
 
 // Initialize from URL params

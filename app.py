@@ -1828,6 +1828,392 @@ def clear_stm_files():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/stm/records')
+def get_stm_records():
+    """Get Statement database records with reconciliation status"""
+    try:
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 50))
+        offset = (page - 1) * limit
+
+        view_mode = request.args.get('view_mode', 'rep')  # 'rep' or 'tran'
+        fiscal_year = request.args.get('fiscal_year', '')
+        rep_no = request.args.get('rep_no', '')
+        status = request.args.get('status', '')
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Build WHERE clause
+        where_clauses = []
+        params = []
+
+        if fiscal_year:
+            # Fiscal year filter - Statement month is stored as YYYYMM format
+            # FY 2569 = Oct 2568 to Sep 2569
+            fy = int(fiscal_year)
+            start_month = f"{fy - 1}10"  # October of previous year
+            end_month = f"{fy}09"  # September of fiscal year
+            where_clauses.append("f.statement_month BETWEEN %s AND %s")
+            params.extend([start_month, end_month])
+
+        if rep_no:
+            where_clauses.append("c.rep_no LIKE %s")
+            params.append(f"%{rep_no}%")
+
+        if status:
+            where_clauses.append("c.reconcile_status = %s")
+            params.append(status)
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+        if view_mode == 'rep':
+            # Group by REP No
+            count_sql = f"""
+                SELECT COUNT(DISTINCT c.rep_no)
+                FROM stm_claim_item c
+                JOIN stm_imported_files f ON c.file_id = f.id
+                WHERE {where_sql}
+            """
+            cursor.execute(count_sql, params)
+            total = cursor.fetchone()[0]
+
+            query = f"""
+                SELECT
+                    c.rep_no,
+                    COUNT(*) as count,
+                    SUM(COALESCE(c.paid_after_deduction, 0)) as stm_amount,
+                    (
+                        SELECT SUM(COALESCE(r.reimb_nhso, 0))
+                        FROM claim_rep_opip_nhso_item r
+                        WHERE r.rep_no = c.rep_no
+                    ) as rep_amount,
+                    CASE
+                        WHEN COUNT(CASE WHEN c.reconcile_status = 'matched' THEN 1 END) = COUNT(*) THEN 'matched'
+                        WHEN COUNT(CASE WHEN c.reconcile_status = 'diff_amount' THEN 1 END) > 0 THEN 'diff_amount'
+                        ELSE 'stm_only'
+                    END as status
+                FROM stm_claim_item c
+                JOIN stm_imported_files f ON c.file_id = f.id
+                WHERE {where_sql}
+                GROUP BY c.rep_no
+                ORDER BY c.rep_no DESC
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, params + [limit, offset])
+        else:
+            # Individual transactions
+            count_sql = f"""
+                SELECT COUNT(*)
+                FROM stm_claim_item c
+                JOIN stm_imported_files f ON c.file_id = f.id
+                WHERE {where_sql}
+            """
+            cursor.execute(count_sql, params)
+            total = cursor.fetchone()[0]
+
+            query = f"""
+                SELECT
+                    c.tran_id,
+                    c.rep_no,
+                    c.patient_name,
+                    c.hn,
+                    COALESCE(c.paid_after_deduction, 0) as stm_amount,
+                    (
+                        SELECT COALESCE(r.reimb_nhso, 0)
+                        FROM claim_rep_opip_nhso_item r
+                        WHERE r.tran_id = c.tran_id
+                        LIMIT 1
+                    ) as rep_amount,
+                    c.reconcile_status as status
+                FROM stm_claim_item c
+                JOIN stm_imported_files f ON c.file_id = f.id
+                WHERE {where_sql}
+                ORDER BY c.rep_no DESC, c.tran_id
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, params + [limit, offset])
+
+        columns = [desc[0] for desc in cursor.description]
+        records = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+        # Convert Decimal to float for JSON serialization
+        for rec in records:
+            for key in ['stm_amount', 'rep_amount', 'count']:
+                if key in rec and rec[key] is not None:
+                    rec[key] = float(rec[key])
+
+        # Get stats - count matched records by checking if REP exists
+        stats_sql = """
+            SELECT
+                COUNT(*) as total,
+                COUNT(CASE WHEN EXISTS (
+                    SELECT 1 FROM claim_rep_opip_nhso_item r
+                    WHERE r.tran_id = c.tran_id
+                    AND ABS(COALESCE(r.reimb_nhso, 0) - COALESCE(c.paid_after_deduction, 0)) < 1
+                ) THEN 1 END) as matched,
+                COUNT(CASE WHEN EXISTS (
+                    SELECT 1 FROM claim_rep_opip_nhso_item r
+                    WHERE r.tran_id = c.tran_id
+                    AND ABS(COALESCE(r.reimb_nhso, 0) - COALESCE(c.paid_after_deduction, 0)) >= 1
+                ) THEN 1 END) as diff_amount
+            FROM stm_claim_item c
+        """
+        cursor.execute(stats_sql)
+        stats_row = cursor.fetchone()
+        total = stats_row[0] or 0
+        matched = stats_row[1] or 0
+        diff_amount = stats_row[2] or 0
+        stm_only = total - matched - diff_amount
+
+        stats = {
+            'total': total,
+            'matched': matched,
+            'diff_amount': diff_amount,
+            'stm_only': stm_only
+        }
+
+        cursor.close()
+        conn.close()
+
+        total_pages = (total + limit - 1) // limit
+
+        return jsonify({
+            'success': True,
+            'records': records,
+            'stats': stats,
+            'pagination': {
+                'page': page,
+                'limit': limit,
+                'total': total,
+                'total_pages': total_pages
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error fetching STM records: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/stm/clear-database', methods=['POST'])
+def clear_stm_database():
+    """Clear all Statement records from database (keep files)"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Delete claim items first (foreign key constraint)
+        cursor.execute("DELETE FROM stm_claim_item")
+        cursor.execute("DELETE FROM stm_rep_summary")
+        cursor.execute("DELETE FROM stm_receivable_summary")
+        cursor.execute("DELETE FROM stm_imported_files")
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': 'Statement database cleared successfully'
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error clearing STM database: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/rep/records')
+def get_rep_records():
+    """Get REP database records with reconciliation status"""
+    try:
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 50))
+        offset = (page - 1) * limit
+
+        view_mode = request.args.get('view_mode', 'rep')  # 'rep' or 'tran'
+        fiscal_year = request.args.get('fiscal_year', '')
+        rep_no = request.args.get('rep_no', '')
+        status = request.args.get('status', '')
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Build WHERE clause
+        where_clauses = []
+        params = []
+
+        if fiscal_year:
+            # Fiscal year filter based on dateadm (admission date)
+            # FY 2569 = Oct 2568 to Sep 2569 in Thai calendar = Oct 2025 to Sep 2026 in Gregorian
+            fy = int(fiscal_year)
+            start_date = f"{fy - 544}-10-01"  # Convert BE to CE: 2569-544=2025
+            end_date = f"{fy - 543}-09-30"
+            where_clauses.append("c.dateadm BETWEEN %s AND %s")
+            params.extend([start_date, end_date])
+
+        if rep_no:
+            where_clauses.append("c.rep_no LIKE %s")
+            params.append(f"%{rep_no}%")
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+        if view_mode == 'rep':
+            # Group by REP No
+            count_sql = f"""
+                SELECT COUNT(DISTINCT c.rep_no)
+                FROM claim_rep_opip_nhso_item c
+                WHERE {where_sql}
+            """
+            cursor.execute(count_sql, params)
+            total = cursor.fetchone()[0]
+
+            query = f"""
+                SELECT
+                    c.rep_no,
+                    COUNT(*) as count,
+                    SUM(COALESCE(c.reimb_nhso, 0)) as rep_amount,
+                    (
+                        SELECT SUM(COALESCE(s.paid_after_deduction, 0))
+                        FROM stm_claim_item s
+                        WHERE s.rep_no = c.rep_no
+                    ) as stm_amount,
+                    CASE
+                        WHEN (SELECT COUNT(*) FROM stm_claim_item s WHERE s.rep_no = c.rep_no) = 0 THEN 'rep_only'
+                        WHEN ABS(SUM(COALESCE(c.reimb_nhso, 0)) - COALESCE((SELECT SUM(COALESCE(s.paid_after_deduction, 0)) FROM stm_claim_item s WHERE s.rep_no = c.rep_no), 0)) < 1 THEN 'matched'
+                        ELSE 'diff_amount'
+                    END as status
+                FROM claim_rep_opip_nhso_item c
+                WHERE {where_sql}
+                GROUP BY c.rep_no
+                ORDER BY c.rep_no DESC
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, params + [limit, offset])
+        else:
+            # Individual transactions
+            count_sql = f"""
+                SELECT COUNT(*)
+                FROM claim_rep_opip_nhso_item c
+                WHERE {where_sql}
+            """
+            cursor.execute(count_sql, params)
+            total = cursor.fetchone()[0]
+
+            query = f"""
+                SELECT
+                    c.tran_id,
+                    c.rep_no,
+                    c.hn,
+                    COALESCE(c.reimb_nhso, 0) as rep_amount,
+                    (
+                        SELECT COALESCE(s.paid_after_deduction, 0)
+                        FROM stm_claim_item s
+                        WHERE s.tran_id = c.tran_id
+                        LIMIT 1
+                    ) as stm_amount,
+                    CASE
+                        WHEN NOT EXISTS (SELECT 1 FROM stm_claim_item s WHERE s.tran_id = c.tran_id) THEN 'rep_only'
+                        WHEN ABS(COALESCE(c.reimb_nhso, 0) - COALESCE((SELECT s.paid_after_deduction FROM stm_claim_item s WHERE s.tran_id = c.tran_id LIMIT 1), 0)) < 1 THEN 'matched'
+                        ELSE 'diff_amount'
+                    END as status
+                FROM claim_rep_opip_nhso_item c
+                WHERE {where_sql}
+                ORDER BY c.rep_no DESC, c.tran_id
+                LIMIT %s OFFSET %s
+            """
+            cursor.execute(query, params + [limit, offset])
+
+        columns = [desc[0] for desc in cursor.description]
+        records = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+        # Convert Decimal to float for JSON serialization
+        for rec in records:
+            for key in ['rep_amount', 'stm_amount', 'count']:
+                if key in rec and rec[key] is not None:
+                    rec[key] = float(rec[key])
+
+        # Apply status filter after fetch (for complex status calculation)
+        if status:
+            records = [r for r in records if r.get('status') == status]
+
+        # Get stats - count by checking if STM exists
+        stats_sql = """
+            SELECT
+                COUNT(*) as total,
+                COUNT(CASE WHEN EXISTS (
+                    SELECT 1 FROM stm_claim_item s
+                    WHERE s.tran_id = c.tran_id
+                    AND ABS(COALESCE(s.paid_after_deduction, 0) - COALESCE(c.reimb_nhso, 0)) < 1
+                ) THEN 1 END) as matched,
+                COUNT(CASE WHEN EXISTS (
+                    SELECT 1 FROM stm_claim_item s
+                    WHERE s.tran_id = c.tran_id
+                    AND ABS(COALESCE(s.paid_after_deduction, 0) - COALESCE(c.reimb_nhso, 0)) >= 1
+                ) THEN 1 END) as diff_amount
+            FROM claim_rep_opip_nhso_item c
+        """
+        cursor.execute(stats_sql)
+        stats_row = cursor.fetchone()
+        total_all = stats_row[0] or 0
+        matched = stats_row[1] or 0
+        diff_amount = stats_row[2] or 0
+        rep_only = total_all - matched - diff_amount
+
+        stats = {
+            'total': total_all,
+            'matched': matched,
+            'diff_amount': diff_amount,
+            'rep_only': rep_only
+        }
+
+        cursor.close()
+        conn.close()
+
+        total_pages = (total + limit - 1) // limit
+
+        return jsonify({
+            'success': True,
+            'records': records,
+            'stats': stats,
+            'pagination': {
+                'page': page,
+                'limit': limit,
+                'total': total,
+                'total_pages': total_pages
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error fetching REP records: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/rep/clear-database', methods=['POST'])
+def clear_rep_database():
+    """Clear all REP records from database (keep files)"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Delete REP records
+        cursor.execute("DELETE FROM claim_rep_opip_nhso_item")
+        cursor.execute("DELETE FROM claim_rep_orf_nhso_item")
+        cursor.execute("DELETE FROM eclaim_imported_files")
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': 'REP database cleared successfully'
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error clearing REP database: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/settings')
 def settings():
     """Settings page"""
