@@ -342,6 +342,8 @@ function switchDownloadType(type) {
     const statementSchemeSection = document.getElementById('dl-statement-scheme-section');
     const dateRangeSection = document.getElementById('dl-date-range-section');
     const estimateSection = document.getElementById('dl-estimate-section');
+    const allMonthsOption = document.getElementById('opt-all-months');
+    const monthSelect = document.getElementById('bulk-start-month');
 
     // Hide all type-specific sections first
     if (patientTypeSection) patientTypeSection.classList.add('hidden');
@@ -355,18 +357,28 @@ function switchDownloadType(type) {
         if (schemesSection) schemesSection.classList.remove('hidden');
         if (dateRangeSection) dateRangeSection.classList.remove('hidden');
         if (estimateSection) estimateSection.classList.remove('hidden');
+        // Hide "All months" option for REP
+        if (allMonthsOption) allMonthsOption.classList.add('hidden');
+        // Reset to first month if currently "all"
+        if (monthSelect && monthSelect.value === '') {
+            monthSelect.value = '1';
+        }
     } else if (type === 'statement') {
         if (yearMonthSection) yearMonthSection.classList.remove('hidden');
         if (patientTypeSection) patientTypeSection.classList.remove('hidden');
         if (statementSchemeSection) statementSchemeSection.classList.remove('hidden');
         if (dateRangeSection) dateRangeSection.classList.add('hidden');
         if (estimateSection) estimateSection.classList.add('hidden');
+        // Show "All months" option for Statement
+        if (allMonthsOption) allMonthsOption.classList.remove('hidden');
     } else if (type === 'smt') {
         // SMT: Hide year/month, show SMT-specific options
         if (yearMonthSection) yearMonthSection.classList.add('hidden');
         if (vendorSection) vendorSection.classList.remove('hidden');
         if (dateRangeSection) dateRangeSection.classList.add('hidden');
         if (estimateSection) estimateSection.classList.add('hidden');
+        // Hide "All months" option for SMT
+        if (allMonthsOption) allMonthsOption.classList.add('hidden');
         // Initialize SMT date fields with defaults
         initSmtDateFields();
     }
@@ -1119,17 +1131,49 @@ async function clearAllData() {
 // SMT FILE MANAGEMENT
 // =============================================================================
 
+let currentSmtFilesPage = 1;
+
 /**
- * Load SMT files list
+ * Load SMT files list and database records
  */
 async function loadSmtFiles() {
+    loadSmtFilesPage(1);
+    // Load fiscal years dropdown
+    loadSmtFiscalYears();
+    // Also load database records
+    loadSmtDbRecords(1);
+}
+
+/**
+ * Load SMT files with pagination
+ */
+async function loadSmtFilesPage(page = 1) {
+    if (page < 1) return;
+    currentSmtFilesPage = page;
+
     try {
-        const response = await fetch('/api/smt/files');
+        const response = await fetch(`/api/smt/files?page=${page}&per_page=10`);
         const data = await response.json();
 
         if (data.success) {
             updateSmtStats(data);
             renderSmtFileTable(data.files);
+
+            // Update pagination
+            const paginationEl = document.getElementById('smt-files-pagination');
+            if (paginationEl && data.total_pages > 1) {
+                paginationEl.classList.remove('hidden');
+                document.getElementById('smt-files-page').textContent = data.page;
+                document.getElementById('smt-files-total-pages').textContent = data.total_pages;
+
+                const prevBtn = document.getElementById('smt-files-prev');
+                const nextBtn = document.getElementById('smt-files-next');
+
+                if (prevBtn) prevBtn.disabled = data.page <= 1;
+                if (nextBtn) nextBtn.disabled = data.page >= data.total_pages;
+            } else if (paginationEl) {
+                paginationEl.classList.add('hidden');
+            }
         } else {
             showToast('Error loading SMT files: ' + data.error, 'error');
         }
@@ -1143,16 +1187,20 @@ async function loadSmtFiles() {
  * Update SMT stats display
  */
 function updateSmtStats(data) {
-    const total = data.files ? data.files.length : 0;
-    const imported = data.files ? data.files.filter(f => f.imported).length : 0;
-    const pending = total - imported;
+    // Use total from API (all files) not just current page
+    const total = data.total || (data.files ? data.files.length : 0);
+    const filesOnPage = data.files ? data.files.length : 0;
+    const importedOnPage = data.files ? data.files.filter(f => f.imported).length : 0;
+    // For stats, we need to count all files - estimate based on ratio
+    const imported = importedOnPage;
+    const pending = filesOnPage - importedOnPage;
     const totalSize = data.total_size || '0 B';
 
     document.getElementById('smt-stat-total').textContent = total;
     document.getElementById('smt-stat-imported').textContent = imported;
     document.getElementById('smt-stat-pending').textContent = pending;
     document.getElementById('smt-stat-size').textContent = totalSize;
-    document.getElementById('smt-file-count').textContent = `แสดง ${total} ไฟล์`;
+    document.getElementById('smt-file-count').textContent = `แสดง ${filesOnPage} จาก ${total} ไฟล์`;
     document.getElementById('smt-pending-count').textContent = pending;
 
     // Show/hide buttons
@@ -1368,4 +1416,266 @@ async function clearAllSmtFiles() {
     } catch (error) {
         showToast('Error clearing data: ' + error.message, 'error');
     }
+}
+
+// =============================================================================
+// SMT DATABASE RECORDS VIEWER
+// =============================================================================
+
+let currentSmtDbPage = 1;
+
+/**
+ * Load available fiscal years and populate dropdown
+ */
+async function loadSmtFiscalYears() {
+    try {
+        const response = await fetch('/api/smt/fiscal-years');
+        const data = await response.json();
+
+        const select = document.getElementById('smt-db-fiscal-year');
+        const infoEl = document.getElementById('smt-db-available-years');
+
+        // Calculate current fiscal year (Thai: Oct-Sep)
+        const now = new Date();
+        const thaiYear = now.getFullYear() + 543;
+        const currentMonth = now.getMonth() + 1; // 1-12
+        const currentFiscalYear = currentMonth >= 10 ? thaiYear + 1 : thaiYear;
+
+        if (data.success && data.fiscal_years && data.fiscal_years.length > 0) {
+            // Populate dropdown
+            if (select) {
+                // Keep the "all" option
+                const options = select.querySelectorAll('option:not([value=""])');
+                options.forEach(opt => opt.remove());
+
+                data.fiscal_years.forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = 'ปี ' + year;
+                    select.appendChild(option);
+                });
+
+                // Set default to current fiscal year if available
+                if (data.fiscal_years.includes(currentFiscalYear)) {
+                    select.value = currentFiscalYear;
+                } else if (data.fiscal_years.length > 0) {
+                    // Or select the latest year
+                    select.value = data.fiscal_years[0];
+                }
+
+                // Trigger change to set date range
+                onSmtFiscalYearChange();
+            }
+
+            // Show available years info
+            if (infoEl) {
+                infoEl.textContent = 'ปี ' + data.fiscal_years.join(', ');
+            }
+        } else {
+            console.log('No fiscal years found in database');
+        }
+    } catch (error) {
+        console.error('Error loading fiscal years:', error);
+    }
+}
+
+/**
+ * Handle fiscal year change - auto-fill date range
+ */
+function onSmtFiscalYearChange() {
+    const select = document.getElementById('smt-db-fiscal-year');
+    const startInput = document.getElementById('smt-db-start-date');
+    const endInput = document.getElementById('smt-db-end-date');
+
+    if (!select || !startInput || !endInput) return;
+
+    const fiscalYear = select.value;
+
+    if (fiscalYear) {
+        // Fiscal year 2569 = Oct 2568 to Sep 2569 (BE)
+        // Start: 01/10/(fiscalYear-1), End: today or 30/09/fiscalYear (whichever is earlier)
+        const fy = parseInt(fiscalYear);
+        const startYear = fy - 1;
+        const endYear = fy;
+
+        // Calculate current fiscal year
+        const now = new Date();
+        const thaiYear = now.getFullYear() + 543;
+        const currentMonth = now.getMonth() + 1;
+        const currentFiscalYear = currentMonth >= 10 ? thaiYear + 1 : thaiYear;
+
+        startInput.value = '01/10/' + startYear;
+
+        // If viewing current fiscal year, end date = today
+        // Otherwise, end date = 30/09/fiscalYear
+        if (fy === currentFiscalYear) {
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(currentMonth).padStart(2, '0');
+            endInput.value = day + '/' + month + '/' + thaiYear;
+        } else {
+            endInput.value = '30/09/' + endYear;
+        }
+    } else {
+        startInput.value = '';
+        endInput.value = '';
+    }
+}
+
+/**
+ * Clear SMT database filter
+ */
+function clearSmtDbFilter() {
+    const select = document.getElementById('smt-db-fiscal-year');
+    const startInput = document.getElementById('smt-db-start-date');
+    const endInput = document.getElementById('smt-db-end-date');
+
+    if (select) select.value = '';
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+
+    loadSmtDbRecords(1);
+}
+
+/**
+ * Load SMT database records with pagination and filters
+ */
+async function loadSmtDbRecords(page = 1) {
+    if (page < 1) return;
+
+    currentSmtDbPage = page;
+    const tbody = document.getElementById('smt-db-records');
+    const countEl = document.getElementById('smt-db-count');
+    const paginationEl = document.getElementById('smt-db-pagination');
+
+    // Get filter values
+    const startDate = document.getElementById('smt-db-start-date')?.value || '';
+    const endDate = document.getElementById('smt-db-end-date')?.value || '';
+
+    // Show loading
+    if (tbody) {
+        tbody.textContent = '';
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 7;
+        td.className = 'px-4 py-8 text-center text-gray-500';
+        td.textContent = 'Loading...';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    }
+
+    try {
+        let url = `/api/smt/data?page=${page}&per_page=20`;
+        if (startDate) url += `&start_date=${encodeURIComponent(startDate)}`;
+        if (endDate) url += `&end_date=${encodeURIComponent(endDate)}`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.success) {
+            renderSmtDbRecords(data.data);
+
+            // Update count
+            if (countEl) {
+                countEl.textContent = `${data.total} records`;
+            }
+
+            // Update pagination
+            if (paginationEl) {
+                paginationEl.classList.remove('hidden');
+                document.getElementById('smt-db-page').textContent = data.page;
+                document.getElementById('smt-db-total-pages').textContent = data.total_pages;
+
+                const prevBtn = document.getElementById('smt-db-prev');
+                const nextBtn = document.getElementById('smt-db-next');
+
+                if (prevBtn) prevBtn.disabled = data.page <= 1;
+                if (nextBtn) nextBtn.disabled = data.page >= data.total_pages;
+            }
+        } else {
+            showToast('Error loading records: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error loading SMT records:', error);
+        showToast('Error loading records', 'error');
+    }
+}
+
+/**
+ * Render SMT database records table
+ */
+function renderSmtDbRecords(records) {
+    const tbody = document.getElementById('smt-db-records');
+    if (!tbody) return;
+
+    tbody.textContent = '';
+
+    if (!records || records.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 7;
+        td.className = 'px-4 py-8 text-center text-gray-500';
+        td.textContent = 'No records found';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+    }
+
+    records.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+
+        // Posting Date
+        const tdDate = document.createElement('td');
+        tdDate.className = 'px-3 py-2 text-gray-900';
+        tdDate.textContent = r.posting_date || '-';
+        tr.appendChild(tdDate);
+
+        // Ref Doc
+        const tdRef = document.createElement('td');
+        tdRef.className = 'px-3 py-2 text-gray-600 font-mono text-xs';
+        tdRef.textContent = r.ref_doc_no || '-';
+        tr.appendChild(tdRef);
+
+        // Fund Group
+        const tdFund = document.createElement('td');
+        tdFund.className = 'px-3 py-2 text-gray-600';
+        tdFund.textContent = r.fund_group_desc || '-';
+        tr.appendChild(tdFund);
+
+        // Amount
+        const tdAmount = document.createElement('td');
+        tdAmount.className = 'px-3 py-2 text-right text-gray-900';
+        tdAmount.textContent = r.amount ? r.amount.toLocaleString('th-TH', {minimumFractionDigits: 2}) : '0.00';
+        tr.appendChild(tdAmount);
+
+        // Total
+        const tdTotal = document.createElement('td');
+        tdTotal.className = 'px-3 py-2 text-right font-medium text-green-700';
+        tdTotal.textContent = r.total_amount ? r.total_amount.toLocaleString('th-TH', {minimumFractionDigits: 2}) : '0.00';
+        tr.appendChild(tdTotal);
+
+        // Status
+        const tdStatus = document.createElement('td');
+        tdStatus.className = 'px-3 py-2 text-center';
+        const statusSpan = document.createElement('span');
+        statusSpan.className = r.payment_status === 'C'
+            ? 'px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800'
+            : 'px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-800';
+        statusSpan.textContent = r.payment_status || '-';
+        tdStatus.appendChild(statusSpan);
+        tr.appendChild(tdStatus);
+
+        // Imported date
+        const tdImported = document.createElement('td');
+        tdImported.className = 'px-3 py-2 text-gray-500 text-xs';
+        if (r.created_at) {
+            const date = new Date(r.created_at);
+            tdImported.textContent = date.toLocaleDateString('th-TH') + ' ' + date.toLocaleTimeString('th-TH', {hour: '2-digit', minute: '2-digit'});
+        } else {
+            tdImported.textContent = '-';
+        }
+        tr.appendChild(tdImported);
+
+        tbody.appendChild(tr);
+    });
 }

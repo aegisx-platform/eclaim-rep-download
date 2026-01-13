@@ -105,6 +105,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">เดือน</label>
                         <select id="bulk-start-month" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                            <option value="" id="opt-all-months" class="hidden">ทั้งหมด</option>
                             <option value="1">มกราคม</option>
                             <option value="2">กุมภาพันธ์</option>
                             <option value="3">มีนาคม</option>
@@ -865,6 +866,103 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Files Pagination -->
+        <div id="smt-files-pagination" class="mt-4 flex items-center justify-between hidden">
+            <div class="text-sm text-gray-500">
+                Page <span id="smt-files-page">1</span> of <span id="smt-files-total-pages">1</span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="loadSmtFilesPage(currentSmtFilesPage - 1)" id="smt-files-prev" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>Previous</button>
+                <button onclick="loadSmtFilesPage(currentSmtFilesPage + 1)" id="smt-files-next" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>Next</button>
+            </div>
+        </div>
+
+        <!-- Database Records Section -->
+        <div class="mt-8">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                    </svg>
+                    Database Records
+                </h3>
+                <span id="smt-db-count" class="text-sm text-gray-500">0 records</span>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                <div class="flex flex-wrap items-end gap-4">
+                    <!-- Fiscal Year -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">ปีงบประมาณ</label>
+                        <select id="smt-db-fiscal-year" onchange="onSmtFiscalYearChange()" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-32">
+                            <option value="">ทั้งหมด</option>
+                        </select>
+                    </div>
+
+                    <!-- Date Range -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">ตั้งแต่</label>
+                        <input type="text" id="smt-db-start-date" placeholder="dd/mm/yyyy" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-32">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">ถึง</label>
+                        <input type="text" id="smt-db-end-date" placeholder="dd/mm/yyyy" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-32">
+                    </div>
+
+                    <!-- Search Button -->
+                    <button onclick="loadSmtDbRecords(1)" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        ค้นหา
+                    </button>
+
+                    <!-- Clear Filter -->
+                    <button onclick="clearSmtDbFilter()" class="text-gray-600 hover:text-gray-800 px-3 py-1.5 text-sm">
+                        ล้าง
+                    </button>
+
+                    <!-- Available Years Info -->
+                    <div id="smt-db-years-info" class="ml-auto text-xs text-gray-500">
+                        ข้อมูลในฐาน: <span id="smt-db-available-years">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Posting Date</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ref Doc</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fund Group</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Imported</th>
+                        </tr>
+                    </thead>
+                    <tbody id="smt-db-records" class="bg-white divide-y divide-gray-200 text-sm">
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">Click Refresh to load records</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div id="smt-db-pagination" class="mt-4 flex items-center justify-between hidden">
+                <div class="text-sm text-gray-500">
+                    Page <span id="smt-db-page">1</span> of <span id="smt-db-total-pages">1</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="loadSmtDbRecords(currentSmtDbPage - 1)" id="smt-db-prev" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>Previous</button>
+                    <button onclick="loadSmtDbRecords(currentSmtDbPage + 1)" id="smt-db-next" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>Next</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2238,15 +2336,16 @@ function initStatementYears() {
 }
 
 async function downloadStatement() {
-    var year = document.getElementById('stm-year').value;
-    var month = document.getElementById('stm-month').value;
-    var scheme = document.getElementById('stm-scheme').value;
-    var personType = document.getElementById('stm-type').value;
+    var year = document.getElementById('bulk-start-year').value;
+    var month = document.getElementById('bulk-start-month').value;  // Empty = all months
+    var personType = document.getElementById('dl-patient-type').value;
 
-    var resultDiv = document.getElementById('stm-download-result');
-    resultDiv.textContent = 'กำลังเริ่มดาวน์โหลด...';
-    resultDiv.className = 'mt-4 p-3 rounded-lg bg-blue-100 text-blue-800';
-    resultDiv.classList.remove('hidden');
+    // Disable button during download
+    var downloadBtn = document.getElementById('download-btn');
+    var btnText = document.getElementById('download-btn-text');
+    var originalText = btnText.textContent;
+    downloadBtn.disabled = true;
+    btnText.textContent = 'กำลังดาวน์โหลด...';
 
     try {
         var response = await fetch('/api/stm/download', {
@@ -2254,27 +2353,25 @@ async function downloadStatement() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 year: year,
-                month: month || null,
-                scheme: scheme,
+                month: month || null,  // null = all months
+                scheme: 'ucs',  // Statement is UCS only
                 person_type: personType
             })
         });
         var result = await response.json();
 
         if (result.success) {
-            resultDiv.textContent = result.message + ' - ตรวจสอบที่ Logs';
-            resultDiv.className = 'mt-4 p-3 rounded-lg bg-green-100 text-green-800';
             showToast('Statement download started', 'success');
             setTimeout(loadStatementFiles, 3000);
         } else {
-            resultDiv.textContent = 'Error: ' + result.error;
-            resultDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-800';
             showToast('Error: ' + result.error, 'error');
         }
     } catch (error) {
-        resultDiv.textContent = 'Error: ' + error.message;
-        resultDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-800';
         showToast('Error: ' + error.message, 'error');
+    } finally {
+        // Re-enable button
+        downloadBtn.disabled = false;
+        btnText.textContent = originalText;
     }
 }
 

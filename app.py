@@ -1890,13 +1890,68 @@ def api_smt_settings():
             return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/smt/fiscal-years')
+def api_smt_fiscal_years():
+    """Get available fiscal years in database"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Get distinct fiscal years from posting_date
+        # posting_date format can be:
+        # - "25671227" (yyyymmdd in Buddhist Era) - 8 digits
+        # - "13/01/2569" (dd/mm/yyyy in Buddhist Era) - 10 chars
+        # Extract year and month, determine fiscal year (Oct-Sep)
+        # Month >= 10 means it belongs to next fiscal year
+        cursor.execute("""
+            SELECT DISTINCT
+                CASE
+                    WHEN LENGTH(posting_date) = 8 THEN
+                        CASE
+                            WHEN CAST(SUBSTRING(posting_date, 5, 2) AS INTEGER) >= 10
+                            THEN CAST(SUBSTRING(posting_date, 1, 4) AS INTEGER) + 1
+                            ELSE CAST(SUBSTRING(posting_date, 1, 4) AS INTEGER)
+                        END
+                    WHEN LENGTH(posting_date) = 10 THEN
+                        CASE
+                            WHEN CAST(SUBSTRING(posting_date, 4, 2) AS INTEGER) >= 10
+                            THEN CAST(RIGHT(posting_date, 4) AS INTEGER) + 1
+                            ELSE CAST(RIGHT(posting_date, 4) AS INTEGER)
+                        END
+                    ELSE NULL
+                END as fiscal_year
+            FROM smt_budget_transfers
+            WHERE posting_date IS NOT NULL AND LENGTH(posting_date) >= 8
+            ORDER BY fiscal_year DESC
+        """)
+
+        rows = cursor.fetchall()
+        fiscal_years = [r[0] for r in rows if r[0] and r[0] > 2500]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'fiscal_years': fiscal_years
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e), 'fiscal_years': []}), 200
+
+
 @app.route('/api/smt/data')
 def api_smt_data():
-    """Get SMT budget data from database"""
+    """Get SMT budget data from database with optional date filtering"""
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
         fund_group = request.args.get('fund_group')
+        start_date = request.args.get('start_date')  # Format: dd/mm/yyyy BE
+        end_date = request.args.get('end_date')      # Format: dd/mm/yyyy BE
 
         conn = get_db_connection()
         if not conn:
@@ -1904,28 +1959,73 @@ def api_smt_data():
 
         cursor = conn.cursor()
 
+        # Helper function to convert dd/mm/yyyy to sortable yyyymmdd format
+        def to_sortable(date_str):
+            if not date_str or len(date_str) < 10:
+                return None
+            parts = date_str.split('/')
+            if len(parts) == 3:
+                return f"{parts[2]}{parts[1]}{parts[0]}"
+            return None
+
         # Build query with parameterized values
-        # Note: where_clause contains only static SQL with %s placeholders, never user input
-        where_clause = ""
+        conditions = []
         params = []
+
         if fund_group:
-            where_clause = "WHERE fund_group_desc = %s"
+            conditions.append("fund_group_desc = %s")
             params.append(fund_group)
 
-        # Get total count (parameterized query)
+        # Convert dates to sortable format for string comparison
+        # posting_date can be stored as:
+        # - "25671227" (yyyymmdd) - 8 digits, already sortable
+        # - "27/12/2567" (dd/mm/yyyy) - 10 chars, need transformation
+        # We use CASE to handle both formats
+        sortable_posting_date_expr = """
+            CASE
+                WHEN LENGTH(posting_date) = 8 THEN posting_date
+                WHEN LENGTH(posting_date) = 10 THEN CONCAT(RIGHT(posting_date, 4), SUBSTRING(posting_date, 4, 2), SUBSTRING(posting_date, 1, 2))
+                ELSE posting_date
+            END
+        """
+
+        if start_date:
+            sortable_start = to_sortable(start_date)
+            if sortable_start:
+                conditions.append(f"({sortable_posting_date_expr}) >= %s")
+                params.append(sortable_start)
+
+        if end_date:
+            sortable_end = to_sortable(end_date)
+            if sortable_end:
+                conditions.append(f"({sortable_posting_date_expr}) <= %s")
+                params.append(sortable_end)
+
+        where_clause = ""
+        if conditions:
+            where_clause = "WHERE " + " AND ".join(conditions)
+
+        # Get total count
         count_query = "SELECT COUNT(*) FROM smt_budget_transfers " + where_clause
         cursor.execute(count_query, params)
         total = cursor.fetchone()[0]
 
-        # Get paginated data (parameterized query)
+        # Get paginated data - order by sortable date format
         offset = (page - 1) * per_page
+        sortable_order_expr = """
+            CASE
+                WHEN LENGTH(posting_date) = 8 THEN posting_date
+                WHEN LENGTH(posting_date) = 10 THEN CONCAT(RIGHT(posting_date, 4), SUBSTRING(posting_date, 4, 2), SUBSTRING(posting_date, 1, 2))
+                ELSE posting_date
+            END
+        """
         select_query = """
             SELECT id, run_date, posting_date, ref_doc_no, vendor_no,
                    fund_name, fund_group_desc, amount, total_amount,
                    bank_name, payment_status, created_at
             FROM smt_budget_transfers
-            """ + where_clause + """
-            ORDER BY posting_date DESC, id DESC
+            """ + where_clause + f"""
+            ORDER BY ({sortable_order_expr}) DESC, id DESC
             LIMIT %s OFFSET %s
         """
         cursor.execute(select_query, params + [per_page, offset])
@@ -2029,17 +2129,24 @@ def api_smt_clear():
 
 @app.route('/api/smt/files')
 def api_smt_files():
-    """List SMT files in downloads/smt directory"""
+    """List SMT files in downloads/smt directory with pagination"""
     try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+
         smt_dir = Path('downloads/smt')
         if not smt_dir.exists():
             return jsonify({
                 'success': True,
                 'files': [],
+                'total': 0,
+                'page': 1,
+                'per_page': per_page,
+                'total_pages': 0,
                 'total_size': '0 B'
             })
 
-        files = []
+        all_files = []
         total_bytes = 0
 
         # Check which files have been imported by querying database
@@ -2064,7 +2171,7 @@ def api_smt_files():
             vendor_id = parts[2] if len(parts) >= 3 else None
             is_imported = vendor_id in imported_vendors if vendor_id else False
 
-            files.append({
+            all_files.append({
                 'filename': f.name,
                 'size': humanize.naturalsize(stat.st_size),
                 'size_bytes': stat.st_size,
@@ -2073,11 +2180,21 @@ def api_smt_files():
             })
 
         # Sort by modified date, newest first
-        files.sort(key=lambda x: x['modified'], reverse=True)
+        all_files.sort(key=lambda x: x['modified'], reverse=True)
+
+        # Calculate pagination
+        total = len(all_files)
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 0
+        offset = (page - 1) * per_page
+        files = all_files[offset:offset + per_page]
 
         return jsonify({
             'success': True,
             'files': files,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': total_pages,
             'total_size': humanize.naturalsize(total_bytes)
         })
 
