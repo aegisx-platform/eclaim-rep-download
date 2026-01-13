@@ -133,7 +133,7 @@ def init_scheduler():
         )
 
     except Exception as e:
-        app.logger.error(f"Error initializing scheduler: {e}")
+        app.app.logger.error(f"Error initializing scheduler: {e}")
 
 
 def get_db_connection():
@@ -141,10 +141,10 @@ def get_db_connection():
     try:
         conn = get_pooled_connection()
         if conn is None:
-            app.logger.error("Failed to get connection from pool")
+            app.app.logger.error("Failed to get connection from pool")
         return conn
     except Exception as e:
-        app.logger.error(f"Database connection error: {e}")
+        app.app.logger.error(f"Database connection error: {e}")
         return None
 
 
@@ -186,7 +186,7 @@ def get_import_status_map():
         conn.close()
 
     except Exception as e:
-        app.logger.error(f"Error getting import status: {e}")
+        app.app.logger.error(f"Error getting import status: {e}")
         if conn:
             conn.close()
 
@@ -618,7 +618,7 @@ def data_management():
             cursor.close()
             conn.close()
         except Exception as e:
-            app.logger.error(f"Error getting db stats: {e}")
+            app.app.logger.error(f"Error getting db stats: {e}")
             if conn:
                 conn.close()
 
@@ -822,7 +822,7 @@ def trigger_stm_download():
         })
 
     except Exception as e:
-        app.logger.error(f"STM download error: {str(e)}")
+        app.app.logger.error(f"STM download error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -915,7 +915,7 @@ def get_stm_stats():
             cursor.close()
             conn.close()
         except Exception as e:
-            logger.warning(f"Could not fetch STM import status: {e}")
+            app.logger.warning(f"Could not fetch STM import status: {e}")
 
         if download_dir.exists():
             for f in download_dir.glob('STM_*.xls'):
@@ -987,7 +987,7 @@ def import_stm_file_route(filename):
             importer.disconnect()
 
     except Exception as e:
-        logger.error(f"STM import error: {e}")
+        app.logger.error(f"STM import error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -1020,7 +1020,7 @@ def import_all_stm_files():
             cursor.close()
             conn.close()
         except Exception as e:
-            logger.warning(f"Could not check existing STM imports: {e}")
+            app.logger.warning(f"Could not check existing STM imports: {e}")
 
         importer = STMImporter(db_config, DB_TYPE)
         try:
@@ -1063,7 +1063,7 @@ def import_all_stm_files():
         return jsonify({'success': True, **results})
 
     except Exception as e:
-        logger.error(f"STM import-all error: {e}")
+        app.logger.error(f"STM import-all error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -1085,7 +1085,7 @@ def delete_stm_file(filename):
             cursor.close()
             conn.close()
         except Exception as e:
-            logger.warning(f"Could not delete STM import record: {e}")
+            app.logger.warning(f"Could not delete STM import record: {e}")
 
         # Delete file
         file_path.unlink()
@@ -1113,7 +1113,7 @@ def clear_stm_files():
             cursor.close()
             conn.close()
         except Exception as e:
-            logger.warning(f"Could not clear STM import records: {e}")
+            app.logger.warning(f"Could not clear STM import records: {e}")
 
         # Delete files
         for f in download_dir.glob('STM_*.xls'):
@@ -1370,7 +1370,7 @@ def clear_all_data():
                 cursor.close()
                 conn.close()
             except Exception as e:
-                app.logger.error(f"Database clear error: {e}")
+                app.app.logger.error(f"Database clear error: {e}")
                 if conn:
                     conn.close()
                 return jsonify({
@@ -1388,7 +1388,7 @@ def clear_all_data():
         }), 200
 
     except Exception as e:
-        app.logger.error(f"Clear all data error: {e}")
+        app.app.logger.error(f"Clear all data error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1615,7 +1615,7 @@ def api_stm_schedule():
             return jsonify({'success': True, 'message': 'STM schedule settings updated'})
 
         except Exception as e:
-            logger.error(f"Error updating STM schedule: {e}")
+            app.logger.error(f"Error updating STM schedule: {e}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -1728,7 +1728,7 @@ def get_smt_summary():
         }
 
     except Exception as e:
-        app.logger.error(f"Error getting SMT summary: {e}")
+        app.app.logger.error(f"Error getting SMT summary: {e}")
         if conn:
             conn.close()
         return None
@@ -2472,7 +2472,7 @@ def api_smt_clear_files():
                 f.unlink()
                 deleted_count += 1
             except Exception as e:
-                app.logger.error(f"Error deleting {f.name}: {e}")
+                app.app.logger.error(f"Error deleting {f.name}: {e}")
 
         log_streamer.write_log(
             f"Cleared {deleted_count} SMT files from downloads/smt",
@@ -2513,7 +2513,7 @@ def init_smt_scheduler():
                 'system'
             )
     except Exception as e:
-        app.logger.error(f"Error initializing SMT scheduler: {e}")
+        app.app.logger.error(f"Error initializing SMT scheduler: {e}")
 
 
 # ============================================
@@ -3421,7 +3421,7 @@ def api_claims_detail():
         })
 
     except Exception as e:
-        app.logger.error(f"Error in claims detail: {e}")
+        app.app.logger.error(f"Error in claims detail: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -3472,7 +3472,7 @@ def api_claim_single(tran_id):
         })
 
     except Exception as e:
-        app.logger.error(f"Error getting claim {tran_id}: {e}")
+        app.app.logger.error(f"Error getting claim {tran_id}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -3679,7 +3679,7 @@ def api_denial_root_cause():
         })
 
     except Exception as e:
-        app.logger.error(f"Error in denial root cause: {e}")
+        app.app.logger.error(f"Error in denial root cause: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -3855,7 +3855,7 @@ def api_alerts():
         })
 
     except Exception as e:
-        app.logger.error(f"Error getting alerts: {e}")
+        app.app.logger.error(f"Error getting alerts: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -3976,7 +3976,7 @@ def api_revenue_forecast():
         })
 
     except Exception as e:
-        app.logger.error(f"Error in revenue forecast: {e}")
+        app.app.logger.error(f"Error in revenue forecast: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -4127,7 +4127,7 @@ def api_yoy_comparison():
         })
 
     except Exception as e:
-        app.logger.error(f"Error in YoY comparison: {e}")
+        app.app.logger.error(f"Error in YoY comparison: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -4250,7 +4250,7 @@ def api_export_report(report_type):
         return response
 
     except Exception as e:
-        app.logger.error(f"Error exporting report: {e}")
+        app.app.logger.error(f"Error exporting report: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -4494,7 +4494,7 @@ def api_benchmark():
         })
 
     except Exception as e:
-        app.logger.error(f"Error in benchmark comparison: {e}")
+        app.app.logger.error(f"Error in benchmark comparison: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -4894,7 +4894,7 @@ def api_denial_risk():
         })
 
     except Exception as e:
-        app.logger.error(f"Error in denial risk analysis: {e}")
+        app.app.logger.error(f"Error in denial risk analysis: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5039,7 +5039,7 @@ def api_anomalies():
                         'anomaly_type': 'high_rw'
                     })
         except Exception as rw_error:
-            app.logger.warning(f"RW anomaly detection skipped: {rw_error}")
+            app.app.logger.warning(f"RW anomaly detection skipped: {rw_error}")
             conn.rollback()  # Reset transaction state
 
         # 5. Anomaly summary
@@ -5076,7 +5076,7 @@ def api_anomalies():
         })
 
     except Exception as e:
-        app.logger.error(f"Error in anomaly detection: {e}")
+        app.app.logger.error(f"Error in anomaly detection: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5187,7 +5187,7 @@ def api_opportunities():
                     'rw_gap': round(float(row[8]), 3) if row[8] else 0
                 })
         except Exception as rw_error:
-            app.logger.warning(f"Coding opportunities analysis skipped: {rw_error}")
+            app.app.logger.warning(f"Coding opportunities analysis skipped: {rw_error}")
             conn.rollback()  # Reset transaction state
 
         # 4. Error claims that could be resubmitted
@@ -5250,7 +5250,7 @@ def api_opportunities():
         })
 
     except Exception as e:
-        app.logger.error(f"Error in revenue opportunities: {e}")
+        app.app.logger.error(f"Error in revenue opportunities: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5434,7 +5434,7 @@ def api_insights():
         })
 
     except Exception as e:
-        app.logger.error(f"Error generating insights: {e}")
+        app.app.logger.error(f"Error generating insights: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5450,7 +5450,7 @@ def api_ml_info():
         info = get_model_info()
         return jsonify({'success': True, 'data': info})
     except Exception as e:
-        app.logger.error(f"Error getting ML info: {e}")
+        app.app.logger.error(f"Error getting ML info: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5483,7 +5483,7 @@ def api_ml_predict():
         return jsonify({'success': True, 'data': result})
 
     except Exception as e:
-        app.logger.error(f"Error in ML prediction: {e}")
+        app.app.logger.error(f"Error in ML prediction: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5511,7 +5511,7 @@ def api_ml_predict_batch():
         return jsonify({'success': True, 'data': results})
 
     except Exception as e:
-        app.logger.error(f"Error in batch ML prediction: {e}")
+        app.app.logger.error(f"Error in batch ML prediction: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5606,7 +5606,7 @@ def api_ml_high_risk():
         })
 
     except Exception as e:
-        app.logger.error(f"Error in ML high risk prediction: {e}")
+        app.app.logger.error(f"Error in ML high risk prediction: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5664,7 +5664,7 @@ def reconciliation():
             selected_fy=fiscal_year
         )
     except Exception as e:
-        app.logger.error(f"Reconciliation error: {e}")
+        app.app.logger.error(f"Reconciliation error: {e}")
         if conn:
             conn.close()
         return render_template(
@@ -6272,7 +6272,7 @@ def api_health_offices_import():
             except Exception as e:
                 errors += 1
                 if errors <= 5:
-                    app.logger.error(f"Error importing row {idx}: {e}")
+                    app.app.logger.error(f"Error importing row {idx}: {e}")
 
         # Log import
         duration = time.time() - start_time
@@ -6389,7 +6389,7 @@ if __name__ == '__main__':
         init_pool()
         app.logger.info("Database connection pool initialized")
     except Exception as e:
-        app.logger.warning(f"Failed to initialize connection pool: {e}")
+        app.app.logger.warning(f"Failed to initialize connection pool: {e}")
 
     # Register cleanup on shutdown
     atexit.register(close_pool)
