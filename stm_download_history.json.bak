@@ -1,0 +1,82 @@
+{
+  "last_run": "2026-01-13T14:25:45.008252",
+  "downloads": [
+    {
+      "filename": "STM_10670_IPUCS256810_01.xls",
+      "document_no": "10670_IPUCS256810_01",
+      "scheme": "ucs",
+      "year": 2569,
+      "month": null,
+      "stmt_type": "ผู้ป่วยใน",
+      "service_month": "ตุลาคม",
+      "downloaded_at": "2026-01-13T14:11:45.509767",
+      "size": 4692480
+    },
+    {
+      "filename": "STM_10670_IPUCS256811_01.xls",
+      "document_no": "10670_IPUCS256811_01",
+      "scheme": "ucs",
+      "year": 2569,
+      "month": null,
+      "stmt_type": "ผู้ป่วยใน",
+      "service_month": "พฤศจิกายน",
+      "downloaded_at": "2026-01-13T14:11:48.499353",
+      "size": 4547072
+    },
+    {
+      "filename": "STM_10670_OPUCS256810_01.xls",
+      "document_no": "10670_OPUCS256810_01",
+      "scheme": "ucs",
+      "year": 2569,
+      "month": null,
+      "stmt_type": "ผู้ป่วยนอก",
+      "service_month": "ตุลาคม",
+      "downloaded_at": "2026-01-13T14:11:52.716215",
+      "size": 9630208
+    },
+    {
+      "filename": "STM_10670_OPUCS256810_02.xls",
+      "document_no": "10670_OPUCS256810_02",
+      "scheme": "ucs",
+      "year": 2569,
+      "month": null,
+      "stmt_type": "ผู้ป่วยนอก",
+      "service_month": "ตุลาคม",
+      "downloaded_at": "2026-01-13T14:11:57.125509",
+      "size": 9650688
+    },
+    {
+      "filename": "STM_10670_OPUCS256811_01.xls",
+      "document_no": "10670_OPUCS256811_01",
+      "scheme": "ucs",
+      "year": 2569,
+      "month": null,
+      "stmt_type": "ผู้ป่วยนอก",
+      "service_month": "พฤศจิกายน",
+      "downloaded_at": "2026-01-13T14:12:01.788847",
+      "size": 8719360
+    },
+    {
+      "filename": "STM_10670_OPUCS256811_02.xls",
+      "document_no": "10670_OPUCS256811_02",
+      "scheme": "ucs",
+      "year": 2569,
+      "month": null,
+      "stmt_type": "ผู้ป่วยนอก",
+      "service_month": "พฤศจิกายน",
+      "downloaded_at": "2026-01-13T14:12:05.699530",
+      "size": 9171456
+    },
+    {
+      "filename": "STM_10670_OPUCS256812_01.xls",
+      "document_no": "10670_OPUCS256812_01",
+      "scheme": "ucs",
+      "year": 2569,
+      "month": null,
+      "stmt_type": "ผู้ป่วยนอก",
+      "service_month": "ธันวาคม",
+      "downloaded_at": "2026-01-13T14:12:09.445776",
+      "size": 8492032
+    }
+  ]
+}

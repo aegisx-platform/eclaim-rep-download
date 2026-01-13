@@ -18,10 +18,21 @@ class EClaimFileParser:
     """Parse E-Claim XLS files and extract metadata and data"""
 
     # File type patterns
-    FILE_TYPES = ['OP', 'IP', 'ORF', 'IP_APPEAL', 'IP_APPEAL_NHSO']
+    # UCS: OP, IP (Universal Coverage Scheme - บัตรทอง)
+    # LGO: OPLGO, IPLGO (Local Government Organizations - อปท.)
+    # SSS: OPSSS, IPSSS (Social Security Scheme - ประกันสังคม)
+    # Special: ORF, IP_APPEAL, IP_APPEAL_NHSO, OP_APPEAL
+    FILE_TYPES = [
+        'OP', 'IP',                    # UCS (120 columns)
+        'OPLGO', 'IPLGO',              # LGO (58 columns)
+        'OPSSS', 'IPSSS',              # SSS (74 columns)
+        'ORF',                         # Outpatient Referral
+        'IP_APPEAL', 'IP_APPEAL_NHSO', # IP Appeal
+        'OP_APPEAL',                   # OP Appeal
+    ]
 
-    # Expected header keywords for detection
-    HEADER_KEYWORDS = ['HN', 'PID', 'TRAN_ID', 'AN', 'REP No.']
+    # Expected header keywords for detection (REP No. for UCS/SSS, REP for LGO)
+    HEADER_KEYWORDS = ['HN', 'PID', 'TRAN_ID', 'AN', 'REP No.', 'REP']
 
     def __init__(self, filepath: str):
         """

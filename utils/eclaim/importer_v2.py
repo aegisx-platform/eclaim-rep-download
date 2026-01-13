@@ -89,6 +89,113 @@ class EClaimImporterV2:
         'ยอดชดเชยหลังหักเงินเดือน\n(12 = 9-10-11)': 'reimb_diff_salary',
     }
 
+    # LGO Column mapping (อปท. - Local Government Organizations) - 58 columns
+    # Note: 'REP' instead of 'REP No.', 'ชื่อ - สกุล' instead of 'ชื่อ-สกุล'
+    LGO_COLUMN_MAP = {
+        'REP': 'rep_no',
+        'ลำดับที่': 'seq',
+        'TRAN_ID': 'tran_id',
+        'HN': 'hn',
+        'AN': 'an',
+        'PID': 'pid',
+        'ชื่อ - สกุล': 'name',           # Note: spaces around dash
+        'ประเภทผู้ป่วย': 'ptype',
+        'วันเข้ารักษา': 'dateadm',
+        'วันจำหน่าย': 'datedsc',
+        'ชดเชยสุทธิ': 'reimb_nhso',
+        'Error Code': 'error_code',
+        'กองทุน': 'main_fund',           # Single fund column (maps to main_fund)
+        'ประเภทบริการ': 'service_type',
+        'การรับส่งต่อ': 'chk_refer',
+        'การมีสิทธิ': 'chk_right',
+        'การใช้สิทธิ': 'chk_use_right',
+        'สิทธิหลัก': 'main_inscl',
+        'สิทธิรอง': 'sub_inscl',          # LGO uses สิทธิรอง instead of สิทธิย่อย
+        'HREF': 'href',
+        'HCODE': 'hcode',
+        'PROV1': 'prov1',
+        'รหัสหน่วยงาน': 'org_code',       # LGO-specific
+        'ชื่อหน่วยงาน': 'org_name',       # LGO-specific
+        'PROJ': 'projcode',
+        'PA': 'pa',
+        'DRG': 'drg',
+        'RW': 'rw',
+        'เรียกเก็บ': 'claim_drg',
+        'เบิกได้': 'claim_able',          # LGO-specific
+        'เบิกไม่ได้': 'claim_unable',     # LGO-specific
+        'ชำระเอง': 'paid',
+        'อัตราจ่าย': 'pay_point',
+        'ล่าช้า (PS)': 'ps_percent',
+        'ล่าช้า (PS) เปอร์เซ็นต์': 'ps_percent2',
+        'CCUF': 'ccuf',
+        'AdjRW': 'adjrw_nhso',
+        'พรบ.': 'act_amt',
+        'กรณี': 'case_type',
+        'Deny': 'deny_count',
+        'ORS': 'ors',                     # LGO-specific (Override)
+        'VA': 'va',
+        'AUDIT RESULTS': 'audit_result',
+        'SEQ NO': 'seq_no',
+        'INVOICE NO': 'invoice_no',
+        'INVOICE LT': 'invoice_lt',
+    }
+
+    # SSS Column mapping (ประกันสังคม - Social Security Scheme) - 74 columns
+    SSS_COLUMN_MAP = {
+        'REP No.': 'rep_no',
+        'ลำดับที่': 'seq',
+        'TRAN_ID': 'tran_id',
+        'HN': 'hn',
+        'AN': 'an',
+        'PID': 'pid',
+        'ชื่อ-สกุล': 'name',
+        'ประเภทผู้ป่วย': 'ptype',
+        'วันเข้ารักษา': 'dateadm',
+        'วันจำหน่าย': 'datedsc',
+        'กรณีที่เบิก': 'claim_case',       # SSS-specific
+        'ประเภทบริการ': 'service_type',
+        'การรับส่งต่อ': 'chk_refer',
+        'การมีสิทธิ': 'chk_right',
+        'การใช้สิทธิ': 'chk_use_right',
+        'CHK': 'chk',
+        'สิทธิหลัก': 'main_inscl',
+        'สิทธิย่อย': 'sub_inscl',
+        'HREF': 'href',
+        'HCODE': 'hcode',
+        'HMAIN': 'hmain',
+        'PROV1': 'prov1',
+        'HMAIN2': 'hmain2',
+        'PROV2': 'prov2',
+        'PROJ': 'projcode',
+        'HTYPE': 'htype',                 # SSS-specific
+        'AESTATUS': 'ae_status',          # SSS-specific
+        'IPTYPE': 'iptype',               # SSS-specific
+        'HSEND': 'hsend',                 # SSS-specific
+        'DRG': 'drg',
+        'RW(1)': 'rw',
+        'AdjRW\n(2)': 'adjrw_nhso',
+        'ชำระเอง': 'paid',
+        'อัตราจ่ายที่กำหนด\n(3)': 'pay_point',
+        'ระยะเวลาส่งข้อมูล (PS)': 'ps_percent',
+        'ขอเบิกค่าบริการ': 'claim_request',  # SSS-specific
+        'IP': 'ip_amt',
+        'OP': 'op_amt',
+        'AE': 'ae_amt',
+        'HC': 'hc_amt',
+        'INT': 'int_amt',
+        'ON TOP': 'on_top_amt',
+        'PP': 'pp_amt',
+        'รวมเงินค่าบริการทั้งหมด': 'total_service_amt',  # SSS-specific
+        'Error Code': 'error_code',
+        'Deny': 'deny_count',
+        'VA': 'va',
+        'REMARK': 'remark',
+        'AUDIT RESULTS': 'audit_result',
+        'SEQ NO': 'seq_no',
+        'INVOICE NO': 'invoice_no',
+        'INVOICE LT': 'invoice_lt',
+    }
+
     # ORF Column mapping - Uses column INDEX because ORF files have complex multi-level headers
     # Headers span rows 5, 7, and 8 with merged cells
     # Format: Excel column INDEX -> Database column name
@@ -255,6 +362,27 @@ class EClaimImporterV2:
             return self.cursor.fetchone()[0]
         elif self.db_type == 'mysql':
             return self.cursor.lastrowid
+
+    def get_column_map_for_type(self, file_type: str) -> Dict[str, str]:
+        """
+        Get the appropriate column mapping based on file type.
+
+        Args:
+            file_type: File type (OP, IP, OPLGO, IPLGO, OPSSS, IPSSS, etc.)
+
+        Returns:
+            Column mapping dict for the file type
+        """
+        # LGO variants (อปท.)
+        if file_type in ['OPLGO', 'IPLGO']:
+            return self.LGO_COLUMN_MAP
+
+        # SSS variants (ประกันสังคม)
+        if file_type in ['OPSSS', 'IPSSS']:
+            return self.SSS_COLUMN_MAP
+
+        # Default: UCS (OP, IP) and APPEAL types use OPIP_COLUMN_MAP
+        return self.OPIP_COLUMN_MAP
 
     def create_import_record(self, metadata: Dict) -> int:
         """
@@ -540,27 +668,30 @@ class EClaimImporterV2:
 
         return mapped
 
-    def import_opip_batch(self, file_id: int, df, start_row: int = 0) -> int:
+    def import_opip_batch(self, file_id: int, df, start_row: int = 0, column_map: Dict = None) -> int:
         """
-        Import batch of OP/IP records from DataFrame
+        Import batch of OP/IP/LGO/SSS records from DataFrame
 
         Args:
             file_id: File ID
             df: DataFrame with claim data
             start_row: Starting row number
+            column_map: Column mapping dict (defaults to OPIP_COLUMN_MAP)
 
         Returns:
             Number of successfully imported records
         """
-        import pandas as pd
-
         if df.empty:
             return 0
+
+        # Use provided column_map or default to OPIP_COLUMN_MAP
+        if column_map is None:
+            column_map = self.OPIP_COLUMN_MAP
 
         # Map all rows
         mapped_records = []
         for idx, row in df.iterrows():
-            mapped = self._map_dataframe_row(row, self.OPIP_COLUMN_MAP, file_id, start_row + idx)
+            mapped = self._map_dataframe_row(row, column_map, file_id, start_row + idx)
             mapped_records.append(mapped)
 
         if not mapped_records:
@@ -736,8 +867,10 @@ class EClaimImporterV2:
             # Import data based on file type
             if file_type == 'ORF':
                 imported_records = self.import_orf_batch(file_id, df)
-            else:  # OP, IP, APPEAL
-                imported_records = self.import_opip_batch(file_id, df)
+            else:  # OP, IP, OPLGO, IPLGO, OPSSS, IPSSS, APPEAL
+                # Get appropriate column mapping for file type
+                column_map = self.get_column_map_for_type(file_type)
+                imported_records = self.import_opip_batch(file_id, df, column_map=column_map)
 
             # Import additional sheets (Summary, Drug, Instrument, Deny, Zero)
             if import_additional_sheets:

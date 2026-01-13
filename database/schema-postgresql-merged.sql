@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS eclaim_imported_files (
     error_message       TEXT,
     created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_file_type CHECK (file_type IN ('OP', 'IP', 'ORF', 'IP_APPEAL', 'IP_APPEAL_NHSO')),
+    CONSTRAINT chk_file_type CHECK (file_type IN ('OP', 'IP', 'OPLGO', 'IPLGO', 'OPSSS', 'IPSSS', 'ORF', 'IP_APPEAL', 'IP_APPEAL_NHSO', 'OP_APPEAL')),
     CONSTRAINT chk_status CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'partial'))
 );
 

@@ -46,3 +46,42 @@ Total downloads in history: 24
 Download directory: /Users/sathitseethaphon/projects/kkh/eclaim-req-download/downloads
 Completed at: 2026-01-07 18:42:55
 ============================================================
+
+============================================================
+Started at: 2026-01-10 22:09:50
+Download for: Month 1, Year 2569 BE
+============================================================
+============================================================
+E-Claim Excel File Downloader (HTTP Client)
+============================================================
+Started at: 2026-01-10 22:09:50
+
+[2026-01-10 22:09:50] Logging in...
+✗ Login error: 500 Server Error: Internal Server Error for url: https://eclaim.nhso.go.th/webComponent/main/MainWebAction.do
+
+✗ Error: 500 Server Error: Internal Server Error for url: https://eclaim.nhso.go.th/webComponent/main/MainWebAction.do
+Traceback (most recent call last):
+  File "/app/eclaim_downloader_http.py", line 356, in run
+    self.login()
+  File "/app/eclaim_downloader_http.py", line 173, in login
+    response.raise_for_status()
+  File "/usr/local/lib/python3.12/site-packages/requests/models.py", line 1021, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 500 Server Error: Internal Server Error for url: https://eclaim.nhso.go.th/webComponent/main/MainWebAction.do
+Traceback (most recent call last):
+  File "/app/eclaim_downloader_http.py", line 444, in <module>
+    main()
+  File "/app/eclaim_downloader_http.py", line 441, in main
+    downloader.run()
+  File "/app/eclaim_downloader_http.py", line 356, in run
+    self.login()
+  File "/app/eclaim_downloader_http.py", line 173, in login
+    response.raise_for_status()
+  File "/usr/local/lib/python3.12/site-packages/requests/models.py", line 1021, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 500 Server Error: Internal Server Error for url: https://eclaim.nhso.go.th/webComponent/main/MainWebAction.do
+
+============================================================
+Started at: 2026-01-12 07:54:16
+Auto-import: ENABLED
+============================================================
