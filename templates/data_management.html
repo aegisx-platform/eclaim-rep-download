@@ -1460,45 +1460,72 @@
 
     <!-- ==================== SETTINGS TAB ==================== -->
     <div id="content-settings" class="tab-content p-6 hidden">
-        <div class="max-w-2xl">
-            <!-- Credentials Section -->
+        <div class="max-w-3xl">
+            <!-- Multiple Credentials Section -->
             <div class="border border-gray-200 rounded-lg p-6 mb-6">
-                <h3 class="text-lg font-semibold mb-4 flex items-center">
-                    <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
-                    </svg>
-                    E-Claim Credentials
-                </h3>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                        </svg>
+                        E-Claim Credentials
+                    </h3>
+                    <span id="credentials-count" class="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full"></span>
+                </div>
 
-                <form id="credentials-form" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                        <input type="text" id="eclaim-username" name="eclaim_username" value="{{ settings.eclaim_username }}"
-                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500" required>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                        <div class="relative">
-                            <input type="password" id="eclaim-password" name="eclaim_password" value="{{ settings.eclaim_password }}"
-                                   class="w-full border border-gray-300 rounded-md px-3 py-2 pr-10 focus:ring-2 focus:ring-blue-500" required>
-                            <button type="button" onclick="togglePasswordVisibility('eclaim-password')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                <p class="text-sm text-gray-600 mb-4">
+                    เพิ่มบัญชีได้หลายบัญชี ระบบจะสุ่มเลือกใช้อัตโนมัติเพื่อป้องกัน สปสช. block
+                </p>
+
+                <!-- Credentials List -->
+                <div id="credentials-list" class="space-y-3 mb-4">
+                    <!-- Credentials will be loaded here dynamically -->
+                </div>
+
+                <!-- Add New Credential Form -->
+                <div class="border-t border-gray-200 pt-4 mt-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">เพิ่มบัญชีใหม่</h4>
+                    <div class="grid grid-cols-12 gap-3">
+                        <div class="col-span-4">
+                            <input type="text" id="new-cred-username" placeholder="Username (เลขบัตรประชาชน)"
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="col-span-3">
+                            <div class="relative">
+                                <input type="password" id="new-cred-password" placeholder="Password"
+                                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm pr-8 focus:ring-2 focus:ring-blue-500">
+                                <button type="button" onclick="togglePasswordVisibility('new-cred-password')" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-span-3">
+                            <input type="text" id="new-cred-note" placeholder="หมายเหตุ (ไม่บังคับ)"
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="col-span-2">
+                            <button type="button" onclick="addCredential()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md text-sm font-medium">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                                 </svg>
+                                เพิ่ม
                             </button>
                         </div>
                     </div>
+                </div>
 
-                    <div class="flex gap-3">
-                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium">
-                            Save Credentials
-                        </button>
-                        <button type="button" onclick="testConnection()" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">
-                            Test Connection
-                        </button>
-                    </div>
-                </form>
+                <!-- Test Connection -->
+                <div class="border-t border-gray-200 pt-4 mt-4">
+                    <button type="button" onclick="testConnection()" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        Test Connection (Random Account)
+                    </button>
+                </div>
 
                 <div id="connection-status" class="hidden mt-4 p-3 rounded-lg"></div>
             </div>
@@ -2918,53 +2945,198 @@ function displayScheduleStatus(jobs) {
     if (statusBox) statusBox.className = 'mt-4 p-4 bg-green-50 rounded-lg border border-green-200';
 }
 
-// Credentials form
-document.getElementById('credentials-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
+// ===== Multiple Credentials Management =====
 
-    var data = {
-        eclaim_username: document.getElementById('eclaim-username').value,
-        eclaim_password: document.getElementById('eclaim-password').value
-    };
+// Load credentials on page load
+async function loadCredentials() {
+    try {
+        var response = await fetch('/api/settings/credentials');
+        var result = await response.json();
+
+        if (result.success) {
+            renderCredentialsList(result.credentials);
+            updateCredentialsCount(result.count);
+        }
+    } catch (error) {
+        console.error('Error loading credentials:', error);
+    }
+}
+
+function renderCredentialsList(credentials) {
+    var container = document.getElementById('credentials-list');
+
+    if (!credentials || credentials.length === 0) {
+        container.innerHTML = '<div class="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">' +
+            '<svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>' +
+            '</svg>' +
+            '<p>ยังไม่มีบัญชี กรุณาเพิ่มบัญชีด้านล่าง</p>' +
+            '</div>';
+        return;
+    }
+
+    var html = '';
+    credentials.forEach(function(cred, index) {
+        var enabledClass = cred.enabled ? 'bg-white' : 'bg-gray-100 opacity-60';
+        var statusBadge = cred.enabled
+            ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Active</span>'
+            : '<span class="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Disabled</span>';
+
+        html += '<div class="credential-item ' + enabledClass + ' border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow" data-username="' + cred.username + '">' +
+            '<div class="flex items-center justify-between">' +
+            '<div class="flex-1 grid grid-cols-12 gap-3 items-center">' +
+            '<div class="col-span-4">' +
+            '<div class="flex items-center gap-2">' +
+            '<input type="checkbox" ' + (cred.enabled ? 'checked' : '') +
+            ' onchange="toggleCredential(\'' + cred.username + '\', this.checked)"' +
+            ' class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">' +
+            '<div>' +
+            '<p class="font-medium text-gray-900 text-sm">' + cred.username + '</p>' +
+            '<p class="text-xs text-gray-500">' + (cred.note || 'No note') + '</p>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '<div class="col-span-3">' +
+            '<input type="password" value="' + cred.password + '" readonly' +
+            ' class="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1 text-sm text-gray-600">' +
+            '</div>' +
+            '<div class="col-span-3">' + statusBadge + '</div>' +
+            '<div class="col-span-2 text-right">' +
+            '<button onclick="removeCredential(\'' + cred.username + '\')" class="text-red-500 hover:text-red-700 p-1" title="Remove">' +
+            '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>' +
+            '</svg>' +
+            '</button>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+    });
+
+    container.innerHTML = html;
+}
+
+function updateCredentialsCount(count) {
+    var countEl = document.getElementById('credentials-count');
+    if (count.total === 0) {
+        countEl.textContent = 'ยังไม่มีบัญชี';
+        countEl.className = 'text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full';
+    } else {
+        countEl.textContent = count.enabled + '/' + count.total + ' บัญชี Active';
+        countEl.className = 'text-sm text-green-700 bg-green-100 px-3 py-1 rounded-full';
+    }
+}
+
+async function addCredential() {
+    var username = document.getElementById('new-cred-username').value.trim();
+    var password = document.getElementById('new-cred-password').value.trim();
+    var note = document.getElementById('new-cred-note').value.trim();
+
+    if (!username) {
+        showToast('กรุณาใส่ Username', 'error');
+        return;
+    }
+    if (!password) {
+        showToast('กรุณาใส่ Password', 'error');
+        return;
+    }
 
     try {
-        var response = await fetch('/api/settings', {
+        var response = await fetch('/api/settings/credentials', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            body: JSON.stringify({
+                username: username,
+                password: password,
+                note: note,
+                enabled: true
+            })
         });
 
         var result = await response.json();
         if (result.success) {
-            showToast('Settings saved!', 'success');
+            showToast('เพิ่มบัญชีสำเร็จ', 'success');
+            // Clear form
+            document.getElementById('new-cred-username').value = '';
+            document.getElementById('new-cred-password').value = '';
+            document.getElementById('new-cred-note').value = '';
+            // Reload list
+            loadCredentials();
         } else {
-            showToast(result.error || 'Failed to save', 'error');
+            showToast(result.error || 'Failed to add credential', 'error');
         }
     } catch (error) {
-        showToast('Error saving settings', 'error');
+        showToast('Error adding credential', 'error');
     }
+}
+
+async function removeCredential(username) {
+    if (!confirm('ต้องการลบบัญชี ' + username + ' ใช่หรือไม่?')) {
+        return;
+    }
+
+    try {
+        var response = await fetch('/api/settings/credentials/' + encodeURIComponent(username), {
+            method: 'DELETE'
+        });
+
+        var result = await response.json();
+        if (result.success) {
+            showToast('ลบบัญชีสำเร็จ', 'success');
+            loadCredentials();
+        } else {
+            showToast(result.error || 'Failed to remove credential', 'error');
+        }
+    } catch (error) {
+        showToast('Error removing credential', 'error');
+    }
+}
+
+async function toggleCredential(username, enabled) {
+    try {
+        var response = await fetch('/api/settings/credentials/' + encodeURIComponent(username), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: enabled })
+        });
+
+        var result = await response.json();
+        if (result.success) {
+            showToast(enabled ? 'เปิดใช้งานบัญชี' : 'ปิดใช้งานบัญชี', 'success');
+            loadCredentials();
+        } else {
+            showToast(result.error || 'Failed to update', 'error');
+        }
+    } catch (error) {
+        showToast('Error updating credential', 'error');
+    }
+}
+
+// Load credentials when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadCredentials();
 });
 
 async function testConnection() {
     var statusDiv = document.getElementById('connection-status');
     statusDiv.classList.remove('hidden');
-    statusDiv.className = 'mt-4 p-3 rounded-lg bg-gray-100';
-    statusDiv.textContent = 'Testing connection...';
+    statusDiv.className = 'mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200';
+    statusDiv.innerHTML = '<span class="text-blue-700">🔄 Testing connection (random account)...</span>';
 
     try {
         var response = await fetch('/api/settings/test-connection', { method: 'POST' });
         var result = await response.json();
 
         if (result.success) {
-            statusDiv.className = 'mt-4 p-3 rounded-lg bg-green-100 text-green-800';
-            statusDiv.textContent = result.message;
+            statusDiv.className = 'mt-4 p-3 rounded-lg bg-green-100 text-green-800 border border-green-200';
+            statusDiv.innerHTML = '✅ ' + result.message;
         } else {
-            statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-800';
-            statusDiv.textContent = result.error;
+            statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-800 border border-red-200';
+            statusDiv.innerHTML = '❌ ' + result.error;
         }
     } catch (error) {
-        statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-800';
-        statusDiv.textContent = 'Network error';
+        statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-800 border border-red-200';
+        statusDiv.innerHTML = '❌ Network error';
     }
 }
 

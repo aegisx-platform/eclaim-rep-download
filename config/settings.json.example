@@ -1,6 +1,20 @@
 {
   "eclaim_username": "your_username",
   "eclaim_password": "your_password",
+  "eclaim_credentials": [
+    {
+      "username": "1234567890123",
+      "password": "your_password",
+      "note": "Account 1",
+      "enabled": true
+    },
+    {
+      "username": "9876543210987",
+      "password": "another_password",
+      "note": "Account 2 (Backup)",
+      "enabled": true
+    }
+  ],
   "download_dir": "downloads",
   "auto_import_default": false,
   "schedule_enabled": false,

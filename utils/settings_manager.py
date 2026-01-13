@@ -4,8 +4,9 @@ Settings Manager - Manage application settings
 """
 
 import json
+import random
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Tuple
 
 
 class SettingsManager:
@@ -17,8 +18,11 @@ class SettingsManager:
 
         # Default settings
         self.default_settings = {
+            # Legacy single credential (for backward compatibility)
             'eclaim_username': '',
             'eclaim_password': '',
+            # Multiple credentials support
+            'eclaim_credentials': [],  # List of {"username": "", "password": "", "note": "", "enabled": true}
             'download_dir': 'downloads',
             'auto_import_default': False,
             # Unified schedule settings (applies to all data types)
@@ -71,22 +75,63 @@ class SettingsManager:
             print(f"Error saving settings: {e}")
             return False
 
-    def get_eclaim_credentials(self) -> tuple:
+    def get_eclaim_credentials(self, random_select: bool = True) -> Tuple[str, str]:
         """
-        Get E-Claim credentials
+        Get E-Claim credentials (randomly selected if multiple available)
+
+        Args:
+            random_select: If True, randomly select from enabled credentials
 
         Returns:
             (username, password) tuple
         """
         settings = self.load_settings()
+        credentials_list = settings.get('eclaim_credentials', [])
+
+        # Filter only enabled credentials
+        enabled_creds = [c for c in credentials_list if c.get('enabled', True)]
+
+        if enabled_creds:
+            if random_select and len(enabled_creds) > 1:
+                cred = random.choice(enabled_creds)
+            else:
+                cred = enabled_creds[0]
+            return (cred.get('username', ''), cred.get('password', ''))
+
+        # Fallback to legacy single credential
         return (
             settings.get('eclaim_username', ''),
             settings.get('eclaim_password', '')
         )
 
+    def get_all_credentials(self) -> List[Dict]:
+        """
+        Get all E-Claim credentials
+
+        Returns:
+            List of credential dicts with username, password, note, enabled
+        """
+        settings = self.load_settings()
+        credentials_list = settings.get('eclaim_credentials', [])
+
+        # If no multiple credentials but has legacy, convert it
+        if not credentials_list:
+            legacy_user = settings.get('eclaim_username', '')
+            legacy_pass = settings.get('eclaim_password', '')
+            if legacy_user and legacy_pass:
+                return [{
+                    'username': legacy_user,
+                    'password': legacy_pass,
+                    'note': 'Default Account',
+                    'enabled': True
+                }]
+
+        return credentials_list
+
     def update_credentials(self, username: str, password: str) -> bool:
         """
-        Update E-Claim credentials
+        Update E-Claim credentials (legacy single credential mode)
+        Also adds to credentials list if not exists
 
         Args:
             username: E-Claim username
@@ -98,12 +143,183 @@ class SettingsManager:
         settings = self.load_settings()
         settings['eclaim_username'] = username
         settings['eclaim_password'] = password
+
+        # Also update in credentials list
+        credentials_list = settings.get('eclaim_credentials', [])
+        found = False
+        for cred in credentials_list:
+            if cred.get('username') == username:
+                cred['password'] = password
+                found = True
+                break
+
+        if not found and username and password:
+            credentials_list.append({
+                'username': username,
+                'password': password,
+                'note': 'Default Account',
+                'enabled': True
+            })
+            settings['eclaim_credentials'] = credentials_list
+
+        return self.save_settings(settings)
+
+    def add_credential(self, username: str, password: str, note: str = '', enabled: bool = True) -> bool:
+        """
+        Add a new E-Claim credential
+
+        Args:
+            username: E-Claim username
+            password: E-Claim password
+            note: Optional note/label for this account
+            enabled: Whether this credential is active
+
+        Returns:
+            True if successful
+        """
+        settings = self.load_settings()
+        credentials_list = settings.get('eclaim_credentials', [])
+
+        # Check if username already exists
+        for cred in credentials_list:
+            if cred.get('username') == username:
+                # Update existing
+                cred['password'] = password
+                cred['note'] = note
+                cred['enabled'] = enabled
+                return self.save_settings(settings)
+
+        # Add new
+        credentials_list.append({
+            'username': username,
+            'password': password,
+            'note': note,
+            'enabled': enabled
+        })
+        settings['eclaim_credentials'] = credentials_list
+
+        # Also set as legacy if it's the first one
+        if len(credentials_list) == 1:
+            settings['eclaim_username'] = username
+            settings['eclaim_password'] = password
+
+        return self.save_settings(settings)
+
+    def remove_credential(self, username: str) -> bool:
+        """
+        Remove an E-Claim credential
+
+        Args:
+            username: E-Claim username to remove
+
+        Returns:
+            True if successful
+        """
+        settings = self.load_settings()
+        credentials_list = settings.get('eclaim_credentials', [])
+
+        # Filter out the credential
+        credentials_list = [c for c in credentials_list if c.get('username') != username]
+        settings['eclaim_credentials'] = credentials_list
+
+        # Update legacy credential if needed
+        if settings.get('eclaim_username') == username:
+            if credentials_list:
+                settings['eclaim_username'] = credentials_list[0].get('username', '')
+                settings['eclaim_password'] = credentials_list[0].get('password', '')
+            else:
+                settings['eclaim_username'] = ''
+                settings['eclaim_password'] = ''
+
+        return self.save_settings(settings)
+
+    def update_credential(self, username: str, password: str = None, note: str = None, enabled: bool = None) -> bool:
+        """
+        Update an existing E-Claim credential
+
+        Args:
+            username: E-Claim username to update
+            password: New password (None to keep existing)
+            note: New note (None to keep existing)
+            enabled: New enabled state (None to keep existing)
+
+        Returns:
+            True if successful
+        """
+        settings = self.load_settings()
+        credentials_list = settings.get('eclaim_credentials', [])
+
+        for cred in credentials_list:
+            if cred.get('username') == username:
+                if password is not None:
+                    cred['password'] = password
+                if note is not None:
+                    cred['note'] = note
+                if enabled is not None:
+                    cred['enabled'] = enabled
+                return self.save_settings(settings)
+
+        return False
+
+    def set_all_credentials(self, credentials: List[Dict]) -> bool:
+        """
+        Set all E-Claim credentials (replace all)
+
+        Args:
+            credentials: List of credential dicts with username, password, note, enabled
+
+        Returns:
+            True if successful
+        """
+        settings = self.load_settings()
+
+        # Validate and clean credentials
+        clean_creds = []
+        for cred in credentials:
+            if cred.get('username') and cred.get('password'):
+                clean_creds.append({
+                    'username': cred.get('username', ''),
+                    'password': cred.get('password', ''),
+                    'note': cred.get('note', ''),
+                    'enabled': cred.get('enabled', True)
+                })
+
+        settings['eclaim_credentials'] = clean_creds
+
+        # Update legacy credential
+        if clean_creds:
+            settings['eclaim_username'] = clean_creds[0].get('username', '')
+            settings['eclaim_password'] = clean_creds[0].get('password', '')
+        else:
+            settings['eclaim_username'] = ''
+            settings['eclaim_password'] = ''
+
         return self.save_settings(settings)
 
     def has_credentials(self) -> bool:
         """Check if credentials are configured"""
-        username, password = self.get_eclaim_credentials()
+        credentials = self.get_all_credentials()
+        if credentials:
+            enabled = [c for c in credentials if c.get('enabled', True)]
+            return len(enabled) > 0
+
+        # Fallback to legacy
+        username, password = self.get_eclaim_credentials(random_select=False)
         return bool(username and password)
+
+    def get_credentials_count(self) -> Dict:
+        """
+        Get count of credentials
+
+        Returns:
+            Dict with total and enabled counts
+        """
+        credentials = self.get_all_credentials()
+        enabled = [c for c in credentials if c.get('enabled', True)]
+        return {
+            'total': len(credentials),
+            'enabled': len(enabled)
+        }
 
     def get_schedule_settings(self) -> Dict:
         """

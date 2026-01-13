@@ -2299,6 +2299,97 @@ def api_settings():
             return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
 
 
+# ===== Multiple Credentials Management =====
+
+@app.route('/api/settings/credentials', methods=['GET', 'POST'])
+def manage_credentials():
+    """Manage multiple E-Claim credentials"""
+    if request.method == 'GET':
+        # Get all credentials (mask passwords)
+        credentials = settings_manager.get_all_credentials()
+        masked_creds = []
+        for cred in credentials:
+            masked_creds.append({
+                'username': cred.get('username', ''),
+                'password': '********',
+                'note': cred.get('note', ''),
+                'enabled': cred.get('enabled', True)
+            })
+        return jsonify({
+            'success': True,
+            'credentials': masked_creds,
+            'count': settings_manager.get_credentials_count()
+        })
+
+    elif request.method == 'POST':
+        # Add new credential
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '').strip()
+        note = data.get('note', '').strip()
+        enabled = data.get('enabled', True)
+
+        if not username:
+            return jsonify({'success': False, 'error': 'Username is required'}), 400
+        if not password:
+            return jsonify({'success': False, 'error': 'Password is required'}), 400
+
+        success = settings_manager.add_credential(username, password, note, enabled)
+        if success:
+            return jsonify({'success': True, 'message': 'Credential added successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to add credential'}), 500
+
+
+@app.route('/api/settings/credentials/<username>', methods=['PUT', 'DELETE'])
+def manage_credential(username):
+    """Update or delete a specific credential"""
+    if request.method == 'PUT':
+        data = request.get_json()
+        password = data.get('password')
+        note = data.get('note')
+        enabled = data.get('enabled')
+
+        # Don't update password if it's the placeholder
+        if password == '********':
+            password = None
+
+        success = settings_manager.update_credential(username, password, note, enabled)
+        if success:
+            return jsonify({'success': True, 'message': 'Credential updated successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Credential not found'}), 404
+
+    elif request.method == 'DELETE':
+        success = settings_manager.remove_credential(username)
+        if success:
+            return jsonify({'success': True, 'message': 'Credential removed successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to remove credential'}), 500
+
+
+@app.route('/api/settings/credentials/bulk', methods=['POST'])
+def bulk_update_credentials():
+    """Bulk update all credentials"""
+    data = request.get_json()
+    credentials = data.get('credentials', [])
+
+    # Preserve existing passwords for masked entries
+    existing_creds = {c['username']: c for c in settings_manager.get_all_credentials()}
+
+    for cred in credentials:
+        if cred.get('password') == '********':
+            existing = existing_creds.get(cred.get('username'))
+            if existing:
+                cred['password'] = existing.get('password', '')
+
+    success = settings_manager.set_all_credentials(credentials)
+    if success:
+        return jsonify({'success': True, 'message': 'Credentials updated successfully'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to update credentials'}), 500
+
+
 @app.route('/api/settings/test-connection', methods=['POST'])
 def test_eclaim_connection():
     """Test E-Claim login credentials"""
