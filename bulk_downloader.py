@@ -357,19 +357,17 @@ class BulkDownloader:
                         if d.get('month') == month and d.get('year') == year
                         and d.get('scheme', 'ucs') == scheme and d.get('filename')
                     ]
-                    new_filenames = [
-                        d.get('filename') for d in final_files
+                    new_downloads = [
+                        d for d in final_files
                         if d.get('filename') not in initial_filenames
                     ]
 
-                    # Convert filenames to full paths (downloads/filename)
-                    downloads_dir = Path('downloads')
+                    # Use file_path from history directly (already contains correct path)
                     new_file_paths = [
-                        str(downloads_dir / filename)
-                        for filename in new_filenames
-                        if (downloads_dir / filename).exists()
+                        d.get('file_path') for d in new_downloads
+                        if d.get('file_path') and Path(d.get('file_path')).exists()
                     ]
-                    files_downloaded = len(new_filenames)
+                    files_downloaded = len(new_downloads)
 
                     # Update result
                     result['status'] = 'completed'
