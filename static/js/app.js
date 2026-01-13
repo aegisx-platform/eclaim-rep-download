@@ -1438,6 +1438,35 @@ async function startDownload() {
 }
 
 /**
+ * Clear all REP files only (not database)
+ */
+async function clearAllRepFiles() {
+    if (!confirm('ยืนยันล้างไฟล์ REP ทั้งหมด?\n\nไฟล์จะถูกลบ แต่ข้อมูลในฐานข้อมูลจะยังคงอยู่')) {
+        return;
+    }
+
+    try {
+        showToast('กำลังล้างไฟล์...', 'info');
+
+        const response = await fetch('/api/rep/clear-files', {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(`ล้างไฟล์สำเร็จ! ลบ ${data.deleted_files} ไฟล์`, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(`Error: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error clearing REP files:', error);
+        showToast('Error clearing files', 'error');
+    }
+}
+
+/**
  * Clear all data (files, history, database) with confirmation
  */
 async function clearAllData() {

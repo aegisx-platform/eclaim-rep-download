@@ -2225,6 +2225,38 @@ def clear_rep_database():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/rep/clear-files', methods=['POST'])
+def clear_rep_files():
+    """Clear all REP files (keep database records)"""
+    try:
+        deleted_count = 0
+        rep_dir = Path('downloads/rep')
+
+        if rep_dir.exists():
+            for file in rep_dir.glob('*.*'):
+                if file.is_file():
+                    file.unlink()
+                    deleted_count += 1
+
+        # Also clear download history for REP
+        history = history_manager.load_history()
+        if 'downloads' in history:
+            original_count = len(history['downloads'])
+            history['downloads'] = [d for d in history['downloads'] if d.get('type') != 'rep']
+            removed_history = original_count - len(history['downloads'])
+            history_manager.save_history(history)
+
+        return jsonify({
+            'success': True,
+            'message': f'Cleared {deleted_count} REP files',
+            'deleted_files': deleted_count
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error clearing REP files: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/settings')
 def settings():
     """Settings page"""
