@@ -340,6 +340,7 @@ function switchDownloadType(type) {
     const vendorSection = document.getElementById('dl-vendor-section');
     const schemesSection = document.getElementById('dl-schemes-section');
     const statementSchemeSection = document.getElementById('dl-statement-scheme-section');
+    const statementAutoImportSection = document.getElementById('dl-statement-auto-import-section');
     const dateRangeSection = document.getElementById('dl-date-range-section');
     const estimateSection = document.getElementById('dl-estimate-section');
     const allMonthsOption = document.getElementById('opt-all-months');
@@ -350,6 +351,7 @@ function switchDownloadType(type) {
     if (vendorSection) vendorSection.classList.add('hidden');
     if (schemesSection) schemesSection.classList.add('hidden');
     if (statementSchemeSection) statementSchemeSection.classList.add('hidden');
+    if (statementAutoImportSection) statementAutoImportSection.classList.add('hidden');
 
     // Show relevant sections based on type
     if (type === 'rep') {
@@ -367,6 +369,7 @@ function switchDownloadType(type) {
         if (yearMonthSection) yearMonthSection.classList.remove('hidden');
         if (patientTypeSection) patientTypeSection.classList.remove('hidden');
         if (statementSchemeSection) statementSchemeSection.classList.remove('hidden');
+        if (statementAutoImportSection) statementAutoImportSection.classList.remove('hidden');
         if (dateRangeSection) dateRangeSection.classList.add('hidden');
         if (estimateSection) estimateSection.classList.add('hidden');
         // Show "All months" option for Statement

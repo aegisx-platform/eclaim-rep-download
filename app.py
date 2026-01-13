@@ -1368,7 +1368,7 @@ def date_range_stats():
 
 @app.route('/api/stm/download', methods=['POST'])
 def trigger_stm_download():
-    """Trigger STM (Statement) download"""
+    """Trigger STM (Statement) download with optional auto-import"""
     try:
         data = request.get_json()
 
@@ -1376,6 +1376,7 @@ def trigger_stm_download():
         month = data.get('month')  # Optional
         scheme = data.get('scheme', 'ucs')
         person_type = data.get('person_type', 'all')
+        auto_import = data.get('auto_import', False)
 
         # Validate inputs
         if not year:
@@ -1408,12 +1409,18 @@ def trigger_stm_download():
             with open(log_file, 'w') as f:
                 subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
 
+            # Auto-import if enabled
+            if auto_import:
+                import_log_file = Path('logs') / f"stm_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+                with open(import_log_file, 'w') as f:
+                    subprocess.run(['python3', 'stm_import.py', 'downloads/stm/'], stdout=f, stderr=subprocess.STDOUT)
+
         thread = threading.Thread(target=run_stm_download)
         thread.start()
 
         return jsonify({
             'success': True,
-            'message': f'STM download started for {scheme.upper()} year {year}'
+            'message': f'STM download started for {scheme.upper()} year {year}' + (' with auto-import' if auto_import else '')
         })
 
     except Exception as e:

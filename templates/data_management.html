@@ -141,6 +141,14 @@
                     </div>
                 </div>
 
+                <!-- Statement: Auto-import checkbox -->
+                <div id="dl-statement-auto-import-section" class="hidden">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="dl-stm-auto-import" class="w-4 h-4 text-purple-600 border-gray-300 rounded">
+                        <span class="text-sm text-gray-700">นำเข้าข้อมูลอัตโนมัติหลังดาวน์โหลด</span>
+                    </label>
+                </div>
+
                 <!-- SMT: Full Options (hidden by default) -->
                 <div id="dl-vendor-section" class="hidden space-y-4">
                     <!-- Vendor ID + Fiscal Year (same row) -->
@@ -2347,6 +2355,8 @@ async function downloadStatement() {
     var year = document.getElementById('bulk-start-year').value;
     var month = document.getElementById('bulk-start-month').value;  // Empty = all months
     var personType = document.getElementById('dl-patient-type').value;
+    var autoImportCheckbox = document.getElementById('dl-stm-auto-import');
+    var autoImport = autoImportCheckbox ? autoImportCheckbox.checked : false;
 
     // Disable button during download
     var downloadBtn = document.getElementById('download-btn');
@@ -2363,13 +2373,14 @@ async function downloadStatement() {
                 year: year,
                 month: month || null,  // null = all months
                 scheme: 'ucs',  // Statement is UCS only
-                person_type: personType
+                person_type: personType,
+                auto_import: autoImport
             })
         });
         var result = await response.json();
 
         if (result.success) {
-            showToast('Statement download started', 'success');
+            showToast('Statement download started' + (autoImport ? ' with auto-import' : ''), 'success');
             setTimeout(loadStatementFiles, 3000);
         } else {
             showToast('Error: ' + result.error, 'error');
