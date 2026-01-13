@@ -341,6 +341,7 @@ function switchDownloadType(type) {
     const schemesSection = document.getElementById('dl-schemes-section');
     const statementSchemeSection = document.getElementById('dl-statement-scheme-section');
     const statementAutoImportSection = document.getElementById('dl-statement-auto-import-section');
+    const bulkAutoImportSection = document.getElementById('dl-bulk-auto-import-section');
     const dateRangeSection = document.getElementById('dl-date-range-section');
     const estimateSection = document.getElementById('dl-estimate-section');
     const allMonthsOption = document.getElementById('opt-all-months');
@@ -352,6 +353,7 @@ function switchDownloadType(type) {
     if (schemesSection) schemesSection.classList.add('hidden');
     if (statementSchemeSection) statementSchemeSection.classList.add('hidden');
     if (statementAutoImportSection) statementAutoImportSection.classList.add('hidden');
+    if (bulkAutoImportSection) bulkAutoImportSection.classList.add('hidden');
 
     // Show relevant sections based on type
     if (type === 'rep') {
@@ -359,6 +361,7 @@ function switchDownloadType(type) {
         if (schemesSection) schemesSection.classList.remove('hidden');
         if (dateRangeSection) dateRangeSection.classList.remove('hidden');
         if (estimateSection) estimateSection.classList.remove('hidden');
+        if (bulkAutoImportSection) bulkAutoImportSection.classList.remove('hidden');
         // Hide "All months" option for REP
         if (allMonthsOption) allMonthsOption.classList.add('hidden');
         // Reset to first month if currently "all"
