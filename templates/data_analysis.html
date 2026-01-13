@@ -2,6 +2,228 @@
 
 {% block title %}Data Analysis - NHSO Revenue Intelligence{% endblock %}
 
+{% block extra_head %}
+<style>
+    /* Data Flow Animation Styles */
+
+    /* Pulsing glow effect for data boxes */
+    @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.3); }
+        50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.6), 0 0 30px rgba(59, 130, 246, 0.3); }
+    }
+
+    @keyframes pulse-glow-purple {
+        0%, 100% { box-shadow: 0 0 5px rgba(147, 51, 234, 0.3); }
+        50% { box-shadow: 0 0 20px rgba(147, 51, 234, 0.6), 0 0 30px rgba(147, 51, 234, 0.3); }
+    }
+
+    @keyframes pulse-glow-green {
+        0%, 100% { box-shadow: 0 0 5px rgba(34, 197, 94, 0.3); }
+        50% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.6), 0 0 30px rgba(34, 197, 94, 0.3); }
+    }
+
+    .data-box-rep {
+        animation: pulse-glow 2s ease-in-out infinite;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .data-box-stm {
+        animation: pulse-glow-purple 2s ease-in-out infinite;
+        animation-delay: 0.5s;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .data-box-smt {
+        animation: pulse-glow-green 2s ease-in-out infinite;
+        animation-delay: 1s;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .data-box-rep:hover,
+    .data-box-stm:hover,
+    .data-box-smt:hover {
+        transform: scale(1.05);
+    }
+
+    /* Flowing dots animation */
+    @keyframes flow-right {
+        0% { transform: translateX(-20px); opacity: 0; }
+        20% { opacity: 1; }
+        80% { opacity: 1; }
+        100% { transform: translateX(20px); opacity: 0; }
+    }
+
+    @keyframes flow-dots {
+        0% { left: 0%; opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { left: 100%; opacity: 0; }
+    }
+
+    .flow-arrow-container {
+        position: relative;
+        width: 80px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .flow-line {
+        position: absolute;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #94a3b8, transparent);
+        border-radius: 2px;
+    }
+
+    .flow-dot {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        animation: flow-dots 1.5s ease-in-out infinite;
+    }
+
+    .flow-dot-1 { animation-delay: 0s; }
+    .flow-dot-2 { animation-delay: 0.4s; }
+    .flow-dot-3 { animation-delay: 0.8s; }
+
+    .flow-blue .flow-dot { background: linear-gradient(135deg, #3b82f6, #8b5cf6); }
+    .flow-purple .flow-dot { background: linear-gradient(135deg, #8b5cf6, #22c55e); }
+
+    /* Arrow head animation */
+    .flow-arrow-head {
+        position: absolute;
+        right: -5px;
+        width: 0;
+        height: 0;
+        border-left: 8px solid #94a3b8;
+        border-top: 5px solid transparent;
+        border-bottom: 5px solid transparent;
+        animation: arrow-pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes arrow-pulse {
+        0%, 100% { opacity: 0.5; transform: translateX(0); }
+        50% { opacity: 1; transform: translateX(3px); }
+    }
+
+    /* Data packet animation */
+    @keyframes packet-flow {
+        0% { transform: translateX(-100%) scale(0.8); opacity: 0; }
+        10% { opacity: 1; transform: translateX(-80%) scale(1); }
+        90% { opacity: 1; transform: translateX(80%) scale(1); }
+        100% { transform: translateX(100%) scale(0.8); opacity: 0; }
+    }
+
+    .data-packet {
+        position: absolute;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        white-space: nowrap;
+        animation: packet-flow 3s ease-in-out infinite;
+    }
+
+    .data-packet-1 { animation-delay: 0s; top: -12px; }
+    .data-packet-2 { animation-delay: 1s; top: 28px; }
+
+    .flow-blue .data-packet {
+        background: linear-gradient(135deg, #dbeafe, #e9d5ff);
+        color: #4338ca;
+        border: 1px solid #818cf8;
+    }
+
+    .flow-purple .data-packet {
+        background: linear-gradient(135deg, #e9d5ff, #dcfce7);
+        color: #166534;
+        border: 1px solid #86efac;
+    }
+
+    /* Step indicator animation */
+    @keyframes step-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+    }
+
+    .step-indicator {
+        animation: step-bounce 2s ease-in-out infinite;
+    }
+
+    .step-indicator:nth-child(1) { animation-delay: 0s; }
+    .step-indicator:nth-child(2) { animation-delay: 0.3s; }
+    .step-indicator:nth-child(3) { animation-delay: 0.6s; }
+
+    /* Connecting line animation */
+    @keyframes line-draw {
+        0% { stroke-dashoffset: 100; }
+        100% { stroke-dashoffset: 0; }
+    }
+
+    .animated-line {
+        stroke-dasharray: 100;
+        animation: line-draw 2s ease-out forwards;
+    }
+
+    /* Number counter animation */
+    @keyframes count-pop {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+
+    .stat-number {
+        display: inline-block;
+        transition: all 0.3s ease;
+    }
+
+    .stat-number.updated {
+        animation: count-pop 0.3s ease;
+    }
+
+    /* Fade in animation for collapsible content */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-fadeIn {
+        animation: fadeIn 0.4s ease-out;
+    }
+
+    /* Rotate arrow animation */
+    .rotate-180 {
+        transform: rotate(180deg);
+    }
+</style>
+
+<script>
+    // Toggle flow details visibility
+    function toggleFlowDetails() {
+        const content = document.getElementById('flow-details-content');
+        const btnText = document.getElementById('flow-details-btn-text');
+        const arrow = document.getElementById('flow-details-arrow');
+
+        if (content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            btnText.textContent = 'ซ่อนรายละเอียด';
+            arrow.classList.add('rotate-180');
+        } else {
+            content.classList.add('hidden');
+            btnText.textContent = 'อ่านรายละเอียดกระบวนการเบิกจ่าย';
+            arrow.classList.remove('rotate-180');
+        }
+    }
+</script>
+{% endblock %}
+
 {% block content %}
 <!-- Header -->
 <div class="mb-6">
@@ -104,166 +326,654 @@
             <p id="summary-filter-info" class="text-xs text-gray-500 mt-2"></p>
         </div>
 
-        <!-- Summary Cards -->
+        <!-- Summary Cards with hover effects -->
         <div class="grid grid-cols-3 gap-6 mb-6">
             <!-- REP Summary -->
-            <div class="border border-blue-200 bg-blue-50 rounded-lg p-4">
-                <div class="flex items-center mb-3">
-                    <span class="text-2xl mr-2">📄</span>
-                    <h4 class="font-semibold text-blue-800">REP Files</h4>
+            <div class="border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group">
+                <div class="flex items-center mb-4">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <h4 class="font-semibold text-blue-800 text-lg">REP Files</h4>
                 </div>
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between">
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center">
                         <span class="text-gray-600">Total Records:</span>
-                        <span id="rep-total-records" class="font-semibold text-blue-700">-</span>
+                        <span id="rep-total-records" class="stat-number font-bold text-blue-700 text-lg">-</span>
                     </div>
-                    <div class="flex justify-between">
+                    <div class="flex justify-between items-center">
                         <span class="text-gray-600">Total Amount:</span>
-                        <span id="rep-total-amount" class="font-semibold text-blue-700">-</span>
+                        <span id="rep-total-amount" class="stat-number font-bold text-blue-700">-</span>
                     </div>
-                    <div class="flex justify-between">
+                    <div class="flex justify-between items-center">
                         <span class="text-gray-600">Files Imported:</span>
-                        <span id="rep-files-count" class="font-semibold text-blue-700">-</span>
+                        <span id="rep-files-count" class="stat-number font-bold text-blue-700">-</span>
                     </div>
                 </div>
             </div>
 
             <!-- Statement Summary -->
-            <div class="border border-purple-200 bg-purple-50 rounded-lg p-4">
-                <div class="flex items-center mb-3">
-                    <span class="text-2xl mr-2">📊</span>
-                    <h4 class="font-semibold text-purple-800">Statement</h4>
+            <div class="border border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group">
+                <div class="flex items-center mb-4">
+                    <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <h4 class="font-semibold text-purple-800 text-lg">Statement</h4>
                 </div>
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between">
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center">
                         <span class="text-gray-600">Total Records:</span>
-                        <span id="stm-total-records" class="font-semibold text-purple-700">-</span>
+                        <span id="stm-total-records" class="stat-number font-bold text-purple-700 text-lg">-</span>
                     </div>
-                    <div class="flex justify-between">
+                    <div class="flex justify-between items-center">
                         <span class="text-gray-600">Total Amount:</span>
-                        <span id="stm-total-amount" class="font-semibold text-purple-700">-</span>
+                        <span id="stm-total-amount" class="stat-number font-bold text-purple-700">-</span>
                     </div>
-                    <div class="flex justify-between">
+                    <div class="flex justify-between items-center">
                         <span class="text-gray-600">Files Imported:</span>
-                        <span id="stm-files-count" class="font-semibold text-purple-700">-</span>
+                        <span id="stm-files-count" class="stat-number font-bold text-purple-700">-</span>
                     </div>
                 </div>
             </div>
 
             <!-- SMT Summary -->
-            <div class="border border-green-200 bg-green-50 rounded-lg p-4">
-                <div class="flex items-center mb-3">
-                    <span class="text-2xl mr-2">💰</span>
-                    <h4 class="font-semibold text-green-800">SMT Budget</h4>
+            <div class="border border-green-200 bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group">
+                <div class="flex items-center mb-4">
+                    <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h4 class="font-semibold text-green-800 text-lg">SMT Budget</h4>
                 </div>
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between">
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center">
                         <span class="text-gray-600">Total Records:</span>
-                        <span id="smt-total-records" class="font-semibold text-green-700">-</span>
+                        <span id="smt-total-records" class="stat-number font-bold text-green-700 text-lg">-</span>
                     </div>
-                    <div class="flex justify-between">
+                    <div class="flex justify-between items-center">
                         <span class="text-gray-600">Total Amount:</span>
-                        <span id="smt-total-amount" class="font-semibold text-green-700">-</span>
+                        <span id="smt-total-amount" class="stat-number font-bold text-green-700">-</span>
                     </div>
-                    <div class="flex justify-between">
+                    <div class="flex justify-between items-center">
                         <span class="text-gray-600">Files Imported:</span>
-                        <span id="smt-files-count" class="font-semibold text-green-700">-</span>
+                        <span id="smt-files-count" class="stat-number font-bold text-green-700">-</span>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Link Diagram -->
-        <div class="border rounded-lg p-4 bg-gray-50">
-            <h4 class="font-semibold mb-3">Data Relationship</h4>
+        <div class="border border-gray-200 rounded-xl p-6 bg-gradient-to-b from-gray-50 to-white shadow-sm">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                    </svg>
+                </div>
+                <h4 class="font-semibold text-lg text-gray-800">Data Relationship Flow</h4>
+            </div>
 
-            <!-- Hierarchy explanation -->
-            <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p class="text-sm text-blue-800 mb-2"><strong>โครงสร้างข้อมูล REP:</strong></p>
-                <div class="flex items-center gap-2 text-sm">
-                    <span class="px-2 py-1 bg-blue-600 text-white rounded font-mono text-xs">rep_no</span>
+            <!-- Hierarchy explanation with animated elements -->
+            <div class="mb-6 p-4 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border border-blue-200 rounded-xl shadow-sm">
+                <div class="flex items-center gap-2 mb-3">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-sm text-blue-800 font-semibold">โครงสร้างข้อมูล REP:</p>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-mono text-xs shadow-sm flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+                        </svg>
+                        rep_no
+                    </span>
                     <span class="text-gray-600">รหัสการส่งเบิก (1 ครั้งส่งหลายคนไข้)</span>
                 </div>
-                <div class="flex items-center gap-2 text-sm mt-1 ml-6">
-                    <span class="text-gray-400">└─</span>
-                    <span class="px-2 py-1 bg-blue-400 text-white rounded font-mono text-xs">tran_id</span>
+                <div class="flex items-center gap-3 text-sm mt-2 ml-6">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+                    </svg>
+                    <span class="px-3 py-1.5 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-lg font-mono text-xs shadow-sm flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                        </svg>
+                        tran_id
+                    </span>
                     <span class="text-gray-600">รหัสรายการแต่ละ case (1 rep_no → หลาย tran_id)</span>
                 </div>
             </div>
 
-            <div class="flex items-center justify-center gap-6 py-4">
+            <div class="flex items-center justify-center gap-4 py-6">
                 <!-- REP -->
                 <div class="text-center">
-                    <div class="w-28 h-28 bg-blue-500 rounded-lg flex flex-col items-center justify-center text-white">
+                    <div class="data-box-rep w-32 h-32 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex flex-col items-center justify-center text-white cursor-pointer relative overflow-hidden">
+                        <div class="absolute inset-0 bg-white opacity-0 hover:opacity-10 transition-opacity"></div>
+                        <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
                         <span class="font-bold text-lg">REP</span>
-                        <span class="text-xs opacity-80 mt-1">claim_rep_opip</span>
+                        <span class="text-xs opacity-80">claim_rep_opip</span>
                     </div>
-                    <p class="text-xs mt-2 font-medium">ข้อมูลเรียกเก็บ</p>
+                    <p class="text-sm mt-2 font-medium text-gray-700">ข้อมูลเรียกเก็บ</p>
                     <p class="text-xs text-gray-500">rep_no, tran_id</p>
                 </div>
 
-                <!-- Arrow REP -> STM -->
+                <!-- Animated Arrow REP -> STM -->
                 <div class="flex flex-col items-center">
-                    <div class="flex items-center">
-                        <span class="text-2xl text-gray-400">←</span>
-                        <span class="text-2xl text-gray-400">→</span>
+                    <div class="flow-arrow-container flow-blue">
+                        <div class="flow-line"></div>
+                        <div class="flow-dot flow-dot-1"></div>
+                        <div class="flow-dot flow-dot-2"></div>
+                        <div class="flow-dot flow-dot-3"></div>
+                        <div class="flow-arrow-head"></div>
+                        <span class="data-packet data-packet-1">rep_no</span>
+                        <span class="data-packet data-packet-2">tran_id</span>
                     </div>
-                    <div class="text-center mt-1">
-                        <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">rep_no</span>
-                        <br>
-                        <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded mt-1 inline-block">tran_id</span>
+                    <div class="text-center mt-3">
+                        <span class="text-xs bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 px-2 py-1 rounded-full border border-blue-200 shadow-sm">Match Key</span>
                     </div>
                 </div>
 
                 <!-- Statement -->
                 <div class="text-center">
-                    <div class="w-28 h-28 bg-purple-500 rounded-lg flex flex-col items-center justify-center text-white">
+                    <div class="data-box-stm w-32 h-32 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex flex-col items-center justify-center text-white cursor-pointer relative overflow-hidden">
+                        <div class="absolute inset-0 bg-white opacity-0 hover:opacity-10 transition-opacity"></div>
+                        <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
                         <span class="font-bold text-lg">STM</span>
-                        <span class="text-xs opacity-80 mt-1">stm_claim_item</span>
+                        <span class="text-xs opacity-80">stm_claim_item</span>
                     </div>
-                    <p class="text-xs mt-2 font-medium">ใบแจ้งยอด</p>
+                    <p class="text-sm mt-2 font-medium text-gray-700">ใบแจ้งยอด</p>
                     <p class="text-xs text-gray-500">rep_no, tran_id</p>
                 </div>
 
-                <!-- Arrow STM -> SMT -->
+                <!-- Animated Arrow STM -> SMT -->
                 <div class="flex flex-col items-center">
-                    <div class="flex items-center">
-                        <span class="text-2xl text-gray-400">←</span>
-                        <span class="text-2xl text-gray-400">→</span>
+                    <div class="flow-arrow-container flow-purple">
+                        <div class="flow-line"></div>
+                        <div class="flow-dot flow-dot-1"></div>
+                        <div class="flow-dot flow-dot-2"></div>
+                        <div class="flow-dot flow-dot-3"></div>
+                        <div class="flow-arrow-head"></div>
+                        <span class="data-packet data-packet-1">date</span>
+                        <span class="data-packet data-packet-2">amount</span>
                     </div>
-                    <div class="text-center mt-1">
-                        <span class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded">posting_date</span>
-                        <br>
-                        <span class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded mt-1 inline-block">amount</span>
+                    <div class="text-center mt-3">
+                        <span class="text-xs bg-gradient-to-r from-purple-100 to-green-100 text-purple-800 px-2 py-1 rounded-full border border-purple-200 shadow-sm">Aggregate</span>
                     </div>
                 </div>
 
                 <!-- SMT Budget -->
                 <div class="text-center">
-                    <div class="w-28 h-28 bg-green-500 rounded-lg flex flex-col items-center justify-center text-white">
+                    <div class="data-box-smt w-32 h-32 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex flex-col items-center justify-center text-white cursor-pointer relative overflow-hidden">
+                        <div class="absolute inset-0 bg-white opacity-0 hover:opacity-10 transition-opacity"></div>
+                        <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
                         <span class="font-bold text-lg">SMT</span>
-                        <span class="text-xs opacity-80">Budget</span>
-                        <span class="text-xs opacity-80 mt-1">smt_budget</span>
+                        <span class="text-xs opacity-80">smt_budget</span>
                     </div>
-                    <p class="text-xs mt-2 font-medium">งบประมาณโอน</p>
+                    <p class="text-sm mt-2 font-medium text-gray-700">งบประมาณโอน</p>
                     <p class="text-xs text-gray-500">posting_date</p>
                 </div>
             </div>
 
-            <!-- Flow description -->
-            <div class="mt-4 grid grid-cols-3 gap-4 text-xs">
-                <div class="p-2 bg-blue-50 rounded border border-blue-200">
-                    <p class="font-medium text-blue-800">1. ส่งเบิก (REP)</p>
-                    <p class="text-blue-600">รพ.ส่งข้อมูลเรียกเก็บ → ได้ rep_no</p>
+            <!-- Flow description with animated steps -->
+            <div class="mt-6 grid grid-cols-3 gap-4 text-xs">
+                <div class="step-indicator p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-xs">1</span>
+                        <p class="font-semibold text-blue-800">ส่งเบิก (REP)</p>
+                    </div>
+                    <p class="text-blue-600 ml-8">รพ.ส่งข้อมูลเรียกเก็บ → ได้ rep_no</p>
+                    <div class="mt-2 ml-8 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span>
+                        <span class="text-blue-400 text-xs">Active</span>
+                    </div>
                 </div>
-                <div class="p-2 bg-purple-50 rounded border border-purple-200">
-                    <p class="font-medium text-purple-800">2. แจ้งยอด (Statement)</p>
-                    <p class="text-purple-600">สปสช.ตรวจสอบ → ออก Statement</p>
+                <div class="step-indicator p-3 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-xs">2</span>
+                        <p class="font-semibold text-purple-800">แจ้งยอด (Statement)</p>
+                    </div>
+                    <p class="text-purple-600 ml-8">สปสช.ตรวจสอบ → ออก Statement</p>
+                    <div class="mt-2 ml-8 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 bg-purple-400 rounded-full animate-pulse" style="animation-delay: 0.3s;"></span>
+                        <span class="text-purple-400 text-xs">Processing</span>
+                    </div>
                 </div>
-                <div class="p-2 bg-green-50 rounded border border-green-200">
-                    <p class="font-medium text-green-800">3. โอนเงิน (SMT)</p>
-                    <p class="text-green-600">สปสช.โอนงบประมาณ → รพ.รับเงิน</p>
+                <div class="step-indicator p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-xs">3</span>
+                        <p class="font-semibold text-green-800">โอนเงิน (SMT)</p>
+                    </div>
+                    <p class="text-green-600 ml-8">สปสช.โอนงบประมาณ → รพ.รับเงิน</p>
+                    <div class="mt-2 ml-8 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse" style="animation-delay: 0.6s;"></span>
+                        <span class="text-green-400 text-xs">Complete</span>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Read More Button -->
+            <div class="mt-6 text-center">
+                <button onclick="toggleFlowDetails()" id="flow-details-btn" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span id="flow-details-btn-text">อ่านรายละเอียดกระบวนการเบิกจ่าย</span>
+                    <svg id="flow-details-arrow" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Detailed Flow Explanation (Collapsible) -->
+            <div id="flow-details-content" class="hidden mt-6 space-y-6 animate-fadeIn">
+
+                <!-- Complete Flow Diagram -->
+                <div class="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-6 border border-slate-200">
+                    <h5 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                        <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        กระบวนการเบิกจ่ายแบบครบวงจร
+                    </h5>
+                    <div class="overflow-x-auto">
+                        <div class="flex items-center gap-2 min-w-max py-4">
+                            <!-- Step 1: Hospital Service -->
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                    </svg>
+                                </div>
+                                <span class="text-xs mt-2 font-medium text-center">รพ.ให้บริการ<br>ผู้ป่วย</span>
+                            </div>
+                            <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+
+                            <!-- Step 2: HIS Record -->
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                </div>
+                                <span class="text-xs mt-2 font-medium text-center">บันทึกข้อมูล<br>HIS</span>
+                            </div>
+                            <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+
+                            <!-- Step 3: Submit E-Claim -->
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                    </svg>
+                                </div>
+                                <span class="text-xs mt-2 font-medium text-center">ส่งข้อมูล<br>E-Claim</span>
+                            </div>
+                            <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+
+                            <!-- Step 4: NHSO Validation -->
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                    </svg>
+                                </div>
+                                <span class="text-xs mt-2 font-medium text-center">สปสช.<br>ตรวจสอบ</span>
+                            </div>
+                            <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+
+                            <!-- Step 5: REP -->
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center text-white shadow-lg ring-2 ring-blue-300">
+                                    <span class="font-bold text-sm">REP</span>
+                                </div>
+                                <span class="text-xs mt-2 font-medium text-center text-blue-700">รายงาน<br>เรียกเก็บ</span>
+                            </div>
+                            <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+
+                            <!-- Step 6: Statement -->
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl flex items-center justify-center text-white shadow-lg ring-2 ring-purple-300">
+                                    <span class="font-bold text-sm">STM</span>
+                                </div>
+                                <span class="text-xs mt-2 font-medium text-center text-purple-700">ใบแจ้งยอด<br>Statement</span>
+                            </div>
+                            <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+
+                            <!-- Step 7: SMT -->
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 bg-gradient-to-br from-green-600 to-green-700 rounded-xl flex items-center justify-center text-white shadow-lg ring-2 ring-green-300">
+                                    <span class="font-bold text-sm">SMT</span>
+                                </div>
+                                <span class="text-xs mt-2 font-medium text-center text-green-700">โอนเงิน<br>Budget</span>
+                            </div>
+                            <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+
+                            <!-- Step 8: Receive -->
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </div>
+                                <span class="text-xs mt-2 font-medium text-center text-emerald-700">รพ.รับเงิน<br>ชดเชย</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- REP Details -->
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center text-white shadow-lg flex-shrink-0">
+                            <span class="font-bold">REP</span>
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-bold text-lg text-blue-800 mb-2">REP - รายงานการเรียกเก็บ (Reimbursement Report)</h5>
+                            <p class="text-blue-700 text-sm mb-3">รายงานที่ สปสช. ออกให้หน่วยบริการหลังประมวลผลข้อมูลการเบิกเรียบร้อยแล้ว</p>
+
+                            <div class="grid md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <h6 class="font-semibold text-blue-800 mb-2">ข้อมูลสำคัญใน REP:</h6>
+                                    <ul class="space-y-1 text-blue-700">
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span><strong>REP_NO:</strong> เลขที่งวดเบิก (เช่น 6801, 6802)</li>
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span><strong>TRAN_ID:</strong> รหัสรายการธุรกรรมเฉพาะ</li>
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>ข้อมูลผู้ป่วย: HN, AN, PID, ชื่อ-สกุล</li>
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>ยอดเรียกเก็บ, ยอดชดเชย, DRG, AdjRW</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h6 class="font-semibold text-blue-800 mb-2">ประเภทไฟล์ REP:</h6>
+                                    <div class="space-y-2">
+                                        <div class="bg-white/50 rounded-lg p-2 border border-blue-200">
+                                            <span class="font-medium">REP OP</span> - ผู้ป่วยนอก (Outpatient)
+                                        </div>
+                                        <div class="bg-white/50 rounded-lg p-2 border border-blue-200">
+                                            <span class="font-medium">REP IP</span> - ผู้ป่วยใน (Inpatient)
+                                        </div>
+                                        <div class="bg-white/50 rounded-lg p-2 border border-blue-200">
+                                            <span class="font-medium">REP ORF</span> - ค่าใช้จ่ายส่งต่อ OP Refer
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statement Details -->
+                <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl flex items-center justify-center text-white shadow-lg flex-shrink-0">
+                            <span class="font-bold">STM</span>
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-bold text-lg text-purple-800 mb-2">Statement - ใบแจ้งยอด (Payment Statement)</h5>
+                            <p class="text-purple-700 text-sm mb-3">เอกสารสรุปยอดเงินที่ สปสช. จะจ่ายให้หน่วยบริการในแต่ละงวด โดยรวมข้อมูลจาก REP หลายฉบับเข้าด้วยกัน</p>
+
+                            <div class="grid md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <h6 class="font-semibold text-purple-800 mb-2">ข้อมูลใน Statement:</h6>
+                                    <ul class="space-y-1 text-purple-700">
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>งวดการจ่าย (Statement Period)</li>
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>รายละเอียดแยกตามกองทุนย่อย</li>
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>ยอดหักต่างๆ (เงินเดือน, ค่า พ.ร.บ.)</li>
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>ยอดสุทธิที่จะได้รับ</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h6 class="font-semibold text-purple-800 mb-2">กระบวนการ:</h6>
+                                    <ol class="space-y-1 text-purple-700 list-decimal list-inside">
+                                        <li>รวบรวมข้อมูลที่ผ่านการตรวจสอบ (สถานะ A)</li>
+                                        <li>ตัดยอดข้อมูลตามกำหนดการ</li>
+                                        <li>ประมวลผลคำนวณยอดชดเชย</li>
+                                        <li>ออก Statement แจ้งหน่วยบริการ</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SMT Budget Details -->
+                <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-green-600 to-green-700 rounded-xl flex items-center justify-center text-white shadow-lg flex-shrink-0">
+                            <span class="font-bold">SMT</span>
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="font-bold text-lg text-green-800 mb-2">SMT Budget - งบประมาณโอน (Smart Money Transfer)</h5>
+                            <p class="text-green-700 text-sm mb-3">ระบบบริหารการเบิกจ่ายเงินกองทุนหลักประกันสุขภาพแห่งชาติ ที่ สปสช. โอนเงินชดเชยให้หน่วยบริการ</p>
+
+                            <div class="grid md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <h6 class="font-semibold text-green-800 mb-2">ข้อมูลในระบบ SMT:</h6>
+                                    <ul class="space-y-1 text-green-700">
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>จำนวนงวดที่โอนในปีงบประมาณ</li>
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>วันที่โอนเงิน</li>
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>ยอดเงินที่โอน</li>
+                                        <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>รายละเอียดแยกตามประเภท OP/IP</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h6 class="font-semibold text-green-800 mb-2">ระบบที่เกี่ยวข้อง:</h6>
+                                    <div class="space-y-2">
+                                        <a href="https://smt.nhso.go.th/smtf/" target="_blank" class="block bg-white/50 rounded-lg p-2 border border-green-200 hover:bg-white transition-colors">
+                                            <span class="font-medium">SMT Portal</span>
+                                            <span class="text-xs text-green-600 block">smt.nhso.go.th - ดูรายละเอียดการโอนแต่ละงวด</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Relationship -->
+                <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-200">
+                    <h5 class="font-bold text-lg text-indigo-800 mb-4 flex items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                        </svg>
+                        ความสัมพันธ์ระหว่าง REP_NO, TRAN_ID และข้อมูลต่างๆ
+                    </h5>
+                    <div class="bg-white/60 rounded-lg p-4 font-mono text-sm">
+                        <pre class="text-indigo-800 whitespace-pre-wrap">
+TRAN_ID (รหัสรายการธุรกรรม)
+   │
+   │ ── รหัสเฉพาะของแต่ละ Visit/Episode
+   │ ── ไม่ซ้ำกันในระบบ ใช้อ้างอิงตลอดกระบวนการ
+   │
+   └──→ REP_NO (เลขที่งวดเบิก)
+           │
+           │ ── รหัสงวดการเบิก (เช่น 6801, 6802)
+           │ ── หนึ่ง REP_NO มีหลาย TRAN_ID
+           │
+           └──→ Statement Period (งวดใบแจ้งยอด)
+                   │
+                   │ ── รวม REP หลายฉบับ
+                   │
+                   └──→ SMT Transfer (การโอนเงิน)
+                           │
+                           └── โอนเงินตามยอด Statement</pre>
+                    </div>
+                    <div class="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <p class="text-sm text-yellow-800">
+                            <strong>ตัวอย่าง:</strong> ผู้ป่วย HN: 12345 → <span class="font-mono bg-yellow-100 px-1 rounded">TRAN_ID: 68012345001</span> → รวมใน <span class="font-mono bg-yellow-100 px-1 rounded">REP_NO: 6801</span> → Statement งวด 1/68 → โอนเงินผ่าน SMT
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Timeline -->
+                <div class="bg-gradient-to-br from-slate-50 to-gray-100 rounded-xl p-6 border border-slate-200">
+                    <h5 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Timeline กระบวนการ
+                    </h5>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-300">
+                                    <th class="text-left py-2 px-3 font-semibold text-slate-700">ขั้นตอน</th>
+                                    <th class="text-left py-2 px-3 font-semibold text-slate-700">ระยะเวลา</th>
+                                    <th class="text-left py-2 px-3 font-semibold text-slate-700">หมายเหตุ</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
+                                <tr>
+                                    <td class="py-2 px-3">ส่งข้อมูลเบิก</td>
+                                    <td class="py-2 px-3 font-medium text-blue-600">ภายใน 30 วัน</td>
+                                    <td class="py-2 px-3 text-slate-600">หลังจำหน่ายผู้ป่วย</td>
+                                </tr>
+                                <tr class="bg-slate-50">
+                                    <td class="py-2 px-3">ตรวจสอบข้อมูล</td>
+                                    <td class="py-2 px-3 font-medium text-amber-600">1-7 วัน</td>
+                                    <td class="py-2 px-3 text-slate-600">ขึ้นอยู่กับปริมาณข้อมูล</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2 px-3">ออก REP</td>
+                                    <td class="py-2 px-3 font-medium text-blue-600">หลังตรวจสอบผ่าน</td>
+                                    <td class="py-2 px-3 text-slate-600">รอบการประมวลผลปกติ</td>
+                                </tr>
+                                <tr class="bg-slate-50">
+                                    <td class="py-2 px-3">ออก Statement</td>
+                                    <td class="py-2 px-3 font-medium text-purple-600">วันที่ 15-20</td>
+                                    <td class="py-2 px-3 text-slate-600">ของเดือนหลังตัดยอด</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2 px-3">โอนเงิน</td>
+                                    <td class="py-2 px-3 font-medium text-green-600">ทุกสัปดาห์</td>
+                                    <td class="py-2 px-3 text-slate-600">โอนวันพุธสำหรับบางกลุ่ม</td>
+                                </tr>
+                                <tr class="bg-green-50 font-semibold">
+                                    <td class="py-2 px-3">รวมทั้งกระบวนการ</td>
+                                    <td class="py-2 px-3 text-green-700">30-45 วัน</td>
+                                    <td class="py-2 px-3 text-green-600">โดยประมาณ</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Status Codes -->
+                <div class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-200">
+                    <h5 class="font-bold text-lg text-amber-800 mb-4 flex items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        สถานะการตรวจสอบข้อมูล
+                    </h5>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="bg-green-100 rounded-lg p-4 border border-green-300">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center font-bold">A</span>
+                                <div>
+                                    <span class="font-semibold text-green-800">Accepted</span>
+                                    <p class="text-xs text-green-600">ผ่านการตรวจสอบ</p>
+                                </div>
+                            </div>
+                            <p class="text-sm text-green-700">รอออก Statement และโอนเงิน</p>
+                        </div>
+                        <div class="bg-red-100 rounded-lg p-4 border border-red-300">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="w-10 h-10 bg-red-500 text-white rounded-full flex items-center justify-center font-bold">C</span>
+                                <div>
+                                    <span class="font-semibold text-red-800">Error</span>
+                                    <p class="text-xs text-red-600">ไม่ผ่านการตรวจสอบ</p>
+                                </div>
+                            </div>
+                            <p class="text-sm text-red-700">แก้ไขข้อมูลผ่าน EPAC หรือ e-Appeal</p>
+                        </div>
+                        <div class="bg-yellow-100 rounded-lg p-4 border border-yellow-300">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="w-10 h-10 bg-yellow-500 text-white rounded-full flex items-center justify-center font-bold">W</span>
+                                <div>
+                                    <span class="font-semibold text-yellow-800">Warning</span>
+                                    <p class="text-xs text-yellow-600">ต้องตรวจสอบเพิ่มเติม</p>
+                                </div>
+                            </div>
+                            <p class="text-sm text-yellow-700">รอเจ้าหน้าที่ สปสช. ตรวจสอบ</p>
+                        </div>
+                        <div class="bg-gray-100 rounded-lg p-4 border border-gray-300">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="w-10 h-10 bg-gray-500 text-white rounded-full flex items-center justify-center font-bold">D</span>
+                                <div>
+                                    <span class="font-semibold text-gray-800">Deny</span>
+                                    <p class="text-xs text-gray-600">ถูกปฏิเสธ</p>
+                                </div>
+                            </div>
+                            <p class="text-sm text-gray-700">ยื่นอุทธรณ์หรือแก้ไขข้อมูล</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Common Errors -->
+                <div class="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-6 border border-red-200">
+                    <h5 class="font-bold text-lg text-red-800 mb-4 flex items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        สาเหตุที่พบบ่อยของการถูกปฏิเสธ
+                    </h5>
+                    <div class="grid md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <h6 class="font-semibold text-red-700 mb-2">รหัสติด C (ข้อมูลไม่ถูกต้อง):</h6>
+                            <ul class="space-y-1 text-red-700">
+                                <li><span class="font-mono bg-red-100 px-1 rounded">101</span> ไม่มีชื่อ-สกุลผู้ป่วย</li>
+                                <li><span class="font-mono bg-red-100 px-1 rounded">104</span> เลขบัตรประชาชนไม่ถูกต้อง</li>
+                                <li><span class="font-mono bg-red-100 px-1 rounded">201</span> ไม่มีรหัสวินิจฉัยโรคหลัก</li>
+                                <li><span class="font-mono bg-red-100 px-1 rounded">301</span> ไม่มีค่าใช้จ่ายในการรักษา</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h6 class="font-semibold text-red-700 mb-2">รหัสติด Deny (ถูกปฏิเสธ):</h6>
+                            <ul class="space-y-1 text-red-700">
+                                <li><span class="font-mono bg-red-100 px-1 rounded">123</span> วันที่จำหน่ายหลังวันที่ได้รับข้อมูล</li>
+                                <li><span class="font-mono bg-red-100 px-1 rounded">156</span> รหัสสถานพยาบาลไม่มีในฐานข้อมูล</li>
+                                <li><span class="font-mono bg-red-100 px-1 rounded">159</span> รหัสโรงพยาบาลรับส่งต่อไม่ถูกต้อง</li>
+                                <li><span class="font-mono bg-red-100 px-1 rounded">182</span> รหัสหน่วยบริการไม่สอดคล้องกับสิทธิ</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <p class="text-sm text-blue-800">
+                            <strong>วิธีแก้ไข:</strong> ข้อมูลติด C แก้ไขผ่าน <span class="font-semibold">EPAC</span> (ก่อนตัดยอด) หรือ <span class="font-semibold">e-Appeal</span> (หลังตัดยอด)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Related Links -->
+                <div class="bg-gradient-to-br from-gray-50 to-slate-100 rounded-xl p-6 border border-gray-200">
+                    <h5 class="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                        </svg>
+                        ระบบและเว็บไซต์ที่เกี่ยวข้อง
+                    </h5>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <a href="https://eclaim.nhso.go.th/webComponent/" target="_blank" class="block bg-white rounded-lg p-4 border border-gray-200 hover:shadow-lg hover:-translate-y-0.5 transition-all">
+                            <div class="font-semibold text-blue-600">E-Claim Portal</div>
+                            <p class="text-xs text-gray-500">ส่งข้อมูลเบิก / ดาวน์โหลด REP / Statement</p>
+                        </a>
+                        <a href="https://smt.nhso.go.th/smtf/" target="_blank" class="block bg-white rounded-lg p-4 border border-gray-200 hover:shadow-lg hover:-translate-y-0.5 transition-all">
+                            <div class="font-semibold text-green-600">SMT Portal</div>
+                            <p class="text-xs text-gray-500">ตรวจสอบการโอนเงิน / ดูงบประมาณรายงวด</p>
+                        </a>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
