@@ -668,7 +668,24 @@ class EClaimImporterV2:
 
         return mapped
 
-    def import_opip_batch(self, file_id: int, df, start_row: int = 0, column_map: Dict = None) -> int:
+    def get_scheme_for_type(self, file_type: str) -> str:
+        """
+        Get the insurance scheme code based on file type.
+
+        Args:
+            file_type: File type (OP, IP, OPLGO, IPLGO, OPSSS, IPSSS, etc.)
+
+        Returns:
+            Scheme code: 'UCS', 'LGO', or 'SSS'
+        """
+        if file_type in ['OPLGO', 'IPLGO']:
+            return 'LGO'
+        elif file_type in ['OPSSS', 'IPSSS']:
+            return 'SSS'
+        else:
+            return 'UCS'
+
+    def import_opip_batch(self, file_id: int, df, start_row: int = 0, column_map: Dict = None, file_type: str = None) -> int:
         """
         Import batch of OP/IP/LGO/SSS records from DataFrame
 
@@ -677,6 +694,7 @@ class EClaimImporterV2:
             df: DataFrame with claim data
             start_row: Starting row number
             column_map: Column mapping dict (defaults to OPIP_COLUMN_MAP)
+            file_type: File type for determining scheme (OP, IP, OPLGO, etc.)
 
         Returns:
             Number of successfully imported records
@@ -688,10 +706,14 @@ class EClaimImporterV2:
         if column_map is None:
             column_map = self.OPIP_COLUMN_MAP
 
+        # Determine scheme based on file_type
+        scheme = self.get_scheme_for_type(file_type) if file_type else 'UCS'
+
         # Map all rows
         mapped_records = []
         for idx, row in df.iterrows():
             mapped = self._map_dataframe_row(row, column_map, file_id, start_row + idx)
+            mapped['scheme'] = scheme  # Add scheme to each record
             mapped_records.append(mapped)
 
         if not mapped_records:
@@ -870,7 +892,7 @@ class EClaimImporterV2:
             else:  # OP, IP, OPLGO, IPLGO, OPSSS, IPSSS, APPEAL
                 # Get appropriate column mapping for file type
                 column_map = self.get_column_map_for_type(file_type)
-                imported_records = self.import_opip_batch(file_id, df, column_map=column_map)
+                imported_records = self.import_opip_batch(file_id, df, column_map=column_map, file_type=file_type)
 
             # Import additional sheets (Summary, Drug, Instrument, Deny, Zero)
             if import_additional_sheets:

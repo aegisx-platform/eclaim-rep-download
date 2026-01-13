@@ -125,3 +125,15 @@ class LogStreamer:
 
 # Global instance
 log_streamer = LogStreamer()
+
+
+def stream_log(message: str, level: str = 'info', source: str = 'download'):
+    """
+    Convenience function to write log entry
+
+    Args:
+        message: Log message
+        level: Log level (info, success, error, warning)
+        source: Source of log (download, import, system)
+    """
+    log_streamer.write_log(message, level, source)
