@@ -296,6 +296,31 @@
                             </label>
                         </div>
 
+                        <!-- Parallel Download (REP only) -->
+                        <div id="dl-parallel-section" class="border-t pt-4">
+                            <label class="flex items-center cursor-pointer mb-3">
+                                <input type="checkbox" id="parallel-download" class="w-4 h-4 text-purple-600 rounded">
+                                <span class="ml-2 text-sm text-gray-700">
+                                    <span class="font-medium text-purple-700">Parallel Download</span>
+                                    <span class="text-gray-500">(เร็วขึ้น ~3x)</span>
+                                </span>
+                            </label>
+                            <div id="parallel-workers-section" class="hidden ml-6 space-y-2">
+                                <div class="flex items-center gap-3">
+                                    <label class="text-xs text-gray-600">Workers:</label>
+                                    <select id="parallel-workers" class="border border-gray-300 rounded px-2 py-1 text-sm">
+                                        <option value="2">2 (Safe)</option>
+                                        <option value="3" selected>3 (Recommended)</option>
+                                        <option value="4">4 (Fast)</option>
+                                        <option value="5">5 (Aggressive)</option>
+                                    </select>
+                                </div>
+                                <p class="text-xs text-gray-500">
+                                    ใช้หลาย sessions พร้อมกัน (ปลอมเป็นหลาย browser)
+                                </p>
+                            </div>
+                        </div>
+
                         <!-- Clear Download History -->
                         <div class="border-t pt-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">ล้าง Download History</label>

@@ -591,6 +591,8 @@ async function downloadBulk() {
     const endMonthVal = document.getElementById('bulk-end-month').value;
     const endYearVal = document.getElementById('bulk-end-year').value;
     const autoImport = document.getElementById('bulk-auto-import')?.checked || false;
+    const parallelEnabled = document.getElementById('parallel-download')?.checked || false;
+    const parallelWorkers = parseInt(document.getElementById('parallel-workers')?.value || '3');
 
     // Handle "ทุกเดือน" (all months) - download full fiscal year
     // Fiscal year: October to September
@@ -618,13 +620,18 @@ async function downloadBulk() {
     const toText = `${monthNames[endMonth]} ${endYear}`;
     const fiscalYearText = startMonthVal === '' ? ` (ปีงบ ${startYearVal})` : '';
 
+    // Different estimate for parallel vs sequential
+    const estimatedTime = parallelEnabled ? Math.ceil(totalMonths / parallelWorkers) : totalMonths;
+    const modeText = parallelEnabled ? `Parallel (${parallelWorkers} workers)` : 'Sequential';
+
     // Confirm with user
     if (!confirm(
         `ดาวน์โหลด ${totalMonths} เดือน${fiscalYearText}\n\n` +
         `จาก: ${fromText} ถึง ${toText}\n` +
-        `เวลาโดยประมาณ: ~${totalMonths} นาที\n` +
+        `Mode: ${modeText}\n` +
+        `เวลาโดยประมาณ: ~${estimatedTime} นาที\n` +
         `Auto-import: ${autoImport ? 'YES' : 'NO'}\n\n` +
-        `ดำเนินการทีละเดือน`
+        `ดำเนินการ?`
     )) {
         return;
     }
@@ -633,33 +640,59 @@ async function downloadBulk() {
     setDownloadButtonState(true, 'กำลังเริ่มต้น...');
 
     try {
-        const response = await fetch('/download/trigger/bulk', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                start_month: startMonth,
-                start_year: startYear,
-                end_month: endMonth,
-                end_year: endYear,
-                auto_import: autoImport
-            })
-        });
+        // Use parallel or sequential based on setting
+        if (parallelEnabled) {
+            // Parallel download - one month at a time but files in parallel
+            const response = await fetch('/api/download/parallel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    month: startMonth,
+                    year: startYear,
+                    scheme: 'ucs',
+                    max_workers: parallelWorkers,
+                    auto_import: autoImport
+                })
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (data.success) {
-            showToast(`Bulk download started!${autoImport ? ' (with auto-import)' : ''}`, 'success');
-            setDownloadButtonState(true, 'กำลังดาวน์โหลด...');
-            startBulkProgressPolling();
+            if (data.success) {
+                showToast(`Parallel download started (${parallelWorkers} workers)!`, 'success');
+                setDownloadButtonState(true, `กำลังดาวน์โหลด (${parallelWorkers}x)...`);
+                startParallelProgressPolling();
+            } else {
+                showToast(data.error || 'Failed to start parallel download', 'error');
+                setDownloadButtonState(false);
+            }
         } else {
-            showToast(data.error || 'Failed to start bulk download', 'error');
-            setDownloadButtonState(false);
+            // Sequential download
+            const response = await fetch('/download/trigger/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    start_month: startMonth,
+                    start_year: startYear,
+                    end_month: endMonth,
+                    end_year: endYear,
+                    auto_import: autoImport
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showToast(`Bulk download started!${autoImport ? ' (with auto-import)' : ''}`, 'success');
+                setDownloadButtonState(true, 'กำลังดาวน์โหลด...');
+                startBulkProgressPolling();
+            } else {
+                showToast(data.error || 'Failed to start bulk download', 'error');
+                setDownloadButtonState(false);
+            }
         }
     } catch (error) {
-        console.error('Error starting bulk download:', error);
-        showToast('Error starting bulk download', 'error');
+        console.error('Error starting download:', error);
+        showToast('Error starting download', 'error');
         setDownloadButtonState(false);
     }
 }
@@ -734,6 +767,110 @@ async function cancelBulkDownload() {
             `;
         }
     }
+}
+
+/**
+ * Toggle parallel workers section visibility
+ */
+function toggleParallelWorkersSection() {
+    const checkbox = document.getElementById('parallel-download');
+    const workersSection = document.getElementById('parallel-workers-section');
+
+    if (checkbox && workersSection) {
+        if (checkbox.checked) {
+            workersSection.classList.remove('hidden');
+        } else {
+            workersSection.classList.add('hidden');
+        }
+    }
+}
+
+// Parallel download progress polling interval
+let parallelPollingInterval = null;
+
+/**
+ * Start polling parallel download progress
+ */
+function startParallelProgressPolling() {
+    const progressDiv = document.getElementById('bulk-progress');
+    const currentMonthSpan = document.getElementById('current-month');
+    const progressCountSpan = document.getElementById('progress-count');
+    const progressBar = document.getElementById('progress-bar');
+    const progressPercentage = document.getElementById('progress-percentage');
+
+    // Show progress display
+    if (progressDiv) progressDiv.classList.remove('hidden');
+
+    // Clear any existing interval
+    if (parallelPollingInterval) {
+        clearInterval(parallelPollingInterval);
+    }
+
+    // Poll every 2 seconds
+    parallelPollingInterval = setInterval(async () => {
+        try {
+            const response = await fetch('/api/download/parallel/progress');
+            const progress = await response.json();
+
+            if (progress.running || progress.status === 'downloading') {
+                // Update display
+                const completed = progress.completed || 0;
+                const total = progress.total || 0;
+                const failed = progress.failed || 0;
+                const workers = progress.workers || [];
+
+                // Update current status
+                if (currentMonthSpan) {
+                    const workerInfo = workers.length > 0
+                        ? workers.map(w => w.name.split('/')[0]).join(', ')
+                        : `${Object.keys(progress.current_files || {}).length} active`;
+                    currentMonthSpan.textContent = `Parallel: ${workerInfo}`;
+                }
+
+                // Update progress count
+                if (progressCountSpan) {
+                    progressCountSpan.textContent = `${completed} / ${total} files`;
+                }
+
+                // Update progress bar
+                const percentage = total > 0 ? (completed / total) * 100 : 0;
+                if (progressBar) {
+                    progressBar.style.width = `${Math.max(percentage, 2)}%`;
+                }
+
+                // Update percentage text
+                if (progressPercentage) {
+                    progressPercentage.textContent = `${completed}/${total}`;
+                }
+
+            } else if (progress.status === 'completed' || progress.status === 'error') {
+                // Download completed
+                clearInterval(parallelPollingInterval);
+                parallelPollingInterval = null;
+
+                if (progress.status === 'completed') {
+                    showToast(`Parallel download completed! ${progress.completed || 0} files`, 'success');
+                } else {
+                    showToast(`Download error: ${progress.error || 'Unknown'}`, 'error');
+                }
+
+                // Reset button
+                setDownloadButtonState(false);
+
+                // Update progress to 100%
+                if (progressBar) progressBar.style.width = '100%';
+                if (progressPercentage) progressPercentage.textContent = '✓ Done';
+
+                // Hide progress after delay
+                setTimeout(() => {
+                    if (progressDiv) progressDiv.classList.add('hidden');
+                }, 3000);
+            }
+
+        } catch (error) {
+            console.error('Error polling parallel progress:', error);
+        }
+    }, 2000);
 }
 
 /**
@@ -1323,6 +1460,12 @@ async function deleteFailedDownloads(downloadType) {
  */
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        // Setup parallel download checkbox listener
+        const parallelCheckbox = document.getElementById('parallel-download');
+        if (parallelCheckbox) {
+            parallelCheckbox.addEventListener('change', toggleParallelWorkersSection);
+        }
+
         // Check download status
         const response = await fetch('/download/status');
         const status = await response.json();
@@ -1340,6 +1483,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Resume bulk progress polling and disable button
             setDownloadButtonState(true, 'กำลังดาวน์โหลด...');
             startBulkProgressPolling();
+        }
+
+        // Check for parallel download in progress
+        const parallelResponse = await fetch('/api/download/parallel/progress');
+        const parallelProgress = await parallelResponse.json();
+
+        if (parallelProgress.running || parallelProgress.status === 'downloading') {
+            // Resume parallel progress polling
+            setDownloadButtonState(true, 'กำลังดาวน์โหลด (parallel)...');
+            startParallelProgressPolling();
         }
 
         // Check for import in progress
