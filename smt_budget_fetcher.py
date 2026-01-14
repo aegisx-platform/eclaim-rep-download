@@ -165,8 +165,16 @@ class SMTBudgetFetcher:
         """
         # Get default dates if not provided
         if not start_date or not end_date:
-            start_date, end_date, fiscal_year = self._get_current_fiscal_year_dates()
-            if not budget_year:
+            if budget_year:
+                # Generate date range for the specified budget year
+                # Thai fiscal year runs Oct 1 (year-1) to Sep 30 (year)
+                # e.g., FY 2568 = Oct 1, 2567 to Sep 30, 2568
+                start_year_be = budget_year - 1  # Previous BE year for October start
+                start_date = f"01/10/{start_year_be}"
+                end_date = f"30/09/{budget_year}"
+            else:
+                # Use current fiscal year dates
+                start_date, end_date, fiscal_year = self._get_current_fiscal_year_dates()
                 budget_year = fiscal_year
 
         if not budget_year:

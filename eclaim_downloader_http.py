@@ -18,6 +18,13 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Job history tracking (optional - may not be available in all environments)
+job_history_manager = None
+try:
+    from utils.job_history_manager import job_history_manager
+except ImportError:
+    pass  # Running standalone without job tracking
+
 # Direct log writing for real-time logs (works in subprocess)
 import json as json_module
 REALTIME_LOG_FILE = Path('logs/realtime.log')
