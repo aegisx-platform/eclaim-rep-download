@@ -317,12 +317,12 @@
                 </svg>
             </button>
             <div id="comparison-content" class="hidden p-6">
-                <!-- Quick Add Buttons -->
-                <div class="mb-4 flex flex-wrap gap-2">
-                    <span class="text-sm text-gray-500 py-1">เพิ่มด่วน:</span>
-                    <button onclick="addSameProvince()" class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200">+ จังหวัดเดียวกัน</button>
-                    <button onclick="addSameRegion()" class="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-full hover:bg-green-200">+ เขตสุขภาพเดียวกัน</button>
-                    <button onclick="addSameLevel()" class="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200">+ ระดับเดียวกัน</button>
+                <!-- Info about fetching -->
+                <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    ค้นหาและเลือก รพ. ที่ต้องการเปรียบเทียบ หากยังไม่มีข้อมูลในระบบ สามารถกดดึงข้อมูล SMT ได้
                 </div>
 
                 <!-- Search and Add Hospital -->
@@ -331,7 +331,7 @@
                         <input type="text" id="compare-search" placeholder="ค้นหาโรงพยาบาลเพื่อเปรียบเทียบ..."
                                onkeyup="searchCompareHospitals()"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        <div id="compare-search-results" class="absolute z-20 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto hidden">
+                        <div id="compare-search-results" class="absolute z-20 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-80 overflow-y-auto hidden">
                         </div>
                     </div>
                 </div>
@@ -1315,7 +1315,153 @@ async function addComparisonHospital(h) {
         updateComparisonUI();
         showToast('เพิ่ม ' + h.name + ' สำเร็จ (' + Object.keys(yearData).length + ' ปี)', 'success');
     } else {
-        showToast('ไม่พบข้อมูล SMT สำหรับ ' + h.name, 'warning');
+        // No data found - offer to fetch SMT data
+        showNoDataDialog(h);
+    }
+}
+
+// Show dialog when comparison hospital has no SMT data
+function showNoDataDialog(hospital) {
+    var listDiv = document.getElementById('comparison-list');
+
+    // Create pending card with fetch option
+    var card = document.createElement('div');
+    card.className = 'p-4 bg-yellow-50 border border-yellow-200 rounded-lg';
+    card.id = 'pending-hospital-' + hospital.hcode5;
+
+    card.innerHTML = '\
+        <div class="flex items-start justify-between gap-3">\
+            <div class="flex-1">\
+                <div class="font-medium text-gray-800">' + hospital.name + '</div>\
+                <div class="text-sm text-yellow-700 mt-1">\
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">\
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>\
+                    </svg>\
+                    ไม่พบข้อมูล SMT ในระบบ - ต้องดึงข้อมูลจาก สปสช. ก่อน\
+                </div>\
+            </div>\
+            <div class="flex gap-2">\
+                <button onclick="fetchComparisonHospitalSMT(\'' + hospital.hcode5 + '\', \'' + hospital.name.replace(/'/g, "\\'") + '\')" \
+                        class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium flex items-center gap-1">\
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">\
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>\
+                    </svg>\
+                    ดึงข้อมูล SMT\
+                </button>\
+                <button onclick="removePendingHospital(\'' + hospital.hcode5 + '\')" \
+                        class="px-2 py-1.5 text-gray-500 hover:text-red-600 text-sm">\
+                    ✕\
+                </button>\
+            </div>\
+        </div>\
+    ';
+
+    // Remove "ยังไม่ได้เลือก" message if exists
+    var noSelectMsg = listDiv.querySelector('p.text-gray-500');
+    if (noSelectMsg) {
+        noSelectMsg.remove();
+    }
+
+    listDiv.appendChild(card);
+}
+
+// Remove pending hospital card
+function removePendingHospital(vendorId) {
+    var card = document.getElementById('pending-hospital-' + vendorId);
+    if (card) {
+        card.remove();
+    }
+
+    // Show "ยังไม่ได้เลือก" if no hospitals
+    var listDiv = document.getElementById('comparison-list');
+    if (listDiv.children.length === 0 && comparisonHospitals.length === 0) {
+        var msg = document.createElement('p');
+        msg.className = 'text-sm text-gray-500 text-center py-4';
+        msg.textContent = 'ยังไม่ได้เลือกโรงพยาบาลเปรียบเทียบ';
+        listDiv.appendChild(msg);
+    }
+}
+
+// Fetch SMT data for comparison hospital
+async function fetchComparisonHospitalSMT(vendorId, hospitalName) {
+    var card = document.getElementById('pending-hospital-' + vendorId);
+    if (!card) return;
+
+    // Update card to show loading
+    card.className = 'p-4 bg-blue-50 border border-blue-200 rounded-lg';
+    card.innerHTML = '\
+        <div class="flex items-center gap-3">\
+            <svg class="animate-spin h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24">\
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>\
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>\
+            </svg>\
+            <div>\
+                <div class="font-medium text-gray-800">' + hospitalName + '</div>\
+                <div class="text-sm text-blue-600">กำลังดึงข้อมูล SMT จาก สปสช....</div>\
+            </div>\
+        </div>\
+    ';
+
+    // Get years to fetch (same as my hospital)
+    var yearsToFetch = hospitalYearsData.filter(function(y) { return y.has_data; }).map(function(y) { return y.year; });
+    var yearData = {};
+    var hasAnyData = false;
+    var fetchedYears = 0;
+
+    for (var i = 0; i < yearsToFetch.length; i++) {
+        var year = yearsToFetch[i];
+        try {
+            // First, fetch SMT data from NHSO
+            var fetchResponse = await fetch('/api/smt/fetch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    vendor_id: vendorId,
+                    budget_year: year,
+                    save_db: true
+                })
+            });
+            var fetchResult = await fetchResponse.json();
+
+            if (fetchResult.success && fetchResult.records > 0) {
+                fetchedYears++;
+
+                // Now get the processed data
+                var dataResponse = await fetch('/api/benchmark/my-hospital?vendor_id=' + vendorId + '&fiscal_year=' + year);
+                var dataResult = await dataResponse.json();
+
+                if (dataResult.success && dataResult.summary && dataResult.summary.total_amount > 0) {
+                    yearData[year] = dataResult;
+                    hasAnyData = true;
+                }
+            }
+        } catch (e) {
+            console.error('Error fetching year ' + year + ':', e);
+        }
+    }
+
+    // Remove the card
+    card.remove();
+
+    if (hasAnyData) {
+        comparisonHospitals.push({
+            vendor_id: vendorId,
+            name: hospitalName,
+            yearData: yearData
+        });
+        updateComparisonUI();
+        showToast('เพิ่ม ' + hospitalName + ' สำเร็จ (' + Object.keys(yearData).length + ' ปี)', 'success');
+    } else {
+        showToast('ไม่สามารถดึงข้อมูล SMT สำหรับ ' + hospitalName + ' ได้', 'error');
+
+        // Show empty state if no hospitals
+        var listDiv = document.getElementById('comparison-list');
+        if (listDiv.children.length === 0 && comparisonHospitals.length === 0) {
+            var msg = document.createElement('p');
+            msg.className = 'text-sm text-gray-500 text-center py-4';
+            msg.textContent = 'ยังไม่ได้เลือกโรงพยาบาลเปรียบเทียบ';
+            listDiv.appendChild(msg);
+        }
     }
 }
 
@@ -1541,22 +1687,6 @@ function createComparisonRow(hospital, isMyHospital) {
     tr.appendChild(tdActions);
 
     return tr;
-}
-
-// Quick add functions
-function addSameProvince() {
-    if (!currentHospitalData || !currentHospitalData.hospital) return;
-    showToast('กำลังพัฒนา...', 'info');
-}
-
-function addSameRegion() {
-    if (!currentHospitalData || !currentHospitalData.hospital) return;
-    showToast('กำลังพัฒนา...', 'info');
-}
-
-function addSameLevel() {
-    if (!currentHospitalData || !currentHospitalData.hospital) return;
-    showToast('กำลังพัฒนา...', 'info');
 }
 
 // Auto-include all selected years in trend chart
