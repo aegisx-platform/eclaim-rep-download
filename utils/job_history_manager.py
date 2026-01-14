@@ -205,7 +205,9 @@ class JobHistoryManager:
         self,
         job_type: str = None,
         status: str = None,
-        limit: int = 50
+        limit: int = 50,
+        date_from: str = None,
+        date_to: str = None
     ) -> List[Dict]:
         """
         Get recent jobs
@@ -214,6 +216,8 @@ class JobHistoryManager:
             job_type: Filter by type
             status: Filter by status
             limit: Max records to return
+            date_from: Filter by start date (YYYY-MM-DD)
+            date_to: Filter by end date (YYYY-MM-DD)
 
         Returns:
             List of job records
@@ -235,6 +239,14 @@ class JobHistoryManager:
                 if status:
                     query += " AND status = %s"
                     params.append(status)
+
+                if date_from:
+                    query += " AND DATE(started_at) >= %s"
+                    params.append(date_from)
+
+                if date_to:
+                    query += " AND DATE(started_at) <= %s"
+                    params.append(date_to)
 
                 query += " ORDER BY started_at DESC LIMIT %s"
                 params.append(limit)

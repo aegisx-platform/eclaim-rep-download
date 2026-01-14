@@ -264,6 +264,18 @@ function populateFiscalYears() {
         option.textContent = 'ปีงบ ' + y;
         addSelect.appendChild(option);
     }
+
+    // Populate time series fiscal year dropdown (same as global)
+    var tsSelect = document.getElementById('ts-fiscal-year');
+    for (var y = currentYear; y >= currentYear - 5; y--) {
+        var option = document.createElement('option');
+        option.value = y;
+        option.textContent = 'ปีงบ ' + y;
+        if (y === currentYear) {
+            option.selected = true;
+        }
+        tsSelect.appendChild(option);
+    }
 }
 
 function onFiscalYearChange() {
@@ -810,19 +822,6 @@ async function loadTimeSeries() {
         var result = await response.json();
 
         if (result.success) {
-            // Update fiscal years dropdown if available
-            if (result.fiscal_years && result.fiscal_years.length > 0) {
-                var select = document.getElementById('ts-fiscal-year');
-                if (select.options.length === 0) {
-                    result.fiscal_years.forEach(function(y) {
-                        var option = document.createElement('option');
-                        option.value = y;
-                        option.textContent = 'ปีงบ ' + y;
-                        select.appendChild(option);
-                    });
-                }
-            }
-
             renderTimeSeriesChart(result.vendors, result.months);
             document.getElementById('timeseries-section').classList.remove('hidden');
         }

@@ -1307,6 +1307,84 @@
             </div>
         </div>
 
+        <!-- Filter Section -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+            <div class="flex flex-wrap items-end gap-4">
+                <!-- Fiscal Year Filter -->
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">ปีงบประมาณ</label>
+                    <select id="stm-filter-fiscal-year" onchange="onFiscalYearChange('stm')" class="border border-gray-300 rounded-md px-3 py-1.5 text-sm min-w-[100px]">
+                        <option value="">ทั้งหมด</option>
+                        <!-- Will be populated by JS -->
+                    </select>
+                </div>
+
+                <!-- Month Range Filter -->
+                <div class="flex items-end gap-2">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">เดือน (จาก)</label>
+                        <select id="stm-filter-start-month" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                            <option value="">ทั้งหมด</option>
+                            <option value="10">ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                        </select>
+                    </div>
+                    <span class="text-gray-400 pb-1.5">-</span>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">ถึง</label>
+                        <select id="stm-filter-end-month" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                            <option value="">ทั้งหมด</option>
+                            <option value="10">ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Status Filter -->
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">สถานะ</label>
+                    <div class="flex gap-1">
+                        <button onclick="setStmStatusFilter('all')" id="stm-filter-status-all" class="stm-status-btn px-3 py-1.5 text-sm font-medium rounded-md bg-purple-600 text-white">ทั้งหมด</button>
+                        <button onclick="setStmStatusFilter('imported')" id="stm-filter-status-imported" class="stm-status-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">นำเข้าแล้ว</button>
+                        <button onclick="setStmStatusFilter('pending')" id="stm-filter-status-pending" class="stm-status-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">รอนำเข้า</button>
+                    </div>
+                </div>
+
+                <!-- Apply Button -->
+                <button onclick="applyStmFilter()" class="bg-purple-600 hover:bg-purple-700 text-white py-1.5 px-4 rounded-md font-medium text-sm flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                    </svg>
+                    กรองข้อมูล
+                </button>
+
+                <!-- Reset Button -->
+                <button onclick="resetStmFilter()" class="text-gray-600 hover:text-gray-800 py-1.5 px-2 text-sm">
+                    รีเซ็ต
+                </button>
+            </div>
+        </div>
+
         <!-- Actions Bar -->
         <div class="flex items-center justify-between mb-4">
             <div id="stm-file-count" class="text-sm text-gray-600">
@@ -1570,6 +1648,84 @@
             <div class="bg-gray-50 rounded-lg p-4 text-center">
                 <p id="smt-stat-size" class="text-2xl font-bold text-gray-700">0 B</p>
                 <p class="text-sm text-gray-600">Total Size</p>
+            </div>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+            <div class="flex flex-wrap items-end gap-4">
+                <!-- Fiscal Year Filter -->
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">ปีงบประมาณ</label>
+                    <select id="smt-filter-fiscal-year" onchange="onFiscalYearChange('smt')" class="border border-gray-300 rounded-md px-3 py-1.5 text-sm min-w-[100px]">
+                        <option value="">ทั้งหมด</option>
+                        <!-- Will be populated by JS -->
+                    </select>
+                </div>
+
+                <!-- Month Range Filter -->
+                <div class="flex items-end gap-2">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">เดือน (จาก)</label>
+                        <select id="smt-filter-start-month" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                            <option value="">ทั้งหมด</option>
+                            <option value="10">ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                        </select>
+                    </div>
+                    <span class="text-gray-400 pb-1.5">-</span>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">ถึง</label>
+                        <select id="smt-filter-end-month" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                            <option value="">ทั้งหมด</option>
+                            <option value="10">ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Status Filter -->
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">สถานะ</label>
+                    <div class="flex gap-1">
+                        <button onclick="setSmtStatusFilter('all')" id="smt-filter-status-all" class="smt-status-btn px-3 py-1.5 text-sm font-medium rounded-md bg-green-600 text-white">ทั้งหมด</button>
+                        <button onclick="setSmtStatusFilter('imported')" id="smt-filter-status-imported" class="smt-status-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">นำเข้าแล้ว</button>
+                        <button onclick="setSmtStatusFilter('pending')" id="smt-filter-status-pending" class="smt-status-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">รอนำเข้า</button>
+                    </div>
+                </div>
+
+                <!-- Apply Button -->
+                <button onclick="applySmtFilter()" class="bg-green-600 hover:bg-green-700 text-white py-1.5 px-4 rounded-md font-medium text-sm flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                    </svg>
+                    กรองข้อมูล
+                </button>
+
+                <!-- Reset Button -->
+                <button onclick="resetSmtFilter()" class="text-gray-600 hover:text-gray-800 py-1.5 px-2 text-sm">
+                    รีเซ็ต
+                </button>
             </div>
         </div>
 
@@ -2096,7 +2252,7 @@
         </div>
 
         <!-- Filter -->
-        <div class="flex gap-4 mb-4">
+        <div class="flex flex-wrap gap-4 mb-4 items-center">
             <select id="job-filter-type" onchange="loadJobHistory()" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
                 <option value="">All Types</option>
                 <option value="download">Download</option>
@@ -2108,7 +2264,19 @@
                 <option value="running">Running</option>
                 <option value="completed">Completed</option>
                 <option value="failed">Failed</option>
+                <option value="cancelled">Cancelled</option>
             </select>
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-600">From:</label>
+                <input type="date" id="job-filter-date-from" onchange="loadJobHistory()" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-gray-600">To:</label>
+                <input type="date" id="job-filter-date-to" onchange="loadJobHistory()" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+            </div>
+            <button onclick="clearJobFilters()" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                Clear Filters
+            </button>
         </div>
 
         <!-- Jobs Table -->
@@ -2612,6 +2780,292 @@ function getSelectedSchemes(prefix) {
         schemes.push(cb.value);
     });
     return schemes;
+}
+
+// ==================== Filter Functions ====================
+
+// Filter state for each tab
+var filterState = {
+    rep: { fiscalYear: '', startMonth: '', endMonth: '', scheme: '', fileType: '', status: 'all' },
+    stm: { fiscalYear: '', startMonth: '', endMonth: '', status: 'all' },
+    smt: { fiscalYear: '', startMonth: '', endMonth: '', status: 'all' }
+};
+
+/**
+ * Get current fiscal year (Thai Buddhist Era)
+ * Fiscal year runs Oct-Sep: if current month >= Oct, fiscal year = next year
+ */
+function getCurrentFiscalYear() {
+    var now = new Date();
+    var year = now.getFullYear() + 543; // Convert to BE
+    var month = now.getMonth() + 1; // 1-12
+    // If Oct-Dec, fiscal year is next year
+    if (month >= 10) {
+        return year + 1;
+    }
+    return year;
+}
+
+/**
+ * Populate fiscal year dropdown with available years
+ */
+function populateFiscalYearDropdown(prefix) {
+    var select = document.getElementById(prefix + '-filter-fiscal-year');
+    if (!select) return;
+
+    var currentFY = getCurrentFiscalYear();
+    var options = '<option value="">ทั้งหมด</option>';
+
+    // Show last 3 fiscal years + current
+    for (var fy = currentFY; fy >= currentFY - 3; fy--) {
+        options += '<option value="' + fy + '">ปีงบ ' + fy + '</option>';
+    }
+
+    select.innerHTML = options;
+}
+
+/**
+ * Handle fiscal year change - auto set start/end months
+ */
+function onFiscalYearChange(prefix) {
+    var fySelect = document.getElementById(prefix + '-filter-fiscal-year');
+    var startSelect = document.getElementById(prefix + '-filter-start-month');
+    var endSelect = document.getElementById(prefix + '-filter-end-month');
+
+    if (!fySelect || !startSelect || !endSelect) return;
+
+    var fy = fySelect.value;
+
+    if (fy) {
+        // Set to fiscal year range: Oct - Sep
+        startSelect.value = '10';
+        endSelect.value = '9';
+        filterState[prefix].fiscalYear = fy;
+        filterState[prefix].startMonth = '10';
+        filterState[prefix].endMonth = '9';
+    } else {
+        // Reset to all
+        startSelect.value = '';
+        endSelect.value = '';
+        filterState[prefix].fiscalYear = '';
+        filterState[prefix].startMonth = '';
+        filterState[prefix].endMonth = '';
+    }
+}
+
+/**
+ * Set status filter for REP
+ */
+function setRepStatusFilter(status) {
+    filterState.rep.status = status;
+
+    // Update button styles
+    document.querySelectorAll('.rep-status-btn').forEach(function(btn) {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-gray-200', 'text-gray-700');
+    });
+
+    var activeBtn = document.getElementById('rep-filter-status-' + status);
+    if (activeBtn) {
+        activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+        activeBtn.classList.add('bg-blue-600', 'text-white');
+    }
+}
+
+/**
+ * Set status filter for Statement
+ */
+function setStmStatusFilter(status) {
+    filterState.stm.status = status;
+
+    document.querySelectorAll('.stm-status-btn').forEach(function(btn) {
+        btn.classList.remove('bg-purple-600', 'text-white');
+        btn.classList.add('bg-gray-200', 'text-gray-700');
+    });
+
+    var activeBtn = document.getElementById('stm-filter-status-' + status);
+    if (activeBtn) {
+        activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+        activeBtn.classList.add('bg-purple-600', 'text-white');
+    }
+}
+
+/**
+ * Set status filter for SMT
+ */
+function setSmtStatusFilter(status) {
+    filterState.smt.status = status;
+
+    document.querySelectorAll('.smt-status-btn').forEach(function(btn) {
+        btn.classList.remove('bg-green-600', 'text-white');
+        btn.classList.add('bg-gray-200', 'text-gray-700');
+    });
+
+    var activeBtn = document.getElementById('smt-filter-status-' + status);
+    if (activeBtn) {
+        activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+        activeBtn.classList.add('bg-green-600', 'text-white');
+    }
+}
+
+/**
+ * Build filter query params
+ */
+function buildFilterParams(prefix) {
+    var params = new URLSearchParams();
+
+    var fySelect = document.getElementById(prefix + '-filter-fiscal-year');
+    var startSelect = document.getElementById(prefix + '-filter-start-month');
+    var endSelect = document.getElementById(prefix + '-filter-end-month');
+
+    if (fySelect && fySelect.value) {
+        params.set('fiscal_year', fySelect.value);
+    }
+    if (startSelect && startSelect.value) {
+        params.set('start_month', startSelect.value);
+    }
+    if (endSelect && endSelect.value) {
+        params.set('end_month', endSelect.value);
+    }
+
+    // REP specific filters
+    if (prefix === 'rep') {
+        var schemeSelect = document.getElementById('rep-filter-scheme');
+        var fileTypeSelect = document.getElementById('rep-filter-file-type');
+
+        if (schemeSelect && schemeSelect.value) {
+            params.set('scheme', schemeSelect.value);
+        }
+        if (fileTypeSelect && fileTypeSelect.value) {
+            params.set('file_type', fileTypeSelect.value);
+        }
+    }
+
+    // Status filter
+    if (filterState[prefix] && filterState[prefix].status !== 'all') {
+        params.set('status', filterState[prefix].status);
+    }
+
+    return params;
+}
+
+/**
+ * Apply REP filter
+ */
+function applyRepFilter() {
+    var params = buildFilterParams('rep');
+    params.set('page', '1');
+
+    // Reload page with filter params
+    window.location.href = '/data-management?tab=rep&' + params.toString();
+}
+
+/**
+ * Reset REP filter
+ */
+function resetRepFilter() {
+    document.getElementById('rep-filter-fiscal-year').value = '';
+    document.getElementById('rep-filter-start-month').value = '';
+    document.getElementById('rep-filter-end-month').value = '';
+    document.getElementById('rep-filter-scheme').value = '';
+    document.getElementById('rep-filter-file-type').value = '';
+    setRepStatusFilter('all');
+
+    window.location.href = '/data-management?tab=rep';
+}
+
+/**
+ * Apply Statement filter
+ */
+function applyStmFilter() {
+    var params = buildFilterParams('stm');
+
+    // Use AJAX to reload file list
+    loadStatementFiles(params);
+}
+
+/**
+ * Reset Statement filter
+ */
+function resetStmFilter() {
+    document.getElementById('stm-filter-fiscal-year').value = '';
+    document.getElementById('stm-filter-start-month').value = '';
+    document.getElementById('stm-filter-end-month').value = '';
+    setStmStatusFilter('all');
+
+    loadStatementFiles();
+}
+
+/**
+ * Apply SMT filter
+ */
+function applySmtFilter() {
+    var params = buildFilterParams('smt');
+
+    // Use AJAX to reload file list
+    loadSmtFiles(params);
+}
+
+/**
+ * Reset SMT filter
+ */
+function resetSmtFilter() {
+    document.getElementById('smt-filter-fiscal-year').value = '';
+    document.getElementById('smt-filter-start-month').value = '';
+    document.getElementById('smt-filter-end-month').value = '';
+    setSmtStatusFilter('all');
+
+    loadSmtFiles();
+}
+
+/**
+ * Initialize filters on page load
+ */
+function initFilters() {
+    // Populate fiscal year dropdowns
+    populateFiscalYearDropdown('rep');
+    populateFiscalYearDropdown('stm');
+    populateFiscalYearDropdown('smt');
+
+    // Restore filter state from URL params
+    var urlParams = new URLSearchParams(window.location.search);
+
+    if (urlParams.get('fiscal_year')) {
+        var fy = urlParams.get('fiscal_year');
+        var tab = urlParams.get('tab') || 'rep';
+        var fySelect = document.getElementById(tab + '-filter-fiscal-year');
+        if (fySelect) fySelect.value = fy;
+    }
+
+    if (urlParams.get('start_month')) {
+        var tab = urlParams.get('tab') || 'rep';
+        var startSelect = document.getElementById(tab + '-filter-start-month');
+        if (startSelect) startSelect.value = urlParams.get('start_month');
+    }
+
+    if (urlParams.get('end_month')) {
+        var tab = urlParams.get('tab') || 'rep';
+        var endSelect = document.getElementById(tab + '-filter-end-month');
+        if (endSelect) endSelect.value = urlParams.get('end_month');
+    }
+
+    if (urlParams.get('scheme')) {
+        var schemeSelect = document.getElementById('rep-filter-scheme');
+        if (schemeSelect) schemeSelect.value = urlParams.get('scheme');
+    }
+
+    if (urlParams.get('file_type')) {
+        var fileTypeSelect = document.getElementById('rep-filter-file-type');
+        if (fileTypeSelect) fileTypeSelect.value = urlParams.get('file_type');
+    }
+
+    if (urlParams.get('status')) {
+        var tab = urlParams.get('tab') || 'rep';
+        var status = urlParams.get('status');
+        if (tab === 'rep') setRepStatusFilter(status);
+        else if (tab === 'stm' || tab === 'statement') setStmStatusFilter(status);
+        else if (tab === 'smt') setSmtStatusFilter(status);
+    }
 }
 
 // ==================== Tab Dropdown Functions ====================
@@ -4191,6 +4645,7 @@ async function toggleCredential(username, enabled) {
 document.addEventListener('DOMContentLoaded', function() {
     loadCredentials();
     loadUpdateStatus();  // Load file update status on page load
+    initFilters();  // Initialize filter dropdowns
 });
 
 async function testConnection() {
@@ -5069,6 +5524,14 @@ async function testStmSchedule() {
 
 // ==================== Job History Functions ====================
 
+function clearJobFilters() {
+    document.getElementById('job-filter-type').value = '';
+    document.getElementById('job-filter-status').value = '';
+    document.getElementById('job-filter-date-from').value = '';
+    document.getElementById('job-filter-date-to').value = '';
+    loadJobHistory();
+}
+
 async function loadJobStats() {
     try {
         const response = await fetch('/api/jobs/stats?days=7');
@@ -5089,10 +5552,14 @@ async function loadJobStats() {
 async function loadJobHistory() {
     const typeFilter = document.getElementById('job-filter-type')?.value || '';
     const statusFilter = document.getElementById('job-filter-status')?.value || '';
+    const dateFromFilter = document.getElementById('job-filter-date-from')?.value || '';
+    const dateToFilter = document.getElementById('job-filter-date-to')?.value || '';
 
     let url = '/api/jobs?limit=50';
     if (typeFilter) url += '&type=' + encodeURIComponent(typeFilter);
     if (statusFilter) url += '&status=' + encodeURIComponent(statusFilter);
+    if (dateFromFilter) url += '&date_from=' + encodeURIComponent(dateFromFilter);
+    if (dateToFilter) url += '&date_to=' + encodeURIComponent(dateToFilter);
 
     try {
         const response = await fetch(url);

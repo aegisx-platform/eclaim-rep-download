@@ -520,17 +520,35 @@ def data_management():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
 
+    # Fiscal year parameter (Thai Buddhist Era)
+    # Fiscal year 2569 = Oct 2568 - Sep 2569
+    fiscal_year = request.args.get('fiscal_year', type=int)
+
     # Support both old (month/year) and new (start_month/end_month) parameters
     start_month = request.args.get('start_month', type=int) or request.args.get('month', type=int)
     start_year = request.args.get('start_year', type=int) or request.args.get('year', type=int)
     end_month = request.args.get('end_month', type=int)
     end_year = request.args.get('end_year', type=int)
+
+    # If fiscal year is set, calculate start/end years
+    if fiscal_year:
+        # Fiscal year X runs from Oct (year X-1) to Sep (year X)
+        if start_month and start_month >= 10:
+            start_year = start_year or (fiscal_year - 1)
+        else:
+            start_year = start_year or fiscal_year
+        if end_month and end_month <= 9:
+            end_year = end_year or fiscal_year
+        else:
+            end_year = end_year or (fiscal_year - 1)
+
     filter_scheme = request.args.get('scheme', '').strip().lower()
+    filter_file_type = request.args.get('file_type', '').strip().lower()  # op, ip, orf, appeal
     filter_status = request.args.get('status', '').strip().lower()  # imported, pending, or empty for all
 
     # Default to show all if no date specified
     now = datetime.now(TZ_BANGKOK)
-    show_all_dates = start_month is None and end_month is None
+    show_all_dates = start_month is None and end_month is None and fiscal_year is None
 
     # For backward compatibility
     filter_month = start_month or now.month
@@ -3968,11 +3986,15 @@ def get_jobs():
         job_type = request.args.get('type')  # download, import, schedule
         status = request.args.get('status')  # running, completed, failed
         limit = request.args.get('limit', 50, type=int)
+        date_from = request.args.get('date_from')  # YYYY-MM-DD
+        date_to = request.args.get('date_to')  # YYYY-MM-DD
 
         jobs = job_history_manager.get_recent_jobs(
             job_type=job_type,
             status=status,
-            limit=min(limit, 200)
+            limit=min(limit, 200),
+            date_from=date_from,
+            date_to=date_to
         )
 
         return jsonify({
