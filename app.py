@@ -8488,7 +8488,7 @@ def api_benchmark_hospital_years():
         print(f"[DEBUG] Found vendor_nos in DB matching pattern: {debug_vendors}")
 
         # Get all fiscal years that have data for this hospital
-        # Use flexible matching: exact match OR ends with the short vendor_id
+        # Use flexible matching: cast to numeric and compare to handle different padding
         cursor.execute("""
             SELECT
                 CASE
@@ -8498,15 +8498,12 @@ def api_benchmark_hospital_years():
                 COUNT(*) as records,
                 COALESCE(SUM(total_amount), 0) as total_amount
             FROM smt_budget_transfers
-            WHERE vendor_no = %s
-               OR vendor_no = %s
-               OR LTRIM(vendor_no, '0') = %s
-               OR vendor_no LIKE %s
+            WHERE CAST(NULLIF(REGEXP_REPLACE(vendor_no, '[^0-9]', '', 'g'), '') AS BIGINT) = %s
             GROUP BY fiscal_year
             ORDER BY fiscal_year DESC
-        """, (vendor_id_10, vendor_id_5, vendor_id_5, f'%{vendor_id_5}'))
+        """, (int(vendor_id_5),))
         rows = cursor.fetchall()
-        print(f"[DEBUG] Found {len(rows)} years with data")
+        print(f"[DEBUG] Found {len(rows)} years with data for vendor {vendor_id_5}")
 
         # Get all available years in the system (from any hospital)
         cursor.execute("""
