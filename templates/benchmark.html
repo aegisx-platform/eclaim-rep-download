@@ -331,7 +331,7 @@
         </div>
 
         <!-- Comparison Section (Collapsible) -->
-        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="bg-white rounded-xl shadow-md overflow-visible">
             <button onclick="toggleComparison()" class="w-full px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-blue-50 flex justify-between items-center hover:bg-indigo-100 transition-colors">
                 <h3 class="text-lg font-semibold text-gray-800 flex items-center">
                     <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -353,12 +353,12 @@
                 </div>
 
                 <!-- Search and Add Hospital -->
-                <div class="flex gap-3 mb-4">
-                    <div class="flex-1 relative">
-                        <input type="text" id="compare-search" placeholder="ค้นหาโรงพยาบาลเพื่อเปรียบเทียบ..."
+                <div class="mb-4">
+                    <div class="relative">
+                        <input type="text" id="compare-search" placeholder="ค้นหาโรงพยาบาลเพื่อเปรียบเทียบ... (พิมพ์ชื่อหรือรหัส)"
                                onkeyup="searchCompareHospitals()"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        <div id="compare-search-results" class="absolute z-20 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-80 overflow-y-auto hidden">
+                               class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <div id="compare-search-results" class="absolute z-50 w-full bg-white border border-gray-300 rounded-lg shadow-xl mt-1 max-h-96 overflow-y-auto hidden">
                         </div>
                     </div>
                 </div>
@@ -373,10 +373,13 @@
                         <h4 class="text-sm font-medium text-gray-700">ตารางเปรียบเทียบ</h4>
                         <div class="flex items-center gap-2">
                             <span class="text-sm text-gray-500">ปีงบประมาณ:</span>
-                            <select id="comparison-year" onchange="updateComparisonTable()" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
-                            </select>
+                            <div id="comparison-year-pills" class="flex flex-wrap gap-2">
+                                <!-- Populated by JS -->
+                            </div>
                         </div>
                     </div>
+                    <!-- Hidden input to store selected year -->
+                    <input type="hidden" id="comparison-year" value="">
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
@@ -392,6 +395,111 @@
                             <tbody id="comparison-tbody" class="bg-white divide-y divide-gray-200">
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Hospital Comparison Charts -->
+                    <div id="comparison-charts" class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Bar Chart: Wait% & Debt% Comparison -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h5 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                <svg class="w-4 h-4 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                เปรียบเทียบ Wait% / Debt%
+                            </h5>
+                            <div style="height: 250px;">
+                                <canvas id="hospital-compare-bar-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Radar Chart: Multi-dimensional Comparison -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h5 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                <svg class="w-4 h-4 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                </svg>
+                                Radar Chart - เปรียบเทียบหลายมิติ
+                            </h5>
+                            <div style="height: 250px;">
+                                <canvas id="hospital-radar-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Revenue Bar Chart -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h5 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                รายได้รวม (พันล้านบาท)
+                            </h5>
+                            <div style="height: 250px;">
+                                <canvas id="hospital-revenue-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Ranking Table -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h5 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                <svg class="w-4 h-4 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+                                </svg>
+                                อันดับตาม Metric
+                            </h5>
+                            <div id="ranking-table-container" class="overflow-x-auto">
+                                <table class="min-w-full text-sm">
+                                    <thead>
+                                        <tr class="border-b">
+                                            <th class="py-2 text-left text-xs font-medium text-gray-500">Metric</th>
+                                            <th class="py-2 text-center text-xs font-medium text-gray-500">🥇 อันดับ 1</th>
+                                            <th class="py-2 text-center text-xs font-medium text-gray-500">🥈 อันดับ 2</th>
+                                            <th class="py-2 text-center text-xs font-medium text-gray-500">🥉 อันดับ 3</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ranking-tbody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fund Breakdown Comparison (Full Width) -->
+                    <div class="mt-6 bg-gray-50 rounded-lg p-4">
+                        <h5 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                            <svg class="w-4 h-4 mr-2 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path>
+                            </svg>
+                            เปรียบเทียบรายกองทุน
+                        </h5>
+                        <div id="fund-comparison-container" class="overflow-x-auto">
+                            <table class="min-w-full text-sm">
+                                <thead id="fund-comparison-thead">
+                                    <tr class="border-b bg-gray-100">
+                                        <th class="py-2 px-3 text-left text-xs font-medium text-gray-500">กองทุน</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fund-comparison-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Monthly Trend Overlay Chart (Full Width) -->
+                    <div class="mt-6 bg-gray-50 rounded-lg p-4">
+                        <h5 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                            <svg class="w-4 h-4 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                            </svg>
+                            แนวโน้มรายเดือน (ทุกโรงพยาบาล)
+                            <select id="trend-overlay-metric" class="ml-auto text-xs border rounded px-2 py-1" onchange="updateTrendOverlayChart()">
+                                <option value="total_amount">รายได้รวม</option>
+                                <option value="wait_amount">รอรับเงิน</option>
+                                <option value="debt_amount">หนี้สิน</option>
+                            </select>
+                        </h5>
+                        <div style="height: 300px;">
+                            <canvas id="trend-overlay-chart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -414,6 +522,10 @@ let currentHospitalData = null;
 let currentHospitalInfo = null;
 let trendChart = null;
 let multiYearChart = null;
+let hospitalCompareBarChart = null;
+let hospitalRadarChart = null;
+let hospitalRevenueChart = null;
+let trendOverlayChart = null;
 let currentYearChartType = 'grouped';
 let searchTimeout = null;
 let comparisonHospitals = [];
@@ -513,6 +625,9 @@ async function loadHospitalYears() {
                     showNoDataState();
                 }
             }
+
+            // Load saved comparison hospitals
+            await loadComparisonHospitalsFromStorage();
         } else {
             showNoDataState();
         }
@@ -1420,18 +1535,21 @@ async function doCompareSearch() {
             result.data.forEach(function(h) {
                 if (!h.hcode5 || h.hcode5 === currentVendorId) return;
 
+                // Check if already added
+                var isAdded = comparisonHospitals.some(function(c) { return c.vendor_id === h.hcode5; });
+
                 var div = document.createElement('div');
-                div.className = 'px-4 py-2 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 text-sm';
-                div.onclick = function() { addComparisonHospital(h); };
+                div.className = 'px-4 py-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 ' + (isAdded ? 'opacity-50' : '');
+                div.onclick = function() { if (!isAdded) addComparisonHospital(h); };
 
                 var nameDiv = document.createElement('div');
-                nameDiv.className = 'font-medium';
-                nameDiv.textContent = h.name;
+                nameDiv.className = 'font-medium text-gray-800';
+                nameDiv.textContent = h.name + (isAdded ? ' (เพิ่มแล้ว)' : '');
                 div.appendChild(nameDiv);
 
                 var infoDiv = document.createElement('div');
-                infoDiv.className = 'text-xs text-gray-500';
-                infoDiv.textContent = h.hcode5 + ' | ' + (h.province || '');
+                infoDiv.className = 'text-sm text-gray-500 mt-0.5';
+                infoDiv.textContent = 'รหัส: ' + h.hcode5 + ' | ' + (h.province || '') + (h.level ? ' | ระดับ ' + h.level : '');
                 div.appendChild(infoDiv);
 
                 resultsDiv.appendChild(div);
@@ -1439,8 +1557,8 @@ async function doCompareSearch() {
             resultsDiv.classList.remove('hidden');
         } else {
             var noResult = document.createElement('div');
-            noResult.className = 'px-4 py-2 text-gray-500 text-sm';
-            noResult.textContent = 'ไม่พบข้อมูล';
+            noResult.className = 'px-4 py-3 text-gray-500';
+            noResult.textContent = 'ไม่พบข้อมูล ลองพิมพ์ชื่อโรงพยาบาลใหม่';
             resultsDiv.appendChild(noResult);
             resultsDiv.classList.remove('hidden');
         }
@@ -1702,6 +1820,7 @@ function updateComparisonUI() {
 
     if (comparisonHospitals.length === 0) {
         tableWrapper.classList.add('hidden');
+        saveComparisonHospitalsToStorage();
         return;
     }
 
@@ -1712,22 +1831,128 @@ function updateComparisonUI() {
 
     // Render table
     updateComparisonTable();
+
+    // Save to localStorage
+    saveComparisonHospitalsToStorage();
+}
+
+// Save comparison hospitals to localStorage
+function saveComparisonHospitalsToStorage() {
+    try {
+        // Save only vendor_id and name (not the large yearData)
+        var toSave = comparisonHospitals.map(function(h) {
+            return { vendor_id: h.vendor_id, name: h.name };
+        });
+        localStorage.setItem('comparison_hospitals', JSON.stringify(toSave));
+    } catch (e) {
+        console.error('Error saving comparison hospitals:', e);
+    }
+}
+
+// Load comparison hospitals from localStorage
+async function loadComparisonHospitalsFromStorage() {
+    try {
+        var saved = localStorage.getItem('comparison_hospitals');
+        if (!saved) return;
+
+        var hospitals = JSON.parse(saved);
+        if (!hospitals || hospitals.length === 0) return;
+
+        console.log('Loading saved comparison hospitals:', hospitals);
+
+        // Load each hospital's data
+        for (var i = 0; i < hospitals.length; i++) {
+            var h = hospitals[i];
+            // Check if already added
+            if (comparisonHospitals.some(function(c) { return c.vendor_id === h.vendor_id; })) {
+                continue;
+            }
+
+            // Fetch data for this hospital
+            var yearData = {};
+            var yearsToFetch = hospitalYearsData.filter(function(y) { return y.has_data; }).map(function(y) { return y.year; });
+
+            for (var j = 0; j < yearsToFetch.length; j++) {
+                var year = yearsToFetch[j];
+                try {
+                    var response = await fetch('/api/benchmark/my-hospital?vendor_id=' + h.vendor_id + '&fiscal_year=' + year);
+                    var result = await response.json();
+                    if (result.success && result.summary) {
+                        yearData[year] = result;
+                    }
+                } catch (e) {
+                    console.error('Error fetching year ' + year + ' for ' + h.name + ':', e);
+                }
+            }
+
+            if (Object.keys(yearData).length > 0) {
+                comparisonHospitals.push({
+                    vendor_id: h.vendor_id,
+                    name: h.name,
+                    yearData: yearData
+                });
+            }
+        }
+
+        if (comparisonHospitals.length > 0) {
+            updateComparisonUI();
+        }
+    } catch (e) {
+        console.error('Error loading comparison hospitals:', e);
+    }
 }
 
 function populateComparisonYearDropdown() {
-    var select = document.getElementById('comparison-year');
+    var pillsContainer = document.getElementById('comparison-year-pills');
+    var hiddenInput = document.getElementById('comparison-year');
     var primaryYear = selectedYears.length > 0 ? selectedYears[0] : null;
-    select.innerHTML = '';
+    pillsContainer.innerHTML = '';
 
     // Add years that my hospital has data
     var yearsWithData = hospitalYearsData.filter(function(y) { return y.has_data; });
+
+    // Set initial value
+    if (primaryYear && yearsWithData.some(function(y) { return y.year === primaryYear; })) {
+        hiddenInput.value = primaryYear;
+    } else if (yearsWithData.length > 0) {
+        hiddenInput.value = yearsWithData[0].year;
+    }
+
     yearsWithData.forEach(function(yearInfo) {
-        var option = document.createElement('option');
-        option.value = yearInfo.year;
-        option.textContent = 'ปีงบ ' + yearInfo.year;
-        if (yearInfo.year === primaryYear) option.selected = true;
-        select.appendChild(option);
+        var pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'px-4 py-1.5 text-sm font-medium rounded-full transition-colors ';
+
+        if (yearInfo.year === parseInt(hiddenInput.value)) {
+            pill.className += 'bg-indigo-600 text-white';
+        } else {
+            pill.className += 'bg-gray-100 text-gray-700 hover:bg-gray-200';
+        }
+
+        pill.textContent = yearInfo.year;
+        pill.onclick = function() {
+            selectComparisonYear(yearInfo.year);
+        };
+        pillsContainer.appendChild(pill);
     });
+}
+
+function selectComparisonYear(year) {
+    var hiddenInput = document.getElementById('comparison-year');
+    hiddenInput.value = year;
+
+    // Update pill styles
+    var pills = document.querySelectorAll('#comparison-year-pills button');
+    pills.forEach(function(pill) {
+        if (parseInt(pill.textContent) === year) {
+            pill.className = 'px-4 py-1.5 text-sm font-medium rounded-full transition-colors bg-indigo-600 text-white';
+        } else {
+            pill.className = 'px-4 py-1.5 text-sm font-medium rounded-full transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200';
+        }
+    });
+
+    // Update table and charts
+    updateComparisonTable();
 }
 
 function updateComparisonTable() {
@@ -1767,6 +1992,9 @@ function updateComparisonTable() {
             summary: yearData ? yearData.summary : null
         }, false, selectedYear);
     });
+
+    // Update comparison charts
+    updateComparisonCharts();
 }
 
 async function fetchAndAddMyHospitalRow(tbody, year) {
@@ -2503,6 +2731,486 @@ function showToast(message, type) {
     } else {
         alert(message);
     }
+}
+
+// Hospital colors for comparison charts
+const hospitalColors = [
+    { bg: 'rgba(59, 130, 246, 0.7)', border: 'rgb(59, 130, 246)' },   // Blue (my hospital)
+    { bg: 'rgba(34, 197, 94, 0.7)', border: 'rgb(34, 197, 94)' },     // Green
+    { bg: 'rgba(249, 115, 22, 0.7)', border: 'rgb(249, 115, 22)' },   // Orange
+    { bg: 'rgba(168, 85, 247, 0.7)', border: 'rgb(168, 85, 247)' },   // Purple
+    { bg: 'rgba(236, 72, 153, 0.7)', border: 'rgb(236, 72, 153)' },   // Pink
+    { bg: 'rgba(20, 184, 166, 0.7)', border: 'rgb(20, 184, 166)' }    // Teal
+];
+
+// Update all comparison charts
+function updateComparisonCharts() {
+    var selectedYear = parseInt(document.getElementById('comparison-year').value);
+    if (!selectedYear) return;
+
+    // Gather data from all hospitals
+    var hospitals = [];
+
+    // Add my hospital
+    if (currentHospitalInfo) {
+        var myData = yearsDataCache[selectedYear] || currentHospitalData;
+        if (myData && myData.summary) {
+            hospitals.push({
+                vendor_id: currentVendorId,
+                name: shortenHospitalName(currentHospitalInfo.name),
+                fullName: currentHospitalInfo.name,
+                summary: myData.summary,
+                fund_breakdown: myData.fund_breakdown || [],
+                monthly_trend: myData.monthly_trend || [],
+                isMyHospital: true
+            });
+        }
+    }
+
+    // Add comparison hospitals
+    comparisonHospitals.forEach(function(h) {
+        var yearData = h.yearData[selectedYear];
+        if (yearData && yearData.summary) {
+            hospitals.push({
+                vendor_id: h.vendor_id,
+                name: shortenHospitalName(h.name),
+                fullName: h.name,
+                summary: yearData.summary,
+                fund_breakdown: yearData.fund_breakdown || [],
+                monthly_trend: yearData.monthly_trend || [],
+                isMyHospital: false
+            });
+        }
+    });
+
+    if (hospitals.length === 0) return;
+
+    // Update all charts
+    updateHospitalCompareBarChart(hospitals);
+    updateHospitalRadarChart(hospitals);
+    updateHospitalRevenueChart(hospitals);
+    updateRankingTable(hospitals);
+    updateFundComparisonTable(hospitals);
+    updateTrendOverlayChart();
+}
+
+// Shorten hospital name for chart labels
+function shortenHospitalName(name) {
+    return name.replace('โรงพยาบาล', 'รพ.').replace('มหาราช', 'มร.');
+}
+
+// Bar Chart: Wait% & Debt% Comparison
+function updateHospitalCompareBarChart(hospitals) {
+    var canvas = document.getElementById('hospital-compare-bar-chart');
+    if (!canvas) return;
+
+    if (hospitalCompareBarChart) {
+        hospitalCompareBarChart.destroy();
+    }
+
+    var ctx = canvas.getContext('2d');
+    var labels = hospitals.map(function(h) { return h.name; });
+
+    hospitalCompareBarChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Wait %',
+                    data: hospitals.map(function(h) { return h.summary.wait_ratio || 0; }),
+                    backgroundColor: 'rgba(251, 191, 36, 0.7)',
+                    borderColor: 'rgb(251, 191, 36)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Debt %',
+                    data: hospitals.map(function(h) { return h.summary.debt_ratio || 0; }),
+                    backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                    borderColor: 'rgb(239, 68, 68)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return ctx.dataset.label + ': ' + ctx.raw.toFixed(1) + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(v) { return v + '%'; }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Radar Chart: Multi-dimensional Comparison
+function updateHospitalRadarChart(hospitals) {
+    var canvas = document.getElementById('hospital-radar-chart');
+    if (!canvas) return;
+
+    if (hospitalRadarChart) {
+        hospitalRadarChart.destroy();
+    }
+
+    var ctx = canvas.getContext('2d');
+
+    // Normalize data to 0-100 scale for radar
+    var maxRevenue = Math.max.apply(null, hospitals.map(function(h) { return h.summary.total_amount || 0; }));
+    var maxRecords = Math.max.apply(null, hospitals.map(function(h) { return h.summary.record_count || 0; }));
+
+    var datasets = hospitals.map(function(h, i) {
+        var color = hospitalColors[i % hospitalColors.length];
+        return {
+            label: h.name,
+            data: [
+                maxRevenue > 0 ? ((h.summary.total_amount || 0) / maxRevenue) * 100 : 0,
+                100 - (h.summary.wait_ratio || 0) * 5,  // Lower is better, so invert
+                100 - (h.summary.debt_ratio || 0) * 5,  // Lower is better, so invert
+                Math.min(100, (h.summary.growth_yoy || 0) * 5 + 50),  // Center at 50
+                maxRecords > 0 ? ((h.summary.record_count || 0) / maxRecords) * 100 : 0
+            ],
+            backgroundColor: color.bg.replace('0.7', '0.2'),
+            borderColor: color.border,
+            borderWidth: 2,
+            pointBackgroundColor: color.border
+        };
+    });
+
+    hospitalRadarChart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: ['รายได้', 'สภาพคล่อง', 'ไม่มีหนี้', 'การเติบโต', 'จำนวน Records'],
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } }
+            },
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { display: false }
+                }
+            }
+        }
+    });
+}
+
+// Revenue Bar Chart
+function updateHospitalRevenueChart(hospitals) {
+    var canvas = document.getElementById('hospital-revenue-chart');
+    if (!canvas) return;
+
+    if (hospitalRevenueChart) {
+        hospitalRevenueChart.destroy();
+    }
+
+    var ctx = canvas.getContext('2d');
+    var labels = hospitals.map(function(h) { return h.name; });
+
+    hospitalRevenueChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'รายได้รวม',
+                data: hospitals.map(function(h) { return (h.summary.total_amount || 0) / 1000000000; }),
+                backgroundColor: hospitals.map(function(h, i) {
+                    return hospitalColors[i % hospitalColors.length].bg;
+                }),
+                borderColor: hospitals.map(function(h, i) {
+                    return hospitalColors[i % hospitalColors.length].border;
+                }),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return formatMoney(ctx.raw * 1000000000);
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(v) { return v.toFixed(1) + ' B'; }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Ranking Table
+function updateRankingTable(hospitals) {
+    var tbody = document.getElementById('ranking-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    var metrics = [
+        { key: 'total_amount', label: 'รายได้สูงสุด', higherBetter: true, format: 'money' },
+        { key: 'wait_ratio', label: 'Wait% ต่ำสุด', higherBetter: false, format: 'percent' },
+        { key: 'debt_ratio', label: 'Debt% ต่ำสุด', higherBetter: false, format: 'percent' },
+        { key: 'growth_yoy', label: 'Growth สูงสุด', higherBetter: true, format: 'percent' }
+    ];
+
+    metrics.forEach(function(metric) {
+        var sorted = hospitals.slice().sort(function(a, b) {
+            var aVal = a.summary[metric.key] || 0;
+            var bVal = b.summary[metric.key] || 0;
+            return metric.higherBetter ? (bVal - aVal) : (aVal - bVal);
+        });
+
+        var tr = document.createElement('tr');
+        tr.className = 'border-b';
+
+        // Metric name
+        var tdMetric = document.createElement('td');
+        tdMetric.className = 'py-2 text-xs font-medium text-gray-700';
+        tdMetric.textContent = metric.label;
+        tr.appendChild(tdMetric);
+
+        // Top 3
+        for (var i = 0; i < 3; i++) {
+            var td = document.createElement('td');
+            td.className = 'py-2 text-center text-xs';
+
+            if (sorted[i]) {
+                var value = sorted[i].summary[metric.key] || 0;
+                var displayValue = metric.format === 'money' ?
+                    (value / 1000000000).toFixed(2) + 'B' :
+                    value.toFixed(1) + '%';
+
+                td.innerHTML = '<div class="font-medium ' + (sorted[i].isMyHospital ? 'text-blue-600' : 'text-gray-800') + '">' +
+                    sorted[i].name + '</div>' +
+                    '<div class="text-gray-500">' + displayValue + '</div>';
+            } else {
+                td.textContent = '-';
+            }
+            tr.appendChild(td);
+        }
+
+        tbody.appendChild(tr);
+    });
+}
+
+// Fund Breakdown Comparison Table
+function updateFundComparisonTable(hospitals) {
+    var thead = document.getElementById('fund-comparison-thead');
+    var tbody = document.getElementById('fund-comparison-tbody');
+    if (!thead || !tbody) return;
+
+    // Clear existing
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    if (hospitals.length === 0) return;
+
+    // Build header row
+    var headerTr = document.createElement('tr');
+    headerTr.className = 'border-b bg-gray-100';
+
+    var thFund = document.createElement('th');
+    thFund.className = 'py-2 px-3 text-left text-xs font-medium text-gray-500 sticky left-0 bg-gray-100';
+    thFund.textContent = 'กองทุน';
+    headerTr.appendChild(thFund);
+
+    hospitals.forEach(function(h, i) {
+        var th = document.createElement('th');
+        th.className = 'py-2 px-3 text-right text-xs font-medium ' + (h.isMyHospital ? 'text-blue-600 bg-blue-50' : 'text-gray-500');
+        th.textContent = h.name;
+        headerTr.appendChild(th);
+    });
+    thead.appendChild(headerTr);
+
+    // Collect all unique fund names from all hospitals
+    var allFunds = {};
+    hospitals.forEach(function(h, hIndex) {
+        var fundData = h.fund_breakdown || [];
+
+        fundData.forEach(function(f) {
+            if (!allFunds[f.fund_name]) {
+                allFunds[f.fund_name] = { fund_group_desc: f.fund_group_desc, amounts: {} };
+            }
+            allFunds[f.fund_name].amounts[hIndex] = f.amount || 0;
+        });
+    });
+
+    // Build data rows
+    Object.keys(allFunds).forEach(function(fundName) {
+        var tr = document.createElement('tr');
+        tr.className = 'border-b hover:bg-gray-50';
+
+        // Fund name cell
+        var tdName = document.createElement('td');
+        tdName.className = 'py-2 px-3 text-sm text-gray-700 sticky left-0 bg-white';
+        tdName.innerHTML = '<div class="font-medium">' + fundName + '</div>' +
+            '<div class="text-xs text-gray-400">' + (allFunds[fundName].fund_group_desc || '') + '</div>';
+        tr.appendChild(tdName);
+
+        // Amount cells for each hospital
+        hospitals.forEach(function(h, hIndex) {
+            var td = document.createElement('td');
+            td.className = 'py-2 px-3 text-right text-sm ' + (h.isMyHospital ? 'bg-blue-50 font-medium text-blue-800' : 'text-gray-600');
+
+            var amount = allFunds[fundName].amounts[hIndex] || 0;
+            td.textContent = amount > 0 ? formatMoney(amount) : '-';
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+    });
+
+    // If no funds, show message
+    if (Object.keys(allFunds).length === 0) {
+        var tr = document.createElement('tr');
+        var td = document.createElement('td');
+        td.colSpan = hospitals.length + 1;
+        td.className = 'py-4 text-center text-gray-500';
+        td.textContent = 'ไม่มีข้อมูลกองทุน';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    }
+}
+
+// Monthly Trend Overlay Chart
+function updateTrendOverlayChart() {
+    var canvas = document.getElementById('trend-overlay-chart');
+    if (!canvas) return;
+
+    var selectedYear = parseInt(document.getElementById('comparison-year').value);
+    var metric = document.getElementById('trend-overlay-metric').value;
+    if (!selectedYear) return;
+
+    if (trendOverlayChart) {
+        trendOverlayChart.destroy();
+    }
+
+    // Fiscal year months (Oct-Sep)
+    var fiscalMonthOrder = ['10', '11', '12', '01', '02', '03', '04', '05', '06', '07', '08', '09'];
+    var monthNames = {
+        '01': 'ม.ค.', '02': 'ก.พ.', '03': 'มี.ค.', '04': 'เม.ย.',
+        '05': 'พ.ค.', '06': 'มิ.ย.', '07': 'ก.ค.', '08': 'ส.ค.',
+        '09': 'ก.ย.', '10': 'ต.ค.', '11': 'พ.ย.', '12': 'ธ.ค.'
+    };
+
+    // Gather hospitals data
+    var hospitals = [];
+
+    // My hospital
+    var myYearData = yearsDataCache[selectedYear] || currentHospitalData;
+    if (currentHospitalInfo && myYearData && myYearData.monthly_trend) {
+        hospitals.push({
+            name: shortenHospitalName(currentHospitalInfo.name),
+            trend: myYearData.monthly_trend,
+            isMyHospital: true
+        });
+    }
+
+    // Comparison hospitals
+    comparisonHospitals.forEach(function(h) {
+        if (h.yearData[selectedYear] && h.yearData[selectedYear].monthly_trend) {
+            hospitals.push({
+                name: shortenHospitalName(h.name),
+                trend: h.yearData[selectedYear].monthly_trend,
+                isMyHospital: false
+            });
+        }
+    });
+
+    if (hospitals.length === 0) {
+        return;
+    }
+
+    // Build datasets
+    var datasets = hospitals.map(function(h, i) {
+        var color = hospitalColors[i % hospitalColors.length];
+
+        // Build data array ordered by fiscal months
+        var dataMap = {};
+        h.trend.forEach(function(t) {
+            var month = t.month.split('-')[1];
+            dataMap[month] = t[metric] || 0;
+        });
+
+        var data = fiscalMonthOrder.map(function(m) {
+            return (dataMap[m] || 0) / 1000000; // Convert to millions
+        });
+
+        return {
+            label: h.name,
+            data: data,
+            borderColor: color.border,
+            backgroundColor: color.bg,
+            borderWidth: h.isMyHospital ? 3 : 2,
+            tension: 0.3,
+            fill: false,
+            pointRadius: h.isMyHospital ? 4 : 3
+        };
+    });
+
+    var labels = fiscalMonthOrder.map(function(m) { return monthNames[m]; });
+
+    var ctx = canvas.getContext('2d');
+    trendOverlayChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { boxWidth: 12, font: { size: 10 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return ctx.dataset.label + ': ' + ctx.raw.toFixed(2) + ' ล้าน';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(v) { return v.toFixed(0) + 'M'; }
+                    }
+                }
+            }
+        }
+    });
 }
 </script>
 {% endblock %}
