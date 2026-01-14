@@ -2480,6 +2480,20 @@ def trigger_parallel_download():
         import threading
 
         def run_parallel():
+            # Start job tracking
+            job_id = job_history_manager.start_job(
+                job_type='download',
+                job_subtype='parallel',
+                parameters={
+                    'month': month,
+                    'year': year,
+                    'scheme': scheme,
+                    'max_workers': max_workers,
+                    'auto_import': auto_import
+                },
+                triggered_by='manual'
+            )
+
             try:
                 downloader = ParallelDownloader(
                     credentials=enabled_creds,
@@ -2489,6 +2503,19 @@ def trigger_parallel_download():
                     max_workers=max_workers
                 )
                 result = downloader.run()
+
+                # Complete job with results
+                job_history_manager.complete_job(
+                    job_id=job_id,
+                    status='completed' if result.get('failed', 0) == 0 else 'completed_with_errors',
+                    results={
+                        'total_files': result.get('total', 0),
+                        'success_files': result.get('completed', 0),
+                        'failed_files': result.get('failed', 0),
+                        'skipped_files': result.get('skipped', 0)
+                    },
+                    error_message=f"{result.get('failed', 0)} files failed" if result.get('failed', 0) > 0 else None
+                )
 
                 # Auto import if enabled - only import files that were just downloaded
                 if auto_import and result.get('completed', 0) > 0:
@@ -2537,6 +2564,12 @@ def trigger_parallel_download():
 
             except Exception as e:
                 app.logger.error(f"Parallel download error: {e}")
+                # Mark job as failed
+                job_history_manager.complete_job(
+                    job_id=job_id,
+                    status='failed',
+                    error_message=str(e)
+                )
 
         thread = threading.Thread(target=run_parallel, daemon=True)
         thread.start()

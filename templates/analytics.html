@@ -63,57 +63,82 @@
         </div>
     </div>
 
-    <!-- KPI Overview Cards - Clean & Minimal -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="overview-cards">
+    <!-- KPI Overview Cards -->
+    <div class="grid grid-cols-2 gap-3" id="overview-cards">
         <!-- Total Claims -->
         <div class="bg-white rounded-lg shadow p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wide">Claims</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Claims ทั้งหมด</p>
             <p class="text-2xl font-bold text-gray-800 mt-1" id="total-claims">-</p>
             <p class="text-xs text-gray-400"><span id="unique-patients">-</span> ผู้ป่วย</p>
         </div>
 
-        <!-- Total Reimbursement -->
-        <div class="bg-white rounded-lg shadow p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wide">ชดเชย</p>
-            <p class="text-2xl font-bold text-green-600 mt-1" id="total-reimb">-</p>
-            <div class="flex items-center gap-2 mt-1">
-                <div class="flex-1 bg-gray-200 rounded-full h-1.5">
-                    <div class="h-1.5 rounded-full transition-all duration-500" id="reimb-rate-bar" style="width: 0%;"></div>
-                </div>
-                <span class="text-xs font-semibold" id="reimb-rate-value">-</span>
-            </div>
-        </div>
-
-        <!-- Drug Cost -->
-        <div class="bg-white rounded-lg shadow p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wide">ค่ายา</p>
-            <p class="text-2xl font-bold text-purple-600 mt-1" id="total-drug-cost">-</p>
-            <div class="flex items-center gap-2 mt-1">
-                <div class="flex-1 bg-gray-200 rounded-full h-1.5">
-                    <div class="h-1.5 rounded-full transition-all duration-500" id="drug-reimb-rate-bar" style="width: 0%;"></div>
-                </div>
-                <span class="text-xs font-semibold" id="drug-reimb-rate-value">-</span>
-            </div>
-        </div>
-
         <!-- Denials -->
         <div class="bg-white rounded-lg shadow p-4">
-            <p class="text-xs text-gray-500 uppercase tracking-wide">ปฏิเสธ</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wide">ถูกปฏิเสธ</p>
             <p class="text-2xl font-bold text-red-600 mt-1" id="total-denials">-</p>
             <p class="text-xs text-red-400">ต้องตรวจสอบ</p>
         </div>
     </div>
 
+    <!-- Total Reimbursement Card - Same style as OPD/IPD -->
+    <div class="bg-white rounded-lg shadow p-5">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-green-100 p-2 rounded-lg">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="font-semibold text-gray-800">ยอดชดเชยรวม</p>
+                    <p class="text-sm text-gray-500">ทั้ง OPD และ IPD</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <p class="text-2xl font-bold text-green-600" id="total-reimb">-</p>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="mb-4">
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-500">อัตราชดเชย</span>
+                <span class="font-semibold" id="reimb-rate-value">-</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2">
+                <div class="h-2 rounded-full transition-all duration-500" id="reimb-rate-bar" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <!-- Money Stats -->
+        <div class="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100">
+            <div class="text-center">
+                <p class="text-xs text-gray-400">เรียกเก็บ</p>
+                <p class="text-sm font-semibold text-gray-600" id="total-claim-drg">-</p>
+            </div>
+            <div class="text-center">
+                <p class="text-xs text-gray-400">ชดเชย</p>
+                <p class="text-sm font-semibold text-green-600" id="total-reimb-display">-</p>
+            </div>
+            <div class="text-center">
+                <p class="text-xs text-gray-400">เฉลี่ย/case</p>
+                <p class="text-sm font-semibold text-blue-600" id="avg-reimb-per-case">-</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Hidden elements for JS compatibility -->
     <div class="hidden">
-        <span id="total-claim-drg">-</span>
         <span id="avg-claim-per-case">-</span>
-        <span id="avg-reimb-per-case">-</span>
+        <span id="total-drug-cost">-</span>
         <span id="total-drug-claim">-</span>
         <span id="total-drug-items">-</span>
         <span id="total-drug-cases">-</span>
         <span id="drug-avg-claim">-</span>
         <span id="drug-avg-reimb">-</span>
+        <span id="drug-reimb-rate-bar">-</span>
+        <span id="drug-reimb-rate-value">-</span>
     </div>
 
     <!-- OPD/IPD Detail Cards - Clean & Organized -->
@@ -578,6 +603,7 @@ async function loadOverview() {
             document.getElementById('total-claims').textContent = formatNumber(data.total_claims);
             document.getElementById('unique-patients').textContent = formatNumber(data.unique_patients);
             document.getElementById('total-reimb').textContent = formatNumber(data.total_reimb) + ' B';
+            document.getElementById('total-reimb-display').textContent = formatNumber(data.total_reimb) + ' B';
             document.getElementById('total-claim-drg').textContent = formatNumber(data.total_claim_drg) + ' B';
             document.getElementById('avg-claim-per-case').textContent = formatNumber(data.avg_claim_per_case) + ' B';
             document.getElementById('avg-reimb-per-case').textContent = formatNumber(data.avg_reimb_per_case) + ' B';
