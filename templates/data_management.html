@@ -97,6 +97,85 @@
 
     <!-- ==================== DOWNLOAD TAB ==================== -->
     <div id="content-download" class="tab-content p-6">
+        <!-- Update Status Overview -->
+        <div class="mb-6">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold text-gray-700 flex items-center">
+                    <svg class="w-4 h-4 mr-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    สถานะการอัพเดทข้อมูล
+                </h3>
+                <button onclick="loadUpdateStatus()" class="text-xs text-blue-600 hover:text-blue-800 flex items-center">
+                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    รีเฟรช
+                </button>
+            </div>
+            <div id="update-status-grid" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <!-- REP Status Card -->
+                <div id="status-card-rep" class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-700">📄 REP Files</span>
+                        <span id="status-badge-rep" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-600">กำลังโหลด...</span>
+                    </div>
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <div class="flex justify-between">
+                            <span>อัพเดทล่าสุด:</span>
+                            <span id="status-last-update-rep" class="font-medium text-gray-700">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>จำนวนไฟล์:</span>
+                            <span id="status-file-count-rep" class="font-medium text-gray-700">-</span>
+                        </div>
+                        <div id="status-schemes-rep" class="mt-1 pt-1 border-t border-gray-200 hidden">
+                            <div class="text-xs text-gray-400 mb-1">รายสิทธิ:</div>
+                            <div id="status-schemes-list-rep" class="flex flex-wrap gap-1"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Statement Status Card -->
+                <div id="status-card-stm" class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-700">📊 Statement</span>
+                        <span id="status-badge-stm" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-600">กำลังโหลด...</span>
+                    </div>
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <div class="flex justify-between">
+                            <span>อัพเดทล่าสุด:</span>
+                            <span id="status-last-update-stm" class="font-medium text-gray-700">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>จำนวนไฟล์:</span>
+                            <span id="status-file-count-stm" class="font-medium text-gray-700">-</span>
+                        </div>
+                        <div id="status-schemes-stm" class="mt-1 pt-1 border-t border-gray-200 hidden">
+                            <div class="text-xs text-gray-400 mb-1">รายสิทธิ:</div>
+                            <div id="status-schemes-list-stm" class="flex flex-wrap gap-1"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- SMT Status Card -->
+                <div id="status-card-smt" class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-700">💰 SMT Budget</span>
+                        <span id="status-badge-smt" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-600">กำลังโหลด...</span>
+                    </div>
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <div class="flex justify-between">
+                            <span>อัพเดทล่าสุด:</span>
+                            <span id="status-last-update-smt" class="font-medium text-gray-700">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>จำนวนไฟล์:</span>
+                            <span id="status-file-count-smt" class="font-medium text-gray-700">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Data Type Selector -->
         <div class="mb-6">
             <div class="flex gap-2 p-1 bg-gray-100 rounded-lg inline-flex">
@@ -2267,6 +2346,140 @@ function hideSyncToast() {
 
 // ==================== End System Sync Functions ====================
 
+// ==================== Update Status Functions ====================
+
+/**
+ * Load file update status from API
+ */
+async function loadUpdateStatus() {
+    try {
+        const response = await fetch('/api/files/update-status');
+        const result = await response.json();
+
+        if (result.success) {
+            updateStatusCards(result);
+        } else {
+            console.error('Failed to load update status:', result.error);
+            showStatusError();
+        }
+    } catch (error) {
+        console.error('Error loading update status:', error);
+        showStatusError();
+    }
+}
+
+/**
+ * Show error state in status cards
+ */
+function showStatusError() {
+    ['rep', 'stm', 'smt'].forEach(type => {
+        const badge = document.getElementById('status-badge-' + type);
+        if (badge) {
+            badge.textContent = 'Error';
+            badge.className = 'px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-600';
+        }
+    });
+}
+
+/**
+ * Update status cards with API data
+ */
+function updateStatusCards(data) {
+    const currentPeriod = data.current_period;
+    const byType = data.by_type || {};
+
+    // Month names in Thai
+    const thaiMonths = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+                       'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+    // Update each type card
+    ['rep', 'stm', 'smt'].forEach(type => {
+        const typeData = byType[type];
+        const badge = document.getElementById('status-badge-' + type);
+        const lastUpdate = document.getElementById('status-last-update-' + type);
+        const fileCount = document.getElementById('status-file-count-' + type);
+        const schemesDiv = document.getElementById('status-schemes-' + type);
+        const schemesList = document.getElementById('status-schemes-list-' + type);
+
+        if (!typeData) {
+            // No data for this type
+            if (badge) {
+                badge.textContent = 'ไม่มีข้อมูล';
+                badge.className = 'px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-500';
+            }
+            if (lastUpdate) lastUpdate.textContent = '-';
+            if (fileCount) fileCount.textContent = '0 ไฟล์';
+            if (schemesDiv) schemesDiv.classList.add('hidden');
+            return;
+        }
+
+        // Update file count
+        if (fileCount) {
+            fileCount.textContent = typeData.total_files.toLocaleString() + ' ไฟล์';
+        }
+
+        // Update last update time
+        if (lastUpdate && typeData.last_update) {
+            const date = new Date(typeData.last_update);
+            const day = date.getDate();
+            const month = thaiMonths[date.getMonth() + 1];
+            const year = date.getFullYear() + 543;
+            const hours = date.getHours().toString().padStart(2, '0');
+            const mins = date.getMinutes().toString().padStart(2, '0');
+            lastUpdate.textContent = day + ' ' + month + ' ' + year + ' ' + hours + ':' + mins;
+        } else if (lastUpdate) {
+            lastUpdate.textContent = '-';
+        }
+
+        // Update badge - check if any scheme is current month
+        let hasCurrentMonth = false;
+        let schemes = typeData.schemes || {};
+
+        for (const schemeKey in schemes) {
+            if (schemes[schemeKey].is_current_month) {
+                hasCurrentMonth = true;
+                break;
+            }
+        }
+
+        if (badge) {
+            if (hasCurrentMonth) {
+                badge.textContent = 'อัพเดทแล้ว';
+                badge.className = 'px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700';
+            } else if (typeData.total_files > 0) {
+                badge.textContent = 'รอข้อมูลใหม่';
+                badge.className = 'px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700';
+            } else {
+                badge.textContent = 'ไม่มีข้อมูล';
+                badge.className = 'px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-500';
+            }
+        }
+
+        // Update schemes list (for REP and STM which have schemes)
+        if (schemesDiv && schemesList && type !== 'smt' && Object.keys(schemes).length > 0) {
+            schemesDiv.classList.remove('hidden');
+            schemesList.innerHTML = '';
+
+            // Sort schemes
+            const sortedSchemes = Object.keys(schemes).sort();
+            sortedSchemes.forEach(schemeKey => {
+                const schemeData = schemes[schemeKey];
+                const span = document.createElement('span');
+                span.className = schemeData.is_current_month
+                    ? 'px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700'
+                    : 'px-1.5 py-0.5 rounded text-xs bg-gray-200 text-gray-600';
+                span.textContent = schemeKey.toUpperCase();
+                span.title = schemeData.file_count + ' ไฟล์';
+                schemesList.appendChild(span);
+            });
+        } else if (schemesDiv) {
+            schemesDiv.classList.add('hidden');
+        }
+    });
+}
+
+// ==================== End Update Status Functions ====================
+
 // Number formatting helper
 function formatNumber(num, decimals) {
     if (num === null || num === undefined) return '-';
@@ -3671,9 +3884,10 @@ async function toggleCredential(username, enabled) {
     }
 }
 
-// Load credentials when page loads
+// Load credentials and update status when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadCredentials();
+    loadUpdateStatus();  // Load file update status on page load
 });
 
 async function testConnection() {

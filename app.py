@@ -9796,6 +9796,123 @@ def api_health_offices_lookup(code):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/files/update-status', methods=['GET'])
+def get_files_update_status():
+    """
+    Get last update status for each file type and scheme combination.
+    Returns information about when each type was last downloaded and if it's up-to-date.
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Current month/year in Thai Buddhist Era
+        today = datetime.now(TZ_BANGKOK)
+        current_year_be = today.year + 543
+        current_month = today.month
+
+        # Get last download for each type/scheme combination
+        cursor.execute("""
+            SELECT
+                download_type,
+                scheme,
+                MAX(downloaded_at) as last_download,
+                COUNT(*) as file_count,
+                MAX(fiscal_year) as latest_year,
+                MAX(CASE WHEN fiscal_year = %s THEN service_month END) as latest_month_this_year
+            FROM download_history
+            WHERE download_status = 'success' AND file_exists = TRUE
+            GROUP BY download_type, scheme
+            ORDER BY download_type, scheme
+        """, (current_year_be,))
+
+        rows = cursor.fetchall()
+
+        # Build result structure
+        status_by_type = {}
+        for row in rows:
+            dtype = row[0]  # rep, stm, smt
+            scheme = row[1]
+            last_download = row[2]
+            file_count = row[3]
+            latest_year = row[4]
+            latest_month = row[5]
+
+            if dtype not in status_by_type:
+                status_by_type[dtype] = {
+                    'total_files': 0,
+                    'last_update': None,
+                    'schemes': {}
+                }
+
+            # Determine if up-to-date (has file from current month & year)
+            is_current = False
+            if latest_year and latest_month:
+                is_current = (latest_year == current_year_be and latest_month == current_month)
+
+            scheme_key = scheme or 'unknown'
+            status_by_type[dtype]['schemes'][scheme_key] = {
+                'file_count': file_count,
+                'last_download': last_download.isoformat() if last_download else None,
+                'latest_fiscal_year': latest_year,
+                'latest_month': latest_month,
+                'is_current_month': is_current
+            }
+            status_by_type[dtype]['total_files'] += file_count
+
+            # Update overall last_update for type
+            if last_download:
+                if status_by_type[dtype]['last_update'] is None:
+                    status_by_type[dtype]['last_update'] = last_download
+                elif last_download > datetime.fromisoformat(status_by_type[dtype]['last_update'].replace('Z', '+00:00')) if isinstance(status_by_type[dtype]['last_update'], str) else status_by_type[dtype]['last_update']:
+                    status_by_type[dtype]['last_update'] = last_download
+
+        # Convert datetime to string
+        for dtype in status_by_type:
+            if status_by_type[dtype]['last_update'] and hasattr(status_by_type[dtype]['last_update'], 'isoformat'):
+                status_by_type[dtype]['last_update'] = status_by_type[dtype]['last_update'].isoformat()
+
+        # Get overall summary
+        cursor.execute("""
+            SELECT
+                download_type,
+                COUNT(*) as total,
+                MAX(downloaded_at) as last_download
+            FROM download_history
+            WHERE download_status = 'success' AND file_exists = TRUE
+            GROUP BY download_type
+        """)
+        summary_rows = cursor.fetchall()
+
+        summary = {}
+        for row in summary_rows:
+            summary[row[0]] = {
+                'total_files': row[1],
+                'last_download': row[2].isoformat() if row[2] else None
+            }
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'current_period': {
+                'year_be': current_year_be,
+                'year_ad': today.year,
+                'month': current_month
+            },
+            'by_type': status_by_type,
+            'summary': summary
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     import atexit
 
