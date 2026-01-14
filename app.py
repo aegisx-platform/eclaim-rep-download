@@ -9815,19 +9815,44 @@ def get_files_update_status():
         current_month = today.month
 
         # Get last download for each type/scheme combination
+        # Use CTE to get the actual latest month from the latest year (not just current year)
         cursor.execute("""
+            WITH latest_info AS (
+                SELECT
+                    download_type,
+                    scheme,
+                    fiscal_year,
+                    service_month,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY download_type, scheme
+                        ORDER BY fiscal_year DESC, service_month DESC
+                    ) as rn
+                FROM download_history
+                WHERE download_status = 'success' AND file_exists = TRUE
+            ),
+            agg_info AS (
+                SELECT
+                    download_type,
+                    scheme,
+                    MAX(downloaded_at) as last_download,
+                    COUNT(*) as file_count
+                FROM download_history
+                WHERE download_status = 'success' AND file_exists = TRUE
+                GROUP BY download_type, scheme
+            )
             SELECT
-                download_type,
-                scheme,
-                MAX(downloaded_at) as last_download,
-                COUNT(*) as file_count,
-                MAX(fiscal_year) as latest_year,
-                MAX(CASE WHEN fiscal_year = %s THEN service_month END) as latest_month_this_year
-            FROM download_history
-            WHERE download_status = 'success' AND file_exists = TRUE
-            GROUP BY download_type, scheme
-            ORDER BY download_type, scheme
-        """, (current_year_be,))
+                a.download_type,
+                a.scheme,
+                a.last_download,
+                a.file_count,
+                l.fiscal_year as latest_year,
+                l.service_month as latest_month
+            FROM agg_info a
+            LEFT JOIN latest_info l ON l.download_type = a.download_type
+                AND COALESCE(l.scheme, '') = COALESCE(a.scheme, '')
+                AND l.rn = 1
+            ORDER BY a.download_type, a.scheme
+        """)
 
         rows = cursor.fetchall()
 
