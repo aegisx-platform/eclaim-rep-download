@@ -602,6 +602,24 @@ def data_management():
             if filter_scheme not in filename_lower:
                 continue
 
+        # File type filter (op, ip, orf, appeal)
+        if filter_file_type:
+            filename_upper = file.get('filename', '').upper()
+            if filter_file_type == 'op':
+                # Match OP but not OPLGO, OPSSS, OP_APPEAL
+                if '_OP_' not in filename_upper and not filename_upper.endswith('_OP.xls'):
+                    continue
+            elif filter_file_type == 'ip':
+                # Match IP but not IPLGO, IPSSS, IP_APPEAL
+                if '_IP_' not in filename_upper and not filename_upper.endswith('_IP.xls'):
+                    continue
+            elif filter_file_type == 'orf':
+                if '_ORF_' not in filename_upper:
+                    continue
+            elif filter_file_type == 'appeal':
+                if 'APPEAL' not in filename_upper:
+                    continue
+
         # Add import status early for status filtering
         filename = file.get('filename', '')
         file['imported'] = filename in import_status_map
@@ -4215,7 +4233,8 @@ def get_system_health():
     try:
         downloads_dir = Path(DOWNLOADS_DIR)
         if downloads_dir.exists():
-            xls_files = list(downloads_dir.glob('*.xls'))
+            # Search recursively in subdirectories (rep/, stm/, smt/)
+            xls_files = list(downloads_dir.glob('**/*.xls'))
             total_size = sum(f.stat().st_size for f in xls_files if f.exists())
 
             health['components']['files'] = {
