@@ -90,13 +90,22 @@ class DownloadScheduler:
         Execute download process
 
         This runs as a background job, so we need to use subprocess
+        Supports parallel download if enabled in settings
         """
         try:
             # Import here to avoid circular dependency
             from utils.log_stream import log_streamer
+            from utils.settings_manager import SettingsManager
 
+            # Get settings to check for parallel download
+            settings_manager = SettingsManager()
+            schedule_settings = settings_manager.get_schedule_settings()
+            parallel_download = schedule_settings.get('schedule_parallel_download', False)
+            parallel_workers = schedule_settings.get('schedule_parallel_workers', 3)
+
+            mode_info = f"parallel={parallel_workers}w" if parallel_download else "sequential"
             log_streamer.write_log(
-                f"⏰ Scheduled download started (auto_import={auto_import})",
+                f"⏰ Scheduled download started (auto_import={auto_import}, mode={mode_info})",
                 'info',
                 'scheduler'
             )
@@ -104,14 +113,23 @@ class DownloadScheduler:
             # Get project root directory
             project_root = Path(__file__).parent.parent
 
-            # Build command
-            cmd = [
-                sys.executable,
-                str(project_root / 'download_with_import.py')
-            ]
-
-            if auto_import:
-                cmd.append('--auto-import')
+            if parallel_download:
+                # Use parallel downloader for REP files
+                cmd = [
+                    sys.executable,
+                    str(project_root / 'parallel_download_runner.py'),
+                    '--workers', str(parallel_workers)
+                ]
+                if auto_import:
+                    cmd.append('--auto-import')
+            else:
+                # Use regular sequential downloader
+                cmd = [
+                    sys.executable,
+                    str(project_root / 'download_with_import.py')
+                ]
+                if auto_import:
+                    cmd.append('--auto-import')
 
             # Run download in background
             process = subprocess.Popen(
@@ -123,7 +141,7 @@ class DownloadScheduler:
             )
 
             log_streamer.write_log(
-                f"✓ Scheduled download initiated (PID: {process.pid})",
+                f"✓ Scheduled download initiated (PID: {process.pid}, mode={mode_info})",
                 'success',
                 'scheduler'
             )

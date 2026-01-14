@@ -328,7 +328,7 @@ class SettingsManager:
         Returns:
             Dict with schedule_enabled, schedule_times, schedule_auto_import,
             schedule_schemes, schedule_type_rep, schedule_type_stm, schedule_type_smt,
-            schedule_smt_vendor_id
+            schedule_smt_vendor_id, schedule_parallel_download, schedule_parallel_workers
         """
         settings = self.load_settings()
         # For SMT vendor ID, fallback to smt_vendor_id from SMT settings if not set
@@ -344,12 +344,15 @@ class SettingsManager:
             'schedule_type_rep': settings.get('schedule_type_rep', True),
             'schedule_type_stm': settings.get('schedule_type_stm', False),
             'schedule_type_smt': settings.get('schedule_type_smt', False),
-            'schedule_smt_vendor_id': smt_vendor
+            'schedule_smt_vendor_id': smt_vendor,
+            'schedule_parallel_download': settings.get('schedule_parallel_download', False),
+            'schedule_parallel_workers': settings.get('schedule_parallel_workers', 3)
         }
 
     def update_schedule_settings(self, enabled: bool, times: list, auto_import: bool,
                                    type_rep: bool = True, type_stm: bool = False,
-                                   type_smt: bool = False, smt_vendor_id: str = '') -> bool:
+                                   type_smt: bool = False, smt_vendor_id: str = '',
+                                   parallel_download: bool = False, parallel_workers: int = 3) -> bool:
         """
         Update unified schedule settings
 
@@ -361,6 +364,8 @@ class SettingsManager:
             type_stm: Download Statement files in schedule
             type_smt: Download SMT Budget in schedule
             smt_vendor_id: Vendor ID for SMT schedule
+            parallel_download: Whether to use parallel download for REP files
+            parallel_workers: Number of parallel workers (2-5)
 
         Returns:
             True if successful
@@ -373,6 +378,8 @@ class SettingsManager:
         settings['schedule_type_stm'] = type_stm
         settings['schedule_type_smt'] = type_smt
         settings['schedule_smt_vendor_id'] = smt_vendor_id
+        settings['schedule_parallel_download'] = parallel_download
+        settings['schedule_parallel_workers'] = min(max(int(parallel_workers), 2), 5)  # Clamp 2-5
         return self.save_settings(settings)
 
     def get_smt_settings(self) -> Dict:

@@ -2295,3 +2295,245 @@ function renderSmtDbRecords(records) {
         tbody.appendChild(tr);
     });
 }
+
+// ==================== Alert System Functions ====================
+
+let alertsRefreshInterval = null;
+
+/**
+ * Toggle alerts panel visibility
+ */
+function toggleAlertsPanel() {
+    const panel = document.getElementById('alerts-panel');
+    if (!panel) return;
+
+    const isHidden = panel.classList.contains('hidden');
+    if (isHidden) {
+        panel.classList.remove('hidden');
+        loadAlerts();
+    } else {
+        panel.classList.add('hidden');
+    }
+}
+
+/**
+ * Load alerts from API
+ */
+async function loadAlerts() {
+    const list = document.getElementById('alerts-list');
+    if (!list) return;
+
+    try {
+        const response = await fetch('/api/alerts?limit=20');
+        const data = await response.json();
+
+        if (!data.success) {
+            list.textContent = '';
+            const div = document.createElement('div');
+            div.className = 'p-4 text-center text-red-500';
+            div.textContent = 'Error loading alerts';
+            list.appendChild(div);
+            return;
+        }
+
+        list.textContent = '';
+
+        if (!data.alerts || data.alerts.length === 0) {
+            const div = document.createElement('div');
+            div.className = 'p-4 text-center text-gray-500';
+            div.textContent = 'No alerts';
+            list.appendChild(div);
+            return;
+        }
+
+        data.alerts.forEach(function(alert) {
+            const div = document.createElement('div');
+            div.className = 'p-3 border-b hover:bg-gray-50 ' + (alert.is_read ? 'bg-white' : 'bg-blue-50');
+            div.id = 'alert-' + alert.id;
+
+            // Severity icon
+            const iconMap = {
+                'critical': '🔴',
+                'warning': '⚠️',
+                'info': 'ℹ️'
+            };
+
+            const header = document.createElement('div');
+            header.className = 'flex items-start justify-between';
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'flex items-center gap-2';
+
+            const icon = document.createElement('span');
+            icon.textContent = iconMap[alert.severity] || 'ℹ️';
+            titleDiv.appendChild(icon);
+
+            const title = document.createElement('span');
+            title.className = 'font-medium text-sm text-gray-800';
+            title.textContent = alert.title;
+            titleDiv.appendChild(title);
+
+            header.appendChild(titleDiv);
+
+            // Dismiss button
+            const dismissBtn = document.createElement('button');
+            dismissBtn.className = 'text-gray-400 hover:text-gray-600 text-xs';
+            dismissBtn.textContent = '✕';
+            dismissBtn.onclick = function(e) {
+                e.stopPropagation();
+                dismissAlert(alert.id);
+            };
+            header.appendChild(dismissBtn);
+
+            div.appendChild(header);
+
+            // Message
+            if (alert.message) {
+                const msg = document.createElement('p');
+                msg.className = 'text-xs text-gray-600 mt-1 ml-6';
+                msg.textContent = alert.message.length > 100 ? alert.message.substring(0, 100) + '...' : alert.message;
+                div.appendChild(msg);
+            }
+
+            // Time
+            const time = document.createElement('p');
+            time.className = 'text-xs text-gray-400 mt-1 ml-6';
+            if (alert.created_at) {
+                const date = new Date(alert.created_at);
+                time.textContent = date.toLocaleString('th-TH');
+            }
+            div.appendChild(time);
+
+            // Click to mark as read
+            div.onclick = function() {
+                markAlertRead(alert.id);
+            };
+
+            list.appendChild(div);
+        });
+
+    } catch (error) {
+        console.error('Error loading alerts:', error);
+        list.textContent = '';
+        const div = document.createElement('div');
+        div.className = 'p-4 text-center text-red-500';
+        div.textContent = 'Error loading alerts';
+        list.appendChild(div);
+    }
+}
+
+/**
+ * Update alerts badge count
+ */
+async function updateAlertsBadge() {
+    const badge = document.getElementById('alerts-badge');
+    if (!badge) return;
+
+    try {
+        const response = await fetch('/api/alerts/unread-count');
+        const data = await response.json();
+
+        if (data.success) {
+            const count = data.count || 0;
+            badge.textContent = count > 99 ? '99+' : count;
+            if (count > 0) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+    } catch (error) {
+        console.error('Error updating alerts badge:', error);
+    }
+}
+
+/**
+ * Mark single alert as read
+ */
+async function markAlertRead(alertId) {
+    try {
+        await fetch('/api/alerts/' + alertId + '/read', { method: 'POST' });
+        // Update UI
+        const alertEl = document.getElementById('alert-' + alertId);
+        if (alertEl) {
+            alertEl.classList.remove('bg-blue-50');
+            alertEl.classList.add('bg-white');
+        }
+        updateAlertsBadge();
+    } catch (error) {
+        console.error('Error marking alert as read:', error);
+    }
+}
+
+/**
+ * Mark all alerts as read
+ */
+async function markAllAlertsRead() {
+    try {
+        await fetch('/api/alerts/read-all', { method: 'POST' });
+        loadAlerts();
+        updateAlertsBadge();
+    } catch (error) {
+        console.error('Error marking all alerts as read:', error);
+    }
+}
+
+/**
+ * Dismiss single alert
+ */
+async function dismissAlert(alertId) {
+    try {
+        await fetch('/api/alerts/' + alertId + '/dismiss', { method: 'POST' });
+        // Remove from UI
+        const alertEl = document.getElementById('alert-' + alertId);
+        if (alertEl) {
+            alertEl.remove();
+        }
+        updateAlertsBadge();
+    } catch (error) {
+        console.error('Error dismissing alert:', error);
+    }
+}
+
+/**
+ * Dismiss all alerts
+ */
+async function dismissAllAlerts() {
+    if (!confirm('Dismiss all alerts?')) return;
+
+    try {
+        await fetch('/api/alerts/dismiss-all', { method: 'POST' });
+        loadAlerts();
+        updateAlertsBadge();
+    } catch (error) {
+        console.error('Error dismissing all alerts:', error);
+    }
+}
+
+/**
+ * Start polling for new alerts
+ */
+function startAlertsPolling() {
+    // Update immediately
+    updateAlertsBadge();
+
+    // Poll every 60 seconds
+    if (alertsRefreshInterval) {
+        clearInterval(alertsRefreshInterval);
+    }
+    alertsRefreshInterval = setInterval(updateAlertsBadge, 60000);
+}
+
+// Close alerts panel when clicking outside
+document.addEventListener('click', function(event) {
+    const container = document.getElementById('alerts-container');
+    const panel = document.getElementById('alerts-panel');
+    if (container && panel && !container.contains(event.target)) {
+        panel.classList.add('hidden');
+    }
+});
+
+// Start alerts polling on page load
+document.addEventListener('DOMContentLoaded', function() {
+    startAlertsPolling();
+});

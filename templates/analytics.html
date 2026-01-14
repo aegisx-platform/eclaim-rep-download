@@ -63,70 +63,193 @@
         </div>
     </div>
 
-    <!-- Overview Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="overview-cards">
+    <!-- KPI Overview Cards - Clean & Minimal -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="overview-cards">
         <!-- Total Claims -->
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500">จำนวน Claims ทั้งหมด</p>
-                    <p class="text-2xl font-bold text-gray-800" id="total-claims">-</p>
-                </div>
-                <div class="bg-blue-100 p-3 rounded-full">
-                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                </div>
-            </div>
-            <p class="text-xs text-gray-400 mt-2"><span id="unique-patients">-</span> ผู้ป่วย</p>
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Claims</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1" id="total-claims">-</p>
+            <p class="text-xs text-gray-400"><span id="unique-patients">-</span> ผู้ป่วย</p>
         </div>
 
         <!-- Total Reimbursement -->
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500">ยอดเบิกทั้งหมด</p>
-                    <p class="text-2xl font-bold text-green-600" id="total-reimb">-</p>
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">ชดเชย</p>
+            <p class="text-2xl font-bold text-green-600 mt-1" id="total-reimb">-</p>
+            <div class="flex items-center gap-2 mt-1">
+                <div class="flex-1 bg-gray-200 rounded-full h-1.5">
+                    <div class="h-1.5 rounded-full transition-all duration-500" id="reimb-rate-bar" style="width: 0%;"></div>
                 </div>
-                <div class="bg-green-100 p-3 rounded-full">
-                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
+                <span class="text-xs font-semibold" id="reimb-rate-value">-</span>
             </div>
-            <p class="text-xs text-gray-400 mt-2">อัตราจ่าย <span id="reimb-rate">-</span>%</p>
         </div>
 
         <!-- Drug Cost -->
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500">ค่ายา</p>
-                    <p class="text-2xl font-bold text-purple-600" id="total-drug-cost">-</p>
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">ค่ายา</p>
+            <p class="text-2xl font-bold text-purple-600 mt-1" id="total-drug-cost">-</p>
+            <div class="flex items-center gap-2 mt-1">
+                <div class="flex-1 bg-gray-200 rounded-full h-1.5">
+                    <div class="h-1.5 rounded-full transition-all duration-500" id="drug-reimb-rate-bar" style="width: 0%;"></div>
                 </div>
-                <div class="bg-purple-100 p-3 rounded-full">
-                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
-                    </svg>
-                </div>
+                <span class="text-xs font-semibold" id="drug-reimb-rate-value">-</span>
             </div>
-            <p class="text-xs text-gray-400 mt-2"><span id="total-drug-items">-</span> รายการยา</p>
         </div>
 
         <!-- Denials -->
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500">รายการถูกปฏิเสธ</p>
-                    <p class="text-2xl font-bold text-red-600" id="total-denials">-</p>
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">ปฏิเสธ</p>
+            <p class="text-2xl font-bold text-red-600 mt-1" id="total-denials">-</p>
+            <p class="text-xs text-red-400">ต้องตรวจสอบ</p>
+        </div>
+    </div>
+
+    <!-- Hidden elements for JS compatibility -->
+    <div class="hidden">
+        <span id="total-claim-drg">-</span>
+        <span id="avg-claim-per-case">-</span>
+        <span id="avg-reimb-per-case">-</span>
+        <span id="total-drug-claim">-</span>
+        <span id="total-drug-items">-</span>
+        <span id="total-drug-cases">-</span>
+        <span id="drug-avg-claim">-</span>
+        <span id="drug-avg-reimb">-</span>
+    </div>
+
+    <!-- OPD/IPD Detail Cards - Clean & Organized -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- OPD Card -->
+        <div class="bg-white rounded-lg shadow p-5">
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-100 p-2 rounded-lg">
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800">OPD ผู้ป่วยนอก</p>
+                        <p class="text-sm text-gray-500"><span id="opd-claims" class="font-medium text-blue-600">-</span> / <span id="opd-total-claims">-</span> claims</p>
+                    </div>
                 </div>
-                <div class="bg-red-100 p-3 rounded-full">
-                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                    </svg>
+                <div class="text-right">
+                    <p class="text-xs text-gray-400">ไม่ผ่าน</p>
+                    <p class="text-sm text-red-500 font-medium"><span id="opd-fail-claims">-</span></p>
                 </div>
             </div>
-            <p class="text-xs text-gray-400 mt-2">ต้องตรวจสอบ</p>
+
+            <!-- Progress Bars -->
+            <div class="space-y-3 mb-4">
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-500">สำเร็จ</span>
+                        <span class="font-semibold" id="opd-success-rate-value">-</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-2">
+                        <div class="h-2 rounded-full transition-all duration-500" id="opd-success-bar" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-500">ชดเชย</span>
+                        <span class="font-semibold" id="opd-reimb-rate-value">-</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-2">
+                        <div class="h-2 rounded-full transition-all duration-500" id="opd-reimb-bar" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Money Stats -->
+            <div class="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100">
+                <div class="text-center">
+                    <p class="text-xs text-gray-400">เรียกเก็บ</p>
+                    <p class="text-sm font-semibold text-gray-600" id="opd-total-claim">-</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs text-gray-400">ผ่าน</p>
+                    <p class="text-sm font-semibold text-blue-500" id="opd-claim">-</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs text-gray-400">ชดเชย</p>
+                    <p class="text-sm font-semibold text-green-600" id="opd-reimb">-</p>
+                </div>
+            </div>
+
+            <!-- Hidden elements for JS -->
+            <div class="hidden">
+                <span id="opd-avg-claim">-</span>
+                <span id="opd-avg-reimb">-</span>
+                <span id="opd-fail-claim">-</span>
+            </div>
+        </div>
+
+        <!-- IPD Card -->
+        <div class="bg-white rounded-lg shadow p-5">
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="bg-orange-100 p-2 rounded-lg">
+                        <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800">IPD ผู้ป่วยใน</p>
+                        <p class="text-sm text-gray-500"><span id="ipd-claims" class="font-medium text-orange-600">-</span> / <span id="ipd-total-claims">-</span> claims</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-gray-400">ไม่ผ่าน</p>
+                    <p class="text-sm text-red-500 font-medium"><span id="ipd-fail-claims">-</span></p>
+                </div>
+            </div>
+
+            <!-- Progress Bars -->
+            <div class="space-y-3 mb-4">
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-500">สำเร็จ</span>
+                        <span class="font-semibold" id="ipd-success-rate-value">-</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-2">
+                        <div class="h-2 rounded-full transition-all duration-500" id="ipd-success-bar" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-500">ชดเชย</span>
+                        <span class="font-semibold" id="ipd-reimb-rate-value">-</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-2">
+                        <div class="h-2 rounded-full transition-all duration-500" id="ipd-reimb-bar" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Money Stats -->
+            <div class="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100">
+                <div class="text-center">
+                    <p class="text-xs text-gray-400">เรียกเก็บ</p>
+                    <p class="text-sm font-semibold text-gray-600" id="ipd-total-claim">-</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs text-gray-400">ผ่าน</p>
+                    <p class="text-sm font-semibold text-orange-500" id="ipd-claim">-</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs text-gray-400">ชดเชย</p>
+                    <p class="text-sm font-semibold text-green-600" id="ipd-reimb">-</p>
+                </div>
+            </div>
+
+            <!-- Hidden elements for JS -->
+            <div class="hidden">
+                <span id="ipd-avg-claim">-</span>
+                <span id="ipd-avg-reimb">-</span>
+                <span id="ipd-fail-claim">-</span>
+            </div>
         </div>
     </div>
 
@@ -382,6 +505,38 @@ function formatCurrency(num) {
     return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
 }
 
+// Get color for progress bar based on rate value
+function getRateColor(rate) {
+    if (rate >= 80) return '#10b981'; // Green (emerald-500)
+    if (rate >= 50) return '#f59e0b'; // Yellow (amber-500)
+    return '#ef4444'; // Red (red-500)
+}
+
+// Get text color class for rate value
+function getRateTextClass(rate) {
+    if (rate >= 80) return 'text-green-600';
+    if (rate >= 50) return 'text-amber-600';
+    return 'text-red-600';
+}
+
+// Update progress bar with animation
+function updateProgressBar(barId, valueId, rate, showPercent = true) {
+    const bar = document.getElementById(barId);
+    const valueEl = document.getElementById(valueId);
+
+    if (bar && rate !== null && rate !== undefined) {
+        const color = getRateColor(rate);
+        bar.style.backgroundColor = color;
+        bar.style.width = Math.min(rate, 100) + '%';
+    }
+
+    if (valueEl && rate !== null && rate !== undefined) {
+        valueEl.textContent = rate.toFixed(1) + (showPercent ? '%' : '');
+        valueEl.className = valueEl.className.replace(/text-\w+-\d+/g, '').trim();
+        valueEl.classList.add(getRateTextClass(rate));
+    }
+}
+
 // Escape HTML to prevent XSS
 function escapeHtml(text) {
     if (text === null || text === undefined) return '';
@@ -422,11 +577,55 @@ async function loadOverview() {
             const data = result.data;
             document.getElementById('total-claims').textContent = formatNumber(data.total_claims);
             document.getElementById('unique-patients').textContent = formatNumber(data.unique_patients);
-            document.getElementById('total-reimb').textContent = formatCurrency(data.total_reimb) + ' B';
-            document.getElementById('reimb-rate').textContent = data.reimb_rate;
-            document.getElementById('total-drug-cost').textContent = formatCurrency(data.total_drug_cost) + ' B';
+            document.getElementById('total-reimb').textContent = formatNumber(data.total_reimb) + ' B';
+            document.getElementById('total-claim-drg').textContent = formatNumber(data.total_claim_drg) + ' B';
+            document.getElementById('avg-claim-per-case').textContent = formatNumber(data.avg_claim_per_case) + ' B';
+            document.getElementById('avg-reimb-per-case').textContent = formatNumber(data.avg_reimb_per_case) + ' B';
+            document.getElementById('total-drug-cost').textContent = formatNumber(data.total_drug_cost) + ' B';
+            document.getElementById('total-drug-claim').textContent = formatNumber(data.total_drug_claim) + ' B';
             document.getElementById('total-drug-items').textContent = formatNumber(data.total_drug_items);
+            document.getElementById('total-drug-cases').textContent = formatNumber(data.total_drug_cases);
+            document.getElementById('drug-avg-claim').textContent = formatNumber(data.drug_avg_claim_per_case) + ' B';
+            document.getElementById('drug-avg-reimb').textContent = formatNumber(data.drug_avg_reimb_per_case) + ' B';
             document.getElementById('total-denials').textContent = formatNumber(data.total_denials);
+
+            // Update main progress bars
+            updateProgressBar('reimb-rate-bar', 'reimb-rate-value', data.reimb_rate);
+            updateProgressBar('drug-reimb-rate-bar', 'drug-reimb-rate-value', data.drug_reimb_rate);
+
+            // OPD Stats
+            if (data.opd) {
+                document.getElementById('opd-claims').textContent = formatNumber(data.opd.claims);
+                document.getElementById('opd-total-claims').textContent = formatNumber(data.opd.total_claims);
+                document.getElementById('opd-total-claim').textContent = formatNumber(data.opd.total_claim) + ' B';
+                document.getElementById('opd-claim').textContent = formatNumber(data.opd.claim) + ' B';
+                document.getElementById('opd-reimb').textContent = formatNumber(data.opd.reimb) + ' B';
+                document.getElementById('opd-avg-claim').textContent = formatNumber(data.opd.avg_claim) + ' B';
+                document.getElementById('opd-avg-reimb').textContent = formatNumber(data.opd.avg_reimb) + ' B';
+                document.getElementById('opd-fail-claims').textContent = formatNumber(data.opd.fail_claims);
+                document.getElementById('opd-fail-claim').textContent = formatNumber(data.opd.fail_claim) + ' B';
+
+                // OPD Progress bars
+                updateProgressBar('opd-success-bar', 'opd-success-rate-value', data.opd.success_rate);
+                updateProgressBar('opd-reimb-bar', 'opd-reimb-rate-value', data.opd.reimb_rate);
+            }
+
+            // IPD Stats
+            if (data.ipd) {
+                document.getElementById('ipd-claims').textContent = formatNumber(data.ipd.claims);
+                document.getElementById('ipd-total-claims').textContent = formatNumber(data.ipd.total_claims);
+                document.getElementById('ipd-total-claim').textContent = formatNumber(data.ipd.total_claim) + ' B';
+                document.getElementById('ipd-claim').textContent = formatNumber(data.ipd.claim) + ' B';
+                document.getElementById('ipd-reimb').textContent = formatNumber(data.ipd.reimb) + ' B';
+                document.getElementById('ipd-avg-claim').textContent = formatNumber(data.ipd.avg_claim) + ' B';
+                document.getElementById('ipd-avg-reimb').textContent = formatNumber(data.ipd.avg_reimb) + ' B';
+                document.getElementById('ipd-fail-claims').textContent = formatNumber(data.ipd.fail_claims);
+                document.getElementById('ipd-fail-claim').textContent = formatNumber(data.ipd.fail_claim) + ' B';
+
+                // IPD Progress bars
+                updateProgressBar('ipd-success-bar', 'ipd-success-rate-value', data.ipd.success_rate);
+                updateProgressBar('ipd-reimb-bar', 'ipd-reimb-rate-value', data.ipd.reimb_rate);
+            }
         }
     } catch (error) {
         console.error('Error loading overview:', error);
