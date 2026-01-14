@@ -470,16 +470,25 @@ async function loadHospitalYears() {
             hospitalYearsData = result.years;
             renderYearCheckboxes();
 
-            // Auto-select the most recent year with data
-            var yearsWithData = hospitalYearsData.filter(function(y) { return y.has_data; });
-            if (yearsWithData.length > 0) {
-                selectedYears = [yearsWithData[0].year];
+            // Try to restore previous selection from localStorage
+            var hasRestoredSelection = loadSelectedYearsFromStorage();
+
+            if (hasRestoredSelection) {
+                // Use restored selection
                 updateYearCheckboxStates();
                 await loadSelectedYears();
             } else {
-                // No data at all - show year selector but no analytics
-                document.getElementById('year-selector-section').classList.remove('hidden');
-                showNoDataState();
+                // Auto-select the most recent year with data
+                var yearsWithData = hospitalYearsData.filter(function(y) { return y.has_data; });
+                if (yearsWithData.length > 0) {
+                    selectedYears = [yearsWithData[0].year];
+                    updateYearCheckboxStates();
+                    await loadSelectedYears();
+                } else {
+                    // No data at all - show year selector but no analytics
+                    document.getElementById('year-selector-section').classList.remove('hidden');
+                    showNoDataState();
+                }
             }
         } else {
             showNoDataState();
@@ -578,6 +587,37 @@ function updateSelectedYearsCount() {
         if (yearInfo) totalRecords += yearInfo.records;
     });
     document.getElementById('total-records-count').textContent = totalRecords.toLocaleString();
+
+    // Save selected years to localStorage
+    saveSelectedYearsToStorage();
+}
+
+// Save selected years to localStorage
+function saveSelectedYearsToStorage() {
+    if (currentVendorId) {
+        localStorage.setItem('my_hospital_selected_years_' + currentVendorId, JSON.stringify(selectedYears));
+    }
+}
+
+// Load selected years from localStorage
+function loadSelectedYearsFromStorage() {
+    if (currentVendorId) {
+        var saved = localStorage.getItem('my_hospital_selected_years_' + currentVendorId);
+        if (saved) {
+            try {
+                var years = JSON.parse(saved);
+                // Filter to only include years that have data
+                selectedYears = years.filter(function(y) {
+                    var yearInfo = hospitalYearsData.find(function(info) { return info.year === y; });
+                    return yearInfo && yearInfo.has_data;
+                });
+                return selectedYears.length > 0;
+            } catch (e) {
+                console.error('Error loading selected years:', e);
+            }
+        }
+    }
+    return false;
 }
 
 // Fetch SMT data for a specific year
@@ -608,8 +648,26 @@ async function fetchYearSMTData(year) {
 
         if (result.success) {
             showToast('ดึงข้อมูลสำเร็จ! ' + (result.records || 0) + ' records', 'success');
-            // Refresh hospital years
-            await loadHospitalYears();
+
+            // Add this year to selectedYears if not already there
+            if (!selectedYears.includes(year)) {
+                selectedYears.push(year);
+            }
+
+            // Remember current selected years before refresh
+            var previousSelection = selectedYears.slice();
+
+            // Refresh hospital years data
+            await refreshHospitalYearsUI();
+
+            // Restore selection including the new year
+            selectedYears = previousSelection;
+            updateYearCheckboxStates();
+
+            // Reload data if analytics is visible
+            if (!document.getElementById('analytics-content').classList.contains('hidden')) {
+                await loadSelectedYears();
+            }
         } else {
             showToast(result.error || 'Failed to fetch data', 'error');
             btn.disabled = false;
@@ -620,6 +678,23 @@ async function fetchYearSMTData(year) {
         showToast('Error: ' + e.message, 'error');
         btn.disabled = false;
         btn.textContent = originalText;
+    }
+}
+
+// Refresh year checkboxes UI without changing selection
+async function refreshHospitalYearsUI() {
+    if (!currentVendorId) return;
+
+    try {
+        var response = await fetch('/api/benchmark/hospital-years?vendor_id=' + currentVendorId);
+        var result = await response.json();
+
+        if (result.success && result.years) {
+            hospitalYearsData = result.years;
+            renderYearCheckboxes();
+        }
+    } catch (e) {
+        console.error('Error refreshing hospital years:', e);
     }
 }
 
