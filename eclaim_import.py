@@ -8,6 +8,7 @@ import argparse
 import logging
 import sys
 import json
+import threading
 from pathlib import Path
 from typing import List
 from datetime import datetime
@@ -26,6 +27,34 @@ logger = logging.getLogger(__name__)
 # Progress file for real-time tracking
 PROGRESS_FILE = Path('import_progress.json')
 
+# Realtime log file (same as log_streamer uses)
+REALTIME_LOG_FILE = Path('logs/realtime.log')
+_log_lock = threading.Lock()
+
+
+def stream_log(message: str, level: str = 'info', source: str = 'import'):
+    """
+    Write log entry to realtime log file for UI streaming
+
+    Args:
+        message: Log message
+        level: Log level (info, success, error, warning)
+        source: Source identifier
+    """
+    with _log_lock:
+        try:
+            REALTIME_LOG_FILE.parent.mkdir(exist_ok=True)
+            log_entry = {
+                'timestamp': datetime.now().isoformat(),
+                'level': level,
+                'source': source,
+                'message': message
+            }
+            with open(REALTIME_LOG_FILE, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(log_entry) + '\n')
+        except Exception as e:
+            print(f"Error writing to realtime log: {e}")
+
 
 def update_progress(progress_data: dict):
     """
@@ -41,30 +70,41 @@ def update_progress(progress_data: dict):
         logger.warning(f"Could not update progress file: {e}")
 
 
-def import_single_file(filepath: str, db_config: dict) -> dict:
+def import_single_file(filepath: str, db_config: dict, log_to_stream: bool = True) -> dict:
     """
     Import single XLS file
 
     Args:
         filepath: Path to XLS file
         db_config: Database configuration
+        log_to_stream: Whether to write to realtime log stream
 
     Returns:
         Import result dict
     """
+    filename = Path(filepath).name
     try:
         logger.info(f"Importing file: {filepath}")
         result = import_eclaim_file(filepath, db_config, DB_TYPE)
 
         if result['success']:
-            logger.info(f"✓ Import successful: {result['imported_records']}/{result['total_records']} records")
+            msg = f"✓ {filename}: {result['imported_records']} records imported"
+            logger.info(msg)
+            if log_to_stream:
+                stream_log(msg, 'success', 'import')
         else:
-            logger.error(f"✗ Import failed: {result.get('error')}")
+            msg = f"✗ {filename}: {result.get('error', 'Unknown error')}"
+            logger.error(msg)
+            if log_to_stream:
+                stream_log(msg, 'error', 'import')
 
         return result
 
     except Exception as e:
-        logger.error(f"✗ Error importing file: {e}")
+        msg = f"✗ {filename}: {str(e)}"
+        logger.error(msg)
+        if log_to_stream:
+            stream_log(msg, 'error', 'import')
         return {'success': False, 'error': str(e)}
 
 
@@ -90,9 +130,12 @@ def import_directory(directory: str, db_config: dict, file_pattern: str = '*.xls
 
     if not xls_files:
         logger.warning(f"No files found matching pattern: {file_pattern}")
+        stream_log(f"⚠ No files found in {directory}", 'warning', 'import')
         return {'total': 0, 'success': 0, 'failed': 0}
 
     logger.info(f"Found {len(xls_files)} files to import")
+    stream_log(f"📥 Starting bulk import: {len(xls_files)} files", 'info', 'import')
+    stream_log("=" * 50, 'info', 'import')
 
     # Import each file
     results = {
@@ -121,13 +164,17 @@ def import_directory(directory: str, db_config: dict, file_pattern: str = '*.xls
         logger.info(f"\n{'='*60}")
         logger.info(f"[{idx}/{len(xls_files)}] Importing: {filepath.name}")
 
+        # Stream progress update every 10 files or on specific milestones
+        if idx == 1 or idx % 10 == 0 or idx == len(xls_files):
+            stream_log(f"[{idx}/{len(xls_files)}] Processing: {filepath.name}", 'info', 'import')
+
         # Update progress
         progress['current_file'] = filepath.name
         progress['current_file_index'] = idx
         progress['completed_files'] = idx - 1
         update_progress(progress)
 
-        result = import_single_file(str(filepath), db_config)
+        result = import_single_file(str(filepath), db_config, log_to_stream=True)
 
         if result['success']:
             results['success'] += 1
@@ -155,6 +202,14 @@ def import_directory(directory: str, db_config: dict, file_pattern: str = '*.xls
     progress['completed_at'] = datetime.now().isoformat()
     progress['current_file'] = None
     update_progress(progress)
+
+    # Stream final summary
+    stream_log("=" * 50, 'info', 'import')
+    stream_log(f"📊 Import completed: {results['success']}/{results['total']} files successful",
+               'success' if results['failed'] == 0 else 'warning', 'import')
+    stream_log(f"   Total records: {progress['total_records_imported']}", 'info', 'import')
+    if results['failed'] > 0:
+        stream_log(f"   Failed files: {results['failed']}", 'error', 'import')
 
     return results
 
