@@ -10,6 +10,7 @@ import psycopg2
 from pathlib import Path
 import subprocess
 import sys
+import traceback
 from utils import FileManager, DownloaderRunner
 from utils.history_manager_db import HistoryManagerDB
 from utils.import_runner import ImportRunner
@@ -8611,7 +8612,8 @@ def api_benchmark_region_average():
             fiscal_year = today.year + 543 if today.month >= 10 else today.year + 542
 
         fiscal_year = int(fiscal_year)
-        health_region = int(health_region)
+        # health_region in DB is "เขตสุขภาพที่ X", build match pattern
+        health_region_pattern = f"เขตสุขภาพที่ {health_region}"
 
         conn = get_db_connection()
         if not conn:
@@ -8648,7 +8650,7 @@ def api_benchmark_region_average():
                 COALESCE(AVG(debt_amount), 0) as avg_debt,
                 COALESCE(SUM(total_amount), 0) as sum_total
             FROM hospital_totals
-        """, (health_region, start_date, end_date))
+        """, (health_region_pattern, start_date, end_date))
         avg_row = cursor.fetchone()
 
         averages = {
@@ -8688,7 +8690,7 @@ def api_benchmark_region_average():
             FROM hospital_funds
             GROUP BY fund_name, fund_group
             ORDER BY total_amount DESC
-        """, (health_region, start_date, end_date))
+        """, (health_region_pattern, start_date, end_date))
 
         fund_rows = cursor.fetchall()
         fund_breakdown = []
@@ -8715,7 +8717,7 @@ def api_benchmark_region_average():
               AND s.run_date >= %s AND s.run_date <= %s
             GROUP BY TO_CHAR(s.run_date, 'YYYY-MM')
             ORDER BY month
-        """, (health_region, start_date, end_date))
+        """, (health_region_pattern, start_date, end_date))
 
         monthly_rows = cursor.fetchall()
         monthly_trend = []
@@ -8731,7 +8733,7 @@ def api_benchmark_region_average():
 
         return jsonify({
             'success': True,
-            'region': health_region,
+            'region': request.args.get('health_region'),
             'fiscal_year': fiscal_year,
             'averages': averages,
             'fund_breakdown': fund_breakdown,
