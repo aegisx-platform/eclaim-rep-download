@@ -8452,6 +8452,97 @@ def api_benchmark_timeseries():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/benchmark/hospital-years')
+def api_benchmark_hospital_years():
+    """Get which fiscal years have data for a specific hospital"""
+    try:
+        vendor_id = request.args.get('vendor_id')
+
+        if not vendor_id:
+            return jsonify({'success': False, 'error': 'vendor_id is required'}), 400
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Normalize vendor_id
+        vendor_id_10 = vendor_id.zfill(10)
+        vendor_id_5 = vendor_id.lstrip('0')
+
+        # Get all fiscal years that have data for this hospital
+        cursor.execute("""
+            SELECT
+                CASE
+                    WHEN EXTRACT(MONTH FROM run_date) >= 10 THEN EXTRACT(YEAR FROM run_date) + 544
+                    ELSE EXTRACT(YEAR FROM run_date) + 543
+                END as fiscal_year,
+                COUNT(*) as records,
+                COALESCE(SUM(total_amount), 0) as total_amount
+            FROM smt_budget_transfers
+            WHERE vendor_no = %s OR vendor_no = %s
+            GROUP BY fiscal_year
+            ORDER BY fiscal_year DESC
+        """, (vendor_id_10, vendor_id_5))
+        rows = cursor.fetchall()
+
+        # Get all available years in the system (from any hospital)
+        cursor.execute("""
+            SELECT DISTINCT
+                CASE
+                    WHEN EXTRACT(MONTH FROM run_date) >= 10 THEN EXTRACT(YEAR FROM run_date) + 544
+                    ELSE EXTRACT(YEAR FROM run_date) + 543
+                END as fiscal_year
+            FROM smt_budget_transfers
+            WHERE run_date IS NOT NULL
+            ORDER BY fiscal_year DESC
+        """)
+        all_years = [int(r[0]) for r in cursor.fetchall()]
+
+        cursor.close()
+        conn.close()
+
+        # Build response with status for each year
+        hospital_years = {}
+        for row in rows:
+            year = int(row[0])
+            hospital_years[year] = {
+                'year': year,
+                'has_data': True,
+                'records': row[1],
+                'total_amount': float(row[2])
+            }
+
+        # Add years that don't have data for this hospital
+        # Include years from 2565 to current fiscal year
+        today = datetime.now(TZ_BANGKOK)
+        current_fiscal = today.year + 544 if today.month >= 10 else today.year + 543
+
+        for year in range(2565, current_fiscal + 1):
+            if year not in hospital_years:
+                hospital_years[year] = {
+                    'year': year,
+                    'has_data': False,
+                    'records': 0,
+                    'total_amount': 0
+                }
+
+        # Sort by year descending
+        years_list = sorted(hospital_years.values(), key=lambda x: x['year'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'vendor_id': vendor_id,
+            'years': years_list,
+            'all_system_years': all_years
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/benchmark/my-hospital')
 def api_benchmark_my_hospital():
     """Get detailed analytics for a single hospital"""

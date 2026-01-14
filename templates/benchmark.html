@@ -6,7 +6,7 @@
 <div class="space-y-6">
     <!-- Page Header with Hospital Selector -->
     <div class="bg-white rounded-xl shadow-md p-6">
-        <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+        <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
             <div>
                 <h1 class="text-3xl font-bold text-gray-800">My Hospital Analytics</h1>
                 <p class="text-gray-600 mt-1">วิเคราะห์ข้อมูล SMT Budget ของโรงพยาบาล</p>
@@ -22,21 +22,6 @@
                         <div id="search-results" class="absolute z-20 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto hidden">
                         </div>
                     </div>
-                </div>
-                <!-- Fiscal Year -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">ปีงบประมาณ</label>
-                    <select id="fiscal-year" onchange="loadMyHospital()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    </select>
-                </div>
-                <!-- Refresh Button -->
-                <div class="pt-5">
-                    <button onclick="loadMyHospital()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                        </svg>
-                        Refresh
-                    </button>
                 </div>
             </div>
         </div>
@@ -55,6 +40,36 @@
                         <span id="hospital-province">-</span>
                         <span id="hospital-region">-</span>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Year Selector with Data Status -->
+        <div id="year-selector-section" class="hidden mt-4">
+            <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-medium text-gray-700 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        ปีงบประมาณ (เลือกได้หลายปี)
+                    </h3>
+                    <span class="text-xs text-gray-500">🟢 มีข้อมูล | 🔴 ไม่มีข้อมูล</span>
+                </div>
+                <div id="year-checkboxes-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                    <!-- Year checkboxes populated by JS -->
+                </div>
+                <div class="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between">
+                    <p class="text-xs text-gray-500">
+                        <span id="selected-years-count">0</span> ปีที่เลือก |
+                        <span id="total-records-count">0</span> records ทั้งหมด
+                    </p>
+                    <button onclick="loadSelectedYears()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        โหลดข้อมูล
+                    </button>
                 </div>
             </div>
         </div>
@@ -317,15 +332,17 @@
 // State
 let currentVendorId = null;
 let currentHospitalData = null;
+let currentHospitalInfo = null;
 let trendChart = null;
 let searchTimeout = null;
 let comparisonHospitals = [];
-let comparisonYearsData = {}; // { year: monthlyData[] }
-let availableYears = []; // Years with data from API
+let hospitalYearsData = []; // { year, has_data, records, total_amount }
+let selectedYears = []; // Years selected by user
+let yearsDataCache = {}; // { year: apiResponse }
 
 // Chart colors for year comparison
 const yearColors = [
-    { border: 'rgb(59, 130, 246)', bg: 'rgba(59, 130, 246, 0.1)' },      // Blue (current year)
+    { border: 'rgb(59, 130, 246)', bg: 'rgba(59, 130, 246, 0.1)' },      // Blue
     { border: 'rgb(34, 197, 94)', bg: 'rgba(34, 197, 94, 0.1)' },        // Green
     { border: 'rgb(249, 115, 22)', bg: 'rgba(249, 115, 22, 0.1)' },      // Orange
     { border: 'rgb(168, 85, 247)', bg: 'rgba(168, 85, 247, 0.1)' },      // Purple
@@ -335,8 +352,6 @@ const yearColors = [
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async function() {
-    await fetchAvailableYears();
-    populateFiscalYears();
     loadDefaultHospital();
 
     // Close search results when clicking outside
@@ -349,45 +364,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     });
 });
-
-async function fetchAvailableYears() {
-    try {
-        var response = await fetch('/api/benchmark/available-years');
-        var result = await response.json();
-        if (result.success && result.years) {
-            availableYears = result.years;
-        }
-    } catch (e) {
-        console.error('Error fetching available years:', e);
-        // Fallback to current fiscal year
-        var currentYear = new Date().getFullYear() + 543;
-        var month = new Date().getMonth() + 1;
-        availableYears = [month >= 10 ? currentYear + 1 : currentYear];
-    }
-}
-
-function populateFiscalYears() {
-    var select = document.getElementById('fiscal-year');
-    select.innerHTML = '';
-
-    if (availableYears.length === 0) {
-        // No data available - show message
-        var option = document.createElement('option');
-        option.value = '';
-        option.textContent = 'ไม่มีข้อมูล';
-        select.appendChild(option);
-        return;
-    }
-
-    // Populate with available years from API
-    availableYears.forEach(function(year, index) {
-        var option = document.createElement('option');
-        option.value = year;
-        option.textContent = 'ปีงบ ' + year;
-        if (index === 0) option.selected = true;  // First year (most recent) as default
-        select.appendChild(option);
-    });
-}
 
 async function loadDefaultHospital() {
     try {
@@ -404,7 +380,7 @@ async function loadDefaultHospital() {
                 document.getElementById('search-hospital').value = savedName;
             }
 
-            loadMyHospital();
+            await loadHospitalYears();
         } else {
             // Check localStorage
             var savedVendor = localStorage.getItem('my_hospital_vendor');
@@ -414,13 +390,229 @@ async function loadDefaultHospital() {
                 if (savedName) {
                     document.getElementById('search-hospital').value = savedName;
                 }
-                loadMyHospital();
+                await loadHospitalYears();
             } else {
                 showNoDataState();
             }
         }
     } catch (e) {
         console.error('Error loading default hospital:', e);
+        showNoDataState();
+    }
+}
+
+// Load available years for the selected hospital
+async function loadHospitalYears() {
+    if (!currentVendorId) {
+        showNoDataState();
+        return;
+    }
+
+    try {
+        var response = await fetch('/api/benchmark/hospital-years?vendor_id=' + currentVendorId);
+        var result = await response.json();
+
+        if (result.success && result.years) {
+            hospitalYearsData = result.years;
+            renderYearCheckboxes();
+
+            // Auto-select the most recent year with data
+            var yearsWithData = hospitalYearsData.filter(function(y) { return y.has_data; });
+            if (yearsWithData.length > 0) {
+                selectedYears = [yearsWithData[0].year];
+                updateYearCheckboxStates();
+                await loadSelectedYears();
+            } else {
+                // No data at all - show year selector but no analytics
+                document.getElementById('year-selector-section').classList.remove('hidden');
+                showNoDataState();
+            }
+        } else {
+            showNoDataState();
+        }
+    } catch (e) {
+        console.error('Error loading hospital years:', e);
+        showNoDataState();
+    }
+}
+
+// Render year checkboxes with data status
+function renderYearCheckboxes() {
+    var container = document.getElementById('year-checkboxes-container');
+    container.innerHTML = '';
+
+    hospitalYearsData.forEach(function(yearInfo) {
+        var div = document.createElement('div');
+        div.className = 'flex items-center gap-2 p-2 rounded-lg border ' +
+            (yearInfo.has_data ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white');
+
+        var checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = 'year-cb-' + yearInfo.year;
+        checkbox.value = yearInfo.year;
+        checkbox.className = 'rounded text-blue-600 focus:ring-blue-500';
+        checkbox.disabled = !yearInfo.has_data;
+        checkbox.onchange = function() { toggleYearSelection(yearInfo.year, this.checked); };
+
+        var label = document.createElement('label');
+        label.htmlFor = 'year-cb-' + yearInfo.year;
+        label.className = 'flex-1 cursor-pointer';
+
+        var yearSpan = document.createElement('span');
+        yearSpan.className = 'font-medium ' + (yearInfo.has_data ? 'text-gray-800' : 'text-gray-400');
+        yearSpan.textContent = (yearInfo.has_data ? '🟢 ' : '🔴 ') + yearInfo.year;
+        label.appendChild(yearSpan);
+
+        if (yearInfo.has_data) {
+            var recordsSpan = document.createElement('span');
+            recordsSpan.className = 'block text-xs text-gray-500';
+            recordsSpan.textContent = yearInfo.records.toLocaleString() + ' records';
+            label.appendChild(recordsSpan);
+        }
+
+        div.appendChild(checkbox);
+        div.appendChild(label);
+
+        // Add fetch button if no data
+        if (!yearInfo.has_data) {
+            var fetchBtn = document.createElement('button');
+            fetchBtn.className = 'px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded';
+            fetchBtn.textContent = '+ ดึง';
+            fetchBtn.onclick = function(e) {
+                e.preventDefault();
+                fetchYearSMTData(yearInfo.year);
+            };
+            div.appendChild(fetchBtn);
+        }
+
+        container.appendChild(div);
+    });
+
+    // Show year selector section
+    document.getElementById('year-selector-section').classList.remove('hidden');
+    document.getElementById('selected-hospital').classList.remove('hidden');
+    updateSelectedYearsCount();
+}
+
+function toggleYearSelection(year, isSelected) {
+    if (isSelected) {
+        if (!selectedYears.includes(year)) {
+            selectedYears.push(year);
+        }
+    } else {
+        selectedYears = selectedYears.filter(function(y) { return y !== year; });
+    }
+    updateSelectedYearsCount();
+}
+
+function updateYearCheckboxStates() {
+    hospitalYearsData.forEach(function(yearInfo) {
+        var cb = document.getElementById('year-cb-' + yearInfo.year);
+        if (cb) {
+            cb.checked = selectedYears.includes(yearInfo.year);
+        }
+    });
+    updateSelectedYearsCount();
+}
+
+function updateSelectedYearsCount() {
+    document.getElementById('selected-years-count').textContent = selectedYears.length;
+
+    var totalRecords = 0;
+    selectedYears.forEach(function(year) {
+        var yearInfo = hospitalYearsData.find(function(y) { return y.year === year; });
+        if (yearInfo) totalRecords += yearInfo.records;
+    });
+    document.getElementById('total-records-count').textContent = totalRecords.toLocaleString();
+}
+
+// Fetch SMT data for a specific year
+async function fetchYearSMTData(year) {
+    if (!currentVendorId) {
+        showToast('กรุณาเลือกโรงพยาบาลก่อน', 'warning');
+        return;
+    }
+
+    var btn = event.target;
+    var originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    showToast('กำลังดึงข้อมูล SMT ปี ' + year + '...', 'info');
+
+    try {
+        var response = await fetch('/api/smt/fetch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                vendor_id: currentVendorId,
+                budget_year: year,
+                save_db: true
+            })
+        });
+        var result = await response.json();
+
+        if (result.success) {
+            showToast('ดึงข้อมูลสำเร็จ! ' + (result.records || 0) + ' records', 'success');
+            // Refresh hospital years
+            await loadHospitalYears();
+        } else {
+            showToast(result.error || 'Failed to fetch data', 'error');
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    } catch (e) {
+        console.error('Fetch error:', e);
+        showToast('Error: ' + e.message, 'error');
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
+// Load data for selected years
+async function loadSelectedYears() {
+    if (!currentVendorId || selectedYears.length === 0) {
+        showNoDataState();
+        return;
+    }
+
+    showLoading();
+
+    // Sort years descending
+    selectedYears.sort(function(a, b) { return b - a; });
+
+    // Fetch data for each selected year
+    yearsDataCache = {};
+    for (var i = 0; i < selectedYears.length; i++) {
+        var year = selectedYears[i];
+        try {
+            var response = await fetch('/api/benchmark/my-hospital?vendor_id=' + currentVendorId + '&fiscal_year=' + year);
+            var result = await response.json();
+            if (result.success) {
+                yearsDataCache[year] = result;
+                // Set hospital info from first result
+                if (!currentHospitalInfo && result.hospital) {
+                    currentHospitalInfo = result.hospital;
+                    updateHospitalInfo(result.hospital);
+                }
+            }
+        } catch (e) {
+            console.error('Error loading year ' + year + ':', e);
+        }
+    }
+
+    // Use the most recent year as primary display
+    var primaryYear = selectedYears[0];
+    currentHospitalData = yearsDataCache[primaryYear];
+
+    if (currentHospitalData) {
+        updateSummaryCards(currentHospitalData.summary);
+        updateRiskAssessment(currentHospitalData.risk_score);
+        updateFundBreakdown(currentHospitalData.fund_breakdown);
+        populateYearComparisonCheckboxes();
+        updateTrendChart();
+        showAnalytics();
+    } else {
         showNoDataState();
     }
 }
@@ -443,56 +635,14 @@ function showAnalytics() {
     document.getElementById('analytics-content').classList.remove('hidden');
 }
 
-async function loadMyHospital() {
-    if (!currentVendorId) {
-        showNoDataState();
-        return;
-    }
-
-    showLoading();
-
-    var fiscalYear = document.getElementById('fiscal-year').value;
-
-    try {
-        // Fetch hospital data
-        var hospitalRes = await fetch('/api/benchmark/my-hospital?vendor_id=' + currentVendorId + '&fiscal_year=' + fiscalYear);
-        var hospitalResult = await hospitalRes.json();
-
-        if (!hospitalResult.success) {
-            console.error('Error:', hospitalResult.error);
-            showNoDataState();
-            return;
-        }
-
-        currentHospitalData = hospitalResult;
-        comparisonYearsData = {}; // Reset comparison data
-
-        // Update hospital info
-        updateHospitalInfo(hospitalResult.hospital);
-
-        // Update UI
-        updateSummaryCards(hospitalResult.summary);
-        updateRiskAssessment(hospitalResult.risk_score);
-        updateFundBreakdown(hospitalResult.fund_breakdown);
-        populateYearCheckboxes();
-        updateTrendChart();
-
-        showAnalytics();
-
-    } catch (e) {
-        console.error('Error loading hospital data:', e);
-        showNoDataState();
-    }
-}
-
 function updateHospitalInfo(hospital) {
     if (!hospital) return;
 
     document.getElementById('hospital-name').textContent = hospital.name || '-';
     document.getElementById('hospital-code').textContent = 'รหัส: ' + (hospital.vendor_no || '').replace(/^0+/, '');
-    document.getElementById('hospital-level').textContent = hospital.level || '-';
+    document.getElementById('hospital-level').textContent = hospital.level ? (hospital.level + ' - โรงพยาบาลศูนย์') : '-';
     document.getElementById('hospital-province').textContent = hospital.province || '-';
-    document.getElementById('hospital-region').textContent = hospital.health_region || '-';
+    document.getElementById('hospital-region').textContent = hospital.health_region ? ('เขตสุขภาพที่ ' + hospital.health_region) : '-';
 
     document.getElementById('selected-hospital').classList.remove('hidden');
 
@@ -501,16 +651,20 @@ function updateHospitalInfo(hospital) {
     localStorage.setItem('my_hospital_name', hospital.name || '');
 }
 
-function populateYearCheckboxes() {
+// Populate year comparison checkboxes in the Monthly Trend section
+function populateYearComparisonCheckboxes() {
     var container = document.getElementById('year-checkboxes');
-    container.textContent = '';
+    if (!container) return;
 
-    var currentYear = parseInt(document.getElementById('fiscal-year').value);
+    container.innerHTML = '';
 
-    // Filter available years to show only years OTHER than the current selected year
-    var otherYears = availableYears.filter(function(y) { return y !== currentYear; });
+    // Get years with data excluding the primary year
+    var primaryYear = selectedYears.length > 0 ? selectedYears[0] : null;
+    var yearsWithData = hospitalYearsData.filter(function(y) {
+        return y.has_data && y.year !== primaryYear;
+    });
 
-    if (otherYears.length === 0) {
+    if (yearsWithData.length === 0) {
         var span = document.createElement('span');
         span.className = 'text-sm text-gray-400';
         span.textContent = 'ไม่มีปีอื่นให้เปรียบเทียบ';
@@ -518,21 +672,23 @@ function populateYearCheckboxes() {
         return;
     }
 
-    // Create checkboxes for other available years
-    otherYears.forEach(function(year) {
+    // Create checkboxes for comparison years
+    yearsWithData.forEach(function(yearInfo) {
         var label = document.createElement('label');
         label.className = 'flex items-center gap-1 px-2 py-1 rounded cursor-pointer hover:bg-gray-100 transition-colors';
 
         var checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.id = 'year-' + year;
-        checkbox.value = year;
+        checkbox.id = 'trend-year-' + yearInfo.year;
+        checkbox.value = yearInfo.year;
         checkbox.className = 'rounded text-purple-600 focus:ring-purple-500';
-        checkbox.onchange = function() { toggleComparisonYear(this.value, this.checked); };
+        // Pre-check if already in selectedYears (but not primary)
+        checkbox.checked = selectedYears.includes(yearInfo.year) && yearInfo.year !== primaryYear;
+        checkbox.onchange = function() { toggleTrendYear(yearInfo.year, this.checked); };
 
         var span = document.createElement('span');
         span.className = 'text-sm text-gray-700';
-        span.textContent = year;
+        span.textContent = yearInfo.year;
 
         label.appendChild(checkbox);
         label.appendChild(span);
@@ -540,30 +696,22 @@ function populateYearCheckboxes() {
     });
 }
 
-async function toggleComparisonYear(year, isChecked) {
+async function toggleTrendYear(year, isChecked) {
     if (isChecked) {
-        // Fetch data for this year
-        await fetchYearData(year);
-    } else {
-        // Remove from comparison
-        delete comparisonYearsData[year];
+        // Fetch data for this year if not in cache
+        if (!yearsDataCache[year]) {
+            try {
+                var res = await fetch('/api/benchmark/my-hospital?vendor_id=' + currentVendorId + '&fiscal_year=' + year);
+                var result = await res.json();
+                if (result.success) {
+                    yearsDataCache[year] = result;
+                }
+            } catch (e) {
+                console.error('Error fetching year data for ' + year + ':', e);
+            }
+        }
     }
     updateTrendChart();
-}
-
-async function fetchYearData(year) {
-    if (!currentVendorId) return;
-
-    try {
-        var res = await fetch('/api/benchmark/my-hospital?vendor_id=' + currentVendorId + '&fiscal_year=' + year);
-        var result = await res.json();
-
-        if (result.success && result.monthly_trend) {
-            comparisonYearsData[year] = result.monthly_trend;
-        }
-    } catch (e) {
-        console.error('Error fetching year data for ' + year + ':', e);
-    }
 }
 
 function updateSummaryCards(summary) {
@@ -727,12 +875,15 @@ function updateFundBreakdown(fundBreakdown) {
     });
 }
 
-async function updateTrendChart() {
+function updateTrendChart() {
     if (!currentHospitalData || !currentHospitalData.monthly_trend) return;
 
     var ctx = document.getElementById('trend-chart').getContext('2d');
     var metric = document.getElementById('trend-metric').value;
-    var currentYear = document.getElementById('fiscal-year').value;
+
+    // Primary year is the first selected year
+    var primaryYear = selectedYears.length > 0 ? selectedYears[0] : null;
+    if (!primaryYear) return;
 
     // Destroy existing chart
     if (trendChart) {
@@ -760,14 +911,14 @@ async function updateTrendChart() {
         return found ? (found[metric] || 0) : null;
     }
 
-    // Current year dataset
-    var currentYearData = fiscalMonthOrder.map(function(m) {
+    // Primary year dataset
+    var primaryYearData = fiscalMonthOrder.map(function(m) {
         return getMonthValue(currentHospitalData.monthly_trend, m, metric);
     });
 
     var datasets = [{
-        label: 'ปีงบ ' + currentYear,
-        data: currentYearData,
+        label: 'ปีงบ ' + primaryYear,
+        data: primaryYearData,
         borderColor: yearColors[0].border,
         backgroundColor: yearColors[0].bg,
         borderWidth: 3,
@@ -777,13 +928,24 @@ async function updateTrendChart() {
         pointHoverRadius: 6
     }];
 
-    // Add comparison years
+    // Add comparison years from yearsDataCache (excluding primary year)
     var colorIndex = 1;
-    var sortedYears = Object.keys(comparisonYearsData).sort(function(a, b) { return b - a; });
+    var comparisonYearsList = [];
 
-    sortedYears.forEach(function(year) {
+    // Get checked comparison checkboxes
+    var checkboxes = document.querySelectorAll('#year-checkboxes input[type="checkbox"]:checked');
+    checkboxes.forEach(function(cb) {
+        var year = parseInt(cb.value);
+        if (year !== primaryYear && yearsDataCache[year] && yearsDataCache[year].monthly_trend) {
+            comparisonYearsList.push(year);
+        }
+    });
+
+    comparisonYearsList.sort(function(a, b) { return b - a; });
+
+    comparisonYearsList.forEach(function(year) {
         var yearData = fiscalMonthOrder.map(function(m) {
-            return getMonthValue(comparisonYearsData[year], m, metric);
+            return getMonthValue(yearsDataCache[year].monthly_trend, m, metric);
         });
 
         var color = yearColors[colorIndex % yearColors.length];
@@ -844,7 +1006,7 @@ async function updateTrendChart() {
     });
 
     // Update year legend
-    updateYearLegend(currentYear, sortedYears);
+    updateYearLegend(primaryYear, comparisonYearsList);
 }
 
 function updateYearLegend(currentYear, comparisonYears) {
@@ -941,24 +1103,29 @@ function selectHospital(h) {
 
     if (h.hcode5) {
         currentVendorId = h.hcode5;
+        currentHospitalInfo = null; // Reset hospital info
+        selectedYears = []; // Reset selected years
+        yearsDataCache = {}; // Reset cache
         localStorage.setItem('my_hospital_vendor', h.hcode5);
         localStorage.setItem('my_hospital_name', h.name);
-        loadMyHospital();
+        loadHospitalYears();
     } else {
         showToast('โรงพยาบาลนี้ไม่มีรหัส 5 หลัก', 'warning');
     }
 }
 
-// Fetch SMT Data
+// Fetch SMT Data for all years (from no-data state)
 async function fetchSMTData() {
     if (!currentVendorId) {
         showToast('กรุณาเลือกโรงพยาบาลก่อน', 'warning');
         return;
     }
 
-    var fiscalYear = document.getElementById('fiscal-year').value;
+    // Get current fiscal year
+    var today = new Date();
+    var fiscalYear = today.getMonth() >= 9 ? today.getFullYear() + 544 : today.getFullYear() + 543;
 
-    showToast('กำลังดึงข้อมูล SMT...', 'info');
+    showToast('กำลังดึงข้อมูล SMT ปี ' + fiscalYear + '...', 'info');
 
     try {
         var response = await fetch('/api/smt/fetch', {
@@ -973,8 +1140,8 @@ async function fetchSMTData() {
         var result = await response.json();
 
         if (result.success) {
-            showToast('ดึงข้อมูลสำเร็จ! ' + result.records + ' records', 'success');
-            loadMyHospital();
+            showToast('ดึงข้อมูลสำเร็จ! ' + (result.records || 0) + ' records', 'success');
+            await loadHospitalYears();
         } else {
             showToast(result.error || 'Failed to fetch data', 'error');
         }
@@ -1063,12 +1230,13 @@ async function addComparisonHospital(h) {
 
     showToast('กำลังดึงข้อมูล ' + h.name + ' ทุกปี...', 'info');
 
-    // Fetch data for all available years
+    // Fetch data for years that my hospital has data
     var yearData = {};
     var hasAnyData = false;
+    var yearsToFetch = hospitalYearsData.filter(function(y) { return y.has_data; }).map(function(y) { return y.year; });
 
-    for (var i = 0; i < availableYears.length; i++) {
-        var year = availableYears[i];
+    for (var i = 0; i < yearsToFetch.length; i++) {
+        var year = yearsToFetch[i];
         try {
             var response = await fetch('/api/benchmark/my-hospital?vendor_id=' + h.hcode5 + '&fiscal_year=' + year);
             var result = await response.json();
@@ -1154,15 +1322,16 @@ function updateComparisonUI() {
 
 function populateComparisonYearDropdown() {
     var select = document.getElementById('comparison-year');
-    var currentYear = document.getElementById('fiscal-year').value;
+    var primaryYear = selectedYears.length > 0 ? selectedYears[0] : null;
     select.innerHTML = '';
 
-    // Add available years
-    availableYears.forEach(function(year) {
+    // Add years that my hospital has data
+    var yearsWithData = hospitalYearsData.filter(function(y) { return y.has_data; });
+    yearsWithData.forEach(function(yearInfo) {
         var option = document.createElement('option');
-        option.value = year;
-        option.textContent = 'ปีงบ ' + year;
-        if (year.toString() === currentYear) option.selected = true;
+        option.value = yearInfo.year;
+        option.textContent = 'ปีงบ ' + yearInfo.year;
+        if (yearInfo.year === primaryYear) option.selected = true;
         select.appendChild(option);
     });
 }
@@ -1172,28 +1341,26 @@ function updateComparisonTable() {
     var selectedYear = parseInt(document.getElementById('comparison-year').value);
     tbody.innerHTML = '';
 
+    var primaryYear = selectedYears.length > 0 ? selectedYears[0] : null;
+
     // Add my hospital first
-    if (currentHospitalData) {
-        // Need to fetch data for selected year if different from current
-        var myCurrentYear = parseInt(document.getElementById('fiscal-year').value);
-        if (selectedYear === myCurrentYear) {
+    if (currentHospitalData && currentHospitalInfo) {
+        // Use cached data if available
+        if (yearsDataCache[selectedYear]) {
             addComparisonTableRow(tbody, {
                 vendor_id: currentVendorId,
-                name: currentHospitalData.hospital.name,
+                name: currentHospitalInfo.name,
+                summary: yearsDataCache[selectedYear].summary
+            }, true);
+        } else if (selectedYear === primaryYear) {
+            addComparisonTableRow(tbody, {
+                vendor_id: currentVendorId,
+                name: currentHospitalInfo.name,
                 summary: currentHospitalData.summary
             }, true);
         } else {
-            // Check if we have data in comparisonYearsData
-            if (comparisonYearsData[selectedYear]) {
-                // We have the monthly trend but not summary - fetch it
-                fetchAndAddMyHospitalRow(tbody, selectedYear);
-            } else {
-                addComparisonTableRow(tbody, {
-                    vendor_id: currentVendorId,
-                    name: currentHospitalData.hospital.name,
-                    summary: null
-                }, true);
-            }
+            // Fetch and add
+            fetchAndAddMyHospitalRow(tbody, selectedYear);
         }
     }
 
@@ -1213,11 +1380,14 @@ async function fetchAndAddMyHospitalRow(tbody, year) {
         var response = await fetch('/api/benchmark/my-hospital?vendor_id=' + currentVendorId + '&fiscal_year=' + year);
         var result = await response.json();
         if (result.success) {
+            // Cache the result
+            yearsDataCache[year] = result;
+
             // Insert at beginning
             var firstRow = tbody.firstChild;
             var tr = createComparisonRow({
                 vendor_id: currentVendorId,
-                name: currentHospitalData.hospital.name,
+                name: currentHospitalInfo ? currentHospitalInfo.name : 'โรงพยาบาลของฉัน',
                 summary: result.summary
             }, true);
             if (firstRow) {
