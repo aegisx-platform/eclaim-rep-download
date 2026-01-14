@@ -10,13 +10,14 @@ import psycopg2
 from pathlib import Path
 import subprocess
 import sys
-from utils import HistoryManager, FileManager, DownloaderRunner
+from utils import FileManager, DownloaderRunner
+from utils.history_manager_db import HistoryManagerDB
 from utils.import_runner import ImportRunner
 from utils.log_stream import log_streamer
 from utils.settings_manager import SettingsManager
 from utils.scheduler import download_scheduler
 from config.database import get_db_config
-from config.db_pool import init_pool, close_pool, get_connection as get_pooled_connection, get_pool_status
+from config.db_pool import init_pool, close_pool, get_connection as get_pooled_connection, return_connection, get_pool_status
 
 # Thailand timezone
 TZ_BANGKOK = ZoneInfo('Asia/Bangkok')
@@ -33,8 +34,9 @@ if not secret_key:
     secret_key = 'dev-only-secret-key-do-not-use-in-production'
 app.config['SECRET_KEY'] = secret_key
 
-# Initialize managers
-history_manager = HistoryManager()
+# Initialize managers - now using database-backed history
+history_manager = HistoryManagerDB(download_type='rep')  # REP files
+stm_history_manager = HistoryManagerDB(download_type='stm')  # Statement files
 file_manager = FileManager()
 downloader_runner = DownloaderRunner()
 import_runner = ImportRunner()
@@ -133,7 +135,7 @@ def init_scheduler():
         )
 
     except Exception as e:
-        app.app.logger.error(f"Error initializing scheduler: {e}")
+        app.logger.error(f"Error initializing scheduler: {e}")
 
 
 def get_db_connection():
@@ -141,10 +143,10 @@ def get_db_connection():
     try:
         conn = get_pooled_connection()
         if conn is None:
-            app.app.logger.error("Failed to get connection from pool")
+            app.logger.error("Failed to get connection from pool")
         return conn
     except Exception as e:
-        app.app.logger.error(f"Database connection error: {e}")
+        app.logger.error(f"Database connection error: {e}")
         return None
 
 
@@ -186,7 +188,7 @@ def get_import_status_map():
         conn.close()
 
     except Exception as e:
-        app.app.logger.error(f"Error getting import status: {e}")
+        app.logger.error(f"Error getting import status: {e}")
         if conn:
             conn.close()
 
@@ -207,7 +209,7 @@ def dashboard():
 
     # Format file sizes and dates for display
     for file in latest_files:
-        file['size_formatted'] = humanize.naturalsize(file.get('file_size', 0))
+        file['size_formatted'] = humanize.naturalsize(file.get('file_size') or 0)
         try:
             # Parse datetime (stored as UTC in Docker container)
             dt = datetime.fromisoformat(file.get('download_date', ''))
@@ -281,7 +283,7 @@ def files():
     # Sort by download date (most recent first)
     filtered_files = sorted(
         filtered_files,
-        key=lambda d: d.get('download_date', ''),
+        key=lambda d: d.get('download_date') or '',
         reverse=True
     )
 
@@ -297,7 +299,7 @@ def files():
 
     # Format for display and add import status
     for file in paginated_files:
-        file['size_formatted'] = humanize.naturalsize(file.get('file_size', 0))
+        file['size_formatted'] = humanize.naturalsize(file.get('file_size') or 0)
         try:
             # Parse datetime (stored as UTC in Docker container)
             dt = datetime.fromisoformat(file.get('download_date', ''))
@@ -550,7 +552,7 @@ def data_management():
     # Sort by download date (most recent first)
     filtered_files = sorted(
         filtered_files,
-        key=lambda d: d.get('download_date', ''),
+        key=lambda d: d.get('download_date') or '',
         reverse=True
     )
 
@@ -566,7 +568,7 @@ def data_management():
 
     # Format for display and add import status
     for file in paginated_files:
-        file['size_formatted'] = humanize.naturalsize(file.get('file_size', 0))
+        file['size_formatted'] = humanize.naturalsize(file.get('file_size') or 0)
         try:
             dt = datetime.fromisoformat(file.get('download_date', ''))
             if dt.tzinfo is None:
@@ -618,14 +620,14 @@ def data_management():
             cursor.close()
             conn.close()
         except Exception as e:
-            app.app.logger.error(f"Error getting db stats: {e}")
+            app.logger.error(f"Error getting db stats: {e}")
             if conn:
                 conn.close()
 
     # Calculate stats
     stats = {
         'total_files': len(all_files),
-        'total_size': humanize.naturalsize(sum(f.get('file_size', 0) for f in all_files)),
+        'total_size': humanize.naturalsize(sum((f.get('file_size') or 0) for f in all_files)),
         'imported_count': imported_count,
         'not_imported_count': not_imported_count
     }
@@ -668,6 +670,8 @@ def api_analysis_summary():
     fiscal_year = request.args.get('fiscal_year', type=int)
     start_month = request.args.get('start_month', type=int)
     end_month = request.args.get('end_month', type=int)
+    scheme = request.args.get('scheme', '').strip()
+    service_type = request.args.get('service_type', '').strip()
 
     conn = get_db_connection()
     if not conn:
@@ -678,12 +682,22 @@ def api_analysis_summary():
 
         # Build date range for filtering (fiscal year starts in October)
         # fiscal_year 2568 means Oct 2024 - Sep 2025 (Gregorian: Oct 2024 = Oct 2024)
-        date_filter_rep = ""
-        date_filter_stm = ""
+        where_clauses_rep = []
+        where_clauses_stm = []
         date_filter_smt = ""
         params_rep = []
         params_stm = []
         params_smt = []
+
+        # Add scheme filter (REP only - stm_claim_item doesn't have scheme)
+        if scheme:
+            where_clauses_rep.append("scheme = %s")
+            params_rep.append(scheme)
+
+        # Add service_type filter (OP or IP - matches file_type prefix)
+        if service_type:
+            where_clauses_rep.append("file_type LIKE %s")
+            params_rep.append(f"{service_type}%")
 
         if fiscal_year:
             # Fiscal year in Thai BE: FY 2569 = Oct 2568 to Sep 2569 (Gregorian: Oct 2025 to Sep 2026)
@@ -722,19 +736,27 @@ def api_analysis_summary():
                 end_date = f"{end_year}-{end_month:02d}-{last_day:02d}"
                 smt_end = f"{smt_end_year}{end_month:02d}{last_day:02d}"
 
-                date_filter_rep = " WHERE dateadm >= %s AND dateadm <= %s"
-                params_rep = [start_date, end_date]
-                date_filter_stm = " WHERE date_admit >= %s AND date_admit <= %s"
-                params_stm = [start_date, end_date]
+                where_clauses_rep.append("dateadm >= %s AND dateadm <= %s")
+                params_rep.extend([start_date, end_date])
+                where_clauses_stm.append("date_admit >= %s AND date_admit <= %s")
+                params_stm.extend([start_date, end_date])
                 date_filter_smt = " WHERE posting_date >= %s AND posting_date <= %s"
                 params_smt = [smt_start, smt_end]
             else:
-                date_filter_rep = " WHERE dateadm >= %s AND dateadm <= %s"
-                params_rep = [fy_start, fy_end]
-                date_filter_stm = " WHERE date_admit >= %s AND date_admit <= %s"
-                params_stm = [fy_start, fy_end]
+                where_clauses_rep.append("dateadm >= %s AND dateadm <= %s")
+                params_rep.extend([fy_start, fy_end])
+                where_clauses_stm.append("date_admit >= %s AND date_admit <= %s")
+                params_stm.extend([fy_start, fy_end])
                 date_filter_smt = " WHERE posting_date >= %s AND posting_date <= %s"
                 params_smt = [smt_fy_start, smt_fy_end]
+
+        # Build WHERE clauses
+        date_filter_rep = ""
+        if where_clauses_rep:
+            date_filter_rep = " WHERE " + " AND ".join(where_clauses_rep)
+        date_filter_stm = ""
+        if where_clauses_stm:
+            date_filter_stm = " WHERE " + " AND ".join(where_clauses_stm)
 
         # REP data summary
         rep_data = {'total_records': 0, 'total_amount': 0, 'files_count': 0}
@@ -822,7 +844,9 @@ def api_analysis_summary():
             'filters': {
                 'fiscal_year': fiscal_year,
                 'start_month': start_month,
-                'end_month': end_month
+                'end_month': end_month,
+                'scheme': scheme,
+                'service_type': service_type
             }
         })
 
@@ -850,12 +874,39 @@ def api_analysis_reconciliation():
         group_by = request.args.get('group_by', 'rep_no').strip()  # 'rep_no' or 'tran_id'
         limit = request.args.get('limit', 100, type=int)
 
+        # New filter parameters
+        date_from = request.args.get('date_from', '').strip()
+        date_to = request.args.get('date_to', '').strip()
+        diff_threshold = request.args.get('diff_threshold', 0, type=float)
+        has_error = request.args.get('has_error', '').strip() == 'true'
+
+        # Build CTE WHERE clauses
+        rep_cte_where = ["tran_id IS NOT NULL"]
+        stm_cte_where = ["tran_id IS NOT NULL"]
+        cte_params_rep = []
+        cte_params_stm = []
+
+        if date_from:
+            rep_cte_where.append("dateadm >= %s")
+            cte_params_rep.append(date_from)
+            stm_cte_where.append("date_admit >= %s")
+            cte_params_stm.append(date_from)
+
+        if date_to:
+            rep_cte_where.append("dateadm <= %s")
+            cte_params_rep.append(date_to)
+            stm_cte_where.append("date_admit <= %s")
+            cte_params_stm.append(date_to)
+
+        if has_error:
+            rep_cte_where.append("error_code IS NOT NULL AND error_code != ''")
+
         where_clauses = []
         params = []
 
         if group_by == 'tran_id':
             # Transaction-level reconciliation by tran_id
-            query = """
+            query = f"""
                 WITH rep_data AS (
                     SELECT
                         tran_id,
@@ -864,7 +915,7 @@ def api_analysis_reconciliation():
                         hn,
                         COALESCE(reimb_nhso, 0) as rep_amount
                     FROM claim_rep_opip_nhso_item
-                    WHERE tran_id IS NOT NULL
+                    WHERE {' AND '.join(rep_cte_where)}
                 ),
                 stm_data AS (
                     SELECT
@@ -874,7 +925,7 @@ def api_analysis_reconciliation():
                         hn,
                         COALESCE(paid_after_deduction, 0) as stm_amount
                     FROM stm_claim_item
-                    WHERE tran_id IS NOT NULL
+                    WHERE {' AND '.join(stm_cte_where)}
                 )
                 SELECT
                     COALESCE(r.tran_id, s.tran_id) as tran_id,
@@ -895,29 +946,46 @@ def api_analysis_reconciliation():
                 FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
             """
 
+            # CTE params first
+            params.extend(cte_params_rep)
+            params.extend(cte_params_stm)
+
             if rep_no_filter:
-                where_clauses.append("(r.rep_no ILIKE %s OR s.rep_no ILIKE %s)")
+                # In tran_id mode, search by both tran_id and rep_no
+                where_clauses.append("(tran_id ILIKE %s OR rep_no ILIKE %s)")
                 params.extend([f'%{rep_no_filter}%', f'%{rep_no_filter}%'])
 
-            if status_filter == 'matched':
-                where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01")
-            elif status_filter == 'diff_amount':
-                where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) >= 0.01")
-            elif status_filter == 'rep_only':
-                where_clauses.append("r.tran_id IS NOT NULL AND s.tran_id IS NULL")
-            elif status_filter == 'stm_only':
-                where_clauses.append("r.tran_id IS NULL AND s.tran_id IS NOT NULL")
+            if status_filter:
+                where_clauses.append("status = %s")
+                params.append(status_filter)
+
+            if diff_threshold > 0:
+                where_clauses.append("ABS(diff) >= %s")
+                params.append(diff_threshold)
 
         else:
             # REP-level reconciliation by rep_no (aggregate)
-            query = """
+            # Build WHERE clauses for rep_no mode
+            rep_where = ["rep_no IS NOT NULL AND rep_no != ''"]
+            stm_where = ["rep_no IS NOT NULL AND rep_no != ''"]
+
+            if date_from:
+                rep_where.append("dateadm >= %s")
+                stm_where.append("date_admit >= %s")
+            if date_to:
+                rep_where.append("dateadm <= %s")
+                stm_where.append("date_admit <= %s")
+            if has_error:
+                rep_where.append("error_code IS NOT NULL AND error_code != ''")
+
+            query = f"""
                 WITH rep_data AS (
                     SELECT
                         rep_no,
                         SUM(COALESCE(reimb_nhso, 0)) as rep_amount,
                         COUNT(*) as rep_count
                     FROM claim_rep_opip_nhso_item
-                    WHERE rep_no IS NOT NULL AND rep_no != ''
+                    WHERE {' AND '.join(rep_where)}
                     GROUP BY rep_no
                 ),
                 stm_data AS (
@@ -926,7 +994,7 @@ def api_analysis_reconciliation():
                         SUM(COALESCE(paid_after_deduction, 0)) as stm_amount,
                         COUNT(*) as stm_count
                     FROM stm_claim_item
-                    WHERE rep_no IS NOT NULL AND rep_no != ''
+                    WHERE {' AND '.join(stm_where)}
                     GROUP BY rep_no
                 )
                 SELECT
@@ -947,18 +1015,25 @@ def api_analysis_reconciliation():
                 FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
             """
 
-            if rep_no_filter:
-                where_clauses.append("(r.rep_no ILIKE %s OR s.rep_no ILIKE %s)")
-                params.extend([f'%{rep_no_filter}%', f'%{rep_no_filter}%'])
+            # Add CTE params for rep_no mode
+            if date_from:
+                params.append(date_from)
+                params.append(date_from)
+            if date_to:
+                params.append(date_to)
+                params.append(date_to)
 
-            if status_filter == 'matched':
-                where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01")
-            elif status_filter == 'diff_amount':
-                where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) >= 0.01")
-            elif status_filter == 'rep_only':
-                where_clauses.append("r.rep_no IS NOT NULL AND s.rep_no IS NULL")
-            elif status_filter == 'stm_only':
-                where_clauses.append("r.rep_no IS NULL AND s.rep_no IS NOT NULL")
+            if rep_no_filter:
+                where_clauses.append("rep_no ILIKE %s")
+                params.append(f'%{rep_no_filter}%')
+
+            if status_filter:
+                where_clauses.append("status = %s")
+                params.append(status_filter)
+
+            if diff_threshold > 0:
+                where_clauses.append("ABS(diff) >= %s")
+                params.append(diff_threshold)
 
         if where_clauses:
             query = f"SELECT * FROM ({query}) sub WHERE " + " AND ".join(where_clauses)
@@ -1061,6 +1136,163 @@ def api_analysis_reconciliation():
         if conn:
             conn.close()
         app.logger.error(f"Error in reconciliation: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/export')
+def api_analysis_export():
+    """
+    Export reconciliation data to CSV
+    """
+    import csv
+    import io
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+
+        rep_no_filter = request.args.get('rep_no', '').strip()
+        status_filter = request.args.get('status', '').strip()
+        group_by = request.args.get('group_by', 'rep_no').strip()
+        date_from = request.args.get('date_from', '').strip()
+        date_to = request.args.get('date_to', '').strip()
+        diff_threshold = request.args.get('diff_threshold', 0, type=float)
+        has_error = request.args.get('has_error', '').strip() == 'true'
+
+        # Build CTE WHERE clauses
+        rep_where = ["tran_id IS NOT NULL"] if group_by == 'tran_id' else ["rep_no IS NOT NULL AND rep_no != ''"]
+        stm_where = ["tran_id IS NOT NULL"] if group_by == 'tran_id' else ["rep_no IS NOT NULL AND rep_no != ''"]
+        params = []
+
+        if date_from:
+            rep_where.append("dateadm >= %s")
+            stm_where.append("date_admit >= %s")
+            params.extend([date_from, date_from])
+        if date_to:
+            rep_where.append("dateadm <= %s")
+            stm_where.append("date_admit <= %s")
+            params.extend([date_to, date_to])
+        if has_error:
+            rep_where.append("error_code IS NOT NULL AND error_code != ''")
+
+        where_clauses = []
+
+        if group_by == 'tran_id':
+            query = f"""
+                WITH rep_data AS (
+                    SELECT tran_id, rep_no, name as patient_name, hn, dateadm,
+                           COALESCE(reimb_nhso, 0) as rep_amount, error_code
+                    FROM claim_rep_opip_nhso_item
+                    WHERE {' AND '.join(rep_where)}
+                ),
+                stm_data AS (
+                    SELECT tran_id, rep_no, patient_name, hn, date_admit,
+                           COALESCE(paid_after_deduction, 0) as stm_amount
+                    FROM stm_claim_item
+                    WHERE {' AND '.join(stm_where)}
+                )
+                SELECT
+                    COALESCE(r.tran_id, s.tran_id) as tran_id,
+                    COALESCE(r.rep_no, s.rep_no) as rep_no,
+                    COALESCE(r.patient_name, s.patient_name) as patient_name,
+                    COALESCE(r.hn, s.hn) as hn,
+                    COALESCE(r.dateadm, s.date_admit) as date,
+                    COALESCE(r.rep_amount, 0) as rep_amount,
+                    COALESCE(s.stm_amount, 0) as stm_amount,
+                    COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
+                    CASE
+                        WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL
+                             AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
+                        WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL THEN 'diff_amount'
+                        WHEN r.tran_id IS NOT NULL THEN 'rep_only'
+                        ELSE 'stm_only'
+                    END as status,
+                    r.error_code
+                FROM rep_data r
+                FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
+            """
+            columns = ['TRAN_ID', 'REP_NO', 'PATIENT_NAME', 'HN', 'DATE', 'REP_AMOUNT', 'STM_AMOUNT', 'DIFF', 'STATUS', 'ERROR_CODE']
+        else:
+            query = f"""
+                WITH rep_data AS (
+                    SELECT rep_no, SUM(COALESCE(reimb_nhso, 0)) as rep_amount, COUNT(*) as rep_count
+                    FROM claim_rep_opip_nhso_item
+                    WHERE {' AND '.join(rep_where)}
+                    GROUP BY rep_no
+                ),
+                stm_data AS (
+                    SELECT rep_no, SUM(COALESCE(paid_after_deduction, 0)) as stm_amount, COUNT(*) as stm_count
+                    FROM stm_claim_item
+                    WHERE {' AND '.join(stm_where)}
+                    GROUP BY rep_no
+                )
+                SELECT
+                    COALESCE(r.rep_no, s.rep_no) as rep_no,
+                    COALESCE(r.rep_count, 0) as rep_count,
+                    COALESCE(s.stm_count, 0) as stm_count,
+                    COALESCE(r.rep_amount, 0) as rep_amount,
+                    COALESCE(s.stm_amount, 0) as stm_amount,
+                    COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
+                    CASE
+                        WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL
+                             AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
+                        WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL THEN 'diff_amount'
+                        WHEN r.rep_no IS NOT NULL THEN 'rep_only'
+                        ELSE 'stm_only'
+                    END as status
+                FROM rep_data r
+                FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
+            """
+            columns = ['REP_NO', 'REP_COUNT', 'STM_COUNT', 'REP_AMOUNT', 'STM_AMOUNT', 'DIFF', 'STATUS']
+
+        if rep_no_filter:
+            if group_by == 'tran_id':
+                where_clauses.append("(tran_id ILIKE %s OR rep_no ILIKE %s)")
+                params.extend([f'%{rep_no_filter}%', f'%{rep_no_filter}%'])
+            else:
+                where_clauses.append("rep_no ILIKE %s")
+                params.append(f'%{rep_no_filter}%')
+
+        if status_filter:
+            where_clauses.append("status = %s")
+            params.append(status_filter)
+
+        if diff_threshold > 0:
+            where_clauses.append("ABS(diff) >= %s")
+            params.append(diff_threshold)
+
+        if where_clauses:
+            query = f"SELECT * FROM ({query}) sub WHERE " + " AND ".join(where_clauses)
+
+        query += " LIMIT 10000"  # Limit export size
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        # Create CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(columns)
+        for row in rows:
+            writer.writerow(row)
+
+        # Return CSV file
+        from flask import make_response
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+        response.headers['Content-Disposition'] = f'attachment; filename=reconciliation_{group_by}.csv'
+        return response
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error in export: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -1338,6 +1570,709 @@ def api_analysis_file_items():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# =============================================================================
+# NEW: Enhanced Data Analysis APIs
+# =============================================================================
+
+@app.route('/api/analysis/claims')
+def api_analysis_claims():
+    """
+    Get detailed claims data with filters
+    Supports: scheme, ptype, date_from, date_to, error_code, reconcile_status
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+
+        # Get filter parameters
+        scheme = request.args.get('scheme', '').strip() or None
+        ptype = request.args.get('ptype', '').strip() or None
+        date_from = request.args.get('date_from', '').strip() or None
+        date_to = request.args.get('date_to', '').strip() or None
+        has_error = request.args.get('has_error', '').strip().lower() == 'true'
+        reconcile_status = request.args.get('reconcile_status', '').strip() or None
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        offset = (page - 1) * per_page
+
+        # Build WHERE clause
+        conditions = ["1=1"]
+        params = []
+
+        if scheme:
+            conditions.append("main_inscl = %s")
+            params.append(scheme.upper())
+
+        if ptype:
+            conditions.append("ptype = %s")
+            params.append(ptype.upper())
+
+        if date_from:
+            conditions.append("dateadm >= %s")
+            params.append(date_from)
+
+        if date_to:
+            conditions.append("dateadm <= %s")
+            params.append(date_to)
+
+        if has_error:
+            conditions.append("error_code IS NOT NULL AND error_code != '-' AND error_code != ''")
+
+        if reconcile_status:
+            conditions.append("reconcile_status = %s")
+            params.append(reconcile_status)
+
+        where_clause = " AND ".join(conditions)
+
+        # Count total
+        count_query = f"SELECT COUNT(*) FROM claim_rep_opip_nhso_item WHERE {where_clause}"
+        cursor.execute(count_query, params)
+        total_count = cursor.fetchone()[0]
+
+        # Get data
+        data_query = f"""
+            SELECT tran_id, hn, name, ptype, main_inscl as scheme, dateadm,
+                   claim_net, reimb_nhso, error_code, reconcile_status
+            FROM claim_rep_opip_nhso_item
+            WHERE {where_clause}
+            ORDER BY dateadm DESC
+            LIMIT %s OFFSET %s
+        """
+        cursor.execute(data_query, params + [per_page, offset])
+
+        claims = []
+        for row in cursor.fetchall():
+            claims.append({
+                'tran_id': row[0],
+                'hn': row[1],
+                'name': row[2],
+                'ptype': row[3],
+                'scheme': row[4],
+                'dateadm': row[5].strftime('%Y-%m-%d') if row[5] else None,
+                'claim_net': float(row[6]) if row[6] else 0,
+                'reimb_nhso': float(row[7]) if row[7] else 0,
+                'error_code': row[8],
+                'reconcile_status': row[9]
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'claims': claims,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total_count,
+                'total_pages': (total_count + per_page - 1) // per_page
+            },
+            'filters': {
+                'scheme': scheme,
+                'ptype': ptype,
+                'date_from': date_from,
+                'date_to': date_to,
+                'has_error': has_error,
+                'reconcile_status': reconcile_status
+            }
+        })
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error getting claims: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/financial-breakdown')
+def api_analysis_financial_breakdown():
+    """
+    Get financial breakdown by service category
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+
+        # Get filter parameters
+        scheme = request.args.get('scheme', '').strip() or None
+        ptype = request.args.get('ptype', '').strip() or None
+        date_from = request.args.get('date_from', '').strip() or None
+        date_to = request.args.get('date_to', '').strip() or None
+
+        # Build WHERE clause
+        conditions = ["1=1"]
+        params = []
+
+        if scheme:
+            conditions.append("main_inscl = %s")
+            params.append(scheme.upper())
+
+        if ptype:
+            conditions.append("ptype = %s")
+            params.append(ptype.upper())
+
+        if date_from:
+            conditions.append("dateadm >= %s")
+            params.append(date_from)
+
+        if date_to:
+            conditions.append("dateadm <= %s")
+            params.append(date_to)
+
+        where_clause = " AND ".join(conditions)
+
+        # Get breakdown by scheme and ptype
+        query = f"""
+            SELECT
+                COALESCE(main_inscl, 'UNKNOWN') as scheme,
+                COALESCE(ptype, 'UNKNOWN') as ptype,
+                COUNT(*) as total_cases,
+                COALESCE(SUM(COALESCE(iphc, 0) + COALESCE(ophc, 0)), 0) as high_cost_care,
+                COALESCE(SUM(COALESCE(ae_opae, 0) + COALESCE(ae_ipnb, 0) + COALESCE(ae_ipuc, 0)), 0) as emergency,
+                COALESCE(SUM(COALESCE(inst, 0) + COALESCE(opinst, 0)), 0) as prosthetics,
+                COALESCE(SUM(COALESCE(drug, 0)), 0) as drug_costs,
+                COALESCE(SUM(claim_net), 0) as total_claimed,
+                COALESCE(SUM(reimb_nhso), 0) as total_reimbursed
+            FROM claim_rep_opip_nhso_item
+            WHERE {where_clause}
+            GROUP BY main_inscl, ptype
+            ORDER BY total_cases DESC
+        """
+        cursor.execute(query, params)
+
+        breakdown = []
+        totals = {
+            'total_cases': 0,
+            'high_cost_care': 0,
+            'emergency': 0,
+            'prosthetics': 0,
+            'drug_costs': 0,
+            'total_claimed': 0,
+            'total_reimbursed': 0
+        }
+
+        for row in cursor.fetchall():
+            item = {
+                'scheme': row[0],
+                'ptype': row[1],
+                'total_cases': int(row[2]),
+                'high_cost_care': float(row[3]),
+                'emergency': float(row[4]),
+                'prosthetics': float(row[5]),
+                'drug_costs': float(row[6]),
+                'total_claimed': float(row[7]),
+                'total_reimbursed': float(row[8])
+            }
+            breakdown.append(item)
+
+            # Accumulate totals
+            for key in totals:
+                totals[key] += item[key]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'breakdown': breakdown,
+            'totals': totals,
+            'filters': {
+                'scheme': scheme,
+                'ptype': ptype,
+                'date_from': date_from,
+                'date_to': date_to
+            }
+        })
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error getting financial breakdown: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/errors')
+def api_analysis_errors():
+    """
+    Get error and denial analytics
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+
+        # Get filter parameters
+        scheme = request.args.get('scheme', '').strip() or None
+        ptype = request.args.get('ptype', '').strip() or None
+        date_from = request.args.get('date_from', '').strip() or None
+        date_to = request.args.get('date_to', '').strip() or None
+
+        # Build WHERE clause
+        conditions = ["1=1"]
+        params = []
+
+        if scheme:
+            conditions.append("main_inscl = %s")
+            params.append(scheme.upper())
+
+        if ptype:
+            conditions.append("ptype = %s")
+            params.append(ptype.upper())
+
+        if date_from:
+            conditions.append("dateadm >= %s")
+            params.append(date_from)
+
+        if date_to:
+            conditions.append("dateadm <= %s")
+            params.append(date_to)
+
+        where_clause = " AND ".join(conditions)
+
+        # Top error codes
+        error_query = f"""
+            SELECT error_code, COUNT(*) as count, COALESCE(SUM(claim_net), 0) as affected_amount
+            FROM claim_rep_opip_nhso_item
+            WHERE {where_clause}
+              AND error_code IS NOT NULL AND error_code != '-' AND error_code != ''
+            GROUP BY error_code
+            ORDER BY count DESC
+            LIMIT 15
+        """
+        cursor.execute(error_query, params)
+
+        top_errors = []
+        for row in cursor.fetchall():
+            top_errors.append({
+                'error_code': row[0],
+                'count': int(row[1]),
+                'affected_amount': float(row[2])
+            })
+
+        # Overall stats
+        stats_query = f"""
+            SELECT
+                COUNT(*) as total_records,
+                SUM(CASE WHEN error_code IS NOT NULL AND error_code != '-' AND error_code != '' THEN 1 ELSE 0 END) as error_count,
+                COALESCE(SUM(CASE WHEN error_code IS NOT NULL AND error_code != '-' AND error_code != '' THEN claim_net ELSE 0 END), 0) as error_amount,
+                COALESCE(SUM(claim_net), 0) as total_claimed
+            FROM claim_rep_opip_nhso_item
+            WHERE {where_clause}
+        """
+        cursor.execute(stats_query, params)
+        stats_row = cursor.fetchone()
+
+        stats = {
+            'total_records': int(stats_row[0]) if stats_row[0] else 0,
+            'error_count': int(stats_row[1]) if stats_row[1] else 0,
+            'error_amount': float(stats_row[2]) if stats_row[2] else 0,
+            'total_claimed': float(stats_row[3]) if stats_row[3] else 0,
+            'error_rate': round((int(stats_row[1]) / int(stats_row[0]) * 100), 2) if stats_row[0] and stats_row[0] > 0 else 0
+        }
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'top_errors': top_errors,
+            'stats': stats,
+            'filters': {
+                'scheme': scheme,
+                'ptype': ptype,
+                'date_from': date_from,
+                'date_to': date_to
+            }
+        })
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error getting error analytics: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/scheme-summary')
+def api_analysis_scheme_summary():
+    """
+    Get summary by insurance scheme
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+
+        # Get filter parameters
+        date_from = request.args.get('date_from', '').strip() or None
+        date_to = request.args.get('date_to', '').strip() or None
+
+        # Build WHERE clause
+        conditions = ["1=1"]
+        params = []
+
+        if date_from:
+            conditions.append("dateadm >= %s")
+            params.append(date_from)
+
+        if date_to:
+            conditions.append("dateadm <= %s")
+            params.append(date_to)
+
+        where_clause = " AND ".join(conditions)
+
+        # Get summary by scheme
+        query = f"""
+            SELECT
+                COALESCE(main_inscl, 'UNKNOWN') as scheme,
+                COUNT(*) as total_cases,
+                SUM(CASE WHEN ptype = 'OP' THEN 1 ELSE 0 END) as op_cases,
+                SUM(CASE WHEN ptype = 'IP' THEN 1 ELSE 0 END) as ip_cases,
+                COALESCE(SUM(claim_net), 0) as total_claimed,
+                COALESCE(SUM(reimb_nhso), 0) as total_reimbursed,
+                SUM(CASE WHEN error_code IS NOT NULL AND error_code != '-' AND error_code != '' THEN 1 ELSE 0 END) as error_count
+            FROM claim_rep_opip_nhso_item
+            WHERE {where_clause}
+            GROUP BY main_inscl
+            ORDER BY total_cases DESC
+        """
+        cursor.execute(query, params)
+
+        schemes = []
+        for row in cursor.fetchall():
+            schemes.append({
+                'scheme': row[0],
+                'scheme_name': {
+                    'UCS': 'บัตรทอง (UCS)',
+                    'OFC': 'ข้าราชการ (OFC)',
+                    'SSS': 'ประกันสังคม (SSS)',
+                    'LGO': 'อปท. (LGO)',
+                    'UNKNOWN': 'ไม่ระบุ'
+                }.get(row[0], row[0]),
+                'total_cases': int(row[1]),
+                'op_cases': int(row[2]),
+                'ip_cases': int(row[3]),
+                'total_claimed': float(row[4]),
+                'total_reimbursed': float(row[5]),
+                'error_count': int(row[6])
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'schemes': schemes,
+            'filters': {
+                'date_from': date_from,
+                'date_to': date_to
+            }
+        })
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error getting scheme summary: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/facilities')
+def api_analysis_facilities():
+    """
+    Get facility analysis - summary by treating facility (hcode)
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+
+        # Get filter parameters
+        date_from = request.args.get('date_from', '').strip() or None
+        date_to = request.args.get('date_to', '').strip() or None
+        scheme = request.args.get('scheme', '').strip() or None
+        ptype = request.args.get('ptype', '').strip() or None
+        limit = int(request.args.get('limit', 50))
+
+        # Build WHERE clause
+        conditions = ["1=1"]
+        params = []
+
+        if date_from:
+            conditions.append("c.dateadm >= %s")
+            params.append(date_from)
+
+        if date_to:
+            conditions.append("c.dateadm <= %s")
+            params.append(date_to)
+
+        if scheme:
+            conditions.append("c.main_inscl = %s")
+            params.append(scheme)
+
+        if ptype:
+            conditions.append("c.ptype = %s")
+            params.append(ptype)
+
+        where_clause = " AND ".join(conditions)
+
+        # Get facility summary with join to health_offices
+        query = f"""
+            SELECT
+                c.hcode,
+                COALESCE(h.name, 'ไม่ทราบชื่อ') as facility_name,
+                COALESCE(h.province, '-') as province,
+                COUNT(*) as total_cases,
+                SUM(CASE WHEN c.ptype = 'OP' THEN 1 ELSE 0 END) as op_cases,
+                SUM(CASE WHEN c.ptype = 'IP' THEN 1 ELSE 0 END) as ip_cases,
+                COALESCE(SUM(c.claim_net), 0) as total_claimed,
+                COALESCE(SUM(c.reimb_nhso), 0) as total_reimbursed,
+                SUM(CASE WHEN c.error_code IS NOT NULL AND c.error_code != '-' AND c.error_code != '' THEN 1 ELSE 0 END) as error_count
+            FROM claim_rep_opip_nhso_item c
+            LEFT JOIN health_offices h ON c.hcode = h.hcode5
+            WHERE {where_clause}
+            GROUP BY c.hcode, h.name, h.province
+            ORDER BY total_cases DESC
+            LIMIT %s
+        """
+        params.append(limit)
+        cursor.execute(query, params)
+
+        facilities = []
+        for row in cursor.fetchall():
+            total_cases = int(row[3])
+            error_count = int(row[8])
+            facilities.append({
+                'hcode': row[0] or '-',
+                'facility_name': row[1],
+                'province': row[2],
+                'total_cases': total_cases,
+                'op_cases': int(row[4]),
+                'ip_cases': int(row[5]),
+                'total_claimed': float(row[6]),
+                'total_reimbursed': float(row[7]),
+                'error_count': error_count,
+                'error_rate': round((error_count / total_cases * 100), 2) if total_cases > 0 else 0
+            })
+
+        # Get totals
+        total_query = f"""
+            SELECT
+                COUNT(DISTINCT c.hcode) as facility_count,
+                COUNT(*) as total_cases,
+                COALESCE(SUM(c.claim_net), 0) as total_claimed,
+                COALESCE(SUM(c.reimb_nhso), 0) as total_reimbursed
+            FROM claim_rep_opip_nhso_item c
+            WHERE {where_clause}
+        """
+        # Remove limit param for totals query
+        cursor.execute(total_query, params[:-1])
+        totals_row = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'facilities': facilities,
+            'totals': {
+                'facility_count': int(totals_row[0]) if totals_row else 0,
+                'total_cases': int(totals_row[1]) if totals_row else 0,
+                'total_claimed': float(totals_row[2]) if totals_row else 0,
+                'total_reimbursed': float(totals_row[3]) if totals_row else 0
+            },
+            'filters': {
+                'date_from': date_from,
+                'date_to': date_to,
+                'scheme': scheme,
+                'ptype': ptype
+            }
+        })
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error getting facility analysis: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/his-reconciliation')
+def api_analysis_his_reconciliation():
+    """
+    Get HIS reconciliation status summary
+    """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = conn.cursor()
+
+        # Get filter parameters
+        date_from = request.args.get('date_from', '').strip() or None
+        date_to = request.args.get('date_to', '').strip() or None
+        scheme = request.args.get('scheme', '').strip() or None
+        status = request.args.get('status', '').strip() or None
+        diff_threshold = float(request.args.get('diff_threshold', 0))
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        offset = (page - 1) * per_page
+
+        # Build WHERE clause for summary
+        conditions = ["1=1"]
+        params = []
+
+        if date_from:
+            conditions.append("dateadm >= %s")
+            params.append(date_from)
+
+        if date_to:
+            conditions.append("dateadm <= %s")
+            params.append(date_to)
+
+        if scheme:
+            conditions.append("main_inscl = %s")
+            params.append(scheme)
+
+        where_clause = " AND ".join(conditions)
+
+        # Get summary by reconcile_status
+        summary_query = f"""
+            SELECT
+                COALESCE(reconcile_status, 'pending') as status,
+                COUNT(*) as count,
+                COALESCE(SUM(claim_net), 0) as total_amount,
+                SUM(CASE WHEN his_amount_diff IS NOT NULL AND his_amount_diff != 0 THEN 1 ELSE 0 END) as diff_count,
+                COALESCE(SUM(ABS(COALESCE(his_amount_diff, 0))), 0) as total_diff
+            FROM claim_rep_opip_nhso_item
+            WHERE {where_clause}
+            GROUP BY reconcile_status
+        """
+        cursor.execute(summary_query, params)
+
+        status_summary = []
+        total_records = 0
+        for row in cursor.fetchall():
+            count = int(row[1])
+            total_records += count
+            status_summary.append({
+                'status': row[0],
+                'status_name': {
+                    'pending': 'รอตรวจสอบ',
+                    'matched': 'ตรงกัน',
+                    'mismatched': 'ไม่ตรง',
+                    'manual': 'ตรวจสอบด้วยตนเอง'
+                }.get(row[0], row[0]),
+                'count': count,
+                'total_amount': float(row[2]),
+                'diff_count': int(row[3]),
+                'total_diff': float(row[4])
+            })
+
+        # Build WHERE clause for records list (with status filter)
+        list_conditions = conditions.copy()
+        list_params = params.copy()
+
+        if status:
+            if status == 'pending':
+                list_conditions.append("(reconcile_status IS NULL OR reconcile_status = 'pending')")
+            else:
+                list_conditions.append("reconcile_status = %s")
+                list_params.append(status)
+
+        if diff_threshold > 0:
+            list_conditions.append("ABS(COALESCE(his_amount_diff, 0)) >= %s")
+            list_params.append(diff_threshold)
+
+        list_where_clause = " AND ".join(list_conditions)
+
+        # Get records with differences
+        records_query = f"""
+            SELECT
+                tran_id,
+                hn,
+                name,
+                ptype,
+                main_inscl as scheme,
+                dateadm,
+                claim_net,
+                reimb_nhso,
+                his_vn,
+                his_matched,
+                his_amount_diff,
+                reconcile_status
+            FROM claim_rep_opip_nhso_item
+            WHERE {list_where_clause}
+            ORDER BY ABS(COALESCE(his_amount_diff, 0)) DESC, dateadm DESC
+            LIMIT %s OFFSET %s
+        """
+        list_params.extend([per_page, offset])
+        cursor.execute(records_query, list_params)
+
+        records = []
+        for row in cursor.fetchall():
+            records.append({
+                'tran_id': row[0],
+                'hn': row[1],
+                'name': row[2],
+                'ptype': row[3],
+                'scheme': row[4],
+                'dateadm': str(row[5]) if row[5] else None,
+                'claim_net': float(row[6]) if row[6] else 0,
+                'reimb_nhso': float(row[7]) if row[7] else 0,
+                'his_vn': row[8],
+                'his_matched': row[9],
+                'his_amount_diff': float(row[10]) if row[10] else 0,
+                'reconcile_status': row[11] or 'pending'
+            })
+
+        # Get total count for pagination
+        count_query = f"""
+            SELECT COUNT(*) FROM claim_rep_opip_nhso_item
+            WHERE {list_where_clause}
+        """
+        cursor.execute(count_query, list_params[:-2])  # Exclude limit and offset
+        filtered_total = cursor.fetchone()[0]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'summary': status_summary,
+            'records': records,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': filtered_total,
+                'total_pages': (filtered_total + per_page - 1) // per_page
+            },
+            'filters': {
+                'date_from': date_from,
+                'date_to': date_to,
+                'scheme': scheme,
+                'status': status,
+                'diff_threshold': diff_threshold
+            }
+        })
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        app.logger.error(f"Error getting HIS reconciliation: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/download/trigger/single', methods=['POST'])
 def trigger_single_download():
     """Trigger download for specific month/year and schemes"""
@@ -1484,13 +2419,19 @@ def trigger_parallel_download():
         year = int(year)
         max_workers = min(int(max_workers), 5)  # Max 5 workers
 
-        # Get credentials
-        settings = settings_manager.load_settings()
-        username = settings.get('eclaim_username') or os.environ.get('ECLAIM_USERNAME')
-        password = settings.get('eclaim_password') or os.environ.get('ECLAIM_PASSWORD')
+        # Get all credentials (supports multiple accounts)
+        credentials = settings_manager.get_all_credentials()
+        enabled_creds = [c for c in credentials if c.get('enabled', True)]
 
-        if not username or not password:
+        if not enabled_creds:
             return jsonify({'success': False, 'error': 'E-Claim credentials not configured'}), 400
+
+        # Log how many accounts will be used
+        num_accounts = len(enabled_creds)
+        if num_accounts > 1:
+            app.logger.info(f"Parallel download with {num_accounts} accounts, {max_workers} workers")
+        else:
+            app.logger.info(f"Parallel download with 1 account, {max_workers} workers")
 
         # Run in background thread
         import threading
@@ -1498,8 +2439,7 @@ def trigger_parallel_download():
         def run_parallel():
             try:
                 downloader = ParallelDownloader(
-                    username=username,
-                    password=password,
+                    credentials=enabled_creds,
                     month=month,
                     year=year,
                     scheme=scheme,
@@ -1529,11 +2469,12 @@ def trigger_parallel_download():
 
         return jsonify({
             'success': True,
-            'message': f'Parallel download started with {max_workers} workers',
+            'message': f'Parallel download started with {max_workers} workers, {num_accounts} account(s)',
             'month': month,
             'year': year,
             'scheme': scheme,
             'max_workers': max_workers,
+            'num_accounts': num_accounts,
             'auto_import': auto_import
         })
 
@@ -1641,7 +2582,7 @@ def trigger_stm_download():
         })
 
     except Exception as e:
-        app.app.logger.error(f"STM download error: {str(e)}")
+        app.logger.error(f"STM download error: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -1969,13 +2910,15 @@ def get_stm_records():
         params = []
 
         if fiscal_year:
-            # Fiscal year filter - Statement month is stored as YYYYMM format
-            # FY 2569 = Oct 2568 to Sep 2569
+            # Fiscal year filter - statement_month (1-12) and statement_year stored separately
+            # FY 2569 = Oct 2568 (year=2568, month>=10) to Sep 2569 (year=2569, month<=9)
             fy = int(fiscal_year)
-            start_month = f"{fy - 1}10"  # October of previous year
-            end_month = f"{fy}09"  # September of fiscal year
-            where_clauses.append("f.statement_month BETWEEN %s AND %s")
-            params.extend([start_month, end_month])
+            # Two ranges: Oct-Dec of previous year OR Jan-Sep of fiscal year
+            where_clauses.append("""
+                ((f.statement_year = %s AND f.statement_month >= 10)
+                 OR (f.statement_year = %s AND f.statement_month <= 9))
+            """)
+            params.extend([fy - 1, fy])
 
         if rep_no:
             where_clauses.append("c.rep_no LIKE %s")
@@ -2698,7 +3641,7 @@ def clear_all_data():
                 cursor.close()
                 conn.close()
             except Exception as e:
-                app.app.logger.error(f"Database clear error: {e}")
+                app.logger.error(f"Database clear error: {e}")
                 if conn:
                     conn.close()
                 return jsonify({
@@ -2716,7 +3659,7 @@ def clear_all_data():
         }), 200
 
     except Exception as e:
-        app.app.logger.error(f"Clear all data error: {e}")
+        app.logger.error(f"Clear all data error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -2752,6 +3695,290 @@ def clear_logs():
         return jsonify({'success': True, 'message': 'Logs cleared'}), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/system/sync-status', methods=['POST'])
+def sync_system_status():
+    """
+    Comprehensive system status check and sync:
+    1. Check if download processes are actually running
+    2. Reset stuck progress files if processes are dead
+    3. Sync files in folders with history records
+    4. Return detailed status report
+    """
+    import json
+    import os
+    import psutil
+    from pathlib import Path
+
+    report = {
+        'success': True,
+        'timestamp': datetime.now(TZ_BANGKOK).isoformat(),
+        'actions': [],
+        'summary': {
+            'processes_checked': 0,
+            'processes_reset': 0,
+            'files_synced': 0,
+            'files_added': 0,
+            'files_removed': 0
+        }
+    }
+
+    # PID files to check
+    pid_files = {
+        'downloader': Path('/tmp/eclaim_downloader.pid'),
+        'import': Path('/tmp/eclaim_import.pid'),
+        'parallel': Path('/tmp/eclaim_parallel_download.pid'),
+        'stm': Path('/tmp/eclaim_stm_downloader.pid'),
+        'smt': Path('/tmp/eclaim_smt_fetch.pid')
+    }
+
+    # Progress files to reset if process is dead
+    progress_files = {
+        'parallel_download': Path('parallel_download_progress.json'),
+        'bulk_download': Path('bulk_download_progress.json'),
+        'import': Path('import_progress.json'),
+        'download_iteration': Path('download_iteration_progress.json')
+    }
+
+    # === STEP 1: Check PID files and reset if processes are dead ===
+    for name, pid_file in pid_files.items():
+        report['summary']['processes_checked'] += 1
+        if pid_file.exists():
+            try:
+                pid = int(pid_file.read_text().strip())
+                try:
+                    process = psutil.Process(pid)
+                    if process.is_running() and process.status() != psutil.STATUS_ZOMBIE:
+                        report['actions'].append({
+                            'type': 'process_check',
+                            'name': name,
+                            'pid': pid,
+                            'status': 'running',
+                            'action': 'none'
+                        })
+                    else:
+                        # Process is zombie, cleanup
+                        pid_file.unlink()
+                        report['actions'].append({
+                            'type': 'process_check',
+                            'name': name,
+                            'pid': pid,
+                            'status': 'zombie',
+                            'action': 'pid_file_removed'
+                        })
+                        report['summary']['processes_reset'] += 1
+                except psutil.NoSuchProcess:
+                    # Process doesn't exist, cleanup
+                    pid_file.unlink()
+                    report['actions'].append({
+                        'type': 'process_check',
+                        'name': name,
+                        'pid': pid,
+                        'status': 'dead',
+                        'action': 'pid_file_removed'
+                    })
+                    report['summary']['processes_reset'] += 1
+            except (ValueError, IOError) as e:
+                pid_file.unlink()
+                report['actions'].append({
+                    'type': 'process_check',
+                    'name': name,
+                    'status': 'invalid_pid_file',
+                    'action': 'pid_file_removed',
+                    'error': str(e)
+                })
+                report['summary']['processes_reset'] += 1
+
+    # === STEP 2: Reset stuck progress files ===
+    # Only reset if no related process is running
+    downloader_running = any(
+        Path(f'/tmp/eclaim_{name}.pid').exists() and _check_pid_alive(f'/tmp/eclaim_{name}.pid')
+        for name in ['downloader', 'parallel_download']
+    )
+
+    for name, progress_file in progress_files.items():
+        if progress_file.exists():
+            try:
+                with open(progress_file, 'r', encoding='utf-8') as f:
+                    progress = json.load(f)
+
+                status = progress.get('status', '')
+                # Check if stuck (running/downloading but no process)
+                if status in ['running', 'downloading', 'processing'] and not downloader_running:
+                    # Reset progress file
+                    if 'parallel' in name:
+                        new_progress = {'status': 'idle', 'total': 0, 'completed': 0, 'failed': 0, 'skipped': 0}
+                    elif 'bulk' in name:
+                        new_progress = {'status': 'completed', 'total_iterations': 0, 'completed_iterations': 0}
+                    elif 'import' in name:
+                        new_progress = {'status': 'idle', 'running': False}
+                    else:
+                        new_progress = {'status': 'idle'}
+
+                    with open(progress_file, 'w', encoding='utf-8') as f:
+                        json.dump(new_progress, f, indent=2)
+
+                    report['actions'].append({
+                        'type': 'progress_reset',
+                        'file': str(progress_file),
+                        'old_status': status,
+                        'new_status': new_progress.get('status'),
+                        'action': 'reset'
+                    })
+                    report['summary']['processes_reset'] += 1
+            except (json.JSONDecodeError, IOError) as e:
+                report['actions'].append({
+                    'type': 'progress_reset',
+                    'file': str(progress_file),
+                    'status': 'error',
+                    'error': str(e)
+                })
+
+    # === STEP 3: Sync REP files with database ===
+    # REP files are stored in downloads/rep/ subfolder
+    rep_dir = Path('downloads/rep')
+
+    if rep_dir.exists():
+        try:
+            conn = get_pooled_connection()
+            cursor = conn.cursor()
+
+            # Get existing filenames in database
+            cursor.execute("SELECT filename FROM download_history WHERE download_type = 'rep'")
+            db_filenames = {row[0] for row in cursor.fetchall()}
+
+            # Get actual files on disk
+            disk_files = {f.name for f in rep_dir.glob('*.xls') if f.is_file() and f.stat().st_size > 0}
+
+            # Files on disk but not in database -> add to database
+            missing_from_db = disk_files - db_filenames
+            for filename in missing_from_db:
+                file_path = rep_dir / filename
+                cursor.execute("""
+                    INSERT INTO download_history
+                    (download_type, filename, file_size, file_path, file_exists, download_status)
+                    VALUES ('rep', %s, %s, %s, TRUE, 'success')
+                    ON CONFLICT (download_type, filename) DO NOTHING
+                """, (filename, file_path.stat().st_size, str(file_path)))
+                report['summary']['files_added'] += 1
+
+            # Files in database but not on disk -> mark as file_exists=FALSE
+            missing_from_disk = db_filenames - disk_files
+            if missing_from_disk:
+                for filename in missing_from_disk:
+                    cursor.execute("""
+                        UPDATE download_history
+                        SET file_exists = FALSE, updated_at = CURRENT_TIMESTAMP
+                        WHERE download_type = 'rep' AND filename = %s
+                    """, (filename,))
+                report['summary']['files_removed'] += len(missing_from_disk)
+
+            conn.commit()
+            cursor.close()
+            return_connection(conn)
+
+            if missing_from_db or missing_from_disk:
+                report['actions'].append({
+                    'type': 'history_sync',
+                    'target': 'REP files (database)',
+                    'added': len(missing_from_db),
+                    'removed': len(missing_from_disk)
+                })
+
+            report['summary']['files_synced'] = len(disk_files)
+
+        except Exception as e:
+            report['actions'].append({
+                'type': 'history_sync',
+                'target': 'REP files',
+                'status': 'error',
+                'error': str(e)
+            })
+
+    # === STEP 4: Sync Statement files with database ===
+    # Statement files are stored in downloads/stm/ subfolder
+    stm_dir = Path('downloads/stm')
+
+    if stm_dir.exists():
+        try:
+            conn = get_pooled_connection()
+            cursor = conn.cursor()
+
+            # Get existing filenames in database
+            cursor.execute("SELECT filename FROM download_history WHERE download_type = 'stm'")
+            stm_db_filenames = {row[0] for row in cursor.fetchall()}
+
+            # Get actual files on disk
+            stm_disk_files = {f.name for f in stm_dir.glob('*.xls') if f.is_file() and f.stat().st_size > 0}
+
+            # Files on disk but not in database -> add to database
+            stm_missing_from_db = stm_disk_files - stm_db_filenames
+            for filename in stm_missing_from_db:
+                file_path = stm_dir / filename
+                cursor.execute("""
+                    INSERT INTO download_history
+                    (download_type, filename, file_size, file_path, file_exists, download_status)
+                    VALUES ('stm', %s, %s, %s, TRUE, 'success')
+                    ON CONFLICT (download_type, filename) DO NOTHING
+                """, (filename, file_path.stat().st_size, str(file_path)))
+                report['summary']['files_added'] += 1
+
+            # Files in database but not on disk -> mark as file_exists=FALSE
+            stm_missing_from_disk = stm_db_filenames - stm_disk_files
+            if stm_missing_from_disk:
+                for filename in stm_missing_from_disk:
+                    cursor.execute("""
+                        UPDATE download_history
+                        SET file_exists = FALSE, updated_at = CURRENT_TIMESTAMP
+                        WHERE download_type = 'stm' AND filename = %s
+                    """, (filename,))
+                report['summary']['files_removed'] += len(stm_missing_from_disk)
+
+            conn.commit()
+            cursor.close()
+            return_connection(conn)
+
+            if stm_missing_from_db or stm_missing_from_disk:
+                report['actions'].append({
+                    'type': 'history_sync',
+                    'target': 'Statement files (database)',
+                    'added': len(stm_missing_from_db),
+                    'removed': len(stm_missing_from_disk)
+                })
+
+        except Exception as e:
+            report['actions'].append({
+                'type': 'history_sync',
+                'target': 'Statement files',
+                'status': 'error',
+                'error': str(e)
+            })
+
+    # Generate summary message
+    actions_taken = report['summary']['processes_reset'] + report['summary']['files_added'] + report['summary']['files_removed']
+    if actions_taken > 0:
+        report['message'] = f"Sync completed: Reset {report['summary']['processes_reset']} processes, " \
+                           f"Added {report['summary']['files_added']} files, " \
+                           f"Removed {report['summary']['files_removed']} orphaned records"
+    else:
+        report['message'] = "All systems are in sync. No actions needed."
+
+    return jsonify(report), 200
+
+
+def _check_pid_alive(pid_file_path):
+    """Helper to check if PID in file is alive"""
+    import psutil
+    try:
+        pid_file = Path(pid_file_path)
+        if not pid_file.exists():
+            return False
+        pid = int(pid_file.read_text().strip())
+        process = psutil.Process(pid)
+        return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
+    except (ValueError, IOError, psutil.NoSuchProcess):
+        return False
 
 
 @app.route('/api/schedule', methods=['GET', 'POST'])
@@ -3056,7 +4283,7 @@ def get_smt_summary():
         }
 
     except Exception as e:
-        app.app.logger.error(f"Error getting SMT summary: {e}")
+        app.logger.error(f"Error getting SMT summary: {e}")
         if conn:
             conn.close()
         return None
@@ -3800,7 +5027,7 @@ def api_smt_clear_files():
                 f.unlink()
                 deleted_count += 1
             except Exception as e:
-                app.app.logger.error(f"Error deleting {f.name}: {e}")
+                app.logger.error(f"Error deleting {f.name}: {e}")
 
         log_streamer.write_log(
             f"Cleared {deleted_count} SMT files from downloads/smt",
@@ -3888,7 +5115,7 @@ def clear_download_history():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error clearing download history: {e}")
+        app.logger.error(f"Error clearing download history: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -4032,7 +5259,7 @@ def init_smt_scheduler():
                 'system'
             )
     except Exception as e:
-        app.app.logger.error(f"Error initializing SMT scheduler: {e}")
+        app.logger.error(f"Error initializing SMT scheduler: {e}")
 
 
 # ============================================
@@ -4508,25 +5735,29 @@ def api_analytics_drug():
 
         cursor = conn.cursor()
 
-        # Get date filter
+        # Get date filter - use c.dateadm since we JOIN with claims table
         date_filter, filter_params, filter_info = get_analytics_date_filter()
-        base_where = "generic_name IS NOT NULL AND generic_name != ''"
-        all_where = "1=1"
-        if date_filter:
-            base_where += f" AND {date_filter}"
-            all_where = date_filter
+        # Replace dateadm with c.dateadm for JOIN query
+        date_filter_joined = date_filter.replace('dateadm', 'c.dateadm') if date_filter else ''
 
-        # Top drugs by cost - use generic_name or trade_name
+        base_where = "d.generic_name IS NOT NULL AND d.generic_name != ''"
+        all_where = "1=1"
+        if date_filter_joined:
+            base_where += f" AND {date_filter_joined}"
+            all_where = date_filter_joined
+
+        # Top drugs by cost - JOIN with claims table to get dateadm
         query = f"""
             SELECT
-                COALESCE(generic_name, trade_name, drug_code) as drug_name,
+                COALESCE(d.generic_name, d.trade_name, d.drug_code) as drug_name,
                 COUNT(*) as prescriptions,
-                COALESCE(SUM(quantity), 0) as total_qty,
-                COALESCE(SUM(claim_amount), 0) as total_cost
-            FROM eclaim_drug
+                COALESCE(SUM(d.quantity), 0) as total_qty,
+                COALESCE(SUM(d.claim_amount), 0) as total_cost
+            FROM eclaim_drug d
+            INNER JOIN claim_rep_opip_nhso_item c ON d.tran_id = c.tran_id
             WHERE {base_where}
-            GROUP BY COALESCE(generic_name, trade_name, drug_code)
-            ORDER BY SUM(claim_amount) DESC NULLS LAST
+            GROUP BY COALESCE(d.generic_name, d.trade_name, d.drug_code)
+            ORDER BY SUM(d.claim_amount) DESC NULLS LAST
             LIMIT 15
         """
         cursor.execute(query, filter_params)
@@ -4542,16 +5773,17 @@ def api_analytics_drug():
             for row in rows
         ]
 
-        # Summary by drug_type
+        # Summary by drug_type - also JOIN with claims table
         cat_query = f"""
             SELECT
-                COALESCE(drug_type, 'ไม่ระบุ') as category,
+                COALESCE(d.drug_type, 'ไม่ระบุ') as category,
                 COUNT(*) as items,
-                COALESCE(SUM(claim_amount), 0) as total_cost
-            FROM eclaim_drug
+                COALESCE(SUM(d.claim_amount), 0) as total_cost
+            FROM eclaim_drug d
+            INNER JOIN claim_rep_opip_nhso_item c ON d.tran_id = c.tran_id
             WHERE {all_where}
-            GROUP BY drug_type
-            ORDER BY SUM(claim_amount) DESC NULLS LAST
+            GROUP BY d.drug_type
+            ORDER BY SUM(d.claim_amount) DESC NULLS LAST
             LIMIT 10
         """
         cursor.execute(cat_query, filter_params)
@@ -4591,23 +5823,26 @@ def api_analytics_instrument():
 
         cursor = conn.cursor()
 
-        # Get date filter
+        # Get date filter - use c.dateadm since we JOIN with claims table
         date_filter, filter_params, filter_info = get_analytics_date_filter()
-        base_where = "inst_name IS NOT NULL AND inst_name != ''"
-        if date_filter:
-            base_where += f" AND {date_filter}"
+        date_filter_joined = date_filter.replace('dateadm', 'c.dateadm') if date_filter else ''
 
-        # Top instruments by cost
+        base_where = "i.inst_name IS NOT NULL AND i.inst_name != ''"
+        if date_filter_joined:
+            base_where += f" AND {date_filter_joined}"
+
+        # Top instruments by cost - JOIN with claims table to get dateadm
         query = f"""
             SELECT
-                inst_name,
+                i.inst_name,
                 COUNT(*) as uses,
-                COALESCE(SUM(claim_qty), 0) as total_qty,
-                COALESCE(SUM(claim_amount), 0) as total_cost
-            FROM eclaim_instrument
+                COALESCE(SUM(i.claim_qty), 0) as total_qty,
+                COALESCE(SUM(i.claim_amount), 0) as total_cost
+            FROM eclaim_instrument i
+            INNER JOIN claim_rep_opip_nhso_item c ON i.tran_id = c.tran_id
             WHERE {base_where}
-            GROUP BY inst_name
-            ORDER BY SUM(claim_amount) DESC NULLS LAST
+            GROUP BY i.inst_name
+            ORDER BY SUM(i.claim_amount) DESC NULLS LAST
             LIMIT 15
         """
         cursor.execute(query, filter_params)
@@ -4642,23 +5877,27 @@ def api_analytics_denial():
 
         cursor = conn.cursor()
 
-        # Get date filter
+        # Get date filter - use c.dateadm since we JOIN with claims table
         date_filter, filter_params, filter_info = get_analytics_date_filter()
+        date_filter_joined = date_filter.replace('dateadm', 'c.dateadm') if date_filter else ''
+
         deny_where = "1=1"
         error_where = "error_code IS NOT NULL AND error_code != ''"
+        if date_filter_joined:
+            deny_where = date_filter_joined
         if date_filter:
-            deny_where = date_filter
             error_where += f" AND {date_filter}"
 
-        # Denials by deny_code
+        # Denials by deny_code - JOIN with claims table to get dateadm
         query = f"""
             SELECT
-                COALESCE(deny_code, 'ไม่ระบุรหัส') as reason,
+                COALESCE(d.deny_code, 'ไม่ระบุรหัส') as reason,
                 COUNT(*) as cases,
-                COALESCE(SUM(claim_amount), 0) as total_amount
-            FROM eclaim_deny
+                COALESCE(SUM(d.claim_amount), 0) as total_amount
+            FROM eclaim_deny d
+            INNER JOIN claim_rep_opip_nhso_item c ON d.tran_id = c.tran_id
             WHERE {deny_where}
-            GROUP BY deny_code
+            GROUP BY d.deny_code
             ORDER BY COUNT(*) DESC
             LIMIT 10
         """
@@ -4674,7 +5913,7 @@ def api_analytics_denial():
             for row in rows
         ]
 
-        # Error codes from main claims table
+        # Error codes from main claims table (this already uses dateadm directly)
         error_query = f"""
             SELECT
                 COALESCE(error_code, 'ไม่มี') as error,
@@ -4940,7 +6179,7 @@ def api_claims_detail():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error in claims detail: {e}")
+        app.logger.error(f"Error in claims detail: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -4991,7 +6230,7 @@ def api_claim_single(tran_id):
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error getting claim {tran_id}: {e}")
+        app.logger.error(f"Error getting claim {tran_id}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5198,7 +6437,7 @@ def api_denial_root_cause():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error in denial root cause: {e}")
+        app.logger.error(f"Error in denial root cause: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5374,7 +6613,7 @@ def api_alerts():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error getting alerts: {e}")
+        app.logger.error(f"Error getting alerts: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5495,7 +6734,7 @@ def api_revenue_forecast():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error in revenue forecast: {e}")
+        app.logger.error(f"Error in revenue forecast: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5646,7 +6885,7 @@ def api_yoy_comparison():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error in YoY comparison: {e}")
+        app.logger.error(f"Error in YoY comparison: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5769,7 +7008,7 @@ def api_export_report(report_type):
         return response
 
     except Exception as e:
-        app.app.logger.error(f"Error exporting report: {e}")
+        app.logger.error(f"Error exporting report: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -6013,7 +7252,7 @@ def api_benchmark():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error in benchmark comparison: {e}")
+        app.logger.error(f"Error in benchmark comparison: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -6413,7 +7652,7 @@ def api_denial_risk():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error in denial risk analysis: {e}")
+        app.logger.error(f"Error in denial risk analysis: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -6558,7 +7797,7 @@ def api_anomalies():
                         'anomaly_type': 'high_rw'
                     })
         except Exception as rw_error:
-            app.app.logger.warning(f"RW anomaly detection skipped: {rw_error}")
+            app.logger.warning(f"RW anomaly detection skipped: {rw_error}")
             conn.rollback()  # Reset transaction state
 
         # 5. Anomaly summary
@@ -6595,7 +7834,7 @@ def api_anomalies():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error in anomaly detection: {e}")
+        app.logger.error(f"Error in anomaly detection: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -6706,7 +7945,7 @@ def api_opportunities():
                     'rw_gap': round(float(row[8]), 3) if row[8] else 0
                 })
         except Exception as rw_error:
-            app.app.logger.warning(f"Coding opportunities analysis skipped: {rw_error}")
+            app.logger.warning(f"Coding opportunities analysis skipped: {rw_error}")
             conn.rollback()  # Reset transaction state
 
         # 4. Error claims that could be resubmitted
@@ -6769,7 +8008,7 @@ def api_opportunities():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error in revenue opportunities: {e}")
+        app.logger.error(f"Error in revenue opportunities: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -6953,7 +8192,7 @@ def api_insights():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error generating insights: {e}")
+        app.logger.error(f"Error generating insights: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -6969,7 +8208,7 @@ def api_ml_info():
         info = get_model_info()
         return jsonify({'success': True, 'data': info})
     except Exception as e:
-        app.app.logger.error(f"Error getting ML info: {e}")
+        app.logger.error(f"Error getting ML info: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -7002,7 +8241,7 @@ def api_ml_predict():
         return jsonify({'success': True, 'data': result})
 
     except Exception as e:
-        app.app.logger.error(f"Error in ML prediction: {e}")
+        app.logger.error(f"Error in ML prediction: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -7030,7 +8269,7 @@ def api_ml_predict_batch():
         return jsonify({'success': True, 'data': results})
 
     except Exception as e:
-        app.app.logger.error(f"Error in batch ML prediction: {e}")
+        app.logger.error(f"Error in batch ML prediction: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -7125,7 +8364,7 @@ def api_ml_high_risk():
         })
 
     except Exception as e:
-        app.app.logger.error(f"Error in ML high risk prediction: {e}")
+        app.logger.error(f"Error in ML high risk prediction: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -7183,7 +8422,7 @@ def reconciliation():
             selected_fy=fiscal_year
         )
     except Exception as e:
-        app.app.logger.error(f"Reconciliation error: {e}")
+        app.logger.error(f"Reconciliation error: {e}")
         if conn:
             conn.close()
         return render_template(
@@ -7791,7 +9030,7 @@ def api_health_offices_import():
             except Exception as e:
                 errors += 1
                 if errors <= 5:
-                    app.app.logger.error(f"Error importing row {idx}: {e}")
+                    app.logger.error(f"Error importing row {idx}: {e}")
 
         # Log import
         duration = time.time() - start_time
@@ -7908,7 +9147,7 @@ if __name__ == '__main__':
         init_pool()
         app.logger.info("Database connection pool initialized")
     except Exception as e:
-        app.app.logger.warning(f"Failed to initialize connection pool: {e}")
+        app.logger.warning(f"Failed to initialize connection pool: {e}")
 
     # Register cleanup on shutdown
     atexit.register(close_pool)

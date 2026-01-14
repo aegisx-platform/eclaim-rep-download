@@ -388,6 +388,9 @@ CREATE TABLE `claim_rep_orf_nhso_item` (
   `inp_date` DATETIME DEFAULT NULL,
   `lastupdate` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
+  -- NEW: Scheme field for filtering
+  `scheme` VARCHAR(10) DEFAULT NULL COMMENT 'Insurance scheme: UCS, OFC, SSS, LGO',
+
   -- NEW: HIS Reconciliation Fields
   `his_matched` BOOLEAN DEFAULT FALSE COMMENT 'Matched with HIS data',
   `his_matched_at` DATETIME NULL COMMENT 'When matched',
@@ -409,6 +412,7 @@ CREATE TABLE `claim_rep_orf_nhso_item` (
 
   -- NEW: Additional indexes
   KEY `idx_file_id` (`file_id`),
+  KEY `idx_scheme` (`scheme`),
   KEY `idx_reconcile` (`his_matched`, `reconcile_status`),
 
   -- NEW: Unique constraint for UPSERT

@@ -321,6 +321,7 @@ CREATE TABLE claim_rep_orf_nhso_item (
   inp_id INTEGER,
   inp_date TIMESTAMP,
   lastupdate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  scheme VARCHAR(10),
   his_matched BOOLEAN DEFAULT FALSE,
   his_matched_at TIMESTAMP,
   his_vn VARCHAR(20),
@@ -336,6 +337,7 @@ CREATE INDEX idx_orf_rep_no ON claim_rep_orf_nhso_item(rep_no, tran_id);
 CREATE INDEX idx_orf_hn ON claim_rep_orf_nhso_item(hn);
 CREATE INDEX idx_orf_pid ON claim_rep_orf_nhso_item(pid);
 CREATE INDEX idx_orf_service_date ON claim_rep_orf_nhso_item(service_date);
+CREATE INDEX idx_orf_scheme ON claim_rep_orf_nhso_item(scheme);
 CREATE INDEX idx_orf_reconcile ON claim_rep_orf_nhso_item(his_matched, reconcile_status);
 
 -- Trigger for updated_at

@@ -258,6 +258,36 @@
             </svg>
             File Viewer
         </button>
+        <button onclick="switchAnalysisTab('claims')" id="tab-claims" class="analysis-tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+            </svg>
+            Claims Detail
+        </button>
+        <button onclick="switchAnalysisTab('financial')" id="tab-financial" class="analysis-tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Financial
+        </button>
+        <button onclick="switchAnalysisTab('errors')" id="tab-errors" class="analysis-tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            Errors
+        </button>
+        <button onclick="switchAnalysisTab('facilities')" id="tab-facilities" class="analysis-tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            Facilities
+        </button>
+        <button onclick="switchAnalysisTab('his-recon')" id="tab-his-recon" class="analysis-tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+            </svg>
+            HIS Recon
+        </button>
     </nav>
 </div>
 
@@ -311,6 +341,23 @@
                         <option value="10">ต.ค.</option>
                         <option value="11">พ.ย.</option>
                         <option value="12">ธ.ค.</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">สิทธิ์</label>
+                    <select id="summary-scheme" class="border border-gray-300 rounded px-3 py-2 text-sm w-36">
+                        <option value="">ทั้งหมด</option>
+                        <option value="UCS">UCS - บัตรทอง</option>
+                        <option value="LGO">LGO - อปท.</option>
+                        <option value="SSS">SSS - ประกันสังคม</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ประเภท</label>
+                    <select id="summary-service-type" class="border border-gray-300 rounded px-3 py-2 text-sm w-36">
+                        <option value="">ทั้งหมด</option>
+                        <option value="OP">OP - ผู้ป่วยนอก</option>
+                        <option value="IP">IP - ผู้ป่วยใน</option>
                     </select>
                 </div>
                 <button onclick="loadSummary()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
@@ -993,8 +1040,8 @@ TRAN_ID (รหัสรายการธุรกรรม)
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">REP No</label>
-                    <input type="text" id="recon-rep-no" placeholder="เช่น 681000006" class="border border-gray-300 rounded px-3 py-2 text-sm w-40">
+                    <label id="recon-search-label" class="block text-xs font-medium text-gray-600 mb-1">REP No</label>
+                    <input type="text" id="recon-rep-no" placeholder="เช่น 681000006" class="border border-gray-300 rounded px-3 py-2 text-sm w-48">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">สถานะ</label>
@@ -1006,8 +1053,35 @@ TRAN_ID (รหัสรายการธุรกรรม)
                         <option value="diff_amount">ยอดไม่ตรง</option>
                     </select>
                 </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ตั้งแต่วันที่</label>
+                    <input type="date" id="recon-date-from" class="border border-gray-300 rounded px-3 py-2 text-sm w-36">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ถึงวันที่</label>
+                    <input type="date" id="recon-date-to" class="border border-gray-300 rounded px-3 py-2 text-sm w-36">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ส่วนต่าง ≥</label>
+                    <div class="flex items-center gap-1">
+                        <input type="number" id="recon-diff-threshold" value="0" min="0" class="border border-gray-300 rounded px-2 py-2 text-sm w-24">
+                        <span class="text-xs text-gray-500">บาท</span>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="recon-has-error" class="w-4 h-4 text-blue-600 rounded">
+                        <span class="text-xs font-medium text-gray-600">เฉพาะมี Error</span>
+                    </label>
+                </div>
                 <button onclick="loadReconciliation()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
                     ค้นหา
+                </button>
+                <button onclick="exportReconciliation()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Export CSV
                 </button>
             </div>
         </div>
@@ -1136,6 +1210,471 @@ TRAN_ID (รหัสรายการธุรกรรม)
                     </tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- ==================== CLAIMS DETAIL TAB ==================== -->
+    <div id="content-claims" class="analysis-tab-content p-6 hidden">
+        <h3 class="text-lg font-semibold mb-4">Claims Detail</h3>
+
+        <!-- Filter Section -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div class="flex flex-wrap items-end gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">สิทธิ์</label>
+                    <select id="claims-scheme" class="border border-gray-300 rounded px-3 py-2 text-sm w-32">
+                        <option value="">ทั้งหมด</option>
+                        <option value="UCS">UCS - บัตรทอง</option>
+                        <option value="OFC">OFC - ข้าราชการ</option>
+                        <option value="SSS">SSS - ประกันสังคม</option>
+                        <option value="LGO">LGO - อปท.</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ประเภท</label>
+                    <select id="claims-ptype" class="border border-gray-300 rounded px-3 py-2 text-sm w-24">
+                        <option value="">ทั้งหมด</option>
+                        <option value="OP">OP</option>
+                        <option value="IP">IP</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">จากวันที่</label>
+                    <input type="date" id="claims-date-from" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ถึงวันที่</label>
+                    <input type="date" id="claims-date-to" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="claims-has-error" class="mr-2">
+                    <label for="claims-has-error" class="text-sm text-gray-600">เฉพาะที่มี Error</label>
+                </div>
+                <button onclick="loadClaims()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                    ค้นหา
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Summary -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p class="text-sm text-blue-600">จำนวน Claims</p>
+                <p id="claims-total" class="text-2xl font-bold text-blue-700">-</p>
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p class="text-sm text-green-600">ยอดเรียกเก็บ</p>
+                <p id="claims-amount" class="text-lg font-bold text-green-700">-</p>
+            </div>
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <p class="text-sm text-purple-600">ยอดชดเชย</p>
+                <p id="claims-reimb" class="text-lg font-bold text-purple-700">-</p>
+            </div>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p class="text-sm text-red-600">หน้าปัจจุบัน</p>
+                <p id="claims-page-info" class="text-lg font-bold text-red-700">-</p>
+            </div>
+        </div>
+
+        <!-- Claims Table -->
+        <div class="border rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">TRAN_ID</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">HN</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ชื่อ-สกุล</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ประเภท</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">สิทธิ์</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">เรียกเก็บ</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">ชดเชย</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Error</th>
+                    </tr>
+                </thead>
+                <tbody id="claims-table-body" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="9" class="px-4 py-8 text-center text-gray-500">กดค้นหาเพื่อโหลดข้อมูล</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="flex justify-between items-center mt-4">
+            <button id="claims-prev-btn" onclick="loadClaims(currentClaimsPage - 1)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm disabled:opacity-50" disabled>
+                ก่อนหน้า
+            </button>
+            <span id="claims-pagination-text" class="text-sm text-gray-600">-</span>
+            <button id="claims-next-btn" onclick="loadClaims(currentClaimsPage + 1)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm disabled:opacity-50" disabled>
+                ถัดไป
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== FINANCIAL BREAKDOWN TAB ==================== -->
+    <div id="content-financial" class="analysis-tab-content p-6 hidden">
+        <h3 class="text-lg font-semibold mb-4">Financial Breakdown</h3>
+
+        <!-- Filter Section -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div class="flex flex-wrap items-end gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">สิทธิ์</label>
+                    <select id="financial-scheme" class="border border-gray-300 rounded px-3 py-2 text-sm w-32">
+                        <option value="">ทั้งหมด</option>
+                        <option value="UCS">UCS</option>
+                        <option value="OFC">OFC</option>
+                        <option value="SSS">SSS</option>
+                        <option value="LGO">LGO</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ประเภท</label>
+                    <select id="financial-ptype" class="border border-gray-300 rounded px-3 py-2 text-sm w-24">
+                        <option value="">ทั้งหมด</option>
+                        <option value="OP">OP</option>
+                        <option value="IP">IP</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">จากวันที่</label>
+                    <input type="date" id="financial-date-from" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ถึงวันที่</label>
+                    <input type="date" id="financial-date-to" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <button onclick="loadFinancialBreakdown()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                    วิเคราะห์
+                </button>
+            </div>
+        </div>
+
+        <!-- Totals Summary -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p class="text-sm text-blue-600">จำนวน Cases</p>
+                <p id="financial-total-cases" class="text-2xl font-bold text-blue-700">-</p>
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p class="text-sm text-green-600">ยอดเรียกเก็บรวม</p>
+                <p id="financial-total-claimed" class="text-lg font-bold text-green-700">-</p>
+            </div>
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <p class="text-sm text-purple-600">ยอดชดเชยรวม</p>
+                <p id="financial-total-reimb" class="text-lg font-bold text-purple-700">-</p>
+            </div>
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <p class="text-sm text-orange-600">% ชดเชย</p>
+                <p id="financial-reimb-rate" class="text-lg font-bold text-orange-700">-</p>
+            </div>
+        </div>
+
+        <!-- Breakdown Table -->
+        <div class="border rounded-lg overflow-hidden mb-6">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">สิทธิ์</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ประเภท</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Cases</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">High Cost</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Emergency</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Prosthetics</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Drug</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total Claimed</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total Reimb</th>
+                    </tr>
+                </thead>
+                <tbody id="financial-table-body" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="9" class="px-4 py-8 text-center text-gray-500">กดวิเคราะห์เพื่อโหลดข้อมูล</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== ERRORS TAB ==================== -->
+    <div id="content-errors" class="analysis-tab-content p-6 hidden">
+        <h3 class="text-lg font-semibold mb-4">Error & Denial Analytics</h3>
+
+        <!-- Filter Section -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div class="flex flex-wrap items-end gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">สิทธิ์</label>
+                    <select id="errors-scheme" class="border border-gray-300 rounded px-3 py-2 text-sm w-32">
+                        <option value="">ทั้งหมด</option>
+                        <option value="UCS">UCS</option>
+                        <option value="OFC">OFC</option>
+                        <option value="SSS">SSS</option>
+                        <option value="LGO">LGO</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ประเภท</label>
+                    <select id="errors-ptype" class="border border-gray-300 rounded px-3 py-2 text-sm w-24">
+                        <option value="">ทั้งหมด</option>
+                        <option value="OP">OP</option>
+                        <option value="IP">IP</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">จากวันที่</label>
+                    <input type="date" id="errors-date-from" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ถึงวันที่</label>
+                    <input type="date" id="errors-date-to" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <button onclick="loadErrorAnalytics()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                    วิเคราะห์
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Summary -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p class="text-sm text-blue-600">จำนวน Records</p>
+                <p id="errors-total-records" class="text-2xl font-bold text-blue-700">-</p>
+            </div>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p class="text-sm text-red-600">จำนวน Errors</p>
+                <p id="errors-error-count" class="text-2xl font-bold text-red-700">-</p>
+            </div>
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <p class="text-sm text-orange-600">ยอดเงินที่มี Error</p>
+                <p id="errors-error-amount" class="text-lg font-bold text-orange-700">-</p>
+            </div>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p class="text-sm text-yellow-600">Error Rate</p>
+                <p id="errors-error-rate" class="text-2xl font-bold text-yellow-700">-</p>
+            </div>
+        </div>
+
+        <!-- Top Errors Table -->
+        <h4 class="font-semibold mb-2">Top 15 Error Codes</h4>
+        <div class="border rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-red-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-red-700 uppercase">Error Code</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-red-700 uppercase">จำนวน</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-red-700 uppercase">ยอดเงินที่ได้รับผลกระทบ</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-red-700 uppercase">สัดส่วน</th>
+                    </tr>
+                </thead>
+                <tbody id="errors-table-body" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="4" class="px-4 py-8 text-center text-gray-500">กดวิเคราะห์เพื่อโหลดข้อมูล</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== FACILITIES TAB ==================== -->
+    <div id="content-facilities" class="analysis-tab-content p-6 hidden">
+        <h3 class="text-lg font-semibold mb-4">Facility Analysis</h3>
+
+        <!-- Filter Section -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div class="flex flex-wrap items-end gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">สิทธิ์</label>
+                    <select id="facilities-scheme" class="border border-gray-300 rounded px-3 py-2 text-sm w-32">
+                        <option value="">ทั้งหมด</option>
+                        <option value="UCS">UCS</option>
+                        <option value="OFC">OFC</option>
+                        <option value="SSS">SSS</option>
+                        <option value="LGO">LGO</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ประเภท</label>
+                    <select id="facilities-ptype" class="border border-gray-300 rounded px-3 py-2 text-sm w-24">
+                        <option value="">ทั้งหมด</option>
+                        <option value="OP">OP</option>
+                        <option value="IP">IP</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">จากวันที่</label>
+                    <input type="date" id="facilities-date-from" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ถึงวันที่</label>
+                    <input type="date" id="facilities-date-to" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">จำนวนแสดง</label>
+                    <select id="facilities-limit" class="border border-gray-300 rounded px-3 py-2 text-sm w-20">
+                        <option value="20">20</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+                <button onclick="loadFacilityAnalysis()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                    วิเคราะห์
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Summary -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p class="text-sm text-blue-600">จำนวนสถานพยาบาล</p>
+                <p id="facilities-count" class="text-2xl font-bold text-blue-700">-</p>
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p class="text-sm text-green-600">จำนวน Cases</p>
+                <p id="facilities-total-cases" class="text-2xl font-bold text-green-700">-</p>
+            </div>
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <p class="text-sm text-purple-600">ยอดเรียกเก็บรวม</p>
+                <p id="facilities-total-claimed" class="text-lg font-bold text-purple-700">-</p>
+            </div>
+            <div class="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                <p class="text-sm text-teal-600">ยอดชดเชยรวม</p>
+                <p id="facilities-total-reimbursed" class="text-lg font-bold text-teal-700">-</p>
+            </div>
+        </div>
+
+        <!-- Facilities Table -->
+        <h4 class="font-semibold mb-2">รายชื่อสถานพยาบาล</h4>
+        <div class="border rounded-lg overflow-hidden overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-blue-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-blue-700 uppercase">รหัส</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-blue-700 uppercase">ชื่อสถานพยาบาล</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-blue-700 uppercase">จังหวัด</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-blue-700 uppercase">Cases</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-blue-700 uppercase">OP</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-blue-700 uppercase">IP</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-blue-700 uppercase">เรียกเก็บ</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-blue-700 uppercase">ชดเชย</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-blue-700 uppercase">Errors</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-blue-700 uppercase">Error%</th>
+                    </tr>
+                </thead>
+                <tbody id="facilities-table-body" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="10" class="px-4 py-8 text-center text-gray-500">กดวิเคราะห์เพื่อโหลดข้อมูล</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== HIS RECONCILIATION TAB ==================== -->
+    <div id="content-his-recon" class="analysis-tab-content p-6 hidden">
+        <h3 class="text-lg font-semibold mb-4">HIS Reconciliation Dashboard</h3>
+
+        <!-- Filter Section -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div class="flex flex-wrap items-end gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">สิทธิ์</label>
+                    <select id="his-scheme" class="border border-gray-300 rounded px-3 py-2 text-sm w-32">
+                        <option value="">ทั้งหมด</option>
+                        <option value="UCS">UCS</option>
+                        <option value="OFC">OFC</option>
+                        <option value="SSS">SSS</option>
+                        <option value="LGO">LGO</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">สถานะ</label>
+                    <select id="his-status" class="border border-gray-300 rounded px-3 py-2 text-sm w-36">
+                        <option value="">ทั้งหมด</option>
+                        <option value="pending">รอตรวจสอบ</option>
+                        <option value="matched">ตรงกัน</option>
+                        <option value="mismatched">ไม่ตรง</option>
+                        <option value="manual">ตรวจสอบด้วยตนเอง</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">จากวันที่</label>
+                    <input type="date" id="his-date-from" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ถึงวันที่</label>
+                    <input type="date" id="his-date-to" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">ผลต่าง >= (บาท)</label>
+                    <input type="number" id="his-diff-threshold" value="0" min="0" class="border border-gray-300 rounded px-3 py-2 text-sm w-24">
+                </div>
+                <button onclick="loadHisReconciliation()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                    โหลดข้อมูล
+                </button>
+            </div>
+        </div>
+
+        <!-- Status Summary Cards -->
+        <div id="his-status-cards" class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <p class="text-sm text-gray-600">รอตรวจสอบ</p>
+                <p id="his-pending-count" class="text-2xl font-bold text-gray-700">-</p>
+                <p id="his-pending-amount" class="text-xs text-gray-500">-</p>
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p class="text-sm text-green-600">ตรงกัน</p>
+                <p id="his-matched-count" class="text-2xl font-bold text-green-700">-</p>
+                <p id="his-matched-amount" class="text-xs text-green-500">-</p>
+            </div>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p class="text-sm text-red-600">ไม่ตรง</p>
+                <p id="his-mismatched-count" class="text-2xl font-bold text-red-700">-</p>
+                <p id="his-mismatched-amount" class="text-xs text-red-500">-</p>
+            </div>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p class="text-sm text-yellow-600">ตรวจสอบด้วยตนเอง</p>
+                <p id="his-manual-count" class="text-2xl font-bold text-yellow-700">-</p>
+                <p id="his-manual-amount" class="text-xs text-yellow-500">-</p>
+            </div>
+        </div>
+
+        <!-- Records Table -->
+        <h4 class="font-semibold mb-2">รายการ Claims</h4>
+        <div class="border rounded-lg overflow-hidden overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-indigo-50">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-indigo-700 uppercase">TRAN_ID</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-indigo-700 uppercase">HN</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-indigo-700 uppercase">ชื่อ</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-indigo-700 uppercase">ประเภท</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-indigo-700 uppercase">วันที่</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-indigo-700 uppercase">เรียกเก็บ</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-indigo-700 uppercase">ชดเชย</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-indigo-700 uppercase">HIS VN</th>
+                        <th class="px-3 py-2 text-right text-xs font-medium text-indigo-700 uppercase">ผลต่าง</th>
+                        <th class="px-3 py-2 text-center text-xs font-medium text-indigo-700 uppercase">สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody id="his-table-body" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="10" class="px-4 py-8 text-center text-gray-500">กดโหลดข้อมูลเพื่อดูรายการ</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div id="his-pagination" class="mt-4 flex justify-between items-center hidden">
+            <p class="text-sm text-gray-600">
+                แสดง <span id="his-showing-from">0</span>-<span id="his-showing-to">0</span> จาก <span id="his-total-records">0</span> รายการ
+            </p>
+            <div class="flex gap-2">
+                <button onclick="loadHisReconciliation(hisCurrentPage - 1)" id="his-prev-btn" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>ก่อนหน้า</button>
+                <span id="his-page-info" class="px-3 py-1 text-sm">หน้า 1</span>
+                <button onclick="loadHisReconciliation(hisCurrentPage + 1)" id="his-next-btn" class="px-3 py-1 border rounded text-sm hover:bg-gray-100 disabled:opacity-50" disabled>ถัดไป</button>
+            </div>
         </div>
     </div>
 

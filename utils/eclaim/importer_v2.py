@@ -384,6 +384,36 @@ class EClaimImporterV2:
         # Default: UCS (OP, IP) and APPEAL types use OPIP_COLUMN_MAP
         return self.OPIP_COLUMN_MAP
 
+    def _derive_scheme_from_file_type(self, file_type: str) -> str:
+        """
+        Derive insurance scheme from file type.
+
+        Args:
+            file_type: File type (OP, IP, OPLGO, IPLGO, OPSSS, IPSSS, ORF, etc.)
+
+        Returns:
+            Scheme code: 'UCS', 'LGO', 'SSS', 'OFC'
+        """
+        if not file_type:
+            return 'UCS'
+
+        file_type_upper = file_type.upper()
+
+        # LGO variants (อปท.)
+        if 'LGO' in file_type_upper:
+            return 'LGO'
+
+        # SSS variants (ประกันสังคม)
+        if 'SSS' in file_type_upper:
+            return 'SSS'
+
+        # OFC variants (ข้าราชการ)
+        if 'OFC' in file_type_upper:
+            return 'OFC'
+
+        # Default: UCS (หลักประกันสุขภาพถ้วนหน้า)
+        return 'UCS'
+
     def create_import_record(self, metadata: Dict) -> int:
         """
         Create or update record in eclaim_imported_files table
@@ -575,7 +605,7 @@ class EClaimImporterV2:
 
         return mapped
 
-    def _map_orf_row_by_index(self, df_row, file_id: int, row_number: int) -> Dict:
+    def _map_orf_row_by_index(self, df_row, file_id: int, row_number: int, scheme: str = None) -> Dict:
         """
         Map ORF DataFrame row to database columns using column INDEX (position-based)
         ORF files have complex multi-level headers that can't be reliably mapped by name
@@ -584,6 +614,7 @@ class EClaimImporterV2:
             df_row: DataFrame row (Series) with integer position-based index
             file_id: File ID
             row_number: Row number
+            scheme: Insurance scheme (UCS, OFC, SSS, LGO)
 
         Returns:
             Mapped dict
@@ -606,7 +637,8 @@ class EClaimImporterV2:
 
         mapped = {
             'file_id': file_id,
-            'row_number': row_number
+            'row_number': row_number,
+            'scheme': scheme
         }
 
         for col_idx, db_col in self.ORF_COLUMN_INDEX_MAP.items():
@@ -763,7 +795,7 @@ class EClaimImporterV2:
             logger.error(f"Failed to import OP/IP batch: {e}")
             raise
 
-    def import_orf_batch(self, file_id: int, df, start_row: int = 0) -> int:
+    def import_orf_batch(self, file_id: int, df, start_row: int = 0, file_type: str = 'ORF') -> int:
         """
         Import batch of ORF records from DataFrame
         Uses index-based column mapping for ORF's complex multi-level headers
@@ -772,19 +804,21 @@ class EClaimImporterV2:
             file_id: File ID
             df: DataFrame with ORF data (read without header, columns are positional)
             start_row: Starting row number
+            file_type: File type to derive scheme (ORF, ORFLGO, ORFSSS, etc.)
 
         Returns:
             Number of successfully imported records
         """
-        import pandas as pd
-
         if df.empty:
             return 0
+
+        # Derive scheme from file_type
+        scheme = self._derive_scheme_from_file_type(file_type)
 
         # Map all rows using index-based mapping
         mapped_records = []
         for idx, row in df.iterrows():
-            mapped = self._map_orf_row_by_index(row, file_id, start_row + idx)
+            mapped = self._map_orf_row_by_index(row, file_id, start_row + idx, scheme=scheme)
             mapped_records.append(mapped)
 
         if not mapped_records:
@@ -887,8 +921,8 @@ class EClaimImporterV2:
             total_records = len(df)
 
             # Import data based on file type
-            if file_type == 'ORF':
-                imported_records = self.import_orf_batch(file_id, df)
+            if file_type == 'ORF' or 'ORF' in file_type:
+                imported_records = self.import_orf_batch(file_id, df, file_type=file_type)
             else:  # OP, IP, OPLGO, IPLGO, OPSSS, IPSSS, APPEAL
                 # Get appropriate column mapping for file type
                 column_map = self.get_column_map_for_type(file_type)
