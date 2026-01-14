@@ -273,21 +273,32 @@
                 </div>
 
                 <!-- Comparison Table -->
-                <div id="comparison-table-wrapper" class="hidden overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">โรงพยาบาล</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">รายได้รวม</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Wait %</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Debt %</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Growth YoY</th>
-                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="comparison-tbody" class="bg-white divide-y divide-gray-200">
-                        </tbody>
-                    </table>
+                <div id="comparison-table-wrapper" class="hidden">
+                    <!-- Year Selector for Comparison -->
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-sm font-medium text-gray-700">ตารางเปรียบเทียบ</h4>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-500">ปีงบประมาณ:</span>
+                            <select id="comparison-year" onchange="updateComparisonTable()" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
+                            </select>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">โรงพยาบาล</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">รายได้รวม</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Wait %</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Debt %</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Growth YoY</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comparison-tbody" class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1050,28 +1061,37 @@ async function addComparisonHospital(h) {
         return;
     }
 
-    showToast('กำลังดึงข้อมูล ' + h.name + '...', 'info');
+    showToast('กำลังดึงข้อมูล ' + h.name + ' ทุกปี...', 'info');
 
-    var fiscalYear = document.getElementById('fiscal-year').value;
+    // Fetch data for all available years
+    var yearData = {};
+    var hasAnyData = false;
 
-    try {
-        var response = await fetch('/api/benchmark/my-hospital?vendor_id=' + h.hcode5 + '&fiscal_year=' + fiscalYear);
-        var result = await response.json();
+    for (var i = 0; i < availableYears.length; i++) {
+        var year = availableYears[i];
+        try {
+            var response = await fetch('/api/benchmark/my-hospital?vendor_id=' + h.hcode5 + '&fiscal_year=' + year);
+            var result = await response.json();
 
-        if (result.success) {
-            comparisonHospitals.push({
-                vendor_id: h.hcode5,
-                name: h.name,
-                data: result
-            });
-            updateComparisonUI();
-            showToast('เพิ่ม ' + h.name + ' สำเร็จ', 'success');
-        } else {
-            showToast('ไม่พบข้อมูล SMT สำหรับ ' + h.name, 'warning');
+            if (result.success && result.summary && result.summary.total_amount > 0) {
+                yearData[year] = result;
+                hasAnyData = true;
+            }
+        } catch (e) {
+            console.error('Error fetching year ' + year + ':', e);
         }
-    } catch (e) {
-        console.error('Error:', e);
-        showToast('Error: ' + e.message, 'error');
+    }
+
+    if (hasAnyData) {
+        comparisonHospitals.push({
+            vendor_id: h.hcode5,
+            name: h.name,
+            yearData: yearData  // Store data for all years
+        });
+        updateComparisonUI();
+        showToast('เพิ่ม ' + h.name + ' สำเร็จ (' + Object.keys(yearData).length + ' ปี)', 'success');
+    } else {
+        showToast('ไม่พบข้อมูล SMT สำหรับ ' + h.name, 'warning');
     }
 }
 
@@ -1083,10 +1103,8 @@ function removeComparisonHospital(vendorId) {
 function updateComparisonUI() {
     var listDiv = document.getElementById('comparison-list');
     var tableWrapper = document.getElementById('comparison-table-wrapper');
-    var tbody = document.getElementById('comparison-tbody');
 
     listDiv.textContent = '';
-    tbody.textContent = '';
 
     if (comparisonHospitals.length === 0) {
         var msg = document.createElement('p');
@@ -1097,28 +1115,133 @@ function updateComparisonUI() {
         return;
     }
 
+    // Show list of comparison hospitals with badges
+    comparisonHospitals.forEach(function(h) {
+        var div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'text-sm text-gray-700';
+        nameSpan.textContent = h.name;
+        div.appendChild(nameSpan);
+
+        var rightDiv = document.createElement('div');
+        rightDiv.className = 'flex items-center gap-2';
+
+        var yearBadge = document.createElement('span');
+        yearBadge.className = 'text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded';
+        yearBadge.textContent = Object.keys(h.yearData).length + ' ปี';
+        rightDiv.appendChild(yearBadge);
+
+        var removeBtn = document.createElement('button');
+        removeBtn.className = 'text-red-500 hover:text-red-700 text-sm';
+        removeBtn.textContent = '✕';
+        removeBtn.onclick = function() { removeComparisonHospital(h.vendor_id); };
+        rightDiv.appendChild(removeBtn);
+
+        div.appendChild(rightDiv);
+        listDiv.appendChild(div);
+    });
+
     tableWrapper.classList.remove('hidden');
+
+    // Populate year dropdown
+    populateComparisonYearDropdown();
+
+    // Render table
+    updateComparisonTable();
+}
+
+function populateComparisonYearDropdown() {
+    var select = document.getElementById('comparison-year');
+    var currentYear = document.getElementById('fiscal-year').value;
+    select.innerHTML = '';
+
+    // Add available years
+    availableYears.forEach(function(year) {
+        var option = document.createElement('option');
+        option.value = year;
+        option.textContent = 'ปีงบ ' + year;
+        if (year.toString() === currentYear) option.selected = true;
+        select.appendChild(option);
+    });
+}
+
+function updateComparisonTable() {
+    var tbody = document.getElementById('comparison-tbody');
+    var selectedYear = parseInt(document.getElementById('comparison-year').value);
+    tbody.innerHTML = '';
 
     // Add my hospital first
     if (currentHospitalData) {
-        addComparisonTableRow(tbody, {
-            vendor_id: currentVendorId,
-            name: currentHospitalData.hospital.name,
-            data: currentHospitalData
-        }, true);
+        // Need to fetch data for selected year if different from current
+        var myCurrentYear = parseInt(document.getElementById('fiscal-year').value);
+        if (selectedYear === myCurrentYear) {
+            addComparisonTableRow(tbody, {
+                vendor_id: currentVendorId,
+                name: currentHospitalData.hospital.name,
+                summary: currentHospitalData.summary
+            }, true);
+        } else {
+            // Check if we have data in comparisonYearsData
+            if (comparisonYearsData[selectedYear]) {
+                // We have the monthly trend but not summary - fetch it
+                fetchAndAddMyHospitalRow(tbody, selectedYear);
+            } else {
+                addComparisonTableRow(tbody, {
+                    vendor_id: currentVendorId,
+                    name: currentHospitalData.hospital.name,
+                    summary: null
+                }, true);
+            }
+        }
     }
 
     // Add comparison hospitals
     comparisonHospitals.forEach(function(h) {
-        addComparisonTableRow(tbody, h, false);
+        var yearData = h.yearData[selectedYear];
+        addComparisonTableRow(tbody, {
+            vendor_id: h.vendor_id,
+            name: h.name,
+            summary: yearData ? yearData.summary : null
+        }, false);
     });
 }
 
+async function fetchAndAddMyHospitalRow(tbody, year) {
+    try {
+        var response = await fetch('/api/benchmark/my-hospital?vendor_id=' + currentVendorId + '&fiscal_year=' + year);
+        var result = await response.json();
+        if (result.success) {
+            // Insert at beginning
+            var firstRow = tbody.firstChild;
+            var tr = createComparisonRow({
+                vendor_id: currentVendorId,
+                name: currentHospitalData.hospital.name,
+                summary: result.summary
+            }, true);
+            if (firstRow) {
+                tbody.insertBefore(tr, firstRow);
+            } else {
+                tbody.appendChild(tr);
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching my hospital data:', e);
+    }
+}
+
 function addComparisonTableRow(tbody, hospital, isMyHospital) {
+    var tr = createComparisonRow(hospital, isMyHospital);
+    tbody.appendChild(tr);
+}
+
+function createComparisonRow(hospital, isMyHospital) {
     var tr = document.createElement('tr');
     tr.className = isMyHospital ? 'bg-blue-50' : '';
 
-    var summary = hospital.data.summary || {};
+    var summary = hospital.summary || {};
+    var hasData = summary && summary.total_amount;
 
     // Name
     var tdName = document.createElement('td');
@@ -1137,38 +1260,47 @@ function addComparisonTableRow(tbody, hospital, isMyHospital) {
     }
     tr.appendChild(tdName);
 
-    // Total
-    var tdTotal = document.createElement('td');
-    tdTotal.className = 'px-4 py-3 text-right font-medium';
-    tdTotal.textContent = formatMoney(summary.total_amount);
-    tr.appendChild(tdTotal);
-
-    // Wait %
-    var tdWait = document.createElement('td');
-    tdWait.className = 'px-4 py-3 text-right text-orange-600';
-    tdWait.textContent = (summary.wait_ratio || 0).toFixed(1) + '%';
-    tr.appendChild(tdWait);
-
-    // Debt %
-    var tdDebt = document.createElement('td');
-    tdDebt.className = 'px-4 py-3 text-right text-red-600';
-    tdDebt.textContent = (summary.debt_ratio || 0).toFixed(1) + '%';
-    tr.appendChild(tdDebt);
-
-    // Growth
-    var tdGrowth = document.createElement('td');
-    tdGrowth.className = 'px-4 py-3 text-right';
-    var growth = summary.growth_yoy || 0;
-    var growthSpan = document.createElement('span');
-    if (growth >= 0) {
-        growthSpan.className = 'text-green-600';
-        growthSpan.textContent = '+' + growth.toFixed(1) + '%';
+    if (!hasData) {
+        // No data for this year
+        var tdNoData = document.createElement('td');
+        tdNoData.colSpan = 4;
+        tdNoData.className = 'px-4 py-3 text-center text-gray-400 text-sm';
+        tdNoData.textContent = 'ไม่มีข้อมูลในปีนี้';
+        tr.appendChild(tdNoData);
     } else {
-        growthSpan.className = 'text-red-600';
-        growthSpan.textContent = growth.toFixed(1) + '%';
+        // Total
+        var tdTotal = document.createElement('td');
+        tdTotal.className = 'px-4 py-3 text-right font-medium';
+        tdTotal.textContent = formatMoney(summary.total_amount);
+        tr.appendChild(tdTotal);
+
+        // Wait %
+        var tdWait = document.createElement('td');
+        tdWait.className = 'px-4 py-3 text-right text-orange-600';
+        tdWait.textContent = (summary.wait_ratio || 0).toFixed(1) + '%';
+        tr.appendChild(tdWait);
+
+        // Debt %
+        var tdDebt = document.createElement('td');
+        tdDebt.className = 'px-4 py-3 text-right text-red-600';
+        tdDebt.textContent = (summary.debt_ratio || 0).toFixed(1) + '%';
+        tr.appendChild(tdDebt);
+
+        // Growth
+        var tdGrowth = document.createElement('td');
+        tdGrowth.className = 'px-4 py-3 text-right';
+        var growth = summary.growth_yoy || 0;
+        var growthSpan = document.createElement('span');
+        if (growth >= 0) {
+            growthSpan.className = 'text-green-600';
+            growthSpan.textContent = '+' + growth.toFixed(1) + '%';
+        } else {
+            growthSpan.className = 'text-red-600';
+            growthSpan.textContent = growth.toFixed(1) + '%';
+        }
+        tdGrowth.appendChild(growthSpan);
+        tr.appendChild(tdGrowth);
     }
-    tdGrowth.appendChild(growthSpan);
-    tr.appendChild(tdGrowth);
 
     // Actions
     var tdActions = document.createElement('td');
@@ -1176,13 +1308,13 @@ function addComparisonTableRow(tbody, hospital, isMyHospital) {
     if (!isMyHospital) {
         var btn = document.createElement('button');
         btn.className = 'text-red-500 hover:text-red-700';
-        btn.textContent = '\u2715';
+        btn.textContent = '✕';
         btn.onclick = function() { removeComparisonHospital(hospital.vendor_id); };
         tdActions.appendChild(btn);
     }
     tr.appendChild(tdActions);
 
-    tbody.appendChild(tr);
+    return tr;
 }
 
 // Quick add functions
