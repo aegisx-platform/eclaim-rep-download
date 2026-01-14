@@ -668,9 +668,9 @@ def data_management():
             file['date_formatted'] = file.get('download_date', 'Unknown')
             file['date_relative'] = 'Unknown'
 
-    # Count imported vs not imported
-    imported_count = sum(1 for f in all_files if f.get('filename', '') in import_status_map)
-    not_imported_count = len(all_files) - imported_count
+    # Count imported vs not imported (from filtered files, not all files)
+    filtered_imported_count = sum(1 for f in filtered_files if f.get('imported', False))
+    filtered_not_imported_count = len(filtered_files) - filtered_imported_count
 
     # Get available months/years for filter
     available_dates = history_manager.get_available_dates()
@@ -703,12 +703,12 @@ def data_management():
             if conn:
                 conn.close()
 
-    # Calculate stats
+    # Calculate stats (from filtered files to match filter selection)
     stats = {
-        'total_files': len(all_files),
-        'total_size': humanize.naturalsize(sum((f.get('file_size') or 0) for f in all_files)),
-        'imported_count': imported_count,
-        'not_imported_count': not_imported_count
+        'total_files': len(filtered_files),
+        'total_size': humanize.naturalsize(sum((f.get('file_size') or 0) for f in filtered_files)),
+        'imported_count': filtered_imported_count,
+        'not_imported_count': filtered_not_imported_count
     }
 
     return render_template(
@@ -2850,7 +2850,28 @@ def list_stm_files():
 
 @app.route('/api/stm/stats')
 def get_stm_stats():
-    """Get Statement files statistics"""
+    """Get Statement files statistics with optional filtering"""
+    import re
+
+    # Get filter params
+    fiscal_year = request.args.get('fiscal_year', type=int)
+    start_month = request.args.get('start_month', type=int)
+    end_month = request.args.get('end_month', type=int)
+    filter_status = request.args.get('status', '').strip().lower()
+
+    # Calculate start/end year from fiscal year
+    start_year = None
+    end_year = None
+    if fiscal_year:
+        if start_month and start_month >= 10:
+            start_year = fiscal_year - 1
+        else:
+            start_year = fiscal_year
+        if end_month and end_month <= 9:
+            end_year = fiscal_year
+        else:
+            end_year = fiscal_year - 1
+
     try:
         download_dir = Path('downloads/stm')
         stm_files = []
@@ -2885,13 +2906,46 @@ def get_stm_stats():
         except Exception as e:
             app.logger.warning(f"Could not fetch STM import status: {e}")
 
+        # Helper to convert month/year to comparable number
+        def date_to_num(m, y):
+            return y * 12 + m
+
         if download_dir.exists():
             for f in download_dir.glob('STM_*.xls'):
+                # Parse date from filename: STM_10670_OPUCS256812_02.xls
+                # 256812 = year 2568, month 12
+                file_year = None
+                file_month = None
+                match = re.search(r'(\d{4})(\d{2})_\d+\.xls$', f.name)
+                if match:
+                    file_year = int(match.group(1))
+                    file_month = int(match.group(2))
+
+                # Apply date filter
+                if fiscal_year and file_year and file_month:
+                    file_date_num = date_to_num(file_month, file_year)
+                    if start_month and start_year:
+                        start_num = date_to_num(start_month, start_year)
+                        if file_date_num < start_num:
+                            continue
+                    if end_month and end_year:
+                        end_num = date_to_num(end_month, end_year)
+                        if file_date_num > end_num:
+                            continue
+
                 stat = f.stat()
                 file_size = stat.st_size
-                total_size += file_size
 
                 is_imported = f.name in imported_filenames and import_info.get(f.name, {}).get('status') == 'completed'
+
+                # Apply status filter
+                if filter_status:
+                    if filter_status == 'imported' and not is_imported:
+                        continue
+                    if filter_status == 'pending' and is_imported:
+                        continue
+
+                total_size += file_size
 
                 if is_imported:
                     imported_count += 1
@@ -2903,7 +2957,9 @@ def get_stm_stats():
                     'size': file_size,
                     'size_formatted': humanize.naturalsize(file_size),
                     'modified': datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                    'is_imported': is_imported
+                    'is_imported': is_imported,
+                    'file_year': file_year,
+                    'file_month': file_month
                 }
 
                 # Add import details if available
@@ -8312,6 +8368,374 @@ def api_benchmark_timeseries():
             'vendors': list(vendors.values()),
             'months': sorted(list(months)),
             'fiscal_years': fiscal_years
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/benchmark/my-hospital')
+def api_benchmark_my_hospital():
+    """Get detailed analytics for a single hospital"""
+    try:
+        vendor_id = request.args.get('vendor_id')
+        fiscal_year = request.args.get('fiscal_year')
+
+        if not vendor_id:
+            return jsonify({'success': False, 'error': 'vendor_id is required'}), 400
+
+        # Default to current fiscal year
+        if not fiscal_year:
+            today = datetime.now(TZ_BANGKOK)
+            fiscal_year = today.year + 543 if today.month >= 10 else today.year + 542
+
+        fiscal_year = int(fiscal_year)
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Convert fiscal year to date range
+        gregorian_year = fiscal_year - 543
+        start_date = f"{gregorian_year - 1}-10-01"
+        end_date = f"{gregorian_year}-09-30"
+
+        # Previous year for YoY comparison
+        prev_start_date = f"{gregorian_year - 2}-10-01"
+        prev_end_date = f"{gregorian_year - 1}-09-30"
+
+        # Normalize vendor_id (can be 5 or 10 digits)
+        vendor_id_10 = vendor_id.zfill(10)
+        vendor_id_5 = vendor_id.lstrip('0')
+
+        # Get hospital info from health_offices
+        cursor.execute("""
+            SELECT name, hospital_level, province, health_region, hcode5
+            FROM health_offices
+            WHERE hcode5 = %s OR hcode5 = %s
+            LIMIT 1
+        """, (vendor_id_5, vendor_id))
+        hospital_row = cursor.fetchone()
+
+        hospital_info = {
+            'vendor_no': vendor_id_10,
+            'name': hospital_row[0] if hospital_row else f'รพ. {vendor_id_5}',
+            'level': hospital_row[1] if hospital_row else None,
+            'province': hospital_row[2] if hospital_row else None,
+            'health_region': hospital_row[3] if hospital_row else None
+        }
+
+        # Get current year summary
+        cursor.execute("""
+            SELECT
+                COUNT(*) as records,
+                COALESCE(SUM(total_amount), 0) as total_amount,
+                COALESCE(SUM(wait_amount), 0) as wait_amount,
+                COALESCE(SUM(debt_amount), 0) as debt_amount,
+                COALESCE(SUM(bond_amount), 0) as bond_amount
+            FROM smt_budget_transfers
+            WHERE (vendor_no = %s OR vendor_no = %s)
+              AND run_date >= %s AND run_date <= %s
+        """, (vendor_id_10, vendor_id_5, start_date, end_date))
+        summary_row = cursor.fetchone()
+
+        # Get previous year total for YoY
+        cursor.execute("""
+            SELECT COALESCE(SUM(total_amount), 0) as prev_total
+            FROM smt_budget_transfers
+            WHERE (vendor_no = %s OR vendor_no = %s)
+              AND run_date >= %s AND run_date <= %s
+        """, (vendor_id_10, vendor_id_5, prev_start_date, prev_end_date))
+        prev_row = cursor.fetchone()
+        prev_total = float(prev_row[0]) if prev_row and prev_row[0] else 0
+
+        total_amount = float(summary_row[1]) if summary_row else 0
+        wait_amount = float(summary_row[2]) if summary_row else 0
+        debt_amount = float(summary_row[3]) if summary_row else 0
+
+        growth_yoy = ((total_amount - prev_total) / prev_total * 100) if prev_total > 0 else 0
+
+        summary = {
+            'total_amount': total_amount,
+            'wait_amount': wait_amount,
+            'debt_amount': debt_amount,
+            'bond_amount': float(summary_row[4]) if summary_row else 0,
+            'wait_ratio': (wait_amount / total_amount * 100) if total_amount > 0 else 0,
+            'debt_ratio': (debt_amount / total_amount * 100) if total_amount > 0 else 0,
+            'record_count': summary_row[0] if summary_row else 0,
+            'growth_yoy': round(growth_yoy, 1)
+        }
+
+        # Get fund breakdown
+        cursor.execute("""
+            SELECT
+                fund_name,
+                fund_group,
+                fund_group_desc,
+                COALESCE(SUM(total_amount), 0) as amount,
+                COUNT(*) as records
+            FROM smt_budget_transfers
+            WHERE (vendor_no = %s OR vendor_no = %s)
+              AND run_date >= %s AND run_date <= %s
+            GROUP BY fund_name, fund_group, fund_group_desc
+            ORDER BY amount DESC
+        """, (vendor_id_10, vendor_id_5, start_date, end_date))
+
+        fund_rows = cursor.fetchall()
+        fund_breakdown = []
+        for row in fund_rows:
+            amount = float(row[3]) if row[3] else 0
+            fund_breakdown.append({
+                'fund_name': row[0] or 'ไม่ระบุ',
+                'fund_group': row[1],
+                'fund_group_desc': row[2],
+                'amount': amount,
+                'percentage': (amount / total_amount * 100) if total_amount > 0 else 0,
+                'records': row[4]
+            })
+
+        # Get monthly trend
+        cursor.execute("""
+            SELECT
+                TO_CHAR(run_date, 'YYYY-MM') as month,
+                COALESCE(SUM(total_amount), 0) as total_amount,
+                COALESCE(SUM(wait_amount), 0) as wait_amount,
+                COALESCE(SUM(debt_amount), 0) as debt_amount,
+                COUNT(*) as records
+            FROM smt_budget_transfers
+            WHERE (vendor_no = %s OR vendor_no = %s)
+              AND run_date >= %s AND run_date <= %s
+            GROUP BY TO_CHAR(run_date, 'YYYY-MM')
+            ORDER BY month
+        """, (vendor_id_10, vendor_id_5, start_date, end_date))
+
+        monthly_rows = cursor.fetchall()
+        monthly_trend = []
+        for row in monthly_rows:
+            monthly_trend.append({
+                'month': row[0],
+                'total_amount': float(row[1]) if row[1] else 0,
+                'wait_amount': float(row[2]) if row[2] else 0,
+                'debt_amount': float(row[3]) if row[3] else 0,
+                'records': row[4]
+            })
+
+        # Calculate risk score
+        wait_ratio = summary['wait_ratio']
+        debt_ratio = summary['debt_ratio']
+
+        wait_score = min(100, (wait_ratio / 20) * 100)  # 20% = max risk
+        debt_score = min(100, (debt_ratio / 15) * 100)  # 15% = max risk
+        # Growth score: positive growth = no risk, negative growth = risk (capped at 100)
+        if growth_yoy >= 0:
+            growth_score = 0
+        else:
+            growth_score = min(100, abs(growth_yoy) * 2)  # -50% growth = 100 risk
+
+        risk_score = int(wait_score * 0.3 + debt_score * 0.4 + growth_score * 0.3)
+        risk_level = 'low' if risk_score < 40 else ('medium' if risk_score < 70 else 'high')
+
+        risk_assessment = {
+            'score': risk_score,
+            'level': risk_level,
+            'indicators': [
+                {'name': 'Wait Ratio', 'value': round(wait_ratio, 1), 'threshold': 10, 'status': 'pass' if wait_ratio < 10 else 'fail'},
+                {'name': 'Debt Ratio', 'value': round(debt_ratio, 1), 'threshold': 5, 'status': 'pass' if debt_ratio < 5 else 'fail'},
+                {'name': 'Growth YoY', 'value': round(growth_yoy, 1), 'threshold': 0, 'status': 'pass' if growth_yoy > 0 else 'fail'}
+            ]
+        }
+
+        # Get ranking (national)
+        cursor.execute("""
+            WITH hospital_totals AS (
+                SELECT
+                    vendor_no,
+                    SUM(total_amount) as total
+                FROM smt_budget_transfers
+                WHERE run_date >= %s AND run_date <= %s
+                GROUP BY vendor_no
+            )
+            SELECT
+                COUNT(*) as total_hospitals,
+                SUM(CASE WHEN total > %s THEN 1 ELSE 0 END) as hospitals_above
+            FROM hospital_totals
+        """, (start_date, end_date, total_amount))
+        rank_row = cursor.fetchone()
+        total_hospitals = rank_row[0] if rank_row else 0
+        hospitals_above = rank_row[1] if rank_row else 0
+        national_rank = hospitals_above + 1
+
+        ranking = {
+            'national': {
+                'rank': national_rank,
+                'total': total_hospitals,
+                'percentile': int((1 - national_rank / total_hospitals) * 100) if total_hospitals > 0 else 0
+            }
+        }
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'fiscal_year': fiscal_year,
+            'hospital': hospital_info,
+            'summary': summary,
+            'fund_breakdown': fund_breakdown,
+            'monthly_trend': monthly_trend,
+            'risk_score': risk_assessment,
+            'ranking': ranking
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/benchmark/region-average')
+def api_benchmark_region_average():
+    """Get regional average for comparison"""
+    try:
+        health_region = request.args.get('health_region')
+        fiscal_year = request.args.get('fiscal_year')
+
+        if not health_region:
+            return jsonify({'success': False, 'error': 'health_region is required'}), 400
+
+        # Default to current fiscal year
+        if not fiscal_year:
+            today = datetime.now(TZ_BANGKOK)
+            fiscal_year = today.year + 543 if today.month >= 10 else today.year + 542
+
+        fiscal_year = int(fiscal_year)
+        health_region = int(health_region)
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Convert fiscal year to date range
+        gregorian_year = fiscal_year - 543
+        start_date = f"{gregorian_year - 1}-10-01"
+        end_date = f"{gregorian_year}-09-30"
+
+        # Get regional averages
+        cursor.execute("""
+            WITH hospital_totals AS (
+                SELECT
+                    s.vendor_no,
+                    SUM(s.total_amount) as total_amount,
+                    SUM(s.wait_amount) as wait_amount,
+                    SUM(s.debt_amount) as debt_amount
+                FROM smt_budget_transfers s
+                JOIN health_offices h ON (
+                    h.hcode5 = LTRIM(s.vendor_no, '0')
+                    OR h.hcode5 = s.vendor_no
+                )
+                WHERE h.health_region = %s
+                  AND s.run_date >= %s AND s.run_date <= %s
+                GROUP BY s.vendor_no
+            )
+            SELECT
+                COUNT(*) as hospital_count,
+                COALESCE(AVG(total_amount), 0) as avg_total,
+                COALESCE(AVG(wait_amount), 0) as avg_wait,
+                COALESCE(AVG(debt_amount), 0) as avg_debt,
+                COALESCE(SUM(total_amount), 0) as sum_total
+            FROM hospital_totals
+        """, (health_region, start_date, end_date))
+        avg_row = cursor.fetchone()
+
+        averages = {
+            'hospital_count': avg_row[0] if avg_row else 0,
+            'avg_total_amount': float(avg_row[1]) if avg_row else 0,
+            'avg_wait_amount': float(avg_row[2]) if avg_row else 0,
+            'avg_debt_amount': float(avg_row[3]) if avg_row else 0,
+            'total_amount': float(avg_row[4]) if avg_row else 0
+        }
+
+        avg_total = averages['avg_total_amount']
+        averages['avg_wait_ratio'] = (averages['avg_wait_amount'] / avg_total * 100) if avg_total > 0 else 0
+        averages['avg_debt_ratio'] = (averages['avg_debt_amount'] / avg_total * 100) if avg_total > 0 else 0
+
+        # Get fund breakdown averages for region
+        cursor.execute("""
+            WITH hospital_funds AS (
+                SELECT
+                    s.vendor_no,
+                    s.fund_name,
+                    s.fund_group,
+                    SUM(s.total_amount) as amount
+                FROM smt_budget_transfers s
+                JOIN health_offices h ON (
+                    h.hcode5 = LTRIM(s.vendor_no, '0')
+                    OR h.hcode5 = s.vendor_no
+                )
+                WHERE h.health_region = %s
+                  AND s.run_date >= %s AND s.run_date <= %s
+                GROUP BY s.vendor_no, s.fund_name, s.fund_group
+            )
+            SELECT
+                fund_name,
+                fund_group,
+                AVG(amount) as avg_amount,
+                SUM(amount) as total_amount
+            FROM hospital_funds
+            GROUP BY fund_name, fund_group
+            ORDER BY total_amount DESC
+        """, (health_region, start_date, end_date))
+
+        fund_rows = cursor.fetchall()
+        fund_breakdown = []
+        for row in fund_rows:
+            fund_breakdown.append({
+                'fund_name': row[0] or 'ไม่ระบุ',
+                'fund_group': row[1],
+                'avg_amount': float(row[2]) if row[2] else 0,
+                'total_amount': float(row[3]) if row[3] else 0
+            })
+
+        # Get monthly trend for region
+        cursor.execute("""
+            SELECT
+                TO_CHAR(s.run_date, 'YYYY-MM') as month,
+                COALESCE(SUM(s.total_amount), 0) as total_amount,
+                COALESCE(AVG(s.total_amount), 0) as avg_amount
+            FROM smt_budget_transfers s
+            JOIN health_offices h ON (
+                h.hcode5 = LTRIM(s.vendor_no, '0')
+                OR h.hcode5 = s.vendor_no
+            )
+            WHERE h.health_region = %s
+              AND s.run_date >= %s AND s.run_date <= %s
+            GROUP BY TO_CHAR(s.run_date, 'YYYY-MM')
+            ORDER BY month
+        """, (health_region, start_date, end_date))
+
+        monthly_rows = cursor.fetchall()
+        monthly_trend = []
+        for row in monthly_rows:
+            monthly_trend.append({
+                'month': row[0],
+                'total_amount': float(row[1]) if row[1] else 0,
+                'avg_amount': float(row[2]) if row[2] else 0
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'region': health_region,
+            'fiscal_year': fiscal_year,
+            'averages': averages,
+            'fund_breakdown': fund_breakdown,
+            'monthly_trend': monthly_trend
         })
 
     except Exception as e:

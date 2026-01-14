@@ -1,211 +1,325 @@
 {% extends "base.html" %}
 
-{% block title %}Hospital Benchmark - NHSO Revenue Intelligence{% endblock %}
+{% block title %}My Hospital Analytics - NHSO Revenue Intelligence{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
-    <!-- Page Header -->
-    <div class="flex justify-between items-center">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-800">Hospital Benchmark</h1>
-            <p class="text-gray-600 mt-1">เปรียบเทียบข้อมูล SMT Budget ระหว่างโรงพยาบาล</p>
-        </div>
-        <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2">
-                <label for="global-fiscal-year" class="text-sm font-medium text-gray-700">ปีงบประมาณ:</label>
-                <select id="global-fiscal-year" onchange="onFiscalYearChange()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                </select>
-            </div>
-            <button onclick="loadComparison()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                </svg>
-                Refresh
-            </button>
-        </div>
-    </div>
-
-    <!-- Add Hospital Section -->
+    <!-- Page Header with Hospital Selector -->
     <div class="bg-white rounded-xl shadow-md p-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
-            เพิ่มโรงพยาบาลเพื่อเปรียบเทียบ
-        </h3>
-
-        <!-- Search Hospital -->
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">ค้นหาสถานพยาบาล</label>
-            <div class="relative">
-                <input type="text" id="search-hospital" placeholder="พิมพ์ชื่อโรงพยาบาล เช่น โรงพยาบาลศูนย์ขอนแก่น"
-                       onkeyup="searchHospitals()"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                <div id="search-results" class="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto hidden">
+        <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">My Hospital Analytics</h1>
+                <p class="text-gray-600 mt-1">วิเคราะห์ข้อมูล SMT Budget ของโรงพยาบาล</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-4">
+                <!-- Hospital Selector -->
+                <div class="flex-1 min-w-64">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">เลือกโรงพยาบาล</label>
+                    <div class="relative">
+                        <input type="text" id="search-hospital" placeholder="พิมพ์ชื่อหรือรหัสโรงพยาบาล..."
+                               onkeyup="searchHospitals()"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <div id="search-results" class="absolute z-20 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-64 overflow-y-auto hidden">
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <p class="text-xs text-gray-500 mt-1">ค้นหาจากฐานข้อมูล hcode.moph.go.th (43,877 รายการ)</p>
-        </div>
-
-        <div class="flex gap-4 items-end">
-            <div class="flex-1">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Vendor ID (รหัส 5 หลัก) <span class="text-red-500">*</span></label>
-                <input type="text" id="add-vendor-id" placeholder="เช่น 10670"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-            </div>
-            <div class="flex-1">
-                <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อโรงพยาบาล</label>
-                <input type="text" id="add-vendor-name" placeholder="ชื่อ รพ." readonly
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
-            </div>
-            <div class="w-40">
-                <label class="block text-sm font-medium text-gray-700 mb-1">ปีงบประมาณ</label>
-                <select id="add-fiscal-year" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                </select>
-            </div>
-            <button onclick="addHospital()" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                </svg>
-                Fetch SMT
-            </button>
-        </div>
-
-        <p class="text-xs text-gray-500 mt-2">
-            ข้อมูลจะถูกดึงจาก <a href="https://smt.nhso.go.th" target="_blank" class="text-blue-600 hover:underline">SMT สปสช.</a> และบันทึกลง Database สำหรับเปรียบเทียบ
-        </p>
-    </div>
-
-    <!-- Hospital List -->
-    <div class="bg-white rounded-xl shadow-md p-6">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold text-gray-800">รายชื่อโรงพยาบาลที่เปรียบเทียบ</h3>
-            <span id="fiscal-year-display" class="text-sm text-gray-500"></span>
-        </div>
-
-        <div id="hospital-list" class="space-y-2">
-            <div class="text-center py-8 text-gray-500">
-                <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                </svg>
-                <p>ยังไม่มีข้อมูลโรงพยาบาล</p>
-                <p class="text-sm">ค้นหาและเลือกโรงพยาบาล แล้วกด "Fetch SMT" เพื่อดึงข้อมูล</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Comparison Table -->
-    <div id="comparison-section" class="bg-white rounded-xl shadow-md overflow-hidden hidden">
-        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <h3 class="text-lg font-semibold text-gray-800">ตารางเปรียบเทียบ SMT Budget</h3>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">โรงพยาบาล</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวน Records</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ยอดรวม (บาท)</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ยอดรอจ่าย</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ยอดหนี้สิน</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ค้ำประกัน</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="comparison-tbody" class="bg-white divide-y divide-gray-200">
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Summary Charts -->
-    <div id="charts-section" class="grid grid-cols-1 lg:grid-cols-2 gap-6 hidden">
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <h4 class="text-lg font-semibold text-gray-800 mb-4">ยอดรวมตามโรงพยาบาล</h4>
-            <div id="chart-total" class="space-y-3"></div>
-        </div>
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <h4 class="text-lg font-semibold text-gray-800 mb-4">จำนวน Records ตามโรงพยาบาล</h4>
-            <div id="chart-records" class="space-y-3"></div>
-        </div>
-    </div>
-
-    <!-- Time Series Line Chart -->
-    <div id="timeseries-section" class="bg-white rounded-xl shadow-md overflow-hidden hidden">
-        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
-            <h3 class="text-lg font-semibold text-gray-800">กราฟแนวโน้มรายเดือน</h3>
-        </div>
-        <div class="p-6">
-            <!-- Filter Controls -->
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                <!-- Fiscal Year -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">ปีงบประมาณ</label>
-                    <select id="ts-fiscal-year" onchange="loadTimeSeries()" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    <select id="fiscal-year" onchange="loadMyHospital()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                     </select>
                 </div>
+                <!-- Refresh Button -->
+                <div class="pt-5">
+                    <button onclick="loadMyHospital()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Selected Hospital Info -->
+        <div id="selected-hospital" class="hidden mt-4 p-4 bg-blue-50 rounded-lg">
+            <div class="flex items-center gap-3">
+                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">ช่วงเวลา</label>
-                    <select id="ts-period" onchange="updatePeriodControls()" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                        <option value="all">ทั้งปี</option>
-                        <option value="q1">ไตรมาส 1 (ต.ค.-ธ.ค.)</option>
-                        <option value="q2">ไตรมาส 2 (ม.ค.-มี.ค.)</option>
-                        <option value="q3">ไตรมาส 3 (เม.ย.-มิ.ย.)</option>
-                        <option value="q4">ไตรมาส 4 (ก.ค.-ก.ย.)</option>
-                        <option value="custom">กำหนดเอง</option>
-                    </select>
+                    <div class="font-semibold text-lg text-gray-800" id="hospital-name">-</div>
+                    <div class="text-sm text-gray-600 flex flex-wrap gap-3">
+                        <span id="hospital-code" class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded">-</span>
+                        <span id="hospital-level">-</span>
+                        <span id="hospital-province">-</span>
+                        <span id="hospital-region">-</span>
+                    </div>
                 </div>
-                <div id="ts-start-month-div" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">เดือนเริ่มต้น</label>
-                    <select id="ts-start-month" onchange="loadTimeSeries()" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                        <option value="10">ตุลาคม</option>
-                        <option value="11">พฤศจิกายน</option>
-                        <option value="12">ธันวาคม</option>
-                        <option value="1">มกราคม</option>
-                        <option value="2">กุมภาพันธ์</option>
-                        <option value="3">มีนาคม</option>
-                        <option value="4">เมษายน</option>
-                        <option value="5">พฤษภาคม</option>
-                        <option value="6">มิถุนายน</option>
-                        <option value="7">กรกฎาคม</option>
-                        <option value="8">สิงหาคม</option>
-                        <option value="9">กันยายน</option>
-                    </select>
-                </div>
-                <div id="ts-end-month-div" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">เดือนสิ้นสุด</label>
-                    <select id="ts-end-month" onchange="loadTimeSeries()" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                        <option value="10">ตุลาคม</option>
-                        <option value="11">พฤศจิกายน</option>
-                        <option value="12">ธันวาคม</option>
-                        <option value="1">มกราคม</option>
-                        <option value="2">กุมภาพันธ์</option>
-                        <option value="3">มีนาคม</option>
-                        <option value="4">เมษายน</option>
-                        <option value="5">พฤษภาคม</option>
-                        <option value="6">มิถุนายน</option>
-                        <option value="7">กรกฎาคม</option>
-                        <option value="8">สิงหาคม</option>
-                        <option value="9">กันยายน</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">แสดงข้อมูล</label>
-                    <select id="ts-metric" onchange="loadTimeSeries()" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                        <option value="total_amount">ยอดรวม</option>
-                        <option value="wait_amount">ยอดรอจ่าย</option>
-                        <option value="debt_amount">ยอดหนี้สิน</option>
-                        <option value="records">จำนวน Records</option>
-                    </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="hidden">
+        <div class="flex justify-center items-center py-12">
+            <svg class="animate-spin h-10 w-10 text-blue-600" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="ml-3 text-gray-600">กำลังโหลดข้อมูล...</span>
+        </div>
+    </div>
+
+    <!-- No Data State -->
+    <div id="no-data-state" class="hidden">
+        <div class="bg-white rounded-xl shadow-md p-12 text-center">
+            <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <h3 class="text-xl font-semibold text-gray-800 mb-2">ยังไม่มีข้อมูล SMT Budget</h3>
+            <p class="text-gray-500 mb-4">กรุณาเลือกโรงพยาบาลและ Fetch ข้อมูลจาก SMT สปสช.</p>
+            <button onclick="fetchSMTData()" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium">
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Fetch SMT Data
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Analytics Content -->
+    <div id="analytics-content" class="hidden space-y-6">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Total Revenue -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">รายได้รวม</p>
+                        <p class="text-2xl font-bold text-gray-800" id="total-revenue">-</p>
+                        <p class="text-xs mt-1" id="growth-badge">-</p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
                 </div>
             </div>
 
-            <!-- Line Chart Canvas -->
-            <div class="relative" style="height: 400px;">
-                <canvas id="timeseries-chart"></canvas>
+            <!-- Wait Amount -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">ยอดรอจ่าย</p>
+                        <p class="text-2xl font-bold text-orange-600" id="wait-amount">-</p>
+                        <p class="text-xs text-gray-500 mt-1" id="wait-ratio">-</p>
+                    </div>
+                    <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
             </div>
 
-            <!-- Legend -->
-            <div id="ts-legend" class="mt-4 flex flex-wrap gap-4 justify-center">
+            <!-- Debt Amount -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">ยอดหนี้สิน</p>
+                        <p class="text-2xl font-bold text-red-600" id="debt-amount">-</p>
+                        <p class="text-xs text-gray-500 mt-1" id="debt-ratio">-</p>
+                    </div>
+                    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Score -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">Risk Score</p>
+                        <p class="text-2xl font-bold" id="risk-score">-</p>
+                        <p class="text-xs mt-1" id="risk-level-badge">-</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center" id="risk-icon-bg">
+                        <svg class="w-6 h-6" id="risk-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Risk Assessment & Ranking Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Risk Indicators -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    Risk Indicators
+                </h3>
+                <div id="risk-indicators" class="space-y-3">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Ranking -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+                    </svg>
+                    Ranking
+                </h3>
+                <div class="space-y-4">
+                    <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                        <p class="text-sm text-gray-500">อันดับระดับประเทศ</p>
+                        <p class="text-3xl font-bold text-yellow-600" id="national-rank">-</p>
+                        <p class="text-xs text-gray-500" id="national-total">-</p>
+                    </div>
+                    <div class="text-center p-4 bg-blue-50 rounded-lg">
+                        <p class="text-sm text-gray-500">อันดับในเขตสุขภาพ</p>
+                        <p class="text-3xl font-bold text-blue-600" id="regional-rank">-</p>
+                        <p class="text-xs text-gray-500" id="regional-total">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regional Comparison -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    เทียบกับค่าเฉลี่ยเขต
+                </h3>
+                <div id="region-comparison" class="space-y-3">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Fund Breakdown -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-teal-50">
+                <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                    </svg>
+                    รายได้ตามกองทุน
+                </h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">กองทุน</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">สัดส่วน</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เทียบค่าเฉลี่ยเขต</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fund-breakdown-tbody" class="bg-white divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Monthly Trend Chart -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                        </svg>
+                        แนวโน้มรายเดือน
+                    </h3>
+                    <div class="flex items-center gap-3">
+                        <select id="trend-metric" onchange="updateTrendChart()" class="px-3 py-1 text-sm border border-gray-300 rounded-lg">
+                            <option value="total_amount">ยอดรวม</option>
+                            <option value="wait_amount">ยอดรอจ่าย</option>
+                            <option value="debt_amount">ยอดหนี้สิน</option>
+                        </select>
+                        <label class="flex items-center text-sm text-gray-600">
+                            <input type="checkbox" id="show-region-avg" onchange="updateTrendChart()" class="mr-2 rounded">
+                            แสดงค่าเฉลี่ยเขต
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="relative" style="height: 350px;">
+                    <canvas id="trend-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Section (Collapsible) -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <button onclick="toggleComparison()" class="w-full px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-blue-50 flex justify-between items-center hover:bg-indigo-100 transition-colors">
+                <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    เปรียบเทียบกับโรงพยาบาลอื่น (Optional)
+                </h3>
+                <svg id="comparison-chevron" class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <div id="comparison-content" class="hidden p-6">
+                <!-- Quick Add Buttons -->
+                <div class="mb-4 flex flex-wrap gap-2">
+                    <span class="text-sm text-gray-500 py-1">เพิ่มด่วน:</span>
+                    <button onclick="addSameProvince()" class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200">+ จังหวัดเดียวกัน</button>
+                    <button onclick="addSameRegion()" class="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-full hover:bg-green-200">+ เขตสุขภาพเดียวกัน</button>
+                    <button onclick="addSameLevel()" class="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200">+ ระดับเดียวกัน</button>
+                </div>
+
+                <!-- Search and Add Hospital -->
+                <div class="flex gap-3 mb-4">
+                    <div class="flex-1 relative">
+                        <input type="text" id="compare-search" placeholder="ค้นหาโรงพยาบาลเพื่อเปรียบเทียบ..."
+                               onkeyup="searchCompareHospitals()"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <div id="compare-search-results" class="absolute z-20 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto hidden">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comparison Hospitals List -->
+                <div id="comparison-list" class="space-y-2 mb-4">
+                    <p class="text-sm text-gray-500 text-center py-4">ยังไม่ได้เลือกโรงพยาบาลเปรียบเทียบ</p>
+                </div>
+
+                <!-- Comparison Table -->
+                <div id="comparison-table-wrapper" class="hidden overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">โรงพยาบาล</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">รายได้รวม</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Wait %</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Debt %</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Growth YoY</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparison-tbody" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -220,72 +334,531 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <script>
-let hospitals = [];
-let searchTimeout;
-let hospitalNames = {}; // Cache for hospital names
-let timeseriesChart = null; // Chart.js instance
-let currentFiscalYear = null; // Global fiscal year filter
+// State
+let currentVendorId = null;
+let currentHospitalData = null;
+let regionAverageData = null;
+let trendChart = null;
+let searchTimeout = null;
+let comparisonHospitals = [];
 
+// Initialize
 document.addEventListener('DOMContentLoaded', function() {
     populateFiscalYears();
-    loadComparison();
+    loadDefaultHospital();
 
     // Close search results when clicking outside
     document.addEventListener('click', function(e) {
-        var searchResults = document.getElementById('search-results');
-        var searchInput = document.getElementById('search-hospital');
-        if (!searchResults.contains(e.target) && e.target !== searchInput) {
-            searchResults.classList.add('hidden');
-        }
+        ['search-results', 'compare-search-results'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el && !el.contains(e.target)) {
+                el.classList.add('hidden');
+            }
+        });
     });
 });
 
 function populateFiscalYears() {
     var currentYear = new Date().getFullYear() + 543;
-    currentFiscalYear = currentYear; // Default to current fiscal year
-
-    // Populate global fiscal year dropdown
-    var globalSelect = document.getElementById('global-fiscal-year');
-    for (var y = currentYear; y >= currentYear - 5; y--) {
-        var option = document.createElement('option');
-        option.value = y;
-        option.textContent = 'ปีงบ ' + y;
-        if (y === currentYear) {
-            option.selected = true;
-        }
-        globalSelect.appendChild(option);
+    var month = new Date().getMonth() + 1;
+    // If before October, fiscal year is current BE year, else next BE year
+    if (month < 10) {
+        currentYear = currentYear;
+    } else {
+        currentYear = currentYear + 1;
     }
 
-    // Populate add hospital fiscal year dropdown
-    var addSelect = document.getElementById('add-fiscal-year');
+    var select = document.getElementById('fiscal-year');
     for (var y = currentYear; y >= currentYear - 5; y--) {
         var option = document.createElement('option');
         option.value = y;
         option.textContent = 'ปีงบ ' + y;
-        addSelect.appendChild(option);
-    }
-
-    // Populate time series fiscal year dropdown (same as global)
-    var tsSelect = document.getElementById('ts-fiscal-year');
-    for (var y = currentYear; y >= currentYear - 5; y--) {
-        var option = document.createElement('option');
-        option.value = y;
-        option.textContent = 'ปีงบ ' + y;
-        if (y === currentYear) {
-            option.selected = true;
-        }
-        tsSelect.appendChild(option);
+        if (y === currentYear) option.selected = true;
+        select.appendChild(option);
     }
 }
 
-function onFiscalYearChange() {
-    currentFiscalYear = document.getElementById('global-fiscal-year').value;
-    loadComparison();
-    // Also update time series chart
-    document.getElementById('ts-fiscal-year').value = currentFiscalYear;
-    loadTimeSeries();
+async function loadDefaultHospital() {
+    try {
+        // Get default from SMT settings
+        var response = await fetch('/api/smt/settings');
+        var result = await response.json();
+
+        if (result.success && result.settings && result.settings.smt_vendor_id) {
+            currentVendorId = result.settings.smt_vendor_id;
+
+            // Try to get hospital name from localStorage
+            var savedName = localStorage.getItem('my_hospital_name');
+            if (savedName) {
+                document.getElementById('search-hospital').value = savedName;
+            }
+
+            loadMyHospital();
+        } else {
+            // Check localStorage
+            var savedVendor = localStorage.getItem('my_hospital_vendor');
+            if (savedVendor) {
+                currentVendorId = savedVendor;
+                var savedName = localStorage.getItem('my_hospital_name');
+                if (savedName) {
+                    document.getElementById('search-hospital').value = savedName;
+                }
+                loadMyHospital();
+            } else {
+                showNoDataState();
+            }
+        }
+    } catch (e) {
+        console.error('Error loading default hospital:', e);
+        showNoDataState();
+    }
 }
 
+function showLoading() {
+    document.getElementById('loading-state').classList.remove('hidden');
+    document.getElementById('no-data-state').classList.add('hidden');
+    document.getElementById('analytics-content').classList.add('hidden');
+}
+
+function showNoDataState() {
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('no-data-state').classList.remove('hidden');
+    document.getElementById('analytics-content').classList.add('hidden');
+}
+
+function showAnalytics() {
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('no-data-state').classList.add('hidden');
+    document.getElementById('analytics-content').classList.remove('hidden');
+}
+
+async function loadMyHospital() {
+    if (!currentVendorId) {
+        showNoDataState();
+        return;
+    }
+
+    showLoading();
+
+    var fiscalYear = document.getElementById('fiscal-year').value;
+
+    try {
+        // Fetch hospital data
+        var hospitalRes = await fetch('/api/benchmark/my-hospital?vendor_id=' + currentVendorId + '&fiscal_year=' + fiscalYear);
+        var hospitalResult = await hospitalRes.json();
+
+        if (!hospitalResult.success) {
+            console.error('Error:', hospitalResult.error);
+            showNoDataState();
+            return;
+        }
+
+        currentHospitalData = hospitalResult;
+
+        // Update hospital info
+        updateHospitalInfo(hospitalResult.hospital);
+
+        // Now fetch region average
+        if (hospitalResult.hospital && hospitalResult.hospital.health_region) {
+            var regionNum = hospitalResult.hospital.health_region;
+            if (typeof regionNum === 'string') {
+                // Extract number from "เขตสุขภาพที่ 7"
+                var match = regionNum.match(/\d+/);
+                regionNum = match ? match[0] : null;
+            }
+
+            if (regionNum) {
+                var regionRes = await fetch('/api/benchmark/region-average?health_region=' + regionNum + '&fiscal_year=' + fiscalYear);
+                var regionResult = await regionRes.json();
+                if (regionResult.success) {
+                    regionAverageData = regionResult;
+                }
+            }
+        }
+
+        // Update UI
+        updateSummaryCards(hospitalResult.summary);
+        updateRiskAssessment(hospitalResult.risk_score);
+        updateRanking(hospitalResult.ranking);
+        updateRegionComparison(hospitalResult.summary, regionAverageData);
+        updateFundBreakdown(hospitalResult.fund_breakdown);
+        updateTrendChart();
+
+        showAnalytics();
+
+    } catch (e) {
+        console.error('Error loading hospital data:', e);
+        showNoDataState();
+    }
+}
+
+function updateHospitalInfo(hospital) {
+    if (!hospital) return;
+
+    document.getElementById('hospital-name').textContent = hospital.name || '-';
+    document.getElementById('hospital-code').textContent = 'รหัส: ' + (hospital.vendor_no || '').replace(/^0+/, '');
+    document.getElementById('hospital-level').textContent = hospital.level || '-';
+    document.getElementById('hospital-province').textContent = hospital.province || '-';
+    document.getElementById('hospital-region').textContent = hospital.health_region || '-';
+
+    document.getElementById('selected-hospital').classList.remove('hidden');
+
+    // Save to localStorage
+    localStorage.setItem('my_hospital_vendor', currentVendorId);
+    localStorage.setItem('my_hospital_name', hospital.name || '');
+}
+
+function updateSummaryCards(summary) {
+    if (!summary) return;
+
+    // Total Revenue
+    document.getElementById('total-revenue').textContent = formatMoney(summary.total_amount);
+
+    // Growth badge
+    var growthBadge = document.getElementById('growth-badge');
+    var growth = summary.growth_yoy || 0;
+    growthBadge.textContent = '';
+
+    var growthSpan = document.createElement('span');
+    if (growth > 0) {
+        growthSpan.className = 'text-green-600';
+        growthSpan.textContent = '\u25B2 ' + growth.toFixed(1) + '% YoY';
+    } else if (growth < 0) {
+        growthSpan.className = 'text-red-600';
+        growthSpan.textContent = '\u25BC ' + Math.abs(growth).toFixed(1) + '% YoY';
+    } else {
+        growthSpan.className = 'text-gray-500';
+        growthSpan.textContent = '- 0% YoY';
+    }
+    growthBadge.appendChild(growthSpan);
+
+    // Wait Amount
+    document.getElementById('wait-amount').textContent = formatMoney(summary.wait_amount);
+    document.getElementById('wait-ratio').textContent = (summary.wait_ratio || 0).toFixed(1) + '% ของยอดรวม';
+
+    // Debt Amount
+    document.getElementById('debt-amount').textContent = formatMoney(summary.debt_amount);
+    document.getElementById('debt-ratio').textContent = (summary.debt_ratio || 0).toFixed(1) + '% ของยอดรวม';
+}
+
+function updateRiskAssessment(riskScore) {
+    if (!riskScore) return;
+
+    var score = Math.min(100, Math.max(0, riskScore.score || 0));
+    var level = riskScore.level || 'medium';
+
+    document.getElementById('risk-score').textContent = score.toFixed(0) + '/100';
+
+    var levelBadge = document.getElementById('risk-level-badge');
+    var iconBg = document.getElementById('risk-icon-bg');
+    var icon = document.getElementById('risk-icon');
+
+    levelBadge.textContent = '';
+    var badge = document.createElement('span');
+
+    if (level === 'low') {
+        badge.className = 'text-green-600 bg-green-100 px-2 py-0.5 rounded';
+        badge.textContent = 'ความเสี่ยงต่ำ';
+        iconBg.className = 'w-12 h-12 bg-green-100 rounded-full flex items-center justify-center';
+        icon.className = 'w-6 h-6 text-green-600';
+    } else if (level === 'medium') {
+        badge.className = 'text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded';
+        badge.textContent = 'ความเสี่ยงปานกลาง';
+        iconBg.className = 'w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center';
+        icon.className = 'w-6 h-6 text-yellow-600';
+    } else {
+        badge.className = 'text-red-600 bg-red-100 px-2 py-0.5 rounded';
+        badge.textContent = 'ความเสี่ยงสูง';
+        iconBg.className = 'w-12 h-12 bg-red-100 rounded-full flex items-center justify-center';
+        icon.className = 'w-6 h-6 text-red-600';
+    }
+    levelBadge.appendChild(badge);
+
+    // Update indicators
+    var indicatorsDiv = document.getElementById('risk-indicators');
+    indicatorsDiv.textContent = '';
+
+    if (riskScore.indicators) {
+        riskScore.indicators.forEach(function(ind) {
+            var div = document.createElement('div');
+            div.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+
+            var nameSpan = document.createElement('span');
+            nameSpan.className = 'text-sm text-gray-700';
+            nameSpan.textContent = ind.name;
+            div.appendChild(nameSpan);
+
+            var valueDiv = document.createElement('div');
+            valueDiv.className = 'flex items-center gap-2';
+
+            var valueSpan = document.createElement('span');
+            valueSpan.className = 'text-sm font-medium';
+            valueSpan.textContent = (ind.value || 0).toFixed(1) + '%';
+            valueDiv.appendChild(valueSpan);
+
+            var statusSpan = document.createElement('span');
+            if (ind.status === 'pass') {
+                statusSpan.className = 'text-green-600';
+                statusSpan.textContent = '\u2713';
+            } else {
+                statusSpan.className = 'text-red-600';
+                statusSpan.textContent = '\u2717';
+            }
+            valueDiv.appendChild(statusSpan);
+
+            div.appendChild(valueDiv);
+            indicatorsDiv.appendChild(div);
+        });
+    }
+}
+
+function updateRanking(ranking) {
+    if (!ranking) return;
+
+    // National ranking
+    if (ranking.national) {
+        document.getElementById('national-rank').textContent = '#' + ranking.national.rank;
+        document.getElementById('national-total').textContent = 'จาก ' + ranking.national.total + ' รพ. (Top ' + ranking.national.percentile + '%)';
+    }
+
+    // Regional ranking
+    if (ranking.regional) {
+        document.getElementById('regional-rank').textContent = '#' + ranking.regional.rank;
+        document.getElementById('regional-total').textContent = 'จาก ' + ranking.regional.total + ' รพ. (Top ' + ranking.regional.percentile + '%)';
+    }
+}
+
+function updateRegionComparison(summary, regionAvg) {
+    var div = document.getElementById('region-comparison');
+    div.textContent = '';
+
+    if (!summary || !regionAvg || !regionAvg.averages) {
+        var msg = document.createElement('p');
+        msg.className = 'text-sm text-gray-500 text-center';
+        msg.textContent = 'ไม่มีข้อมูลค่าเฉลี่ยเขต';
+        div.appendChild(msg);
+        return;
+    }
+
+    var avgData = regionAvg.averages;
+
+    // Revenue comparison
+    var revDiff = summary.total_amount && avgData.total_amount ?
+        ((summary.total_amount - avgData.total_amount) / avgData.total_amount * 100) : 0;
+    addComparisonRow(div, 'รายได้', formatMoney(summary.total_amount), formatMoney(avgData.total_amount), revDiff);
+
+    // Wait ratio comparison
+    var waitDiff = summary.wait_ratio - (avgData.wait_ratio || 0);
+    addComparisonRow(div, 'Wait Ratio', summary.wait_ratio.toFixed(1) + '%', (avgData.wait_ratio || 0).toFixed(1) + '%', waitDiff, true);
+
+    // Debt ratio comparison
+    var debtDiff = summary.debt_ratio - (avgData.debt_ratio || 0);
+    addComparisonRow(div, 'Debt Ratio', summary.debt_ratio.toFixed(1) + '%', (avgData.debt_ratio || 0).toFixed(1) + '%', debtDiff, true);
+}
+
+function addComparisonRow(container, label, myValue, avgValue, diff, lowerIsBetter) {
+    var div = document.createElement('div');
+    div.className = 'p-2 bg-gray-50 rounded';
+
+    var labelRow = document.createElement('div');
+    labelRow.className = 'flex justify-between text-sm';
+
+    var labelSpan = document.createElement('span');
+    labelSpan.className = 'text-gray-600';
+    labelSpan.textContent = label;
+    labelRow.appendChild(labelSpan);
+
+    var diffSpan = document.createElement('span');
+    var isGood = lowerIsBetter ? diff < 0 : diff > 0;
+    diffSpan.className = isGood ? 'text-green-600 font-medium' : 'text-red-600 font-medium';
+    diffSpan.textContent = (diff > 0 ? '+' : '') + diff.toFixed(1) + '%';
+    labelRow.appendChild(diffSpan);
+
+    div.appendChild(labelRow);
+
+    var valueRow = document.createElement('div');
+    valueRow.className = 'flex justify-between text-xs text-gray-500 mt-1';
+
+    var myValueSpan = document.createElement('span');
+    myValueSpan.textContent = 'รพ.: ' + myValue;
+    valueRow.appendChild(myValueSpan);
+
+    var avgValueSpan = document.createElement('span');
+    avgValueSpan.textContent = 'เขต: ' + avgValue;
+    valueRow.appendChild(avgValueSpan);
+
+    div.appendChild(valueRow);
+    container.appendChild(div);
+}
+
+function updateFundBreakdown(fundBreakdown) {
+    var tbody = document.getElementById('fund-breakdown-tbody');
+    tbody.textContent = '';
+
+    if (!fundBreakdown || fundBreakdown.length === 0) {
+        var tr = document.createElement('tr');
+        var td = document.createElement('td');
+        td.colSpan = 4;
+        td.className = 'px-6 py-4 text-center text-gray-500';
+        td.textContent = 'ไม่มีข้อมูล';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+    }
+
+    fundBreakdown.forEach(function(fund) {
+        var tr = document.createElement('tr');
+
+        // Fund name
+        var tdName = document.createElement('td');
+        tdName.className = 'px-6 py-4 whitespace-nowrap';
+
+        var fundNameDiv = document.createElement('div');
+        fundNameDiv.className = 'font-medium text-gray-800';
+        fundNameDiv.textContent = fund.fund_name;
+        tdName.appendChild(fundNameDiv);
+
+        var fundGroupDiv = document.createElement('div');
+        fundGroupDiv.className = 'text-xs text-gray-500';
+        fundGroupDiv.textContent = fund.fund_group_desc || '';
+        tdName.appendChild(fundGroupDiv);
+
+        tr.appendChild(tdName);
+
+        // Amount
+        var tdAmount = document.createElement('td');
+        tdAmount.className = 'px-6 py-4 whitespace-nowrap text-right font-medium text-gray-900';
+        tdAmount.textContent = formatMoney(fund.amount);
+        tr.appendChild(tdAmount);
+
+        // Percentage
+        var tdPct = document.createElement('td');
+        tdPct.className = 'px-6 py-4 whitespace-nowrap text-right text-gray-600';
+        tdPct.textContent = (fund.percentage || 0).toFixed(1) + '%';
+        tr.appendChild(tdPct);
+
+        // vs Region Average
+        var tdVsAvg = document.createElement('td');
+        tdVsAvg.className = 'px-6 py-4 whitespace-nowrap';
+
+        var vsAvg = fund.vs_region_avg || 0;
+        var barWidth = Math.min(100, Math.abs(vsAvg) * 2);
+        var barColor = vsAvg >= 0 ? 'bg-green-500' : 'bg-red-500';
+
+        var vsAvgContainer = document.createElement('div');
+        vsAvgContainer.className = 'flex items-center gap-2';
+
+        var barBg = document.createElement('div');
+        barBg.className = 'w-24 h-2 bg-gray-200 rounded-full overflow-hidden flex ' + (vsAvg >= 0 ? 'justify-start' : 'justify-end');
+
+        var barFg = document.createElement('div');
+        barFg.className = 'h-full ' + barColor + ' rounded-full';
+        barFg.style.width = barWidth + '%';
+        barBg.appendChild(barFg);
+        vsAvgContainer.appendChild(barBg);
+
+        var vsAvgText = document.createElement('span');
+        vsAvgText.className = 'text-xs ' + (vsAvg >= 0 ? 'text-green-600' : 'text-red-600');
+        vsAvgText.textContent = (vsAvg >= 0 ? '+' : '') + vsAvg.toFixed(1) + '%';
+        vsAvgContainer.appendChild(vsAvgText);
+
+        tdVsAvg.appendChild(vsAvgContainer);
+        tr.appendChild(tdVsAvg);
+
+        tbody.appendChild(tr);
+    });
+}
+
+async function updateTrendChart() {
+    if (!currentHospitalData || !currentHospitalData.monthly_trend) return;
+
+    var ctx = document.getElementById('trend-chart').getContext('2d');
+    var metric = document.getElementById('trend-metric').value;
+    var showRegionAvg = document.getElementById('show-region-avg').checked;
+
+    // Destroy existing chart
+    if (trendChart) {
+        trendChart.destroy();
+    }
+
+    var monthlyData = currentHospitalData.monthly_trend;
+    var monthNames = {
+        '01': 'ม.ค.', '02': 'ก.พ.', '03': 'มี.ค.', '04': 'เม.ย.',
+        '05': 'พ.ค.', '06': 'มิ.ย.', '07': 'ก.ค.', '08': 'ส.ค.',
+        '09': 'ก.ย.', '10': 'ต.ค.', '11': 'พ.ย.', '12': 'ธ.ค.'
+    };
+
+    var labels = monthlyData.map(function(m) {
+        var parts = m.month.split('-');
+        return monthNames[parts[1]] || parts[1];
+    });
+
+    var datasets = [{
+        label: currentHospitalData.hospital.name,
+        data: monthlyData.map(function(m) { return m[metric] || 0; }),
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderWidth: 2,
+        tension: 0.3,
+        fill: true
+    }];
+
+    // Add region average if checked and available
+    if (showRegionAvg && regionAverageData && regionAverageData.monthly_trend) {
+        var regionMonthly = regionAverageData.monthly_trend;
+        datasets.push({
+            label: 'ค่าเฉลี่ยเขต ' + (regionAverageData.region || ''),
+            data: monthlyData.map(function(m) {
+                var regionData = regionMonthly.find(function(r) { return r.month === m.month; });
+                return regionData ? regionData[metric] || 0 : 0;
+            }),
+            borderColor: 'rgb(156, 163, 175)',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            tension: 0.3,
+            fill: false
+        });
+    }
+
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            var value = context.parsed.y;
+                            return context.dataset.label + ': ' + formatMoneyShort(value);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return formatMoneyShort(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Search functions
 function searchHospitals() {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(doSearch, 300);
@@ -301,12 +874,12 @@ async function doSearch() {
     }
 
     try {
-        var response = await fetch('/api/health-offices?search=' + encodeURIComponent(query) + '&per_page=20');
+        var response = await fetch('/api/health-offices?search=' + encodeURIComponent(query) + '&per_page=15');
         var result = await response.json();
 
-        if (result.success && result.data.length > 0) {
-            resultsDiv.textContent = '';
+        resultsDiv.textContent = '';
 
+        if (result.success && result.data.length > 0) {
             result.data.forEach(function(h) {
                 var div = document.createElement('div');
                 div.className = 'px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100';
@@ -318,34 +891,28 @@ async function doSearch() {
                 div.appendChild(nameDiv);
 
                 var infoDiv = document.createElement('div');
-                infoDiv.className = 'text-sm text-gray-500 flex gap-3';
+                infoDiv.className = 'text-sm text-gray-500 flex gap-2';
 
                 if (h.hcode5) {
                     var codeSpan = document.createElement('span');
-                    codeSpan.className = 'bg-green-100 text-green-800 px-2 py-0.5 rounded';
-                    codeSpan.textContent = 'รหัส: ' + h.hcode5;
+                    codeSpan.className = 'bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs';
+                    codeSpan.textContent = h.hcode5;
                     infoDiv.appendChild(codeSpan);
                 }
 
-                if (h.hospital_level) {
-                    var levelSpan = document.createElement('span');
-                    levelSpan.textContent = h.hospital_level;
-                    infoDiv.appendChild(levelSpan);
-                }
+                var levelSpan = document.createElement('span');
+                levelSpan.textContent = h.hospital_level || '';
+                infoDiv.appendChild(levelSpan);
 
-                if (h.province) {
-                    var provSpan = document.createElement('span');
-                    provSpan.textContent = h.province;
-                    infoDiv.appendChild(provSpan);
-                }
+                var provSpan = document.createElement('span');
+                provSpan.textContent = h.province || '';
+                infoDiv.appendChild(provSpan);
 
                 div.appendChild(infoDiv);
                 resultsDiv.appendChild(div);
             });
-
             resultsDiv.classList.remove('hidden');
         } else {
-            resultsDiv.textContent = '';
             var noResult = document.createElement('div');
             noResult.className = 'px-4 py-3 text-gray-500';
             noResult.textContent = 'ไม่พบข้อมูล';
@@ -359,46 +926,35 @@ async function doSearch() {
 
 function selectHospital(h) {
     document.getElementById('search-hospital').value = h.name;
-    document.getElementById('add-vendor-name').value = h.name;
-
-    if (h.hcode5) {
-        document.getElementById('add-vendor-id').value = h.hcode5;
-    } else {
-        document.getElementById('add-vendor-id').value = '';
-        showToast('โรงพยาบาลนี้ไม่มีรหัส 5 หลัก กรุณากรอกเอง', 'warning');
-    }
-
     document.getElementById('search-results').classList.add('hidden');
 
-    // Cache the name
     if (h.hcode5) {
-        hospitalNames[h.hcode5] = h.name;
-        hospitalNames[h.hcode5.padStart(10, '0')] = h.name;
+        currentVendorId = h.hcode5;
+        localStorage.setItem('my_hospital_vendor', h.hcode5);
+        localStorage.setItem('my_hospital_name', h.name);
+        loadMyHospital();
+    } else {
+        showToast('โรงพยาบาลนี้ไม่มีรหัส 5 หลัก', 'warning');
     }
 }
 
-async function addHospital() {
-    var vendorId = document.getElementById('add-vendor-id').value.trim();
-    var vendorName = document.getElementById('add-vendor-name').value.trim() || 'รพ. ' + vendorId;
-    var fiscalYear = document.getElementById('add-fiscal-year').value;
-
-    if (!vendorId) {
-        showToast('กรุณากรอก Vendor ID (รหัส 5 หลัก)', 'error');
+// Fetch SMT Data
+async function fetchSMTData() {
+    if (!currentVendorId) {
+        showToast('กรุณาเลือกโรงพยาบาลก่อน', 'warning');
         return;
     }
 
-    // Cache the name
-    hospitalNames[vendorId] = vendorName;
-    hospitalNames[vendorId.padStart(10, '0')] = vendorName;
+    var fiscalYear = document.getElementById('fiscal-year').value;
 
-    showToast('กำลังดึงข้อมูล SMT สำหรับ ' + vendorName + '...', 'info');
+    showToast('กำลังดึงข้อมูล SMT...', 'info');
 
     try {
         var response = await fetch('/api/smt/fetch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                vendor_id: vendorId,
+                vendor_id: currentVendorId,
                 budget_year: fiscalYear,
                 save_db: true
             })
@@ -406,308 +962,248 @@ async function addHospital() {
         var result = await response.json();
 
         if (result.success) {
-            showToast('ดึงข้อมูล ' + vendorName + ' สำเร็จ! ' + result.records + ' records', 'success');
-            document.getElementById('search-hospital').value = '';
-            document.getElementById('add-vendor-id').value = '';
-            document.getElementById('add-vendor-name').value = '';
-            loadComparison();
+            showToast('ดึงข้อมูลสำเร็จ! ' + result.records + ' records', 'success');
+            loadMyHospital();
         } else {
             showToast(result.error || 'Failed to fetch data', 'error');
         }
-    } catch (error) {
-        console.error('Fetch error:', error);
-        showToast('Error: ' + error.message, 'error');
+    } catch (e) {
+        console.error('Fetch error:', e);
+        showToast('Error: ' + e.message, 'error');
     }
 }
 
-async function loadComparison() {
-    try {
-        var url = '/api/benchmark/hospitals';
-        if (currentFiscalYear) {
-            url += '?fiscal_year=' + currentFiscalYear;
-        }
+// Comparison functions
+function toggleComparison() {
+    var content = document.getElementById('comparison-content');
+    var chevron = document.getElementById('comparison-chevron');
 
-        var response = await fetch(url);
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        chevron.classList.add('rotate-180');
+    } else {
+        content.classList.add('hidden');
+        chevron.classList.remove('rotate-180');
+    }
+}
+
+function searchCompareHospitals() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(doCompareSearch, 300);
+}
+
+async function doCompareSearch() {
+    var query = document.getElementById('compare-search').value.trim();
+    var resultsDiv = document.getElementById('compare-search-results');
+
+    if (query.length < 2) {
+        resultsDiv.classList.add('hidden');
+        return;
+    }
+
+    try {
+        var response = await fetch('/api/health-offices?search=' + encodeURIComponent(query) + '&per_page=10');
+        var result = await response.json();
+
+        resultsDiv.textContent = '';
+
+        if (result.success && result.data.length > 0) {
+            result.data.forEach(function(h) {
+                if (!h.hcode5 || h.hcode5 === currentVendorId) return;
+
+                var div = document.createElement('div');
+                div.className = 'px-4 py-2 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 text-sm';
+                div.onclick = function() { addComparisonHospital(h); };
+
+                var nameDiv = document.createElement('div');
+                nameDiv.className = 'font-medium';
+                nameDiv.textContent = h.name;
+                div.appendChild(nameDiv);
+
+                var infoDiv = document.createElement('div');
+                infoDiv.className = 'text-xs text-gray-500';
+                infoDiv.textContent = h.hcode5 + ' | ' + (h.province || '');
+                div.appendChild(infoDiv);
+
+                resultsDiv.appendChild(div);
+            });
+            resultsDiv.classList.remove('hidden');
+        } else {
+            var noResult = document.createElement('div');
+            noResult.className = 'px-4 py-2 text-gray-500 text-sm';
+            noResult.textContent = 'ไม่พบข้อมูล';
+            resultsDiv.appendChild(noResult);
+            resultsDiv.classList.remove('hidden');
+        }
+    } catch (e) {
+        console.error('Search error:', e);
+    }
+}
+
+async function addComparisonHospital(h) {
+    document.getElementById('compare-search').value = '';
+    document.getElementById('compare-search-results').classList.add('hidden');
+
+    // Check if already added
+    if (comparisonHospitals.find(function(c) { return c.vendor_id === h.hcode5; })) {
+        showToast('โรงพยาบาลนี้ถูกเพิ่มแล้ว', 'warning');
+        return;
+    }
+
+    showToast('กำลังดึงข้อมูล ' + h.name + '...', 'info');
+
+    var fiscalYear = document.getElementById('fiscal-year').value;
+
+    try {
+        var response = await fetch('/api/benchmark/my-hospital?vendor_id=' + h.hcode5 + '&fiscal_year=' + fiscalYear);
         var result = await response.json();
 
         if (result.success) {
-            hospitals = result.hospitals;
-
-            // Populate hospitalNames cache from API response
-            hospitals.forEach(function(h) {
-                if (h.hospital_name) {
-                    hospitalNames[h.vendor_no] = h.hospital_name;
-                    // Also cache without leading zeros
-                    hospitalNames[h.vendor_no.replace(/^0+/, '')] = h.hospital_name;
-                }
+            comparisonHospitals.push({
+                vendor_id: h.hcode5,
+                name: h.name,
+                data: result
             });
-
-            // Update fiscal year display
-            var fyDisplay = document.getElementById('fiscal-year-display');
-            if (fyDisplay && currentFiscalYear) {
-                fyDisplay.textContent = 'ปีงบประมาณ ' + currentFiscalYear;
-            }
-
-            renderHospitalList(hospitals);
-            renderComparisonTable(hospitals);
-            renderCharts(hospitals);
+            updateComparisonUI();
+            showToast('เพิ่ม ' + h.name + ' สำเร็จ', 'success');
         } else {
-            console.error('Error:', result.error);
+            showToast('ไม่พบข้อมูล SMT สำหรับ ' + h.name, 'warning');
         }
-    } catch (error) {
-        console.error('Error loading comparison:', error);
+    } catch (e) {
+        console.error('Error:', e);
+        showToast('Error: ' + e.message, 'error');
     }
 }
 
-function getHospitalName(vendorNo) {
-    // Try to get name from cache
-    if (hospitalNames[vendorNo]) {
-        return hospitalNames[vendorNo];
-    }
-    // Default to vendor number
-    return 'รพ. ' + vendorNo.replace(/^0+/, '');
+function removeComparisonHospital(vendorId) {
+    comparisonHospitals = comparisonHospitals.filter(function(c) { return c.vendor_id !== vendorId; });
+    updateComparisonUI();
 }
 
-function renderHospitalList(hospitals) {
-    var container = document.getElementById('hospital-list');
-    container.textContent = '';
-
-    if (!hospitals || hospitals.length === 0) {
-        var emptyDiv = document.createElement('div');
-        emptyDiv.className = 'text-center py-8 text-gray-500';
-        emptyDiv.innerHTML = '<svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>';
-        var p1 = document.createElement('p');
-        p1.textContent = 'ยังไม่มีข้อมูลโรงพยาบาล';
-        emptyDiv.appendChild(p1);
-        var p2 = document.createElement('p');
-        p2.className = 'text-sm';
-        p2.textContent = 'ค้นหาและเลือกโรงพยาบาล แล้วกด "Fetch SMT" เพื่อดึงข้อมูล';
-        emptyDiv.appendChild(p2);
-        container.appendChild(emptyDiv);
-        return;
-    }
-
-    var colors = ['bg-blue-100 text-blue-800', 'bg-green-100 text-green-800', 'bg-purple-100 text-purple-800',
-                  'bg-orange-100 text-orange-800', 'bg-pink-100 text-pink-800'];
-
-    hospitals.forEach(function(h, index) {
-        var colorClass = colors[index % colors.length];
-        var displayName = getHospitalName(h.vendor_no);
-
-        var div = document.createElement('div');
-        div.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100';
-
-        var leftDiv = document.createElement('div');
-        leftDiv.className = 'flex items-center gap-3';
-
-        var codeSpan = document.createElement('span');
-        codeSpan.className = 'px-3 py-1 rounded-full text-sm font-medium ' + colorClass;
-        codeSpan.textContent = h.vendor_no.replace(/^0+/, '');
-        leftDiv.appendChild(codeSpan);
-
-        var nameSpan = document.createElement('span');
-        nameSpan.className = 'text-gray-800';
-        nameSpan.textContent = displayName;
-        leftDiv.appendChild(nameSpan);
-
-        div.appendChild(leftDiv);
-
-        var rightDiv = document.createElement('div');
-        rightDiv.className = 'flex items-center gap-4 text-sm text-gray-600';
-
-        var recordsSpan = document.createElement('span');
-        recordsSpan.textContent = h.records.toLocaleString() + ' records';
-        rightDiv.appendChild(recordsSpan);
-
-        var amountSpan = document.createElement('span');
-        amountSpan.className = 'font-medium';
-        amountSpan.textContent = formatMoney(h.total_amount);
-        rightDiv.appendChild(amountSpan);
-
-        var deleteBtn = document.createElement('button');
-        deleteBtn.className = 'text-red-500 hover:text-red-700';
-        deleteBtn.title = 'ลบข้อมูล';
-        deleteBtn.onclick = function() { removeHospital(h.vendor_no); };
-        deleteBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>';
-        rightDiv.appendChild(deleteBtn);
-
-        div.appendChild(rightDiv);
-        container.appendChild(div);
-    });
-}
-
-function renderComparisonTable(hospitals) {
-    var section = document.getElementById('comparison-section');
+function updateComparisonUI() {
+    var listDiv = document.getElementById('comparison-list');
+    var tableWrapper = document.getElementById('comparison-table-wrapper');
     var tbody = document.getElementById('comparison-tbody');
+
+    listDiv.textContent = '';
     tbody.textContent = '';
 
-    if (!hospitals || hospitals.length === 0) {
-        section.classList.add('hidden');
+    if (comparisonHospitals.length === 0) {
+        var msg = document.createElement('p');
+        msg.className = 'text-sm text-gray-500 text-center py-4';
+        msg.textContent = 'ยังไม่ได้เลือกโรงพยาบาลเปรียบเทียบ';
+        listDiv.appendChild(msg);
+        tableWrapper.classList.add('hidden');
         return;
     }
 
-    section.classList.remove('hidden');
+    tableWrapper.classList.remove('hidden');
 
-    var maxTotal = Math.max.apply(null, hospitals.map(function(h) { return h.total_amount; }));
-
-    hospitals.forEach(function(h) {
-        var isMax = h.total_amount === maxTotal;
-        var displayName = getHospitalName(h.vendor_no);
-
-        var tr = document.createElement('tr');
-        tr.className = isMax ? 'bg-green-50' : '';
-
-        // Hospital name cell
-        var tdName = document.createElement('td');
-        tdName.className = 'px-6 py-4 whitespace-nowrap';
-        var nameDiv = document.createElement('div');
-        nameDiv.className = 'flex items-center';
-        var codeDiv = document.createElement('div');
-        codeDiv.className = 'text-sm font-medium text-gray-900';
-        codeDiv.textContent = h.vendor_no.replace(/^0+/, '') + ' - ' + displayName;
-        nameDiv.appendChild(codeDiv);
-        if (isMax) {
-            var maxBadge = document.createElement('span');
-            maxBadge.className = 'ml-2 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full';
-            maxBadge.textContent = 'สูงสุด';
-            nameDiv.appendChild(maxBadge);
-        }
-        tdName.appendChild(nameDiv);
-        tr.appendChild(tdName);
-
-        // Records
-        var tdRecords = document.createElement('td');
-        tdRecords.className = 'px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900';
-        tdRecords.textContent = h.records.toLocaleString();
-        tr.appendChild(tdRecords);
-
-        // Total amount
-        var tdTotal = document.createElement('td');
-        tdTotal.className = 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900';
-        tdTotal.textContent = formatMoney(h.total_amount);
-        tr.appendChild(tdTotal);
-
-        // Wait amount
-        var tdWait = document.createElement('td');
-        tdWait.className = 'px-6 py-4 whitespace-nowrap text-right text-sm text-orange-600';
-        tdWait.textContent = formatMoney(h.wait_amount);
-        tr.appendChild(tdWait);
-
-        // Debt amount
-        var tdDebt = document.createElement('td');
-        tdDebt.className = 'px-6 py-4 whitespace-nowrap text-right text-sm text-red-600';
-        tdDebt.textContent = formatMoney(h.debt_amount);
-        tr.appendChild(tdDebt);
-
-        // Bond amount
-        var tdBond = document.createElement('td');
-        tdBond.className = 'px-6 py-4 whitespace-nowrap text-right text-sm text-blue-600';
-        tdBond.textContent = formatMoney(h.bond_amount);
-        tr.appendChild(tdBond);
-
-        // Actions
-        var tdActions = document.createElement('td');
-        tdActions.className = 'px-6 py-4 whitespace-nowrap text-center';
-        var viewBtn = document.createElement('button');
-        viewBtn.className = 'text-blue-600 hover:text-blue-800 text-sm';
-        viewBtn.textContent = 'ดูรายละเอียด';
-        viewBtn.onclick = function() { viewDetails(h.vendor_no); };
-        tdActions.appendChild(viewBtn);
-        tr.appendChild(tdActions);
-
-        tbody.appendChild(tr);
-    });
-}
-
-function renderCharts(hospitals) {
-    var section = document.getElementById('charts-section');
-
-    if (!hospitals || hospitals.length === 0) {
-        section.classList.add('hidden');
-        return;
+    // Add my hospital first
+    if (currentHospitalData) {
+        addComparisonTableRow(tbody, {
+            vendor_id: currentVendorId,
+            name: currentHospitalData.hospital.name,
+            data: currentHospitalData
+        }, true);
     }
 
-    section.classList.remove('hidden');
-
-    // Total amount chart
-    var maxTotal = Math.max.apply(null, hospitals.map(function(h) { return h.total_amount; }));
-    var chartTotal = document.getElementById('chart-total');
-    chartTotal.textContent = '';
-
-    hospitals.forEach(function(h) {
-        var pct = (h.total_amount / maxTotal) * 100;
-        var displayName = getHospitalName(h.vendor_no);
-
-        var div = document.createElement('div');
-
-        var labelDiv = document.createElement('div');
-        labelDiv.className = 'flex justify-between text-sm mb-1';
-
-        var nameSpan = document.createElement('span');
-        nameSpan.className = 'text-gray-700';
-        nameSpan.textContent = h.vendor_no.replace(/^0+/, '') + ' - ' + displayName;
-        labelDiv.appendChild(nameSpan);
-
-        var amountSpan = document.createElement('span');
-        amountSpan.className = 'font-medium';
-        amountSpan.textContent = formatMoney(h.total_amount);
-        labelDiv.appendChild(amountSpan);
-
-        div.appendChild(labelDiv);
-
-        var barBg = document.createElement('div');
-        barBg.className = 'w-full bg-gray-200 rounded-full h-4';
-
-        var barFg = document.createElement('div');
-        barFg.className = 'bg-blue-600 h-4 rounded-full';
-        barFg.style.width = pct + '%';
-        barBg.appendChild(barFg);
-
-        div.appendChild(barBg);
-        chartTotal.appendChild(div);
-    });
-
-    // Records chart
-    var maxRecords = Math.max.apply(null, hospitals.map(function(h) { return h.records; }));
-    var chartRecords = document.getElementById('chart-records');
-    chartRecords.textContent = '';
-
-    hospitals.forEach(function(h) {
-        var pct = (h.records / maxRecords) * 100;
-        var displayName = getHospitalName(h.vendor_no);
-
-        var div = document.createElement('div');
-
-        var labelDiv = document.createElement('div');
-        labelDiv.className = 'flex justify-between text-sm mb-1';
-
-        var nameSpan = document.createElement('span');
-        nameSpan.className = 'text-gray-700';
-        nameSpan.textContent = h.vendor_no.replace(/^0+/, '') + ' - ' + displayName;
-        labelDiv.appendChild(nameSpan);
-
-        var countSpan = document.createElement('span');
-        countSpan.className = 'font-medium';
-        countSpan.textContent = h.records.toLocaleString();
-        labelDiv.appendChild(countSpan);
-
-        div.appendChild(labelDiv);
-
-        var barBg = document.createElement('div');
-        barBg.className = 'w-full bg-gray-200 rounded-full h-4';
-
-        var barFg = document.createElement('div');
-        barFg.className = 'bg-green-600 h-4 rounded-full';
-        barFg.style.width = pct + '%';
-        barBg.appendChild(barFg);
-
-        div.appendChild(barBg);
-        chartRecords.appendChild(div);
+    // Add comparison hospitals
+    comparisonHospitals.forEach(function(h) {
+        addComparisonTableRow(tbody, h, false);
     });
 }
 
+function addComparisonTableRow(tbody, hospital, isMyHospital) {
+    var tr = document.createElement('tr');
+    tr.className = isMyHospital ? 'bg-blue-50' : '';
+
+    var summary = hospital.data.summary || {};
+
+    // Name
+    var tdName = document.createElement('td');
+    tdName.className = 'px-4 py-3 whitespace-nowrap';
+
+    var nameDiv = document.createElement('div');
+    nameDiv.className = 'font-medium text-gray-800';
+    nameDiv.textContent = hospital.name;
+    tdName.appendChild(nameDiv);
+
+    if (isMyHospital) {
+        var badge = document.createElement('span');
+        badge.className = 'text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded';
+        badge.textContent = 'รพ. ของฉัน';
+        tdName.appendChild(badge);
+    }
+    tr.appendChild(tdName);
+
+    // Total
+    var tdTotal = document.createElement('td');
+    tdTotal.className = 'px-4 py-3 text-right font-medium';
+    tdTotal.textContent = formatMoney(summary.total_amount);
+    tr.appendChild(tdTotal);
+
+    // Wait %
+    var tdWait = document.createElement('td');
+    tdWait.className = 'px-4 py-3 text-right text-orange-600';
+    tdWait.textContent = (summary.wait_ratio || 0).toFixed(1) + '%';
+    tr.appendChild(tdWait);
+
+    // Debt %
+    var tdDebt = document.createElement('td');
+    tdDebt.className = 'px-4 py-3 text-right text-red-600';
+    tdDebt.textContent = (summary.debt_ratio || 0).toFixed(1) + '%';
+    tr.appendChild(tdDebt);
+
+    // Growth
+    var tdGrowth = document.createElement('td');
+    tdGrowth.className = 'px-4 py-3 text-right';
+    var growth = summary.growth_yoy || 0;
+    var growthSpan = document.createElement('span');
+    if (growth >= 0) {
+        growthSpan.className = 'text-green-600';
+        growthSpan.textContent = '+' + growth.toFixed(1) + '%';
+    } else {
+        growthSpan.className = 'text-red-600';
+        growthSpan.textContent = growth.toFixed(1) + '%';
+    }
+    tdGrowth.appendChild(growthSpan);
+    tr.appendChild(tdGrowth);
+
+    // Actions
+    var tdActions = document.createElement('td');
+    tdActions.className = 'px-4 py-3 text-center';
+    if (!isMyHospital) {
+        var btn = document.createElement('button');
+        btn.className = 'text-red-500 hover:text-red-700';
+        btn.textContent = '\u2715';
+        btn.onclick = function() { removeComparisonHospital(hospital.vendor_id); };
+        tdActions.appendChild(btn);
+    }
+    tr.appendChild(tdActions);
+
+    tbody.appendChild(tr);
+}
+
+// Quick add functions
+function addSameProvince() {
+    if (!currentHospitalData || !currentHospitalData.hospital) return;
+    showToast('กำลังพัฒนา...', 'info');
+}
+
+function addSameRegion() {
+    if (!currentHospitalData || !currentHospitalData.hospital) return;
+    showToast('กำลังพัฒนา...', 'info');
+}
+
+function addSameLevel() {
+    if (!currentHospitalData || !currentHospitalData.hospital) return;
+    showToast('กำลังพัฒนา...', 'info');
+}
+
+// Utility functions
 function formatMoney(amount) {
-    if (!amount) return '0';
+    if (!amount) return '0 บาท';
     if (amount >= 1000000000) {
         return (amount / 1000000000).toFixed(2) + ' พันล้าน';
     } else if (amount >= 1000000) {
@@ -716,32 +1212,12 @@ function formatMoney(amount) {
     return amount.toLocaleString() + ' บาท';
 }
 
-async function removeHospital(vendorNo) {
-    var displayName = getHospitalName(vendorNo);
-    if (!confirm('ต้องการลบข้อมูลของ ' + displayName + ' ออกจากการเปรียบเทียบ?')) {
-        return;
+function formatMoneyShort(amount) {
+    if (!amount) return '0';
+    if (amount >= 1000000) {
+        return (amount / 1000000).toFixed(1) + 'M';
     }
-
-    try {
-        var response = await fetch('/api/benchmark/hospitals/' + vendorNo, {
-            method: 'DELETE'
-        });
-        var result = await response.json();
-
-        if (result.success) {
-            showToast('ลบข้อมูล ' + displayName + ' สำเร็จ', 'success');
-            loadComparison();
-        } else {
-            showToast(result.error || 'Failed to delete', 'error');
-        }
-    } catch (error) {
-        console.error('Delete error:', error);
-        showToast('Error: ' + error.message, 'error');
-    }
-}
-
-function viewDetails(vendorNo) {
-    window.location.href = '/smt-budget?vendor=' + vendorNo;
+    return amount.toLocaleString();
 }
 
 function showToast(message, type) {
@@ -751,226 +1227,5 @@ function showToast(message, type) {
         alert(message);
     }
 }
-
-// ==================== TIME SERIES CHART FUNCTIONS ====================
-
-var chartColors = [
-    'rgb(59, 130, 246)',   // blue
-    'rgb(16, 185, 129)',   // green
-    'rgb(239, 68, 68)',    // red
-    'rgb(245, 158, 11)',   // amber
-    'rgb(139, 92, 246)',   // purple
-    'rgb(236, 72, 153)',   // pink
-    'rgb(20, 184, 166)',   // teal
-    'rgb(249, 115, 22)'    // orange
-];
-
-function updatePeriodControls() {
-    var period = document.getElementById('ts-period').value;
-    var startDiv = document.getElementById('ts-start-month-div');
-    var endDiv = document.getElementById('ts-end-month-div');
-    var startMonth = document.getElementById('ts-start-month');
-    var endMonth = document.getElementById('ts-end-month');
-
-    if (period === 'custom') {
-        startDiv.classList.remove('hidden');
-        endDiv.classList.remove('hidden');
-    } else {
-        startDiv.classList.add('hidden');
-        endDiv.classList.add('hidden');
-
-        // Set months based on quarter
-        if (period === 'q1') {
-            startMonth.value = '10';
-            endMonth.value = '12';
-        } else if (period === 'q2') {
-            startMonth.value = '1';
-            endMonth.value = '3';
-        } else if (period === 'q3') {
-            startMonth.value = '4';
-            endMonth.value = '6';
-        } else if (period === 'q4') {
-            startMonth.value = '7';
-            endMonth.value = '9';
-        } else {
-            startMonth.value = '10';
-            endMonth.value = '9';
-        }
-    }
-
-    loadTimeSeries();
-}
-
-async function loadTimeSeries() {
-    var fiscalYear = document.getElementById('ts-fiscal-year').value;
-    var period = document.getElementById('ts-period').value;
-    var startMonth = null;
-    var endMonth = null;
-
-    if (period !== 'all') {
-        startMonth = document.getElementById('ts-start-month').value;
-        endMonth = document.getElementById('ts-end-month').value;
-    }
-
-    var params = new URLSearchParams();
-    if (fiscalYear) params.append('fiscal_year', fiscalYear);
-    if (startMonth) params.append('start_month', startMonth);
-    if (endMonth) params.append('end_month', endMonth);
-
-    try {
-        var response = await fetch('/api/benchmark/timeseries?' + params.toString());
-        var result = await response.json();
-
-        if (result.success) {
-            renderTimeSeriesChart(result.vendors, result.months);
-            document.getElementById('timeseries-section').classList.remove('hidden');
-        }
-    } catch (error) {
-        console.error('Error loading timeseries:', error);
-    }
-}
-
-function renderTimeSeriesChart(vendors, months) {
-    var ctx = document.getElementById('timeseries-chart').getContext('2d');
-    var metric = document.getElementById('ts-metric').value;
-
-    // Destroy existing chart
-    if (timeseriesChart) {
-        timeseriesChart.destroy();
-    }
-
-    if (!vendors || vendors.length === 0) {
-        return;
-    }
-
-    // Month labels (Thai format)
-    var monthNames = {
-        '01': 'ม.ค.', '02': 'ก.พ.', '03': 'มี.ค.', '04': 'เม.ย.',
-        '05': 'พ.ค.', '06': 'มิ.ย.', '07': 'ก.ค.', '08': 'ส.ค.',
-        '09': 'ก.ย.', '10': 'ต.ค.', '11': 'พ.ย.', '12': 'ธ.ค.'
-    };
-
-    var labels = months.map(function(m) {
-        var parts = m.split('-');
-        var monthKey = parts[1];
-        return monthNames[monthKey] + ' ' + parts[0];
-    });
-
-    // Build datasets
-    var datasets = vendors.map(function(v, idx) {
-        var color = chartColors[idx % chartColors.length];
-        var data = months.map(function(m) {
-            var monthData = v.data[m];
-            if (monthData) {
-                return monthData[metric] || 0;
-            }
-            return 0;
-        });
-
-        return {
-            label: v.hospital_name,
-            data: data,
-            borderColor: color,
-            backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
-            borderWidth: 2,
-            tension: 0.3,
-            fill: false,
-            pointRadius: 4,
-            pointHoverRadius: 6
-        };
-    });
-
-    // Create chart
-    timeseriesChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: datasets
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'bottom'
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false,
-                    callbacks: {
-                        label: function(context) {
-                            var value = context.parsed.y;
-                            var label = context.dataset.label || '';
-                            if (metric === 'records') {
-                                return label + ': ' + value.toLocaleString() + ' records';
-                            }
-                            if (value >= 1000000) {
-                                return label + ': ' + (value / 1000000).toFixed(2) + ' ล้าน';
-                            }
-                            return label + ': ' + value.toLocaleString() + ' บาท';
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            if (metric === 'records') {
-                                return value.toLocaleString();
-                            }
-                            if (value >= 1000000) {
-                                return (value / 1000000).toFixed(1) + 'M';
-                            }
-                            return value.toLocaleString();
-                        }
-                    }
-                }
-            },
-            interaction: {
-                mode: 'nearest',
-                axis: 'x',
-                intersect: false
-            }
-        }
-    });
-
-    // Render legend
-    renderTimeSeriesLegend(vendors);
-}
-
-function renderTimeSeriesLegend(vendors) {
-    var legend = document.getElementById('ts-legend');
-    legend.textContent = '';
-
-    vendors.forEach(function(v, idx) {
-        var color = chartColors[idx % chartColors.length];
-
-        var div = document.createElement('div');
-        div.className = 'flex items-center gap-2';
-
-        var colorDot = document.createElement('span');
-        colorDot.className = 'w-3 h-3 rounded-full';
-        colorDot.style.backgroundColor = color;
-        div.appendChild(colorDot);
-
-        var nameSpan = document.createElement('span');
-        nameSpan.className = 'text-sm text-gray-700';
-        nameSpan.textContent = v.hospital_name;
-        div.appendChild(nameSpan);
-
-        legend.appendChild(div);
-    });
-}
-
-// Initialize time series on load
-document.addEventListener('DOMContentLoaded', function() {
-    // Wait a bit for loadComparison to finish, then load time series
-    setTimeout(function() {
-        loadTimeSeries();
-    }, 1000);
-});
 </script>
 {% endblock %}
