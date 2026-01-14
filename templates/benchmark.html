@@ -449,33 +449,28 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 async function loadDefaultHospital() {
     try {
-        // Get default from SMT settings
+        // Priority 1: Check localStorage for user's last selected hospital
+        var savedVendor = localStorage.getItem('my_hospital_vendor');
+        var savedName = localStorage.getItem('my_hospital_name');
+
+        if (savedVendor) {
+            currentVendorId = savedVendor;
+            if (savedName) {
+                document.getElementById('search-hospital').value = savedName;
+            }
+            await loadHospitalYears();
+            return;
+        }
+
+        // Priority 2: Get default from SMT settings
         var response = await fetch('/api/smt/settings');
         var result = await response.json();
 
         if (result.success && result.settings && result.settings.smt_vendor_id) {
             currentVendorId = result.settings.smt_vendor_id;
-
-            // Try to get hospital name from localStorage
-            var savedName = localStorage.getItem('my_hospital_name');
-            if (savedName) {
-                document.getElementById('search-hospital').value = savedName;
-            }
-
             await loadHospitalYears();
         } else {
-            // Check localStorage
-            var savedVendor = localStorage.getItem('my_hospital_vendor');
-            if (savedVendor) {
-                currentVendorId = savedVendor;
-                var savedName = localStorage.getItem('my_hospital_name');
-                if (savedName) {
-                    document.getElementById('search-hospital').value = savedName;
-                }
-                await loadHospitalYears();
-            } else {
-                showNoDataState();
-            }
+            showNoDataState();
         }
     } catch (e) {
         console.error('Error loading default hospital:', e);
@@ -737,9 +732,13 @@ async function refreshHospitalYearsUI() {
     try {
         var response = await fetch('/api/benchmark/hospital-years?vendor_id=' + currentVendorId);
         var result = await response.json();
+        console.log('hospital-years API response:', result);
 
         if (result.success && result.years) {
             hospitalYearsData = result.years;
+            // Log which years have data
+            var yearsWithData = hospitalYearsData.filter(function(y) { return y.has_data; }).map(function(y) { return y.year; });
+            console.log('Years with data:', yearsWithData);
             renderYearCheckboxes();
         }
     } catch (e) {
