@@ -77,6 +77,18 @@
             </svg>
             Health Offices
         </button>
+        <button onclick="switchTab('jobs')" id="tab-jobs" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+            </svg>
+            Job History
+        </button>
+        <button onclick="switchTab('health')" id="tab-health" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
+            System Health
+        </button>
     </nav>
 </div>
 
@@ -1868,6 +1880,222 @@
     </div>
 </div>
 
+    <!-- ==================== JOB HISTORY TAB ==================== -->
+    <div id="content-jobs" class="tab-content p-6 hidden">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">Job History</h2>
+                <p class="text-gray-600">ประวัติการทำงานของระบบ (Download, Import, Schedule)</p>
+            </div>
+            <button onclick="loadJobHistory()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh
+            </button>
+        </div>
+
+        <!-- Job Stats Summary -->
+        <div id="job-stats" class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                <p class="text-3xl font-bold text-blue-700" id="stats-total">-</p>
+                <p class="text-sm text-blue-600">Total Jobs (7 days)</p>
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                <p class="text-3xl font-bold text-green-700" id="stats-completed">-</p>
+                <p class="text-sm text-green-600">Completed</p>
+            </div>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                <p class="text-3xl font-bold text-red-700" id="stats-failed">-</p>
+                <p class="text-sm text-red-600">Failed</p>
+            </div>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                <p class="text-3xl font-bold text-yellow-700" id="stats-running">-</p>
+                <p class="text-sm text-yellow-600">Running</p>
+            </div>
+        </div>
+
+        <!-- Filter -->
+        <div class="flex gap-4 mb-4">
+            <select id="job-filter-type" onchange="loadJobHistory()" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Types</option>
+                <option value="download">Download</option>
+                <option value="import">Import</option>
+                <option value="schedule">Schedule</option>
+            </select>
+            <select id="job-filter-status" onchange="loadJobHistory()" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                <option value="">All Status</option>
+                <option value="running">Running</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+            </select>
+        </div>
+
+        <!-- Jobs Table -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Job ID</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Started</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Results</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Triggered By</th>
+                    </tr>
+                </thead>
+                <tbody id="jobs-table-body" class="bg-white divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== SYSTEM HEALTH TAB ==================== -->
+    <div id="content-health" class="tab-content p-6 hidden">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">System Health</h2>
+                <p class="text-gray-600">สถานะระบบและทรัพยากร</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <label class="flex items-center gap-2 text-sm text-gray-600">
+                    <input type="checkbox" id="health-auto-refresh" class="rounded" checked>
+                    Auto-refresh (30s)
+                </label>
+                <button onclick="loadSystemHealth()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- Overall Status Banner -->
+        <div id="health-overall-banner" class="mb-6 p-4 rounded-lg border-2 bg-gray-50 border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span id="health-overall-icon" class="text-3xl">⏳</span>
+                    <div>
+                        <p id="health-overall-status" class="text-lg font-semibold text-gray-700">Checking...</p>
+                        <p id="health-overall-time" class="text-sm text-gray-500">-</p>
+                    </div>
+                </div>
+                <div id="health-issues-badge" class="hidden px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700">
+                    0 issues
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <!-- Database -->
+            <div id="health-card-database" class="bg-white border rounded-lg p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-600 font-medium">Database</span>
+                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🗄️</span>
+                    <span class="health-message text-sm text-gray-700">Checking...</span>
+                </div>
+            </div>
+
+            <!-- Disk -->
+            <div id="health-card-disk" class="bg-white border rounded-lg p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-600 font-medium">Disk Space</span>
+                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">💾</span>
+                    <span class="health-message text-sm text-gray-700">Checking...</span>
+                </div>
+                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                    <div class="health-progress-bar bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Memory -->
+            <div id="health-card-memory" class="bg-white border rounded-lg p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-600 font-medium">Memory</span>
+                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🧠</span>
+                    <span class="health-message text-sm text-gray-700">Checking...</span>
+                </div>
+                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                    <div class="health-progress-bar bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Processes -->
+            <div id="health-card-processes" class="bg-white border rounded-lg p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-600 font-medium">Processes</span>
+                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">⚙️</span>
+                    <span class="health-message text-sm text-gray-700">Checking...</span>
+                </div>
+            </div>
+
+            <!-- Jobs -->
+            <div id="health-card-jobs" class="bg-white border rounded-lg p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-600 font-medium">Jobs (24h)</span>
+                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">📋</span>
+                    <span class="health-message text-sm text-gray-700">Checking...</span>
+                </div>
+            </div>
+
+            <!-- Files -->
+            <div id="health-card-files" class="bg-white border rounded-lg p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-600 font-medium">Downloaded Files</span>
+                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">📁</span>
+                    <span class="health-message text-sm text-gray-700">Checking...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Running Processes Details -->
+        <div id="health-processes-detail" class="bg-white border rounded-lg p-4 shadow-sm hidden">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">Running Processes</h3>
+            <div id="health-processes-list" class="space-y-2">
+                <!-- Processes will be listed here -->
+            </div>
+        </div>
+
+        <!-- Stale PIDs Warning -->
+        <div id="health-stale-pids" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4 hidden">
+            <div class="flex items-start gap-3">
+                <span class="text-xl">⚠️</span>
+                <div>
+                    <p class="font-medium text-yellow-800">Stale PID Files Detected</p>
+                    <p class="text-sm text-yellow-700">These processes may have crashed. Consider running System Sync to clean up.</p>
+                    <p id="health-stale-list" class="text-sm font-mono text-yellow-600 mt-1"></p>
+                    <button onclick="runSystemSync()" class="mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-sm">
+                        Clean Up Stale PIDs
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <style>
 /* Spin animation for sync icon */
 @keyframes spin {
@@ -2098,6 +2326,12 @@ function switchTab(tab) {
         loadSmtFiles();
     } else if (tab === 'statement' && typeof loadStatementFiles === 'function') {
         loadStatementFiles();
+    } else if (tab === 'jobs') {
+        loadJobStats();
+        loadJobHistory();
+    } else if (tab === 'health') {
+        loadSystemHealth();
+        startHealthAutoRefresh();
     }
 
     // Update URL without reload
@@ -4310,6 +4544,437 @@ async function testStmSchedule() {
             showToast(result.message, 'success');
         } else {
             showToast('Error: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+// ==================== Job History Functions ====================
+
+async function loadJobStats() {
+    try {
+        const response = await fetch('/api/jobs/stats?days=7');
+        const data = await response.json();
+
+        if (data.success) {
+            const stats = data.stats;
+            document.getElementById('stats-total').textContent = stats.total || 0;
+            document.getElementById('stats-completed').textContent = stats.by_status?.completed || 0;
+            document.getElementById('stats-failed').textContent = stats.by_status?.failed || 0;
+            document.getElementById('stats-running').textContent = stats.by_status?.running || 0;
+        }
+    } catch (error) {
+        console.error('Error loading job stats:', error);
+    }
+}
+
+async function loadJobHistory() {
+    const typeFilter = document.getElementById('job-filter-type')?.value || '';
+    const statusFilter = document.getElementById('job-filter-status')?.value || '';
+
+    let url = '/api/jobs?limit=50';
+    if (typeFilter) url += '&type=' + encodeURIComponent(typeFilter);
+    if (statusFilter) url += '&status=' + encodeURIComponent(statusFilter);
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const tbody = document.getElementById('jobs-table-body');
+        if (!tbody) return;
+
+        // Clear existing content
+        tbody.textContent = '';
+
+        if (!data.success || !data.jobs || data.jobs.length === 0) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.setAttribute('colspan', '7');
+            td.className = 'px-6 py-8 text-center text-gray-500';
+            td.textContent = 'ไม่มีประวัติงาน';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        data.jobs.forEach(function(job) {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50';
+
+            // Job ID
+            const tdId = document.createElement('td');
+            tdId.className = 'px-4 py-3 whitespace-nowrap';
+            const spanId = document.createElement('span');
+            spanId.className = 'text-xs font-mono text-gray-600';
+            spanId.textContent = job.job_id || '';
+            tdId.appendChild(spanId);
+            tr.appendChild(tdId);
+
+            // Type
+            const tdType = document.createElement('td');
+            tdType.className = 'px-4 py-3 whitespace-nowrap';
+            tdType.appendChild(createJobTypeElement(job.job_type, job.job_subtype));
+            tr.appendChild(tdType);
+
+            // Status
+            const tdStatus = document.createElement('td');
+            tdStatus.className = 'px-4 py-3 whitespace-nowrap';
+            tdStatus.appendChild(createJobStatusBadge(job.status));
+            tr.appendChild(tdStatus);
+
+            // Started At
+            const tdStarted = document.createElement('td');
+            tdStarted.className = 'px-4 py-3 whitespace-nowrap text-sm text-gray-600';
+            tdStarted.textContent = formatDateTime(job.started_at);
+            tr.appendChild(tdStarted);
+
+            // Duration
+            const tdDuration = document.createElement('td');
+            tdDuration.className = 'px-4 py-3 whitespace-nowrap text-sm text-gray-600';
+            tdDuration.textContent = formatDuration(job.duration_seconds);
+            tr.appendChild(tdDuration);
+
+            // Results
+            const tdResults = document.createElement('td');
+            tdResults.className = 'px-4 py-3 text-sm text-gray-600';
+            tdResults.textContent = formatJobResults(job.results);
+            tr.appendChild(tdResults);
+
+            // Triggered By
+            const tdTriggered = document.createElement('td');
+            tdTriggered.className = 'px-4 py-3 whitespace-nowrap';
+            const spanTriggered = document.createElement('span');
+            spanTriggered.className = 'text-xs px-2 py-1 rounded ' + (job.triggered_by === 'schedule' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600');
+            spanTriggered.textContent = job.triggered_by === 'schedule' ? '⏰ Schedule' : '👤 Manual';
+            tdTriggered.appendChild(spanTriggered);
+            tr.appendChild(tdTriggered);
+
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error('Error loading job history:', error);
+        const tbody = document.getElementById('jobs-table-body');
+        if (tbody) {
+            tbody.textContent = '';
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.setAttribute('colspan', '7');
+            td.className = 'px-6 py-8 text-center text-red-500';
+            td.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+        }
+    }
+}
+
+function createJobStatusBadge(status) {
+    const span = document.createElement('span');
+    span.className = 'px-2 py-1 text-xs font-medium rounded-full';
+
+    switch (status) {
+        case 'running':
+            span.className += ' bg-blue-100 text-blue-700 animate-pulse';
+            span.textContent = '🔄 Running';
+            break;
+        case 'completed':
+            span.className += ' bg-green-100 text-green-700';
+            span.textContent = '✓ Completed';
+            break;
+        case 'completed_with_errors':
+            span.className += ' bg-yellow-100 text-yellow-700';
+            span.textContent = '⚠ With Errors';
+            break;
+        case 'failed':
+            span.className += ' bg-red-100 text-red-700';
+            span.textContent = '✗ Failed';
+            break;
+        case 'cancelled':
+            span.className += ' bg-gray-100 text-gray-700';
+            span.textContent = '⊘ Cancelled';
+            break;
+        default:
+            span.className += ' bg-gray-100 text-gray-600';
+            span.textContent = status || 'Unknown';
+    }
+    return span;
+}
+
+function createJobTypeElement(type, subtype) {
+    const typeIcons = {
+        'download': '📥',
+        'import': '📤',
+        'schedule': '⏰'
+    };
+    const subtypeLabels = {
+        'single': 'เดี่ยว',
+        'bulk': 'หลายไฟล์',
+        'parallel': 'ขนาน',
+        'scheduled': 'ตามกำหนด'
+    };
+
+    const icon = typeIcons[type] || '📋';
+    const typeName = type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Unknown';
+    const subtypeName = subtypeLabels[subtype] || subtype || '';
+
+    const span = document.createElement('span');
+    span.className = 'inline-flex items-center gap-1';
+    span.textContent = icon + ' ' + typeName;
+
+    if (subtypeName) {
+        const subtypeSpan = document.createElement('span');
+        subtypeSpan.className = 'text-xs text-gray-500';
+        subtypeSpan.textContent = '(' + subtypeName + ')';
+        span.appendChild(document.createTextNode(' '));
+        span.appendChild(subtypeSpan);
+    }
+
+    return span;
+}
+
+function formatDuration(seconds) {
+    if (!seconds && seconds !== 0) return '-';
+    if (seconds < 60) return seconds + 's';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ' + (seconds % 60) + 's';
+    var hours = Math.floor(seconds / 3600);
+    var mins = Math.floor((seconds % 3600) / 60);
+    return hours + 'h ' + mins + 'm';
+}
+
+function formatDateTime(isoString) {
+    if (!isoString) return '-';
+    try {
+        var date = new Date(isoString);
+        return date.toLocaleString('th-TH', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return isoString;
+    }
+}
+
+function formatJobResults(results) {
+    if (!results) return '-';
+
+    var parts = [];
+    if (results.total_files !== undefined) {
+        parts.push('📁 ' + results.total_files + ' files');
+    }
+    if (results.success_files !== undefined) {
+        parts.push('✓ ' + results.success_files);
+    }
+    if (results.failed_files !== undefined && results.failed_files > 0) {
+        parts.push('✗ ' + results.failed_files);
+    }
+    if (results.total_records !== undefined) {
+        parts.push('📊 ' + results.total_records.toLocaleString() + ' records');
+    }
+
+    return parts.length > 0 ? parts.join(' | ') : JSON.stringify(results).substring(0, 50);
+}
+
+// ==================== System Health Functions ====================
+
+var healthRefreshInterval = null;
+
+async function loadSystemHealth() {
+    try {
+        var response = await fetch('/api/system/health');
+        var data = await response.json();
+
+        if (!data.success) {
+            showToast('Error loading health: ' + (data.error || 'Unknown'), 'error');
+            return;
+        }
+
+        // Update overall status banner
+        updateOverallBanner(data);
+
+        // Update each component card
+        var components = data.components || {};
+        updateHealthCard('database', components.database);
+        updateHealthCard('disk', components.disk);
+        updateHealthCard('memory', components.memory);
+        updateHealthCard('processes', components.processes);
+        updateHealthCard('jobs', components.jobs);
+        updateHealthCard('files', components.files);
+
+        // Show running processes detail if any
+        updateProcessesDetail(components.processes);
+
+        // Show stale PIDs warning if any
+        updateStalePidsWarning(components.processes);
+
+    } catch (error) {
+        console.error('Error loading system health:', error);
+    }
+}
+
+function updateOverallBanner(data) {
+    var banner = document.getElementById('health-overall-banner');
+    var icon = document.getElementById('health-overall-icon');
+    var status = document.getElementById('health-overall-status');
+    var time = document.getElementById('health-overall-time');
+    var issuesBadge = document.getElementById('health-issues-badge');
+
+    // Set icon and colors based on status
+    var statusConfig = {
+        'healthy': { icon: '✅', bg: 'bg-green-50', border: 'border-green-200', text: 'System Healthy' },
+        'warning': { icon: '⚠️', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'Warnings Detected' },
+        'critical': { icon: '🔴', bg: 'bg-red-50', border: 'border-red-200', text: 'Critical Issues' }
+    };
+
+    var config = statusConfig[data.overall_status] || statusConfig.healthy;
+
+    icon.textContent = config.icon;
+    status.textContent = config.text;
+    banner.className = 'mb-6 p-4 rounded-lg border-2 ' + config.bg + ' ' + config.border;
+
+    // Format timestamp
+    if (data.timestamp) {
+        var ts = new Date(data.timestamp);
+        time.textContent = 'Updated: ' + ts.toLocaleString('th-TH');
+    }
+
+    // Show issues badge if any
+    var issues = data.issues || [];
+    if (issues.length > 0) {
+        issuesBadge.textContent = issues.length + ' issue' + (issues.length > 1 ? 's' : '');
+        issuesBadge.classList.remove('hidden');
+    } else {
+        issuesBadge.classList.add('hidden');
+    }
+}
+
+function updateHealthCard(componentName, componentData) {
+    var card = document.getElementById('health-card-' + componentName);
+    if (!card || !componentData) return;
+
+    var badge = card.querySelector('.health-status-badge');
+    var message = card.querySelector('.health-message');
+    var progressBar = card.querySelector('.health-progress-bar');
+
+    // Update badge
+    var badgeConfig = {
+        'healthy': { bg: 'bg-green-100', text: 'text-green-700', label: 'OK' },
+        'warning': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Warning' },
+        'critical': { bg: 'bg-red-100', text: 'text-red-700', label: 'Critical' }
+    };
+    var bc = badgeConfig[componentData.status] || badgeConfig.healthy;
+    badge.className = 'health-status-badge px-2 py-1 rounded-full text-xs font-medium ' + bc.bg + ' ' + bc.text;
+    badge.textContent = bc.label;
+
+    // Update message
+    message.textContent = componentData.message || '-';
+
+    // Update progress bar for disk and memory
+    if (progressBar) {
+        var percent = 0;
+        if (componentName === 'disk' && componentData.used_percent !== undefined) {
+            percent = componentData.used_percent;
+        } else if (componentName === 'memory' && componentData.used_percent !== undefined) {
+            percent = componentData.used_percent;
+        }
+
+        progressBar.style.width = percent + '%';
+
+        // Color based on percentage
+        var barColor = 'bg-green-500';
+        if (percent > 80) barColor = 'bg-yellow-500';
+        if (percent > 90) barColor = 'bg-red-500';
+        progressBar.className = 'health-progress-bar h-2 rounded-full ' + barColor;
+    }
+}
+
+function updateProcessesDetail(processData) {
+    var detail = document.getElementById('health-processes-detail');
+    var list = document.getElementById('health-processes-list');
+
+    if (!processData || !processData.running || processData.running.length === 0) {
+        detail.classList.add('hidden');
+        return;
+    }
+
+    detail.classList.remove('hidden');
+    list.textContent = '';
+
+    processData.running.forEach(function(proc) {
+        var div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'font-medium text-gray-700';
+        nameSpan.textContent = proc.name;
+
+        var infoSpan = document.createElement('span');
+        infoSpan.className = 'text-sm text-gray-500';
+        infoSpan.textContent = 'PID: ' + proc.pid + ' | Status: ' + proc.status;
+
+        div.appendChild(nameSpan);
+        div.appendChild(infoSpan);
+        list.appendChild(div);
+    });
+}
+
+function updateStalePidsWarning(processData) {
+    var warning = document.getElementById('health-stale-pids');
+    var staleList = document.getElementById('health-stale-list');
+
+    if (!processData || !processData.stale_pids || processData.stale_pids.length === 0) {
+        warning.classList.add('hidden');
+        return;
+    }
+
+    warning.classList.remove('hidden');
+    staleList.textContent = processData.stale_pids.join(', ');
+}
+
+function startHealthAutoRefresh() {
+    // Stop any existing interval
+    if (healthRefreshInterval) {
+        clearInterval(healthRefreshInterval);
+    }
+
+    // Check if auto-refresh is enabled
+    var checkbox = document.getElementById('health-auto-refresh');
+    if (!checkbox || !checkbox.checked) return;
+
+    // Start auto-refresh every 30 seconds
+    healthRefreshInterval = setInterval(function() {
+        // Only refresh if we're on the health tab
+        if (currentTab === 'health') {
+            var cb = document.getElementById('health-auto-refresh');
+            if (cb && cb.checked) {
+                loadSystemHealth();
+            }
+        }
+    }, 30000);
+}
+
+function stopHealthAutoRefresh() {
+    if (healthRefreshInterval) {
+        clearInterval(healthRefreshInterval);
+        healthRefreshInterval = null;
+    }
+}
+
+async function runSystemSync() {
+    if (!confirm('ทำความสะอาด Stale PIDs และ Sync ระบบ?')) return;
+
+    try {
+        showToast('กำลังทำ System Sync...', 'info');
+        var response = await fetch('/api/system/sync-status', { method: 'POST' });
+        var result = await response.json();
+
+        if (result.success) {
+            showToast('System Sync สำเร็จ', 'success');
+            loadSystemHealth();
+        } else {
+            showToast('Error: ' + (result.error || 'Unknown'), 'error');
         }
     } catch (error) {
         showToast('Error: ' + error.message, 'error');

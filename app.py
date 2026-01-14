@@ -16,6 +16,7 @@ from utils.import_runner import ImportRunner
 from utils.log_stream import log_streamer
 from utils.settings_manager import SettingsManager
 from utils.scheduler import download_scheduler
+from utils.job_history_manager import job_history_manager
 from config.database import get_db_config
 from config.db_pool import init_pool, close_pool, get_connection as get_pooled_connection, return_connection, get_pool_status
 
@@ -3769,6 +3770,296 @@ def clear_logs():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ==================== Job History API ====================
+
+@app.route('/api/jobs')
+def get_jobs():
+    """Get recent job history"""
+    try:
+        job_type = request.args.get('type')  # download, import, schedule
+        status = request.args.get('status')  # running, completed, failed
+        limit = request.args.get('limit', 50, type=int)
+
+        jobs = job_history_manager.get_recent_jobs(
+            job_type=job_type,
+            status=status,
+            limit=min(limit, 200)
+        )
+
+        return jsonify({
+            'success': True,
+            'jobs': jobs,
+            'total': len(jobs)
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/jobs/stats')
+def get_job_stats():
+    """Get job statistics"""
+    try:
+        days = request.args.get('days', 7, type=int)
+        stats = job_history_manager.get_job_stats(days=min(days, 30))
+
+        return jsonify({
+            'success': True,
+            'stats': stats,
+            'period_days': days
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/jobs/<job_id>')
+def get_job_detail(job_id):
+    """Get specific job details"""
+    try:
+        jobs = job_history_manager.get_recent_jobs(limit=500)
+        job = next((j for j in jobs if j['job_id'] == job_id), None)
+
+        if not job:
+            return jsonify({'success': False, 'error': 'Job not found'}), 404
+
+        return jsonify({
+            'success': True,
+            'job': job
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== System Health Dashboard ====================
+
+@app.route('/api/system/health')
+def get_system_health():
+    """
+    Comprehensive system health dashboard
+    Returns status of all system components
+    """
+    import psutil
+    import shutil
+    from pathlib import Path
+    from config.database import DOWNLOADS_DIR
+
+    health = {
+        'success': True,
+        'timestamp': datetime.now(TZ_BANGKOK).isoformat(),
+        'overall_status': 'healthy',  # healthy, warning, critical
+        'components': {}
+    }
+
+    issues = []
+
+    # === 1. Database Connection ===
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            cursor.close()
+            conn.close()
+            health['components']['database'] = {
+                'status': 'healthy',
+                'message': 'Connected to PostgreSQL'
+            }
+        else:
+            health['components']['database'] = {
+                'status': 'critical',
+                'message': 'Cannot connect to database'
+            }
+            issues.append('database')
+    except Exception as e:
+        health['components']['database'] = {
+            'status': 'critical',
+            'message': f'Database error: {str(e)}'
+        }
+        issues.append('database')
+
+    # === 2. Disk Space ===
+    try:
+        downloads_dir = Path(DOWNLOADS_DIR)
+        if downloads_dir.exists():
+            disk = shutil.disk_usage(str(downloads_dir))
+            free_gb = disk.free / (1024**3)
+            total_gb = disk.total / (1024**3)
+            used_percent = (disk.used / disk.total) * 100
+
+            disk_status = 'healthy'
+            if used_percent > 90:
+                disk_status = 'critical'
+                issues.append('disk')
+            elif used_percent > 80:
+                disk_status = 'warning'
+
+            health['components']['disk'] = {
+                'status': disk_status,
+                'free_gb': round(free_gb, 2),
+                'total_gb': round(total_gb, 2),
+                'used_percent': round(used_percent, 1),
+                'message': f'{round(free_gb, 1)} GB free ({round(100-used_percent, 1)}%)'
+            }
+        else:
+            health['components']['disk'] = {
+                'status': 'warning',
+                'message': 'Downloads directory not found'
+            }
+    except Exception as e:
+        health['components']['disk'] = {
+            'status': 'warning',
+            'message': f'Cannot check disk: {str(e)}'
+        }
+
+    # === 3. Running Processes ===
+    pid_files = {
+        'downloader': Path('/tmp/eclaim_downloader.pid'),
+        'import': Path('/tmp/eclaim_import.pid'),
+        'parallel': Path('/tmp/eclaim_parallel_download.pid'),
+        'stm': Path('/tmp/eclaim_stm_downloader.pid'),
+        'smt': Path('/tmp/eclaim_smt_fetch.pid')
+    }
+
+    running_processes = []
+    stale_processes = []
+
+    for name, pid_file in pid_files.items():
+        if pid_file.exists():
+            try:
+                pid = int(pid_file.read_text().strip())
+                if psutil.pid_exists(pid):
+                    proc = psutil.Process(pid)
+                    running_processes.append({
+                        'name': name,
+                        'pid': pid,
+                        'status': proc.status(),
+                        'started': datetime.fromtimestamp(proc.create_time()).isoformat()
+                    })
+                else:
+                    stale_processes.append(name)
+            except (ValueError, psutil.NoSuchProcess):
+                stale_processes.append(name)
+
+    process_status = 'healthy'
+    if stale_processes:
+        process_status = 'warning'
+
+    health['components']['processes'] = {
+        'status': process_status,
+        'running': running_processes,
+        'running_count': len(running_processes),
+        'stale_pids': stale_processes,
+        'message': f'{len(running_processes)} active' + (f', {len(stale_processes)} stale PIDs' if stale_processes else '')
+    }
+
+    # === 4. Recent Jobs (last 24 hours) ===
+    try:
+        recent_jobs = job_history_manager.get_recent_jobs(limit=100)
+        now = datetime.now()
+
+        jobs_24h = {
+            'total': 0,
+            'running': 0,
+            'completed': 0,
+            'failed': 0
+        }
+
+        for job in recent_jobs:
+            try:
+                started = datetime.fromisoformat(job['started_at'].replace('Z', '+00:00')) if isinstance(job['started_at'], str) else job['started_at']
+                if started.tzinfo:
+                    started = started.replace(tzinfo=None)
+                if (now - started).total_seconds() < 86400:  # 24 hours
+                    jobs_24h['total'] += 1
+                    if job['status'] == 'running':
+                        jobs_24h['running'] += 1
+                    elif job['status'] in ('completed', 'completed_with_errors'):
+                        jobs_24h['completed'] += 1
+                    elif job['status'] == 'failed':
+                        jobs_24h['failed'] += 1
+            except (ValueError, TypeError):
+                pass
+
+        jobs_status = 'healthy'
+        if jobs_24h['failed'] > jobs_24h['completed']:
+            jobs_status = 'critical'
+            issues.append('jobs')
+        elif jobs_24h['failed'] > 0:
+            jobs_status = 'warning'
+
+        health['components']['jobs'] = {
+            'status': jobs_status,
+            'last_24h': jobs_24h,
+            'message': f"{jobs_24h['completed']} completed, {jobs_24h['failed']} failed in 24h"
+        }
+    except Exception as e:
+        health['components']['jobs'] = {
+            'status': 'warning',
+            'message': f'Cannot check jobs: {str(e)}'
+        }
+
+    # === 5. Files Statistics ===
+    try:
+        downloads_dir = Path(DOWNLOADS_DIR)
+        if downloads_dir.exists():
+            xls_files = list(downloads_dir.glob('*.xls'))
+            total_size = sum(f.stat().st_size for f in xls_files if f.exists())
+
+            health['components']['files'] = {
+                'status': 'healthy',
+                'count': len(xls_files),
+                'total_size_mb': round(total_size / (1024**2), 2),
+                'message': f'{len(xls_files)} files ({round(total_size / (1024**2), 1)} MB)'
+            }
+        else:
+            health['components']['files'] = {
+                'status': 'warning',
+                'count': 0,
+                'message': 'Downloads directory not found'
+            }
+    except Exception as e:
+        health['components']['files'] = {
+            'status': 'warning',
+            'message': f'Cannot check files: {str(e)}'
+        }
+
+    # === 6. Memory Usage ===
+    try:
+        memory = psutil.virtual_memory()
+        mem_status = 'healthy'
+        if memory.percent > 90:
+            mem_status = 'critical'
+            issues.append('memory')
+        elif memory.percent > 80:
+            mem_status = 'warning'
+
+        health['components']['memory'] = {
+            'status': mem_status,
+            'used_percent': round(memory.percent, 1),
+            'available_gb': round(memory.available / (1024**3), 2),
+            'message': f'{round(memory.percent, 1)}% used, {round(memory.available / (1024**3), 1)} GB available'
+        }
+    except Exception as e:
+        health['components']['memory'] = {
+            'status': 'warning',
+            'message': f'Cannot check memory: {str(e)}'
+        }
+
+    # === Determine Overall Status ===
+    if 'database' in issues or 'memory' in issues:
+        health['overall_status'] = 'critical'
+    elif 'disk' in issues or 'jobs' in issues:
+        health['overall_status'] = 'warning'
+    elif any(c.get('status') == 'warning' for c in health['components'].values()):
+        health['overall_status'] = 'warning'
+
+    health['issues'] = issues
+
+    return jsonify(health)
+
+
 @app.route('/api/system/sync-status', methods=['POST'])
 def sync_system_status():
     """
@@ -5487,15 +5778,98 @@ def api_analytics_overview():
             WHERE """ + base_where
         cursor.execute(query, filter_params)
         row = cursor.fetchone()
+        total_claims = row[0] or 0
+        total_reimb = float(row[1] or 0)
+        total_paid = float(row[2] or 0)
+        total_claim_drg = float(row[3] or 0)
+        unique_patients = row[4] or 0
+
         overview = {
-            'total_claims': row[0] or 0,
-            'total_reimb': float(row[1] or 0),
-            'total_paid': float(row[2] or 0),
-            'total_claim_drg': float(row[3] or 0),
-            'unique_patients': row[4] or 0,
+            'total_claims': total_claims,
+            'total_reimb': total_reimb,  # ยอดชดเชย (ตัวใหญ่)
+            'total_paid': total_paid,
+            'total_claim_drg': total_claim_drg,  # ยอดเรียกเก็บ (ตัวเล็ก)
+            'unique_patients': unique_patients,
             'active_months': row[5] or 0,
-            'reimb_rate': round(float(row[2] or 0) / float(row[3] or 1) * 100, 2) if row[3] else 0,
+            # อัตราชดเชย = ยอดชดเชย / ยอดเรียกเก็บ * 100
+            'reimb_rate': round(total_reimb / total_claim_drg * 100, 2) if total_claim_drg > 0 else 0,
+            # เฉลี่ย/case
+            'avg_claim_per_case': round(total_claim_drg / total_claims, 2) if total_claims > 0 else 0,
+            'avg_reimb_per_case': round(total_reimb / total_claims, 2) if total_claims > 0 else 0,
             'filter': filter_info
+        }
+
+        # OPD/IPD breakdown (AN = IPD, no AN = OPD)
+        # Also separate by error_code (ผ่าน = no error, ไม่ผ่าน = has error)
+        opd_ipd_query = """
+            SELECT
+                CASE WHEN an IS NOT NULL AND an != '' THEN 'IPD' ELSE 'OPD' END as visit_type,
+                CASE WHEN error_code IS NULL OR error_code = '' THEN 'pass' ELSE 'fail' END as status,
+                COUNT(*) as claims,
+                COALESCE(SUM(claim_drg), 0) as total_claim,
+                COALESCE(SUM(reimb_nhso), 0) as total_reimb
+            FROM claim_rep_opip_nhso_item
+            WHERE """ + base_where + """
+            GROUP BY
+                CASE WHEN an IS NOT NULL AND an != '' THEN 'IPD' ELSE 'OPD' END,
+                CASE WHEN error_code IS NULL OR error_code = '' THEN 'pass' ELSE 'fail' END
+        """
+        cursor.execute(opd_ipd_query, filter_params)
+        opd_ipd_rows = cursor.fetchall()
+
+        # Initialize OPD/IPD data
+        opd_data = {'pass': {'claims': 0, 'claim': 0, 'reimb': 0}, 'fail': {'claims': 0, 'claim': 0, 'reimb': 0}}
+        ipd_data = {'pass': {'claims': 0, 'claim': 0, 'reimb': 0}, 'fail': {'claims': 0, 'claim': 0, 'reimb': 0}}
+
+        for row in opd_ipd_rows:
+            visit_type, status, claims, claim, reimb = row
+            data = opd_data if visit_type == 'OPD' else ipd_data
+            data[status] = {'claims': claims, 'claim': float(claim), 'reimb': float(reimb)}
+
+        # Calculate OPD stats
+        opd_pass_claims = opd_data['pass']['claims']
+        opd_fail_claims = opd_data['fail']['claims']
+        opd_total_claims = opd_pass_claims + opd_fail_claims
+        opd_pass_claim = opd_data['pass']['claim']  # ยอดเรียกเก็บที่ผ่าน
+        opd_fail_claim = opd_data['fail']['claim']  # ยอดเรียกเก็บที่ไม่ผ่าน
+        opd_total_claim = opd_pass_claim + opd_fail_claim  # ยอดเรียกเก็บรวมทั้งหมด
+        opd_reimb = opd_data['pass']['reimb']
+        overview['opd'] = {
+            'claims': opd_pass_claims,  # จำนวนที่ผ่าน
+            'total_claims': opd_total_claims,  # จำนวนทั้งหมดที่ส่ง
+            'claim': opd_pass_claim,  # ยอดเรียกเก็บที่ผ่าน
+            'total_claim': opd_total_claim,  # ยอดเรียกเก็บรวมทั้งหมด (ผ่าน+ไม่ผ่าน)
+            'reimb': opd_reimb,
+            'reimb_rate': round(opd_reimb / opd_pass_claim * 100, 2) if opd_pass_claim > 0 else 0,
+            'avg_claim': round(opd_pass_claim / opd_pass_claims, 2) if opd_pass_claims > 0 else 0,
+            'avg_reimb': round(opd_reimb / opd_pass_claims, 2) if opd_pass_claims > 0 else 0,
+            'fail_claims': opd_fail_claims,
+            'fail_claim': opd_fail_claim,
+            # อัตราความสำเร็จ = ผ่าน / ส่งทั้งหมด * 100
+            'success_rate': round(opd_pass_claims / opd_total_claims * 100, 2) if opd_total_claims > 0 else 0
+        }
+
+        # Calculate IPD stats
+        ipd_pass_claims = ipd_data['pass']['claims']
+        ipd_fail_claims = ipd_data['fail']['claims']
+        ipd_total_claims = ipd_pass_claims + ipd_fail_claims
+        ipd_pass_claim = ipd_data['pass']['claim']  # ยอดเรียกเก็บที่ผ่าน
+        ipd_fail_claim = ipd_data['fail']['claim']  # ยอดเรียกเก็บที่ไม่ผ่าน
+        ipd_total_claim = ipd_pass_claim + ipd_fail_claim  # ยอดเรียกเก็บรวมทั้งหมด
+        ipd_reimb = ipd_data['pass']['reimb']
+        overview['ipd'] = {
+            'claims': ipd_pass_claims,  # จำนวนที่ผ่าน
+            'total_claims': ipd_total_claims,  # จำนวนทั้งหมดที่ส่ง
+            'claim': ipd_pass_claim,  # ยอดเรียกเก็บที่ผ่าน
+            'total_claim': ipd_total_claim,  # ยอดเรียกเก็บรวมทั้งหมด (ผ่าน+ไม่ผ่าน)
+            'reimb': ipd_reimb,
+            'reimb_rate': round(ipd_reimb / ipd_pass_claim * 100, 2) if ipd_pass_claim > 0 else 0,
+            'avg_claim': round(ipd_pass_claim / ipd_pass_claims, 2) if ipd_pass_claims > 0 else 0,
+            'avg_reimb': round(ipd_reimb / ipd_pass_claims, 2) if ipd_pass_claims > 0 else 0,
+            'fail_claims': ipd_fail_claims,
+            'fail_claim': ipd_fail_claim,
+            # อัตราความสำเร็จ = ผ่าน / ส่งทั้งหมด * 100
+            'success_rate': round(ipd_pass_claims / ipd_total_claims * 100, 2) if ipd_total_claims > 0 else 0
         }
 
         # Drug summary with date filter (parameterized query)

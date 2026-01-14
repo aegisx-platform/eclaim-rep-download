@@ -16,6 +16,7 @@ from datetime import datetime
 from config.database import get_db_config, DOWNLOADS_DIR, DB_TYPE
 from utils.eclaim.importer_v2 import import_eclaim_file
 from utils.eclaim.parser import EClaimFileParser
+from utils.job_history_manager import job_history_manager
 
 # Configure logging
 logging.basicConfig(
@@ -137,6 +138,18 @@ def import_directory(directory: str, db_config: dict, file_pattern: str = '*.xls
     stream_log(f"📥 Starting bulk import: {len(xls_files)} files", 'info', 'import')
     stream_log("=" * 50, 'info', 'import')
 
+    # Record job start
+    job_id = job_history_manager.start_job(
+        job_type='import',
+        job_subtype='bulk',
+        parameters={
+            'directory': directory,
+            'file_pattern': file_pattern,
+            'total_files': len(xls_files)
+        },
+        triggered_by='manual'
+    )
+
     # Import each file
     results = {
         'total': len(xls_files),
@@ -147,7 +160,7 @@ def import_directory(directory: str, db_config: dict, file_pattern: str = '*.xls
 
     # Initialize progress tracking
     progress = {
-        'import_id': f"import_bulk_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+        'import_id': job_id,  # Use job_id from history
         'type': 'bulk',
         'status': 'running',
         'total_files': len(xls_files),
@@ -210,6 +223,19 @@ def import_directory(directory: str, db_config: dict, file_pattern: str = '*.xls
     stream_log(f"   Total records: {progress['total_records_imported']}", 'info', 'import')
     if results['failed'] > 0:
         stream_log(f"   Failed files: {results['failed']}", 'error', 'import')
+
+    # Record job completion
+    job_history_manager.complete_job(
+        job_id=job_id,
+        status='completed' if results['failed'] == 0 else 'completed_with_errors',
+        results={
+            'total_files': results['total'],
+            'success_files': results['success'],
+            'failed_files': results['failed'],
+            'total_records': progress['total_records_imported']
+        },
+        error_message=f"{results['failed']} files failed" if results['failed'] > 0 else None
+    )
 
     return results
 
