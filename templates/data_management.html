@@ -37,58 +37,95 @@
     </div>
 </div>
 
-<!-- Tab Navigation -->
+<!-- Tab Navigation - Grouped -->
 <div class="bg-white rounded-t-lg shadow-md border-b">
-    <nav class="flex" id="tab-nav">
-        <button onclick="switchTab('download')" id="tab-download" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-blue-600 text-blue-600">
-            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <nav class="flex items-center" id="tab-nav">
+        <!-- Download (Standalone) -->
+        <button onclick="switchTab('download')" id="tab-download" class="tab-btn px-5 py-4 text-sm font-medium border-b-2 border-blue-600 text-blue-600 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
             </svg>
             Download
         </button>
-        <button onclick="switchTab('rep')" id="tab-rep" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
-            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            REP Files ({{ stats.total_files }})
-        </button>
-        <button onclick="switchTab('statement')" id="tab-statement" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
-            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            Statement
-        </button>
-        <button onclick="switchTab('smt')" id="tab-smt" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
-            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            Smart Money Transfer
-        </button>
-        <button onclick="switchTab('settings')" id="tab-settings" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
-            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            </svg>
-            Settings
-        </button>
-        <button onclick="switchTab('offices')" id="tab-offices" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
-            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-            </svg>
-            Health Offices
-        </button>
-        <button onclick="switchTab('jobs')" id="tab-jobs" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
-            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-            </svg>
-            Job History
-        </button>
-        <button onclick="switchTab('health')" id="tab-health" class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
-            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-            </svg>
-            System Health
-        </button>
+
+        <!-- Files Dropdown -->
+        <div class="relative tab-dropdown" id="dropdown-files">
+            <button onclick="toggleTabDropdown('files')" class="tab-group-btn px-5 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Files
+                <svg class="w-4 h-4 ml-1 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <div class="dropdown-menu hidden absolute left-0 top-full mt-0 w-48 bg-white rounded-b-lg shadow-lg border border-t-0 z-50">
+                <button onclick="switchTab('rep'); closeAllDropdowns();" id="tab-rep" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
+                    <span class="w-2 h-2 rounded-full bg-blue-500 mr-3"></span>
+                    REP Files
+                </button>
+                <button onclick="switchTab('statement'); closeAllDropdowns();" id="tab-statement" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
+                    <span class="w-2 h-2 rounded-full bg-green-500 mr-3"></span>
+                    Statement
+                </button>
+                <button onclick="switchTab('smt'); closeAllDropdowns();" id="tab-smt" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
+                    <span class="w-2 h-2 rounded-full bg-purple-500 mr-3"></span>
+                    Smart Money Transfer
+                </button>
+            </div>
+        </div>
+
+        <!-- Admin Dropdown -->
+        <div class="relative tab-dropdown" id="dropdown-admin">
+            <button onclick="toggleTabDropdown('admin')" class="tab-group-btn px-5 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                Admin
+                <svg class="w-4 h-4 ml-1 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <div class="dropdown-menu hidden absolute left-0 top-full mt-0 w-48 bg-white rounded-b-lg shadow-lg border border-t-0 z-50">
+                <button onclick="switchTab('settings'); closeAllDropdowns();" id="tab-settings" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
+                    <span class="w-2 h-2 rounded-full bg-gray-500 mr-3"></span>
+                    Settings
+                </button>
+                <button onclick="switchTab('offices'); closeAllDropdowns();" id="tab-offices" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
+                    <span class="w-2 h-2 rounded-full bg-teal-500 mr-3"></span>
+                    Health Offices
+                </button>
+            </div>
+        </div>
+
+        <!-- Monitor Dropdown -->
+        <div class="relative tab-dropdown" id="dropdown-monitor">
+            <button onclick="toggleTabDropdown('monitor')" class="tab-group-btn px-5 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                Monitor
+                <svg class="w-4 h-4 ml-1 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <div class="dropdown-menu hidden absolute left-0 top-full mt-0 w-48 bg-white rounded-b-lg shadow-lg border border-t-0 z-50">
+                <button onclick="switchTab('jobs'); closeAllDropdowns();" id="tab-jobs" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 mr-3"></span>
+                    Job History
+                </button>
+                <button onclick="switchTab('health'); closeAllDropdowns();" id="tab-health" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 mr-3"></span>
+                    System Health
+                </button>
+            </div>
+        </div>
+
+        <!-- Current Tab Indicator (shows which sub-tab is active) -->
+        <div id="current-tab-indicator" class="ml-auto px-4 py-2 text-xs text-gray-400 hidden">
+            <span id="current-tab-label"></span>
+        </div>
     </nav>
 </div>
 
@@ -812,49 +849,105 @@
             </div>
         </div>
 
+        <!-- File Type Summary (Collapsible) -->
+        <details class="mb-4 border border-gray-200 rounded-lg" id="file-type-details">
+            <summary class="p-4 cursor-pointer hover:bg-gray-50 rounded-lg flex items-center justify-between list-none">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                    <span class="font-semibold text-gray-800">ประเภทไฟล์</span>
+                    <span id="file-type-count-badge" class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Loading...</span>
+                </div>
+                <svg class="w-5 h-5 text-gray-400 transition-transform details-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </summary>
+            <div class="p-4 pt-2 border-t border-gray-100">
+                <div id="file-type-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    <!-- Loading placeholder -->
+                    <div class="animate-pulse bg-gray-100 rounded-lg p-3 h-20"></div>
+                    <div class="animate-pulse bg-gray-100 rounded-lg p-3 h-20"></div>
+                    <div class="animate-pulse bg-gray-100 rounded-lg p-3 h-20"></div>
+                    <div class="animate-pulse bg-gray-100 rounded-lg p-3 h-20"></div>
+                </div>
+            </div>
+        </details>
+
         <!-- Filter Section -->
         <div class="bg-gray-50 rounded-lg p-4 mb-4">
             <div class="flex flex-wrap items-end gap-4">
-                <!-- Date Range Filter -->
+                <!-- Fiscal Year Filter -->
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">ปีงบประมาณ</label>
+                    <select id="rep-filter-fiscal-year" onchange="onFiscalYearChange('rep')" class="border border-gray-300 rounded-md px-3 py-1.5 text-sm min-w-[100px]">
+                        <option value="">ทั้งหมด</option>
+                        <!-- Will be populated by JS -->
+                    </select>
+                </div>
+
+                <!-- Month Range Filter -->
                 <div class="flex items-end gap-2">
                     <div>
-                        <label class="block text-xs text-gray-500 mb-1">จาก</label>
-                        <div class="flex gap-1">
-                            <select id="filter-start-month" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
-                                <option value="">ทั้งหมด</option>
-                                {% for date in available_dates %}
-                                <option value="{{ date.month }},{{ date.year }}">{{ date.label }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                        <label class="block text-xs text-gray-500 mb-1">เดือน (จาก)</label>
+                        <select id="rep-filter-start-month" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                            <option value="">ทั้งหมด</option>
+                            <option value="10">ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                        </select>
                     </div>
                     <span class="text-gray-400 pb-1.5">-</span>
                     <div>
                         <label class="block text-xs text-gray-500 mb-1">ถึง</label>
-                        <div class="flex gap-1">
-                            <select id="filter-end-month" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
-                                <option value="">ทั้งหมด</option>
-                                {% for date in available_dates %}
-                                <option value="{{ date.month }},{{ date.year }}" {% if loop.first %}selected{% endif %}>{{ date.label }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                        <select id="rep-filter-end-month" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                            <option value="">ทั้งหมด</option>
+                            <option value="10">ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                        </select>
                     </div>
                 </div>
 
                 <!-- Scheme Filter -->
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">สิทธิ</label>
-                    <select id="filter-scheme" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                    <select id="rep-filter-scheme" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
                         <option value="">ทุกสิทธิ</option>
                         <option value="ucs">UCS (บัตรทอง)</option>
-                        <option value="ofc">OFC (ข้าราชการ)</option>
-                        <option value="sss">SSS (ประกันสังคม)</option>
                         <option value="lgo">LGO (อปท.)</option>
-                        <option value="nhs">NHS (สปสช.)</option>
-                        <option value="bkk">BKK (กทม.)</option>
-                        <option value="bmt">BMT (ขสมก.)</option>
-                        <option value="srt">SRT (รฟท.)</option>
+                        <option value="sss">SSS (ประกันสังคม)</option>
+                        <option value="ofc">OFC (ข้าราชการ)</option>
+                    </select>
+                </div>
+
+                <!-- File Type Filter -->
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">ประเภท</label>
+                    <select id="rep-filter-file-type" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                        <option value="">ทั้งหมด</option>
+                        <option value="op">OP (ผู้ป่วยนอก)</option>
+                        <option value="ip">IP (ผู้ป่วยใน)</option>
+                        <option value="orf">ORF (ส่งต่อ)</option>
+                        <option value="appeal">Appeal (อุทธรณ์)</option>
                     </select>
                 </div>
 
@@ -862,15 +955,23 @@
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">สถานะ</label>
                     <div class="flex gap-1">
-                        <button onclick="filterFilesStatus('all')" id="filter-all" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white">ทั้งหมด</button>
-                        <button onclick="filterFilesStatus('imported')" id="filter-imported" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700">นำเข้าแล้ว</button>
-                        <button onclick="filterFilesStatus('pending')" id="filter-pending" class="file-filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700">รอนำเข้า</button>
+                        <button onclick="setRepStatusFilter('all')" id="rep-filter-status-all" class="rep-status-btn px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white">ทั้งหมด</button>
+                        <button onclick="setRepStatusFilter('imported')" id="rep-filter-status-imported" class="rep-status-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">นำเข้าแล้ว</button>
+                        <button onclick="setRepStatusFilter('pending')" id="rep-filter-status-pending" class="rep-status-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">รอนำเข้า</button>
                     </div>
                 </div>
 
                 <!-- Apply Button -->
-                <button onclick="applyFilesFilter()" class="bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-4 rounded-md font-medium text-sm">
-                    แสดงผล
+                <button onclick="applyRepFilter()" class="bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-4 rounded-md font-medium text-sm flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                    </svg>
+                    กรองข้อมูล
+                </button>
+
+                <!-- Reset Button -->
+                <button onclick="resetRepFilter()" class="text-gray-600 hover:text-gray-800 py-1.5 px-2 text-sm">
+                    รีเซ็ต
                 </button>
             </div>
         </div>
@@ -2513,6 +2614,107 @@ function getSelectedSchemes(prefix) {
     return schemes;
 }
 
+// ==================== Tab Dropdown Functions ====================
+
+// Tab group mapping - which tabs belong to which group
+var tabGroups = {
+    'files': ['rep', 'statement', 'smt'],
+    'admin': ['settings', 'offices'],
+    'monitor': ['jobs', 'health']
+};
+
+// Tab labels for indicator
+var tabLabels = {
+    'download': 'Download',
+    'rep': 'REP Files',
+    'statement': 'Statement',
+    'smt': 'Smart Money Transfer',
+    'settings': 'Settings',
+    'offices': 'Health Offices',
+    'jobs': 'Job History',
+    'health': 'System Health'
+};
+
+/**
+ * Toggle dropdown menu visibility
+ */
+function toggleTabDropdown(group) {
+    var dropdown = document.getElementById('dropdown-' + group);
+    var menu = dropdown.querySelector('.dropdown-menu');
+    var isOpen = !menu.classList.contains('hidden');
+
+    // Close all other dropdowns first
+    closeAllDropdowns();
+
+    // Toggle this dropdown
+    if (!isOpen) {
+        menu.classList.remove('hidden');
+        dropdown.querySelector('.dropdown-arrow').classList.add('rotate-180');
+    }
+}
+
+/**
+ * Close all dropdown menus
+ */
+function closeAllDropdowns() {
+    document.querySelectorAll('.tab-dropdown .dropdown-menu').forEach(function(menu) {
+        menu.classList.add('hidden');
+    });
+    document.querySelectorAll('.tab-dropdown .dropdown-arrow').forEach(function(arrow) {
+        arrow.classList.remove('rotate-180');
+    });
+}
+
+/**
+ * Get parent group for a tab
+ */
+function getTabGroup(tab) {
+    for (var group in tabGroups) {
+        if (tabGroups[group].includes(tab)) {
+            return group;
+        }
+    }
+    return null;
+}
+
+/**
+ * Update dropdown group highlight based on active tab
+ */
+function updateGroupHighlight(tab) {
+    // Reset all group buttons
+    document.querySelectorAll('.tab-group-btn').forEach(function(btn) {
+        btn.classList.remove('border-blue-600', 'text-blue-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
+
+    // Find parent group and highlight
+    var group = getTabGroup(tab);
+    if (group) {
+        var groupBtn = document.querySelector('#dropdown-' + group + ' .tab-group-btn');
+        if (groupBtn) {
+            groupBtn.classList.remove('border-transparent', 'text-gray-500');
+            groupBtn.classList.add('border-blue-600', 'text-blue-600');
+        }
+    }
+
+    // Update tab indicator
+    var indicator = document.getElementById('current-tab-indicator');
+    var label = document.getElementById('current-tab-label');
+    if (group && indicator && label) {
+        indicator.classList.remove('hidden');
+        label.textContent = tabLabels[tab] || tab;
+    } else if (indicator) {
+        indicator.classList.add('hidden');
+    }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.tab-dropdown')) {
+        closeAllDropdowns();
+    }
+});
+
 // Tab switching
 function switchTab(tab) {
     currentTab = tab;
@@ -2523,18 +2725,24 @@ function switchTab(tab) {
     // Show selected tab content
     document.getElementById('content-' + tab).classList.remove('hidden');
 
-    // Update tab button styles
-    document.querySelectorAll('.tab-btn').forEach(function(btn) {
-        btn.classList.remove('border-blue-600', 'text-blue-600');
-        btn.classList.add('border-transparent', 'text-gray-500');
-    });
-    var activeBtn = document.getElementById('tab-' + tab);
-    activeBtn.classList.remove('border-transparent', 'text-gray-500');
-    activeBtn.classList.add('border-blue-600', 'text-blue-600');
+    // Update standalone tab button styles (Download)
+    var downloadBtn = document.getElementById('tab-download');
+    if (tab === 'download') {
+        downloadBtn.classList.remove('border-transparent', 'text-gray-500');
+        downloadBtn.classList.add('border-blue-600', 'text-blue-600');
+    } else {
+        downloadBtn.classList.remove('border-blue-600', 'text-blue-600');
+        downloadBtn.classList.add('border-transparent', 'text-gray-500');
+    }
+
+    // Update dropdown group highlight
+    updateGroupHighlight(tab);
 
     // Load data for specific tabs
     if (tab === 'download' && typeof loadFailedDownloads === 'function') {
         loadFailedDownloads();
+    } else if (tab === 'rep') {
+        loadFileTypeStats();
     } else if (tab === 'smt' && typeof loadSmtFiles === 'function') {
         loadSmtFiles();
     } else if (tab === 'statement' && typeof loadStatementFiles === 'function') {
@@ -2600,6 +2808,101 @@ function switchRepSubtab(subtab) {
         initRepDbFiscalYear();
         loadRepDbRecords(1);
     }
+}
+
+// ==================== File Type Stats ====================
+
+/**
+ * Load and display file type statistics
+ */
+async function loadFileTypeStats() {
+    const grid = document.getElementById('file-type-grid');
+    const badge = document.getElementById('file-type-count-badge');
+
+    if (!grid) return;
+
+    try {
+        const response = await fetch('/api/rep/file-type-stats');
+        const data = await response.json();
+
+        if (!data.success) {
+            grid.textContent = 'Error loading file types';
+            return;
+        }
+
+        // Update badge
+        if (badge) {
+            badge.textContent = data.total_types + ' ประเภท';
+        }
+
+        // Build grid content
+        if (data.file_types.length === 0) {
+            grid.textContent = 'No files found';
+            return;
+        }
+
+        let html = '';
+        data.file_types.forEach(function(ft) {
+            const pendingClass = ft.pending > 0 ? 'text-yellow-600' : 'text-green-600';
+            const bgColor = getCategoryBgColor(ft.category);
+
+            html += '<div class="' + bgColor + ' rounded-lg p-3 cursor-pointer hover:shadow-md transition-shadow" onclick="filterByFileType(\'' + ft.type + '\')">';
+            html += '  <div class="flex items-center gap-2 mb-1">';
+            html += '    <span class="text-lg">' + ft.icon + '</span>';
+            html += '    <span class="font-semibold text-gray-800">' + ft.name + '</span>';
+            html += '  </div>';
+            html += '  <p class="text-xs text-gray-500 mb-2">' + ft.description + '</p>';
+            html += '  <div class="flex items-center justify-between text-xs">';
+            html += '    <span class="font-medium">' + ft.count + ' ไฟล์</span>';
+            html += '    <div class="flex gap-2">';
+            html += '      <span class="text-green-600" title="Imported">' + ft.imported + ' ✓</span>';
+            if (ft.pending > 0) {
+                html += '      <span class="' + pendingClass + '" title="Pending">' + ft.pending + ' รอ</span>';
+            }
+            html += '    </div>';
+            html += '  </div>';
+            html += '</div>';
+        });
+
+        grid.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading file type stats:', error);
+        if (grid) grid.textContent = 'Error loading data';
+    }
+}
+
+/**
+ * Get background color class based on category
+ */
+function getCategoryBgColor(category) {
+    const colors = {
+        'ucs': 'bg-blue-50 border border-blue-100',
+        'lgo': 'bg-purple-50 border border-purple-100',
+        'sss': 'bg-orange-50 border border-orange-100',
+        'special': 'bg-teal-50 border border-teal-100',
+        'appeal': 'bg-amber-50 border border-amber-100',
+        'unknown': 'bg-gray-50 border border-gray-100'
+    };
+    return colors[category] || colors['unknown'];
+}
+
+/**
+ * Filter files by type and apply filter
+ */
+function filterByFileType(fileType) {
+    // Set file type filter (add to URL or use hidden input)
+    const url = new URL(window.location.href);
+    url.searchParams.set('file_type', fileType);
+    url.searchParams.set('tab', 'rep');
+    url.searchParams.set('status', 'all');
+
+    // Show toast and reload
+    showToast('กรองไฟล์ประเภท: ' + fileType, 'info');
+
+    // For now, just show an alert with file type info
+    // Later can implement actual filtering
+    alert('ประเภท: ' + fileType + '\nฟีเจอร์กรองตามประเภทจะเพิ่มในอนาคต');
 }
 
 // REP Database Records

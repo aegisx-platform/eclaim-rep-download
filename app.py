@@ -3257,6 +3257,96 @@ def clear_stm_database():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/rep/file-type-stats')
+def get_file_type_stats():
+    """Get file statistics grouped by file type"""
+    try:
+        import re
+        from collections import defaultdict
+
+        # Get all files from downloads directory
+        all_files = file_manager.history_manager.get_all_downloads()
+
+        # Get import status from database
+        import_status_map = {}
+        try:
+            with get_db_connection() as conn:
+                if conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT filename, status FROM eclaim_imported_files")
+                    for row in cursor.fetchall():
+                        import_status_map[row[0]] = row[1]
+                    cursor.close()
+        except Exception as e:
+            app.logger.warning(f"Could not get import status: {e}")
+
+        # File type definitions with descriptions
+        file_type_info = {
+            'OP': {'name': 'OP', 'description': 'ผู้ป่วยนอก (Outpatient)', 'category': 'ucs', 'icon': '🏥'},
+            'IP': {'name': 'IP', 'description': 'ผู้ป่วยใน (Inpatient)', 'category': 'ucs', 'icon': '🛏️'},
+            'OPLGO': {'name': 'OP-LGO', 'description': 'ผู้ป่วยนอก อปท.', 'category': 'lgo', 'icon': '🏛️'},
+            'IPLGO': {'name': 'IP-LGO', 'description': 'ผู้ป่วยใน อปท.', 'category': 'lgo', 'icon': '🏛️'},
+            'OPSSS': {'name': 'OP-SSS', 'description': 'ผู้ป่วยนอก ประกันสังคม', 'category': 'sss', 'icon': '👷'},
+            'IPSSS': {'name': 'IP-SSS', 'description': 'ผู้ป่วยใน ประกันสังคม', 'category': 'sss', 'icon': '👷'},
+            'ORF': {'name': 'ORF', 'description': 'Outpatient Referral', 'category': 'special', 'icon': '🔄'},
+            'IP_APPEAL': {'name': 'IP Appeal', 'description': 'อุทธรณ์ผู้ป่วยใน', 'category': 'appeal', 'icon': '📝'},
+            'IP_APPEAL_NHSO': {'name': 'IP Appeal NHSO', 'description': 'อุทธรณ์ ผป.ใน (ฝั่ง สปสช.)', 'category': 'appeal', 'icon': '📝'},
+            'OP_APPEAL': {'name': 'OP Appeal', 'description': 'อุทธรณ์ผู้ป่วยนอก', 'category': 'appeal', 'icon': '📋'},
+            'OP_APPEAL_CD': {'name': 'OP Appeal CD', 'description': 'อุทธรณ์ ผป.นอก (โรคเรื้อรัง)', 'category': 'appeal', 'icon': '📋'},
+        }
+
+        # Parse file types from filenames
+        type_stats = defaultdict(lambda: {'count': 0, 'imported': 0, 'pending': 0, 'size': 0})
+        pattern = re.compile(r'eclaim_\d+_([A-Z_]+)_\d{8}_\d+\.xls')
+
+        for file_info in all_files:
+            filename = file_info.get('filename', '')
+            match = pattern.match(filename)
+            if match:
+                file_type = match.group(1)
+                type_stats[file_type]['count'] += 1
+                type_stats[file_type]['size'] += file_info.get('size', 0)
+
+                # Check import status
+                status = import_status_map.get(filename, 'pending')
+                if status == 'completed':
+                    type_stats[file_type]['imported'] += 1
+                else:
+                    type_stats[file_type]['pending'] += 1
+
+        # Build response with descriptions
+        result = []
+        for file_type, stats in sorted(type_stats.items(), key=lambda x: x[1]['count'], reverse=True):
+            info = file_type_info.get(file_type, {
+                'name': file_type,
+                'description': f'Unknown type: {file_type}',
+                'category': 'unknown',
+                'icon': '📄'
+            })
+            result.append({
+                'type': file_type,
+                'name': info['name'],
+                'description': info['description'],
+                'category': info['category'],
+                'icon': info['icon'],
+                'count': stats['count'],
+                'imported': stats['imported'],
+                'pending': stats['pending'],
+                'size': stats['size'],
+                'size_formatted': humanize.naturalsize(stats['size'])
+            })
+
+        return jsonify({
+            'success': True,
+            'file_types': result,
+            'total_types': len(result)
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error getting file type stats: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/rep/records')
 def get_rep_records():
     """Get REP database records with reconciliation status"""
@@ -7990,14 +8080,31 @@ def benchmark_page():
 def api_benchmark_hospitals():
     """Get list of hospitals from SMT data for comparison"""
     try:
+        fiscal_year = request.args.get('fiscal_year')
+
         conn = get_db_connection()
         if not conn:
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
         cursor = conn.cursor()
 
+        # Build date filter based on fiscal year
+        # Thai fiscal year: Oct (year-1) to Sep (year)
+        where_clause = ""
+        params = []
+
+        if fiscal_year:
+            fiscal_year_int = int(fiscal_year)
+            # Convert Buddhist Era to Gregorian
+            gregorian_year = fiscal_year_int - 543
+            # Fiscal year starts Oct of previous year, ends Sep of the year
+            start_date = f"{gregorian_year - 1}-10-01"
+            end_date = f"{gregorian_year}-09-30"
+            where_clause = "WHERE s.run_date >= %s AND s.run_date <= %s"
+            params = [start_date, end_date]
+
         # Get summary by vendor from smt_budget_transfers with hospital name lookup
-        cursor.execute("""
+        query = f"""
             SELECT
                 s.vendor_no,
                 COUNT(*) as records,
@@ -8013,9 +8120,11 @@ def api_benchmark_hospitals():
                 h.hcode5 = LTRIM(s.vendor_no, '0')
                 OR h.hcode5 = s.vendor_no
             )
+            {where_clause}
             GROUP BY s.vendor_no, h.name
             ORDER BY total_amount DESC
-        """)
+        """
+        cursor.execute(query, params)
 
         rows = cursor.fetchall()
         cursor.close()

@@ -72,3 +72,17 @@ details[open] .details-arrow {
 details .details-arrow {
     transition: transform 0.2s ease-in-out;
 }
+
+/* Dropdown arrow rotation for tab groups */
+.dropdown-arrow {
+    transition: transform 0.2s ease-in-out;
+}
+
+.dropdown-arrow.rotate-180 {
+    transform: rotate(180deg);
+}
+
+/* Tab dropdown menu animation */
+.tab-dropdown .dropdown-menu {
+    transition: opacity 0.15s ease-in-out;
+}

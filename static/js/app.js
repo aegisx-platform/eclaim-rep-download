@@ -1559,6 +1559,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Resume parallel progress polling
             setDownloadButtonState(true, 'กำลังดาวน์โหลด (parallel)...');
             startParallelProgressPolling();
+        } else if (parallelProgress.status === 'stale' || parallelProgress.status === 'interrupted') {
+            // Show stale/interrupted download recovery UI
+            const progressDiv = document.getElementById('bulk-progress');
+            const currentMonthSpan = document.getElementById('current-month');
+            const progressCountSpan = document.getElementById('progress-count');
+            const cancelBtn = document.getElementById('cancel-download-btn');
+
+            if (progressDiv) progressDiv.classList.remove('hidden');
+            if (currentMonthSpan) {
+                currentMonthSpan.textContent = parallelProgress.status === 'stale'
+                    ? '⚠️ Process not responding'
+                    : '⚠️ Interrupted by server restart';
+            }
+            if (progressCountSpan) {
+                progressCountSpan.textContent = (parallelProgress.completed || 0) + ' / ' + (parallelProgress.total || 0) + ' files';
+            }
+            if (cancelBtn) {
+                cancelBtn.textContent = '🔄 ล้างแล้วลองใหม่';
+                cancelBtn.className = 'px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-2';
+                cancelBtn.onclick = () => forceCleanDownload();
+            }
+
+            const reason = parallelProgress.stale_reason || parallelProgress.interrupted_reason || 'Download was interrupted';
+            showToast('⚠️ พบการดาวน์โหลดค้างอยู่: ' + reason, 'warning');
         }
 
         // Check for import in progress

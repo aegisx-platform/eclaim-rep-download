@@ -28,7 +28,7 @@ class EClaimFileParser:
         'OPSSS', 'IPSSS',              # SSS (74 columns)
         'ORF',                         # Outpatient Referral
         'IP_APPEAL', 'IP_APPEAL_NHSO', # IP Appeal
-        'OP_APPEAL',                   # OP Appeal
+        'OP_APPEAL', 'OP_APPEAL_CD',   # OP Appeal (CD = Chronic Disease)
     ]
 
     # Expected header keywords for detection (REP No. for UCS/SSS, REP for LGO)
