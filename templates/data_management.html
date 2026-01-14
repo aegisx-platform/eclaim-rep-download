@@ -3202,6 +3202,7 @@ function switchTab(tab) {
     } else if (tab === 'statement' && typeof loadStatementFiles === 'function') {
         loadStatementFiles();
     } else if (tab === 'jobs') {
+        initJobDateFilters();
         loadJobStats();
         loadJobHistory();
     } else if (tab === 'health') {
@@ -5523,6 +5524,25 @@ async function testStmSchedule() {
 }
 
 // ==================== Job History Functions ====================
+
+function initJobDateFilters() {
+    // Set default dates to current month (1st day to today)
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    const formatDate = (d) => d.toISOString().split('T')[0];
+
+    const dateFromInput = document.getElementById('job-filter-date-from');
+    const dateToInput = document.getElementById('job-filter-date-to');
+
+    // Only set defaults if not already set
+    if (dateFromInput && !dateFromInput.value) {
+        dateFromInput.value = formatDate(firstDayOfMonth);
+    }
+    if (dateToInput && !dateToInput.value) {
+        dateToInput.value = formatDate(today);
+    }
+}
 
 function clearJobFilters() {
     document.getElementById('job-filter-type').value = '';
