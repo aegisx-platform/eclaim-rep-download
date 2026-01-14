@@ -8852,6 +8852,45 @@ def api_benchmark_delete_hospital(vendor_no):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/benchmark/available-years')
+def api_benchmark_available_years():
+    """Get list of fiscal years that have SMT data in the database"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Get distinct fiscal years from smt_budget_transfers
+        # Fiscal year is determined by run_date: Oct-Dec = next year, Jan-Sep = current year
+        cursor.execute("""
+            SELECT DISTINCT
+                CASE
+                    WHEN EXTRACT(MONTH FROM run_date) >= 10 THEN EXTRACT(YEAR FROM run_date) + 544
+                    ELSE EXTRACT(YEAR FROM run_date) + 543
+                END as fiscal_year
+            FROM smt_budget_transfers
+            WHERE run_date IS NOT NULL
+            ORDER BY fiscal_year DESC
+        """)
+
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        years = [int(row[0]) for row in rows]
+
+        return jsonify({
+            'success': True,
+            'years': years
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ============================================
 # Phase 3: Predictive & AI Analytics
 # ============================================

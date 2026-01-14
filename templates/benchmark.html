@@ -310,6 +310,7 @@ let trendChart = null;
 let searchTimeout = null;
 let comparisonHospitals = [];
 let comparisonYearsData = {}; // { year: monthlyData[] }
+let availableYears = []; // Years with data from API
 
 // Chart colors for year comparison
 const yearColors = [
@@ -322,7 +323,8 @@ const yearColors = [
 ];
 
 // Initialize
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    await fetchAvailableYears();
     populateFiscalYears();
     loadDefaultHospital();
 
@@ -337,24 +339,43 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+async function fetchAvailableYears() {
+    try {
+        var response = await fetch('/api/benchmark/available-years');
+        var result = await response.json();
+        if (result.success && result.years) {
+            availableYears = result.years;
+        }
+    } catch (e) {
+        console.error('Error fetching available years:', e);
+        // Fallback to current fiscal year
+        var currentYear = new Date().getFullYear() + 543;
+        var month = new Date().getMonth() + 1;
+        availableYears = [month >= 10 ? currentYear + 1 : currentYear];
+    }
+}
+
 function populateFiscalYears() {
-    var currentYear = new Date().getFullYear() + 543;
-    var month = new Date().getMonth() + 1;
-    // If before October, fiscal year is current BE year, else next BE year
-    if (month < 10) {
-        currentYear = currentYear;
-    } else {
-        currentYear = currentYear + 1;
+    var select = document.getElementById('fiscal-year');
+    select.innerHTML = '';
+
+    if (availableYears.length === 0) {
+        // No data available - show message
+        var option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'ไม่มีข้อมูล';
+        select.appendChild(option);
+        return;
     }
 
-    var select = document.getElementById('fiscal-year');
-    for (var y = currentYear; y >= currentYear - 5; y--) {
+    // Populate with available years from API
+    availableYears.forEach(function(year, index) {
         var option = document.createElement('option');
-        option.value = y;
-        option.textContent = 'ปีงบ ' + y;
-        if (y === currentYear) option.selected = true;
+        option.value = year;
+        option.textContent = 'ปีงบ ' + year;
+        if (index === 0) option.selected = true;  // First year (most recent) as default
         select.appendChild(option);
-    }
+    });
 }
 
 async function loadDefaultHospital() {
@@ -475,9 +496,19 @@ function populateYearCheckboxes() {
 
     var currentYear = parseInt(document.getElementById('fiscal-year').value);
 
-    // Create checkboxes for previous years (up to 4 years back)
-    for (var i = 1; i <= 4; i++) {
-        var year = currentYear - i;
+    // Filter available years to show only years OTHER than the current selected year
+    var otherYears = availableYears.filter(function(y) { return y !== currentYear; });
+
+    if (otherYears.length === 0) {
+        var span = document.createElement('span');
+        span.className = 'text-sm text-gray-400';
+        span.textContent = 'ไม่มีปีอื่นให้เปรียบเทียบ';
+        container.appendChild(span);
+        return;
+    }
+
+    // Create checkboxes for other available years
+    otherYears.forEach(function(year) {
         var label = document.createElement('label');
         label.className = 'flex items-center gap-1 px-2 py-1 rounded cursor-pointer hover:bg-gray-100 transition-colors';
 
@@ -495,7 +526,7 @@ function populateYearCheckboxes() {
         label.appendChild(checkbox);
         label.appendChild(span);
         container.appendChild(label);
-    }
+    });
 }
 
 async function toggleComparisonYear(year, isChecked) {
