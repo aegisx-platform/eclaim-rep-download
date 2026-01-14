@@ -665,6 +665,8 @@ async function fetchYearSMTData(year) {
         return;
     }
 
+    console.log('fetchYearSMTData: vendor=' + currentVendorId + ', year=' + year);
+
     var btn = event.target;
     var originalText = btn.textContent;
     btn.disabled = true;
@@ -683,28 +685,37 @@ async function fetchYearSMTData(year) {
             })
         });
         var result = await response.json();
+        console.log('SMT fetch result:', result);
 
         if (result.success) {
-            showToast('ดึงข้อมูลสำเร็จ! ' + (result.records || 0) + ' records', 'success');
+            if (result.records > 0) {
+                showToast('ดึงข้อมูลสำเร็จ! ' + result.records + ' records', 'success');
 
-            // Add this year to selectedYears if not already there
-            if (!selectedYears.includes(year)) {
-                selectedYears.push(year);
-            }
+                // Add this year to selectedYears if not already there
+                if (!selectedYears.includes(year)) {
+                    selectedYears.push(year);
+                }
 
-            // Remember current selected years before refresh
-            var previousSelection = selectedYears.slice();
+                // Remember current selected years before refresh
+                var previousSelection = selectedYears.slice();
 
-            // Refresh hospital years data
-            await refreshHospitalYearsUI();
+                // Refresh hospital years data
+                console.log('Refreshing hospital years UI...');
+                await refreshHospitalYearsUI();
+                console.log('After refresh, hospitalYearsData:', hospitalYearsData);
 
-            // Restore selection including the new year
-            selectedYears = previousSelection;
-            updateYearCheckboxStates();
+                // Restore selection including the new year
+                selectedYears = previousSelection;
+                updateYearCheckboxStates();
 
-            // Reload data if analytics is visible
-            if (!document.getElementById('analytics-content').classList.contains('hidden')) {
-                await loadSelectedYears();
+                // Reload data if analytics is visible
+                if (!document.getElementById('analytics-content').classList.contains('hidden')) {
+                    await loadSelectedYears();
+                }
+            } else {
+                showToast('ไม่พบข้อมูลสำหรับปี ' + year, 'warning');
+                btn.disabled = false;
+                btn.textContent = originalText;
             }
         } else {
             showToast(result.error || 'Failed to fetch data', 'error');
@@ -1613,8 +1624,14 @@ function removeComparisonHospital(vendorId) {
 
 // Fetch SMT data for a specific year of a comparison hospital
 async function fetchComparisonYearData(vendorId, hospitalName, year) {
+    console.log('fetchComparisonYearData called:', { vendorId, hospitalName, year });
+    console.log('comparisonHospitals:', comparisonHospitals.map(function(h) { return h.vendor_id; }));
+
     var row = document.getElementById('comparison-row-' + vendorId);
-    if (!row) return;
+    if (!row) {
+        console.error('Row not found for vendor:', vendorId);
+        return;
+    }
 
     // Find the button cell and show loading
     var btnCell = row.querySelector('td[colspan="4"]');
@@ -1634,17 +1651,33 @@ async function fetchComparisonYearData(vendorId, hospitalName, year) {
             })
         });
         var fetchResult = await fetchResponse.json();
+        console.log('SMT fetch result:', fetchResult);
 
         if (fetchResult.success && fetchResult.records > 0) {
             // Get the processed data
             var dataResponse = await fetch('/api/benchmark/my-hospital?vendor_id=' + vendorId + '&fiscal_year=' + year);
             var dataResult = await dataResponse.json();
+            console.log('Hospital data result:', dataResult);
 
             if (dataResult.success && dataResult.summary) {
                 // Update the comparison hospital's yearData
-                var hospital = comparisonHospitals.find(function(h) { return h.vendor_id === vendorId; });
+                // Try to find with exact match first, then try with normalized vendor_id
+                var hospital = comparisonHospitals.find(function(h) {
+                    return h.vendor_id === vendorId ||
+                           h.vendor_id === vendorId.replace(/^0+/, '') ||
+                           vendorId === h.vendor_id.replace(/^0+/, '');
+                });
+
+                console.log('Found hospital:', hospital);
+
                 if (hospital) {
+                    if (!hospital.yearData) {
+                        hospital.yearData = {};
+                    }
                     hospital.yearData[year] = dataResult;
+                    console.log('Updated yearData for year ' + year);
+                } else {
+                    console.error('Hospital not found in comparisonHospitals!');
                 }
 
                 // Refresh the comparison table

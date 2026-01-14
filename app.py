@@ -5154,6 +5154,11 @@ def smt_fetch():
         # Calculate summary
         summary = fetcher.calculate_summary(records)
 
+        # Debug: show vendor_no format from first record
+        if records:
+            first_record = records[0]
+            print(f"[DEBUG] SMT fetch - vendor_no format from API: vndrNo='{first_record.get('vndrNo')}'")
+
         # Save to database if requested
         saved_count = 0
         if save_db:
@@ -8469,9 +8474,21 @@ def api_benchmark_hospital_years():
 
         # Normalize vendor_id
         vendor_id_10 = vendor_id.zfill(10)
-        vendor_id_5 = vendor_id.lstrip('0')
+        vendor_id_5 = vendor_id.lstrip('0') or vendor_id  # Keep original if all zeros
+
+        print(f"[DEBUG] hospital-years: vendor_id={vendor_id}, vendor_id_10={vendor_id_10}, vendor_id_5={vendor_id_5}")
+
+        # First check what vendor_no values exist in DB for debugging
+        cursor.execute("""
+            SELECT DISTINCT vendor_no FROM smt_budget_transfers
+            WHERE vendor_no LIKE %s OR vendor_no LIKE %s
+            LIMIT 5
+        """, (f'%{vendor_id_5}%', f'%{vendor_id}%'))
+        debug_vendors = cursor.fetchall()
+        print(f"[DEBUG] Found vendor_nos in DB matching pattern: {debug_vendors}")
 
         # Get all fiscal years that have data for this hospital
+        # Use flexible matching: exact match OR ends with the short vendor_id
         cursor.execute("""
             SELECT
                 CASE
@@ -8481,11 +8498,15 @@ def api_benchmark_hospital_years():
                 COUNT(*) as records,
                 COALESCE(SUM(total_amount), 0) as total_amount
             FROM smt_budget_transfers
-            WHERE vendor_no = %s OR vendor_no = %s
+            WHERE vendor_no = %s
+               OR vendor_no = %s
+               OR LTRIM(vendor_no, '0') = %s
+               OR vendor_no LIKE %s
             GROUP BY fiscal_year
             ORDER BY fiscal_year DESC
-        """, (vendor_id_10, vendor_id_5))
+        """, (vendor_id_10, vendor_id_5, vendor_id_5, f'%{vendor_id_5}'))
         rows = cursor.fetchall()
+        print(f"[DEBUG] Found {len(rows)} years with data")
 
         # Get all available years in the system (from any hospital)
         cursor.execute("""
