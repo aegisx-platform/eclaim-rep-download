@@ -770,6 +770,49 @@ async function cancelBulkDownload() {
 }
 
 /**
+ * Force clean stale/interrupted download and reset UI
+ */
+async function forceCleanDownload() {
+    const cancelBtn = document.getElementById('cancel-download-btn');
+    if (cancelBtn) {
+        cancelBtn.disabled = true;
+        cancelBtn.textContent = 'กำลังล้าง...';
+    }
+
+    try {
+        const response = await fetch('/api/download/parallel/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ force: true })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('ล้างสถานะแล้ว พร้อมดาวน์โหลดใหม่', 'success');
+
+            // Hide progress
+            const progressDiv = document.getElementById('bulk-progress');
+            if (progressDiv) {
+                progressDiv.classList.add('hidden');
+            }
+
+            // Reset download button
+            setDownloadButtonState(false);
+        } else {
+            showToast('เกิดข้อผิดพลาด: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error force cleaning download:', error);
+        showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
+    } finally {
+        if (cancelBtn) {
+            cancelBtn.disabled = false;
+        }
+    }
+}
+
+/**
  * Toggle parallel workers section visibility
  */
 function toggleParallelWorkersSection() {
@@ -843,15 +886,38 @@ function startParallelProgressPolling() {
                     progressPercentage.textContent = `${completed}/${total}`;
                 }
 
+            } else if (progress.status === 'stale' || progress.status === 'interrupted') {
+                // Stale or interrupted download - show warning and allow force cancel
+                clearInterval(parallelPollingInterval);
+                parallelPollingInterval = null;
+
+                const reason = progress.stale_reason || progress.interrupted_reason || 'Process stopped unexpectedly';
+
+                // Update UI to show stale state
+                if (currentMonthSpan) {
+                    currentMonthSpan.textContent = progress.status === 'stale' ? '⚠️ Process not responding' : '⚠️ Interrupted';
+                }
+
+                // Change cancel button to "Clear & Retry"
+                const cancelBtn = document.getElementById('cancel-download-btn');
+                if (cancelBtn) {
+                    cancelBtn.textContent = '🔄 ล้างแล้วลองใหม่';
+                    cancelBtn.className = 'px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-2';
+                    cancelBtn.onclick = () => forceCleanDownload();
+                }
+
+                // Show warning toast
+                showToast('⚠️ Download ' + progress.status + ': ' + reason, 'warning');
+
             } else if (progress.status === 'completed' || progress.status === 'error') {
                 // Download completed
                 clearInterval(parallelPollingInterval);
                 parallelPollingInterval = null;
 
                 if (progress.status === 'completed') {
-                    showToast(`Parallel download completed! ${progress.completed || 0} files`, 'success');
+                    showToast('Parallel download completed! ' + (progress.completed || 0) + ' files', 'success');
                 } else {
-                    showToast(`Download error: ${progress.error || 'Unknown'}`, 'error');
+                    showToast('Download error: ' + (progress.error || 'Unknown'), 'error');
                 }
 
                 // Reset button

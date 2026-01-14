@@ -2596,6 +2596,7 @@ def parallel_download_progress():
     try:
         import json
         from pathlib import Path
+        from datetime import datetime
 
         progress_file = Path('parallel_download_progress.json')
 
@@ -2609,13 +2610,77 @@ def parallel_download_progress():
             progress = json.load(f)
 
         # Check if still running
-        running = progress.get('status') == 'downloading'
+        status = progress.get('status')
+        running = status == 'downloading'
+
+        # Auto-recovery: detect orphan/stale downloads
+        # If status is "downloading" but file hasn't been updated in 60 seconds, mark as stale
+        if running:
+            file_mtime = progress_file.stat().st_mtime
+            seconds_since_update = (datetime.now().timestamp() - file_mtime)
+            if seconds_since_update > 60:  # No update in 60 seconds = likely orphaned
+                progress['running'] = False
+                progress['status'] = 'stale'
+                progress['stale_reason'] = 'No progress update for 60+ seconds. Process may have crashed.'
+                return jsonify(progress)
+
         progress['running'] = running
 
         return jsonify(progress)
 
     except Exception as e:
         return jsonify({'running': False, 'error': str(e)}), 500
+
+
+@app.route('/api/download/parallel/cancel', methods=['POST'])
+def cancel_parallel_download():
+    """Cancel or force-clear parallel download progress"""
+    try:
+        import json
+        from pathlib import Path
+
+        progress_file = Path('parallel_download_progress.json')
+
+        if not progress_file.exists():
+            return jsonify({
+                'success': True,
+                'message': 'No download in progress'
+            })
+
+        # Read current progress
+        with open(progress_file, 'r', encoding='utf-8') as f:
+            progress = json.load(f)
+
+        # Check if force cancel requested
+        data = request.get_json() or {}
+        force = data.get('force', False)
+
+        # If actually running (recent update), try graceful cancel
+        if progress.get('status') == 'downloading' and not force:
+            file_mtime = progress_file.stat().st_mtime
+            seconds_since_update = (datetime.now().timestamp() - file_mtime)
+
+            if seconds_since_update < 30:
+                # Process seems active, set cancel flag
+                progress['cancel_requested'] = True
+                with open(progress_file, 'w', encoding='utf-8') as f:
+                    json.dump(progress, f, ensure_ascii=False, indent=2)
+                return jsonify({
+                    'success': True,
+                    'message': 'Cancel signal sent to running download'
+                })
+
+        # Force cancel: delete progress file
+        progress_file.unlink()
+
+        return jsonify({
+            'success': True,
+            'message': 'Download progress cleared',
+            'was_stale': progress.get('status') == 'downloading'
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/date-range-stats')
@@ -9938,6 +10003,47 @@ def get_files_update_status():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def recover_stale_downloads():
+    """
+    Auto-recovery: Clean up stale/orphaned download progress files on server startup.
+    This prevents the UI from being stuck showing 'downloading' when the process crashed.
+    """
+    from pathlib import Path
+    import json
+
+    progress_files = [
+        ('parallel_download_progress.json', 'Parallel Download'),
+        ('stm_download_progress.json', 'STM Download'),
+    ]
+
+    for filename, name in progress_files:
+        progress_file = Path(filename)
+        if not progress_file.exists():
+            continue
+
+        try:
+            with open(progress_file, 'r', encoding='utf-8') as f:
+                progress = json.load(f)
+
+            status = progress.get('status')
+
+            # If status is 'downloading', it was interrupted by server restart
+            if status == 'downloading':
+                # Mark as interrupted instead of deleting (preserve history)
+                progress['status'] = 'interrupted'
+                progress['interrupted_reason'] = 'Server restarted while download was in progress'
+                progress['interrupted_at'] = datetime.now().isoformat()
+
+                with open(progress_file, 'w', encoding='utf-8') as f:
+                    json.dump(progress, f, ensure_ascii=False, indent=2)
+
+                app.logger.warning(f"[Auto-Recovery] {name} was interrupted - marked as 'interrupted'")
+                print(f"⚠️  [Auto-Recovery] {name} was interrupted by server restart")
+
+        except Exception as e:
+            app.logger.error(f"[Auto-Recovery] Error processing {filename}: {e}")
+
+
 if __name__ == '__main__':
     import atexit
 
@@ -9950,6 +10056,9 @@ if __name__ == '__main__':
 
     # Register cleanup on shutdown
     atexit.register(close_pool)
+
+    # Auto-recovery: clean up stale downloads from previous crashes
+    recover_stale_downloads()
 
     # Initialize schedulers on startup
     init_scheduler()

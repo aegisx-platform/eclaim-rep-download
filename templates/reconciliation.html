@@ -57,16 +57,16 @@
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-gray-600">NHSO Reimbursement</span>
-                    <span class="text-lg font-semibold text-blue-600">{{ "{:,.2f}".format(summary.rep.total_reimb_nhso) }} THB</span>
+                    <span class="text-lg font-semibold text-blue-600">{{ "{:,.0f}".format(summary.rep.total_reimb_nhso) }} THB</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-gray-600">Agency Reimbursement</span>
-                    <span class="text-lg font-semibold text-blue-600">{{ "{:,.2f}".format(summary.rep.total_reimb_agency) }} THB</span>
+                    <span class="text-lg font-semibold text-blue-600">{{ "{:,.0f}".format(summary.rep.total_reimb_agency) }} THB</span>
                 </div>
                 <hr class="my-2">
                 <div class="flex justify-between items-center">
                     <span class="text-gray-800 font-medium">Total Amount</span>
-                    <span class="text-xl font-bold text-blue-700">{{ "{:,.2f}".format(summary.rep.total_amount) }} THB</span>
+                    <span class="text-xl font-bold text-blue-700">{{ "{:,.0f}".format(summary.rep.total_amount) }} THB</span>
                 </div>
                 <div class="text-sm text-gray-500">
                     Period: {{ summary.rep.earliest_date or 'N/A' }} - {{ summary.rep.latest_date or 'N/A' }}
@@ -87,20 +87,20 @@
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-gray-600">Payment Amount</span>
-                    <span class="text-lg font-semibold text-green-600">{{ "{:,.2f}".format(summary.smt.total_amount) }} THB</span>
+                    <span class="text-lg font-semibold text-green-600">{{ "{:,.0f}".format(summary.smt.total_amount) }} THB</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-gray-600">Wait Amount</span>
-                    <span class="text-lg font-semibold text-yellow-600">{{ "{:,.2f}".format(summary.smt.total_wait) }} THB</span>
+                    <span class="text-lg font-semibold text-yellow-600">{{ "{:,.0f}".format(summary.smt.total_wait) }} THB</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-gray-600">Debt Amount</span>
-                    <span class="text-lg font-semibold text-red-600">{{ "{:,.2f}".format(summary.smt.total_debt) }} THB</span>
+                    <span class="text-lg font-semibold text-red-600">{{ "{:,.0f}".format(summary.smt.total_debt) }} THB</span>
                 </div>
                 <hr class="my-2">
                 <div class="flex justify-between items-center">
                     <span class="text-gray-800 font-medium">Net Total</span>
-                    <span class="text-xl font-bold text-green-700">{{ "{:,.2f}".format(summary.smt.total_amount) }} THB</span>
+                    <span class="text-xl font-bold text-green-700">{{ "{:,.0f}".format(summary.smt.total_amount) }} THB</span>
                 </div>
                 <div class="text-sm text-gray-500">
                     Period: {{ summary.smt.earliest_date or 'N/A' }} - {{ summary.smt.latest_date or 'N/A' }}
@@ -116,16 +116,16 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="text-center p-4 bg-blue-50 rounded-lg">
                 <div class="text-sm text-gray-600 mb-1">REP Claims Total</div>
-                <div class="text-xl font-bold text-blue-700">{{ "{:,.2f}".format(summary.rep.total_amount) }} THB</div>
+                <div class="text-xl font-bold text-blue-700">{{ "{:,.0f}".format(summary.rep.total_amount) }} THB</div>
             </div>
             <div class="text-center p-4 bg-green-50 rounded-lg">
                 <div class="text-sm text-gray-600 mb-1">SMT Payments Total</div>
-                <div class="text-xl font-bold text-green-700">{{ "{:,.2f}".format(summary.smt.total_amount) }} THB</div>
+                <div class="text-xl font-bold text-green-700">{{ "{:,.0f}".format(summary.smt.total_amount) }} THB</div>
             </div>
             <div class="text-center p-4 {% if diff >= 0 %}bg-green-50{% else %}bg-red-50{% endif %} rounded-lg">
                 <div class="text-sm text-gray-600 mb-1">Difference (SMT - REP)</div>
                 <div class="text-xl font-bold {% if diff >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
-                    {{ "{:+,.2f}".format(diff) }} THB
+                    {{ "{:+,.0f}".format(diff) }} THB
                 </div>
             </div>
         </div>
@@ -188,7 +188,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right">
                             <span class="text-sm font-medium {% if row.has_rep_data %}text-blue-600{% else %}text-gray-400{% endif %}">
-                                {{ "{:,.2f}".format(row.claim_total) }}
+                                {{ "{:,.0f}".format(row.claim_total) }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right">
@@ -198,12 +198,12 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right">
                             <span class="text-sm font-medium {% if row.has_smt_data %}text-green-600{% else %}text-gray-400{% endif %}">
-                                {{ "{:,.2f}".format(row.payment_amount) }}
+                                {{ "{:,.0f}".format(row.payment_amount) }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right">
                             <span class="text-sm font-medium {% if row.difference >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                                {{ "{:+,.2f}".format(row.difference) }}
+                                {{ "{:+,.0f}".format(row.difference) }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
@@ -281,17 +281,17 @@
                             <span class="text-sm text-gray-900">{{ "{:,}".format(row.claim_count) }}</span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right">
-                            <span class="text-sm font-medium text-blue-600">{{ "{:,.2f}".format(row.claim_amount) }}</span>
+                            <span class="text-sm font-medium text-blue-600">{{ "{:,.0f}".format(row.claim_amount) }}</span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right">
                             <span class="text-sm text-gray-900">{{ "{:,}".format(row.payment_count) }}</span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right">
-                            <span class="text-sm font-medium text-green-600">{{ "{:,.2f}".format(row.payment_amount) }}</span>
+                            <span class="text-sm font-medium text-green-600">{{ "{:,.0f}".format(row.payment_amount) }}</span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right">
                             <span class="text-sm font-medium {% if row.difference >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                                {{ "{:+,.2f}".format(row.difference) }}
+                                {{ "{:+,.0f}".format(row.difference) }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
@@ -421,7 +421,8 @@ function initChart() {
                                 label += new Intl.NumberFormat('th-TH', {
                                     style: 'currency',
                                     currency: 'THB',
-                                    minimumFractionDigits: 2
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0
                                 }).format(context.parsed.y);
                             }
                             return label;
