@@ -105,15 +105,28 @@
 
     <!-- Main Analytics Content -->
     <div id="analytics-content" class="hidden space-y-6">
+        <!-- Summary Cards Header with Year Indicator -->
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                สรุปปีงบ <span id="primary-year-display" class="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">-</span>
+            </h3>
+            <div id="yoy-compare-label" class="text-sm text-gray-500 hidden">
+                เทียบกับปี <span id="compare-year-display" class="font-medium">-</span>
+            </div>
+        </div>
+
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <!-- Total Revenue -->
             <div class="bg-white rounded-xl shadow-md p-6">
                 <div class="flex items-center justify-between">
-                    <div>
+                    <div class="flex-1">
                         <p class="text-sm text-gray-500">รายได้รวม</p>
                         <p class="text-2xl font-bold text-gray-800" id="total-revenue">-</p>
-                        <p class="text-xs mt-1" id="growth-badge">-</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="growth-badge" class="text-xs">-</span>
+                        </div>
+                        <p id="total-revenue-prev" class="text-xs text-gray-400 mt-1 hidden">vs -</p>
                     </div>
                     <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                         <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,10 +139,14 @@
             <!-- Wait Amount -->
             <div class="bg-white rounded-xl shadow-md p-6">
                 <div class="flex items-center justify-between">
-                    <div>
+                    <div class="flex-1">
                         <p class="text-sm text-gray-500">ยอดรอจ่าย</p>
                         <p class="text-2xl font-bold text-orange-600" id="wait-amount">-</p>
-                        <p class="text-xs text-gray-500 mt-1" id="wait-ratio">-</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="wait-ratio" class="text-xs text-gray-500">-</span>
+                            <span id="wait-yoy" class="text-xs hidden">-</span>
+                        </div>
+                        <p id="wait-amount-prev" class="text-xs text-gray-400 mt-1 hidden">vs -</p>
                     </div>
                     <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
                         <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -142,10 +159,14 @@
             <!-- Debt Amount -->
             <div class="bg-white rounded-xl shadow-md p-6">
                 <div class="flex items-center justify-between">
-                    <div>
+                    <div class="flex-1">
                         <p class="text-sm text-gray-500">ยอดหนี้สิน</p>
                         <p class="text-2xl font-bold text-red-600" id="debt-amount">-</p>
-                        <p class="text-xs text-gray-500 mt-1" id="debt-ratio">-</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="debt-ratio" class="text-xs text-gray-500">-</span>
+                            <span id="debt-yoy" class="text-xs hidden">-</span>
+                        </div>
+                        <p id="debt-amount-prev" class="text-xs text-gray-400 mt-1 hidden">vs -</p>
                     </div>
                     <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                         <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,10 +179,11 @@
             <!-- Risk Score -->
             <div class="bg-white rounded-xl shadow-md p-6">
                 <div class="flex items-center justify-between">
-                    <div>
+                    <div class="flex-1">
                         <p class="text-sm text-gray-500">Risk Score</p>
                         <p class="text-2xl font-bold" id="risk-score">-</p>
                         <p class="text-xs mt-1" id="risk-level-badge">-</p>
+                        <p id="risk-score-prev" class="text-xs text-gray-400 mt-1 hidden">vs -</p>
                     </div>
                     <div class="w-12 h-12 rounded-full flex items-center justify-center" id="risk-icon-bg">
                         <svg class="w-6 h-6" id="risk-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,6 +191,36 @@
                         </svg>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Multi-Year Comparison Table (shows when multiple years selected) -->
+        <div id="multi-year-comparison" class="hidden bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        เปรียบเทียบผลประกอบการหลายปี
+                    </h3>
+                    <span id="comparison-years-badge" class="text-sm text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full">
+                        0 ปี
+                    </span>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50">ตัวชี้วัด</th>
+                            <!-- Year columns populated by JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="comparison-table-body" class="bg-white divide-y divide-gray-200">
+                        <!-- Rows populated by JS -->
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -223,18 +275,20 @@
                     </h3>
                     <div class="flex flex-wrap items-center gap-4">
                         <!-- Metric Selector -->
-                        <select id="trend-metric" onchange="updateTrendChart()" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
+                        <select id="trend-metric" onchange="updateTrendChartWithAllYears()" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
                             <option value="total_amount">ยอดรวม</option>
                             <option value="wait_amount">ยอดรอจ่าย</option>
                             <option value="debt_amount">ยอดหนี้สิน</option>
                         </select>
-                        <!-- Year Comparison Checkboxes -->
-                        <div class="flex items-center gap-2">
-                            <span class="text-sm text-gray-500">เปรียบเทียบปี:</span>
-                            <div id="year-checkboxes" class="flex flex-wrap gap-2">
-                                <!-- Populated by JS -->
-                            </div>
+                        <!-- Auto Year Info -->
+                        <div id="chart-years-info" class="flex items-center gap-2 text-sm text-gray-500">
+                            <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            แสดงปีที่เลือกทั้งหมดอัตโนมัติ
                         </div>
+                        <!-- Hidden container for backward compatibility -->
+                        <div id="year-checkboxes" class="hidden"></div>
                     </div>
                 </div>
             </div>
@@ -607,10 +661,12 @@ async function loadSelectedYears() {
 
     if (currentHospitalData) {
         updateSummaryCards(currentHospitalData.summary);
+        updateSummaryCardsWithYoY(); // Add YoY comparison to summary cards
         updateRiskAssessment(currentHospitalData.risk_score);
         updateFundBreakdown(currentHospitalData.fund_breakdown);
+        updateMultiYearComparisonTable(); // Show multi-year comparison table
         populateYearComparisonCheckboxes();
-        updateTrendChart();
+        updateTrendChartWithAllYears(); // Auto-include all selected years
         showAnalytics();
     } else {
         showNoDataState();
@@ -1501,6 +1557,346 @@ function addSameRegion() {
 function addSameLevel() {
     if (!currentHospitalData || !currentHospitalData.hospital) return;
     showToast('กำลังพัฒนา...', 'info');
+}
+
+// Auto-include all selected years in trend chart
+function updateTrendChartWithAllYears() {
+    if (selectedYears.length === 0) return;
+
+    var ctx = document.getElementById('trend-chart').getContext('2d');
+    var metric = document.getElementById('trend-metric').value;
+
+    // Sort years descending
+    var years = selectedYears.slice().sort(function(a, b) { return b - a; });
+    var primaryYear = years[0];
+
+    // Destroy existing chart
+    if (trendChart) {
+        trendChart.destroy();
+    }
+
+    // Fiscal year months (Oct-Sep)
+    var fiscalMonthOrder = ['10', '11', '12', '01', '02', '03', '04', '05', '06', '07', '08', '09'];
+    var monthNames = {
+        '01': 'ม.ค.', '02': 'ก.พ.', '03': 'มี.ค.', '04': 'เม.ย.',
+        '05': 'พ.ค.', '06': 'มิ.ย.', '07': 'ก.ค.', '08': 'ส.ค.',
+        '09': 'ก.ย.', '10': 'ต.ค.', '11': 'พ.ย.', '12': 'ธ.ค.'
+    };
+
+    // Labels are fiscal month names
+    var labels = fiscalMonthOrder.map(function(m) { return monthNames[m]; });
+
+    // Helper to get value for a month
+    function getMonthValue(monthlyData, monthNum, metric) {
+        if (!monthlyData) return null;
+        var found = monthlyData.find(function(m) {
+            var parts = m.month.split('-');
+            return parts[1] === monthNum;
+        });
+        return found ? (found[metric] || 0) : null;
+    }
+
+    // Create datasets for ALL selected years
+    var datasets = [];
+    years.forEach(function(year, index) {
+        var yearData = yearsDataCache[year];
+        if (!yearData || !yearData.monthly_trend) return;
+
+        var monthlyData = fiscalMonthOrder.map(function(m) {
+            return getMonthValue(yearData.monthly_trend, m, metric);
+        });
+
+        var color = yearColors[index % yearColors.length];
+        var isPrimary = index === 0;
+
+        datasets.push({
+            label: 'ปีงบ ' + year + (isPrimary ? ' (หลัก)' : ''),
+            data: monthlyData,
+            borderColor: color.border,
+            backgroundColor: isPrimary ? color.bg : 'transparent',
+            borderWidth: isPrimary ? 3 : 2,
+            borderDash: isPrimary ? [] : [5, 5],
+            tension: 0.3,
+            fill: isPrimary,
+            pointRadius: isPrimary ? 4 : 3,
+            pointHoverRadius: isPrimary ? 6 : 5
+        });
+    });
+
+    if (datasets.length === 0) return;
+
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            var value = context.parsed.y;
+                            if (value === null) return context.dataset.label + ': ไม่มีข้อมูล';
+                            return context.dataset.label + ': ' + formatMoneyShort(value);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return formatMoneyShort(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Update year legend (shows all selected years)
+    updateYearLegendAll(years);
+}
+
+// Update year legend to show all selected years
+function updateYearLegendAll(years) {
+    var legendDiv = document.getElementById('year-legend');
+    legendDiv.innerHTML = '';
+
+    years.forEach(function(year, index) {
+        var color = yearColors[index % yearColors.length];
+        var isPrimary = index === 0;
+
+        var span = document.createElement('span');
+        span.className = 'flex items-center gap-2';
+
+        var lineStyle = isPrimary
+            ? '<span class="w-4 h-1 rounded" style="background-color: ' + color.border + '"></span>'
+            : '<span class="w-4 h-0 border-t-2 border-dashed" style="border-color: ' + color.border + '"></span>';
+
+        span.innerHTML = lineStyle + '<span>ปีงบ ' + year + (isPrimary ? ' (หลัก)' : '') + '</span>';
+        legendDiv.appendChild(span);
+    });
+}
+
+// Multi-Year Comparison Table
+function updateMultiYearComparisonTable() {
+    var container = document.getElementById('multi-year-comparison');
+    var badge = document.getElementById('comparison-years-badge');
+    var tbody = document.getElementById('comparison-table-body');
+    var thead = container.querySelector('thead tr');
+
+    // Only show if 2+ years selected
+    if (selectedYears.length < 2) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+    badge.textContent = selectedYears.length + ' ปี';
+
+    // Sort years descending
+    var years = selectedYears.slice().sort(function(a, b) { return b - a; });
+
+    // Build header
+    thead.innerHTML = '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">ตัวชี้วัด</th>';
+    years.forEach(function(year, index) {
+        var th = document.createElement('th');
+        th.className = 'px-4 py-3 text-right text-xs font-medium uppercase tracking-wider min-w-32';
+        if (index === 0) {
+            // Primary year
+            th.className += ' text-indigo-700 bg-indigo-50';
+            th.innerHTML = '<span class="bg-indigo-600 text-white px-2 py-0.5 rounded text-xs mr-1">หลัก</span>' + year;
+        } else {
+            th.className += ' text-gray-500';
+            th.textContent = year;
+        }
+        thead.appendChild(th);
+    });
+    // Add YoY column
+    var thYoy = document.createElement('th');
+    thYoy.className = 'px-4 py-3 text-right text-xs font-medium text-purple-700 uppercase tracking-wider min-w-24 bg-purple-50';
+    thYoy.textContent = 'YoY %';
+    thead.appendChild(thYoy);
+
+    // Build rows
+    tbody.innerHTML = '';
+
+    var metrics = [
+        { key: 'total_amount', label: 'รายได้รวม', format: 'money', positive: 'up' },
+        { key: 'wait_amount', label: 'ยอดรอจ่าย', format: 'money', positive: 'down' },
+        { key: 'wait_ratio', label: 'Wait Ratio', format: 'percent', positive: 'down' },
+        { key: 'debt_amount', label: 'ยอดหนี้สิน', format: 'money', positive: 'down' },
+        { key: 'debt_ratio', label: 'Debt Ratio', format: 'percent', positive: 'down' },
+        { key: 'record_count', label: 'จำนวน Records', format: 'number', positive: 'up' }
+    ];
+
+    metrics.forEach(function(metric) {
+        var tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+
+        // Metric name
+        var tdName = document.createElement('td');
+        tdName.className = 'px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-800 sticky left-0 bg-white z-10';
+        tdName.textContent = metric.label;
+        tr.appendChild(tdName);
+
+        // Value for each year
+        var values = [];
+        years.forEach(function(year, index) {
+            var td = document.createElement('td');
+            td.className = 'px-4 py-3 whitespace-nowrap text-sm text-right';
+
+            var data = yearsDataCache[year];
+            var value = data && data.summary ? data.summary[metric.key] : null;
+            values.push(value);
+
+            if (value === null || value === undefined) {
+                td.className += ' text-gray-300';
+                td.textContent = '-';
+            } else {
+                if (index === 0) {
+                    td.className += ' font-semibold text-indigo-700 bg-indigo-50';
+                } else {
+                    td.className += ' text-gray-600';
+                }
+
+                if (metric.format === 'money') {
+                    td.textContent = formatMoney(value);
+                } else if (metric.format === 'percent') {
+                    td.textContent = value.toFixed(1) + '%';
+                } else {
+                    td.textContent = value.toLocaleString();
+                }
+            }
+            tr.appendChild(td);
+        });
+
+        // YoY calculation (compare first and second year)
+        var tdYoy = document.createElement('td');
+        tdYoy.className = 'px-4 py-3 whitespace-nowrap text-sm text-right font-medium bg-purple-50';
+
+        if (values.length >= 2 && values[0] !== null && values[1] !== null && values[1] !== 0) {
+            var yoy = ((values[0] - values[1]) / Math.abs(values[1])) * 100;
+            var isPositive = (metric.positive === 'up' && yoy >= 0) || (metric.positive === 'down' && yoy <= 0);
+
+            if (yoy >= 0) {
+                tdYoy.innerHTML = '<span class="' + (isPositive ? 'text-green-600' : 'text-red-600') + '">▲ ' + yoy.toFixed(1) + '%</span>';
+            } else {
+                tdYoy.innerHTML = '<span class="' + (isPositive ? 'text-green-600' : 'text-red-600') + '">▼ ' + Math.abs(yoy).toFixed(1) + '%</span>';
+            }
+        } else {
+            tdYoy.className += ' text-gray-300';
+            tdYoy.textContent = '-';
+        }
+        tr.appendChild(tdYoy);
+
+        tbody.appendChild(tr);
+    });
+}
+
+// Update Summary Cards with YoY comparison
+function updateSummaryCardsWithYoY() {
+    var primaryYear = selectedYears.length > 0 ? selectedYears[0] : null;
+    var compareYear = selectedYears.length > 1 ? selectedYears[1] : null;
+
+    // Update primary year display
+    var primaryDisplay = document.getElementById('primary-year-display');
+    if (primaryDisplay) {
+        primaryDisplay.textContent = primaryYear || '-';
+    }
+
+    var primaryData = yearsDataCache[primaryYear];
+    var compareData = compareYear ? yearsDataCache[compareYear] : null;
+
+    // Update YoY compare label
+    var yoyLabel = document.getElementById('yoy-compare-label');
+    var compareYearDisplay = document.getElementById('compare-year-display');
+    if (compareYear && compareData) {
+        yoyLabel.classList.remove('hidden');
+        compareYearDisplay.textContent = compareYear;
+    } else {
+        yoyLabel.classList.add('hidden');
+    }
+
+    if (!primaryData || !primaryData.summary) return;
+
+    var summary = primaryData.summary;
+    var prevSummary = compareData ? compareData.summary : null;
+
+    // Total Revenue with previous year
+    var totalPrev = document.getElementById('total-revenue-prev');
+    if (totalPrev && prevSummary) {
+        totalPrev.classList.remove('hidden');
+        totalPrev.textContent = 'ปี ' + compareYear + ': ' + formatMoney(prevSummary.total_amount);
+    } else if (totalPrev) {
+        totalPrev.classList.add('hidden');
+    }
+
+    // Wait Amount with YoY
+    var waitYoy = document.getElementById('wait-yoy');
+    var waitPrev = document.getElementById('wait-amount-prev');
+    if (prevSummary && prevSummary.wait_amount > 0) {
+        var waitChange = ((summary.wait_amount - prevSummary.wait_amount) / prevSummary.wait_amount) * 100;
+        if (waitYoy) {
+            waitYoy.classList.remove('hidden');
+            if (waitChange >= 0) {
+                waitYoy.innerHTML = '<span class="text-red-600">▲ ' + waitChange.toFixed(1) + '%</span>';
+            } else {
+                waitYoy.innerHTML = '<span class="text-green-600">▼ ' + Math.abs(waitChange).toFixed(1) + '%</span>';
+            }
+        }
+        if (waitPrev) {
+            waitPrev.classList.remove('hidden');
+            waitPrev.textContent = 'ปี ' + compareYear + ': ' + formatMoney(prevSummary.wait_amount);
+        }
+    } else {
+        if (waitYoy) waitYoy.classList.add('hidden');
+        if (waitPrev) waitPrev.classList.add('hidden');
+    }
+
+    // Debt Amount with YoY
+    var debtYoy = document.getElementById('debt-yoy');
+    var debtPrev = document.getElementById('debt-amount-prev');
+    if (prevSummary && prevSummary.debt_amount > 0) {
+        var debtChange = ((summary.debt_amount - prevSummary.debt_amount) / prevSummary.debt_amount) * 100;
+        if (debtYoy) {
+            debtYoy.classList.remove('hidden');
+            if (debtChange >= 0) {
+                debtYoy.innerHTML = '<span class="text-red-600">▲ ' + debtChange.toFixed(1) + '%</span>';
+            } else {
+                debtYoy.innerHTML = '<span class="text-green-600">▼ ' + Math.abs(debtChange).toFixed(1) + '%</span>';
+            }
+        }
+        if (debtPrev) {
+            debtPrev.classList.remove('hidden');
+            debtPrev.textContent = 'ปี ' + compareYear + ': ' + formatMoney(prevSummary.debt_amount);
+        }
+    } else {
+        if (debtYoy) debtYoy.classList.add('hidden');
+        if (debtPrev) debtPrev.classList.add('hidden');
+    }
+
+    // Risk Score with previous year
+    var riskPrev = document.getElementById('risk-score-prev');
+    if (riskPrev && compareData && compareData.risk_score) {
+        riskPrev.classList.remove('hidden');
+        riskPrev.textContent = 'ปี ' + compareYear + ': ' + (compareData.risk_score.score || 0).toFixed(0) + '/100';
+    } else if (riskPrev) {
+        riskPrev.classList.add('hidden');
+    }
 }
 
 // Utility functions
