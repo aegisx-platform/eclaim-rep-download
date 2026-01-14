@@ -157,54 +157,16 @@
             </div>
         </div>
 
-        <!-- Risk Assessment & Ranking Row -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Risk Indicators -->
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                    </svg>
-                    Risk Indicators
-                </h3>
-                <div id="risk-indicators" class="space-y-3">
-                    <!-- Populated by JS -->
-                </div>
-            </div>
-
-            <!-- Ranking -->
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <svg class="w-5 h-5 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
-                    </svg>
-                    Ranking
-                </h3>
-                <div class="space-y-4">
-                    <div class="text-center p-4 bg-yellow-50 rounded-lg">
-                        <p class="text-sm text-gray-500">อันดับระดับประเทศ</p>
-                        <p class="text-3xl font-bold text-yellow-600" id="national-rank">-</p>
-                        <p class="text-xs text-gray-500" id="national-total">-</p>
-                    </div>
-                    <div class="text-center p-4 bg-blue-50 rounded-lg">
-                        <p class="text-sm text-gray-500">อันดับในเขตสุขภาพ</p>
-                        <p class="text-3xl font-bold text-blue-600" id="regional-rank">-</p>
-                        <p class="text-xs text-gray-500" id="regional-total">-</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Regional Comparison -->
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                    <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                    </svg>
-                    เทียบกับค่าเฉลี่ยเขต
-                </h3>
-                <div id="region-comparison" class="space-y-3">
-                    <!-- Populated by JS -->
-                </div>
+        <!-- Risk Assessment -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                Risk Indicators
+            </h3>
+            <div id="risk-indicators" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Populated by JS -->
             </div>
         </div>
 
@@ -226,7 +188,6 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">กองทุน</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">สัดส่วน</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เทียบค่าเฉลี่ยเขต</th>
                         </tr>
                     </thead>
                     <tbody id="fund-breakdown-tbody" class="bg-white divide-y divide-gray-200">
@@ -251,10 +212,6 @@
                             <option value="wait_amount">ยอดรอจ่าย</option>
                             <option value="debt_amount">ยอดหนี้สิน</option>
                         </select>
-                        <label class="flex items-center text-sm text-gray-600">
-                            <input type="checkbox" id="show-region-avg" onchange="updateTrendChart()" class="mr-2 rounded">
-                            แสดงค่าเฉลี่ยเขต
-                        </label>
                     </div>
                 </div>
             </div>
@@ -337,7 +294,6 @@
 // State
 let currentVendorId = null;
 let currentHospitalData = null;
-let regionAverageData = null;
 let trendChart = null;
 let searchTimeout = null;
 let comparisonHospitals = [];
@@ -458,29 +414,9 @@ async function loadMyHospital() {
         // Update hospital info
         updateHospitalInfo(hospitalResult.hospital);
 
-        // Now fetch region average
-        if (hospitalResult.hospital && hospitalResult.hospital.health_region) {
-            var regionNum = hospitalResult.hospital.health_region;
-            if (typeof regionNum === 'string') {
-                // Extract number from "เขตสุขภาพที่ 7"
-                var match = regionNum.match(/\d+/);
-                regionNum = match ? match[0] : null;
-            }
-
-            if (regionNum) {
-                var regionRes = await fetch('/api/benchmark/region-average?health_region=' + regionNum + '&fiscal_year=' + fiscalYear);
-                var regionResult = await regionRes.json();
-                if (regionResult.success) {
-                    regionAverageData = regionResult;
-                }
-            }
-        }
-
         // Update UI
         updateSummaryCards(hospitalResult.summary);
         updateRiskAssessment(hospitalResult.risk_score);
-        updateRanking(hospitalResult.ranking);
-        updateRegionComparison(hospitalResult.summary, regionAverageData);
         updateFundBreakdown(hospitalResult.fund_breakdown);
         updateTrendChart();
 
@@ -581,114 +517,42 @@ function updateRiskAssessment(riskScore) {
     if (riskScore.indicators) {
         riskScore.indicators.forEach(function(ind) {
             var div = document.createElement('div');
-            div.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+            div.className = 'p-4 rounded-lg ' + (ind.status === 'pass' ? 'bg-green-50' : 'bg-red-50');
 
-            var nameSpan = document.createElement('span');
-            nameSpan.className = 'text-sm text-gray-700';
+            var nameSpan = document.createElement('div');
+            nameSpan.className = 'text-sm text-gray-600 mb-1';
             nameSpan.textContent = ind.name;
             div.appendChild(nameSpan);
 
             var valueDiv = document.createElement('div');
-            valueDiv.className = 'flex items-center gap-2';
+            valueDiv.className = 'flex items-center justify-between';
 
             var valueSpan = document.createElement('span');
-            valueSpan.className = 'text-sm font-medium';
+            valueSpan.className = 'text-xl font-bold ' + (ind.status === 'pass' ? 'text-green-700' : 'text-red-700');
             valueSpan.textContent = (ind.value || 0).toFixed(1) + '%';
             valueDiv.appendChild(valueSpan);
 
-            var statusSpan = document.createElement('span');
-            if (ind.status === 'pass') {
-                statusSpan.className = 'text-green-600';
-                statusSpan.textContent = '\u2713';
-            } else {
-                statusSpan.className = 'text-red-600';
-                statusSpan.textContent = '\u2717';
-            }
-            valueDiv.appendChild(statusSpan);
+            var thresholdSpan = document.createElement('span');
+            thresholdSpan.className = 'text-xs text-gray-500';
+            thresholdSpan.textContent = 'เกณฑ์: ' + (ind.threshold || 0) + '%';
+            valueDiv.appendChild(thresholdSpan);
 
             div.appendChild(valueDiv);
+
+            var statusDiv = document.createElement('div');
+            statusDiv.className = 'text-xs mt-2 flex items-center gap-1';
+            if (ind.status === 'pass') {
+                statusDiv.className += ' text-green-600';
+                statusDiv.innerHTML = '<span>✓</span> ผ่านเกณฑ์';
+            } else {
+                statusDiv.className += ' text-red-600';
+                statusDiv.innerHTML = '<span>✗</span> เกินเกณฑ์';
+            }
+            div.appendChild(statusDiv);
+
             indicatorsDiv.appendChild(div);
         });
     }
-}
-
-function updateRanking(ranking) {
-    if (!ranking) return;
-
-    // National ranking
-    if (ranking.national) {
-        document.getElementById('national-rank').textContent = '#' + ranking.national.rank;
-        document.getElementById('national-total').textContent = 'จาก ' + ranking.national.total + ' รพ. (Top ' + ranking.national.percentile + '%)';
-    }
-
-    // Regional ranking
-    if (ranking.regional) {
-        document.getElementById('regional-rank').textContent = '#' + ranking.regional.rank;
-        document.getElementById('regional-total').textContent = 'จาก ' + ranking.regional.total + ' รพ. (Top ' + ranking.regional.percentile + '%)';
-    }
-}
-
-function updateRegionComparison(summary, regionAvg) {
-    var div = document.getElementById('region-comparison');
-    div.textContent = '';
-
-    if (!summary || !regionAvg || !regionAvg.averages) {
-        var msg = document.createElement('p');
-        msg.className = 'text-sm text-gray-500 text-center';
-        msg.textContent = 'ไม่มีข้อมูลค่าเฉลี่ยเขต';
-        div.appendChild(msg);
-        return;
-    }
-
-    var avgData = regionAvg.averages;
-
-    // Revenue comparison
-    var revDiff = summary.total_amount && avgData.total_amount ?
-        ((summary.total_amount - avgData.total_amount) / avgData.total_amount * 100) : 0;
-    addComparisonRow(div, 'รายได้', formatMoney(summary.total_amount), formatMoney(avgData.total_amount), revDiff);
-
-    // Wait ratio comparison
-    var waitDiff = summary.wait_ratio - (avgData.wait_ratio || 0);
-    addComparisonRow(div, 'Wait Ratio', summary.wait_ratio.toFixed(1) + '%', (avgData.wait_ratio || 0).toFixed(1) + '%', waitDiff, true);
-
-    // Debt ratio comparison
-    var debtDiff = summary.debt_ratio - (avgData.debt_ratio || 0);
-    addComparisonRow(div, 'Debt Ratio', summary.debt_ratio.toFixed(1) + '%', (avgData.debt_ratio || 0).toFixed(1) + '%', debtDiff, true);
-}
-
-function addComparisonRow(container, label, myValue, avgValue, diff, lowerIsBetter) {
-    var div = document.createElement('div');
-    div.className = 'p-2 bg-gray-50 rounded';
-
-    var labelRow = document.createElement('div');
-    labelRow.className = 'flex justify-between text-sm';
-
-    var labelSpan = document.createElement('span');
-    labelSpan.className = 'text-gray-600';
-    labelSpan.textContent = label;
-    labelRow.appendChild(labelSpan);
-
-    var diffSpan = document.createElement('span');
-    var isGood = lowerIsBetter ? diff < 0 : diff > 0;
-    diffSpan.className = isGood ? 'text-green-600 font-medium' : 'text-red-600 font-medium';
-    diffSpan.textContent = (diff > 0 ? '+' : '') + diff.toFixed(1) + '%';
-    labelRow.appendChild(diffSpan);
-
-    div.appendChild(labelRow);
-
-    var valueRow = document.createElement('div');
-    valueRow.className = 'flex justify-between text-xs text-gray-500 mt-1';
-
-    var myValueSpan = document.createElement('span');
-    myValueSpan.textContent = 'รพ.: ' + myValue;
-    valueRow.appendChild(myValueSpan);
-
-    var avgValueSpan = document.createElement('span');
-    avgValueSpan.textContent = 'เขต: ' + avgValue;
-    valueRow.appendChild(avgValueSpan);
-
-    div.appendChild(valueRow);
-    container.appendChild(div);
 }
 
 function updateFundBreakdown(fundBreakdown) {
@@ -698,7 +562,7 @@ function updateFundBreakdown(fundBreakdown) {
     if (!fundBreakdown || fundBreakdown.length === 0) {
         var tr = document.createElement('tr');
         var td = document.createElement('td');
-        td.colSpan = 4;
+        td.colSpan = 3;
         td.className = 'px-6 py-4 text-center text-gray-500';
         td.textContent = 'ไม่มีข้อมูล';
         tr.appendChild(td);
@@ -737,34 +601,6 @@ function updateFundBreakdown(fundBreakdown) {
         tdPct.textContent = (fund.percentage || 0).toFixed(1) + '%';
         tr.appendChild(tdPct);
 
-        // vs Region Average
-        var tdVsAvg = document.createElement('td');
-        tdVsAvg.className = 'px-6 py-4 whitespace-nowrap';
-
-        var vsAvg = fund.vs_region_avg || 0;
-        var barWidth = Math.min(100, Math.abs(vsAvg) * 2);
-        var barColor = vsAvg >= 0 ? 'bg-green-500' : 'bg-red-500';
-
-        var vsAvgContainer = document.createElement('div');
-        vsAvgContainer.className = 'flex items-center gap-2';
-
-        var barBg = document.createElement('div');
-        barBg.className = 'w-24 h-2 bg-gray-200 rounded-full overflow-hidden flex ' + (vsAvg >= 0 ? 'justify-start' : 'justify-end');
-
-        var barFg = document.createElement('div');
-        barFg.className = 'h-full ' + barColor + ' rounded-full';
-        barFg.style.width = barWidth + '%';
-        barBg.appendChild(barFg);
-        vsAvgContainer.appendChild(barBg);
-
-        var vsAvgText = document.createElement('span');
-        vsAvgText.className = 'text-xs ' + (vsAvg >= 0 ? 'text-green-600' : 'text-red-600');
-        vsAvgText.textContent = (vsAvg >= 0 ? '+' : '') + vsAvg.toFixed(1) + '%';
-        vsAvgContainer.appendChild(vsAvgText);
-
-        tdVsAvg.appendChild(vsAvgContainer);
-        tr.appendChild(tdVsAvg);
-
         tbody.appendChild(tr);
     });
 }
@@ -774,7 +610,6 @@ async function updateTrendChart() {
 
     var ctx = document.getElementById('trend-chart').getContext('2d');
     var metric = document.getElementById('trend-metric').value;
-    var showRegionAvg = document.getElementById('show-region-avg').checked;
 
     // Destroy existing chart
     if (trendChart) {
@@ -802,24 +637,6 @@ async function updateTrendChart() {
         tension: 0.3,
         fill: true
     }];
-
-    // Add region average if checked and available
-    if (showRegionAvg && regionAverageData && regionAverageData.monthly_trend) {
-        var regionMonthly = regionAverageData.monthly_trend;
-        datasets.push({
-            label: 'ค่าเฉลี่ยเขต ' + (regionAverageData.region || ''),
-            data: monthlyData.map(function(m) {
-                var regionData = regionMonthly.find(function(r) { return r.month === m.month; });
-                return regionData ? regionData[metric] || 0 : 0;
-            }),
-            borderColor: 'rgb(156, 163, 175)',
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            borderDash: [5, 5],
-            tension: 0.3,
-            fill: false
-        });
-    }
 
     trendChart = new Chart(ctx, {
         type: 'line',

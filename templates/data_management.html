@@ -799,16 +799,9 @@
                 </svg>
                 REP Files (Request for Electronic Payment)
             </h2>
-            <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p class="text-sm text-blue-800">
-                    <strong>REP</strong> (Request for Electronic Payment) คือ ใบขออนุมัติเบิกเงินอิเล็กทรอนิกส์
-                    ที่หน่วยบริการใช้ส่งมายัง <strong>สปสช.</strong> (สำนักงานหลักประกันสุขภาพแห่งชาติ)
-                    เพื่อขอเบิกค่ารักษาพยาบาลตามสิทธิหลักประกันสุขภาพ
-                </p>
-                <p class="text-xs text-blue-600 mt-1">
-                    Data Source: <a href="https://eclaim.nhso.go.th/webComponent/" target="_blank" class="underline hover:text-blue-800">eclaim.nhso.go.th</a>
-                </p>
-            </div>
+            <p class="mt-1 text-sm text-gray-500">
+                ใบขอเบิกจาก <a href="https://eclaim.nhso.go.th" target="_blank" class="text-blue-600 hover:underline">eclaim.nhso.go.th</a>
+            </p>
         </div>
 
         <!-- REP Sub-tabs -->
@@ -2235,7 +2228,7 @@
         <div id="job-stats" class="grid grid-cols-4 gap-4 mb-6">
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                 <p class="text-3xl font-bold text-blue-700" id="stats-total">-</p>
-                <p class="text-sm text-blue-600">Total Jobs (7 days)</p>
+                <p class="text-sm text-blue-600" id="stats-total-label">Total Jobs</p>
             </div>
             <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
                 <p class="text-3xl font-bold text-green-700" id="stats-completed">-</p>
@@ -3203,7 +3196,7 @@ function switchTab(tab) {
         loadStatementFiles();
     } else if (tab === 'jobs') {
         initJobDateFilters();
-        loadJobStats();
+        // Don't call loadJobStats() here - loadJobHistory() will update stats based on filters
         loadJobHistory();
     } else if (tab === 'health') {
         loadSystemHealth();
@@ -5193,12 +5186,22 @@ async function downloadStatement() {
     }
 }
 
-async function loadStatementFiles() {
+async function loadStatementFiles(filterParams) {
     const listDiv = document.getElementById('stm-file-list');
     listDiv.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">Loading...</td></tr>';
 
+    // Build filter params from UI if not provided
+    let params = filterParams;
+    if (!params) {
+        params = buildFilterParams('stm');
+    }
+
     try {
-        const response = await fetch('/api/stm/stats');
+        let url = '/api/stm/stats';
+        if (params && params.toString()) {
+            url += '?' + params.toString();
+        }
+        const response = await fetch(url);
         const result = await response.json();
 
         // Update stats
@@ -5549,6 +5552,7 @@ function clearJobFilters() {
     document.getElementById('job-filter-status').value = '';
     document.getElementById('job-filter-date-from').value = '';
     document.getElementById('job-filter-date-to').value = '';
+    loadJobStats();  // Reset stats to default 7 days
     loadJobHistory();
 }
 
@@ -5563,10 +5567,38 @@ async function loadJobStats() {
             document.getElementById('stats-completed').textContent = stats.by_status?.completed || 0;
             document.getElementById('stats-failed').textContent = stats.by_status?.failed || 0;
             document.getElementById('stats-running').textContent = stats.by_status?.running || 0;
+            document.getElementById('stats-total-label').textContent = 'Total Jobs';
         }
     } catch (error) {
         console.error('Error loading job stats:', error);
     }
+}
+
+function updateJobStatsFromData(jobs, dateFrom, dateTo) {
+    // Calculate stats from filtered jobs
+    let total = jobs.length;
+    let completed = 0;
+    let failed = 0;
+    let running = 0;
+
+    jobs.forEach(function(job) {
+        if (job.status === 'completed' || job.status === 'completed_with_errors') {
+            completed++;
+        } else if (job.status === 'failed') {
+            failed++;
+        } else if (job.status === 'running') {
+            running++;
+        }
+    });
+
+    // Update stats display
+    document.getElementById('stats-total').textContent = total;
+    document.getElementById('stats-completed').textContent = completed;
+    document.getElementById('stats-failed').textContent = failed;
+    document.getElementById('stats-running').textContent = running;
+
+    // Update label
+    document.getElementById('stats-total-label').textContent = 'Total Jobs';
 }
 
 async function loadJobHistory() {
@@ -5575,7 +5607,7 @@ async function loadJobHistory() {
     const dateFromFilter = document.getElementById('job-filter-date-from')?.value || '';
     const dateToFilter = document.getElementById('job-filter-date-to')?.value || '';
 
-    let url = '/api/jobs?limit=50';
+    let url = '/api/jobs?limit=500';
     if (typeFilter) url += '&type=' + encodeURIComponent(typeFilter);
     if (statusFilter) url += '&status=' + encodeURIComponent(statusFilter);
     if (dateFromFilter) url += '&date_from=' + encodeURIComponent(dateFromFilter);
@@ -5590,6 +5622,11 @@ async function loadJobHistory() {
 
         // Clear existing content
         tbody.textContent = '';
+
+        // Update stats from filtered data (only when date filters are applied)
+        if (dateFromFilter || dateToFilter) {
+            updateJobStatsFromData(data.jobs || [], dateFromFilter, dateToFilter);
+        }
 
         if (!data.success || !data.jobs || data.jobs.length === 0) {
             const tr = document.createElement('tr');

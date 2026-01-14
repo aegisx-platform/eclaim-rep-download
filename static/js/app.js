@@ -1786,11 +1786,16 @@ async function clearAllData() {
 
 let currentSmtFilesPage = 1;
 
+// Store current SMT filter params
+let currentSmtFilterParams = null;
+
 /**
  * Load SMT files list and database records
+ * @param {URLSearchParams} filterParams - Optional filter parameters
  */
-async function loadSmtFiles() {
-    loadSmtFilesPage(1);
+async function loadSmtFiles(filterParams) {
+    currentSmtFilterParams = filterParams || null;
+    loadSmtFilesPage(1, filterParams);
     // Load fiscal years dropdown
     loadSmtFiscalYears();
     // Also load database records
@@ -1799,13 +1804,25 @@ async function loadSmtFiles() {
 
 /**
  * Load SMT files with pagination
+ * @param {number} page - Page number
+ * @param {URLSearchParams} filterParams - Optional filter parameters
  */
-async function loadSmtFilesPage(page = 1) {
+async function loadSmtFilesPage(page = 1, filterParams = null) {
     if (page < 1) return;
     currentSmtFilesPage = page;
 
+    // Use stored filter params if not provided
+    if (!filterParams && currentSmtFilterParams) {
+        filterParams = currentSmtFilterParams;
+    }
+
     try {
-        const response = await fetch(`/api/smt/files?page=${page}&per_page=10`);
+        let url = `/api/smt/files?page=${page}&per_page=10`;
+        if (filterParams && filterParams.toString()) {
+            url += '&' + filterParams.toString();
+        }
+
+        const response = await fetch(url);
         const data = await response.json();
 
         if (data.success) {
@@ -1840,14 +1857,13 @@ async function loadSmtFilesPage(page = 1) {
  * Update SMT stats display
  */
 function updateSmtStats(data) {
-    // Use total from API (all files) not just current page
-    const total = data.total || (data.files ? data.files.length : 0);
-    const filesOnPage = data.files ? data.files.length : 0;
-    const importedOnPage = data.files ? data.files.filter(f => f.imported).length : 0;
-    // For stats, we need to count all files - estimate based on ratio
-    const imported = importedOnPage;
-    const pending = filesOnPage - importedOnPage;
+    // Use stats from API if available (filtered totals), otherwise calculate from page data
+    const stats = data.stats || {};
+    const total = stats.total !== undefined ? stats.total : (data.total || 0);
+    const imported = stats.imported !== undefined ? stats.imported : 0;
+    const pending = stats.pending !== undefined ? stats.pending : (total - imported);
     const totalSize = data.total_size || '0 B';
+    const filesOnPage = data.files ? data.files.length : 0;
 
     document.getElementById('smt-stat-total').textContent = total;
     document.getElementById('smt-stat-imported').textContent = imported;

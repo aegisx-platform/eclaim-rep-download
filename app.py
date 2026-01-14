@@ -5491,10 +5491,16 @@ def api_smt_clear():
 
 @app.route('/api/smt/files')
 def api_smt_files():
-    """List SMT files in downloads/smt directory with pagination"""
+    """List SMT files in downloads/smt directory with pagination and filtering"""
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
+
+        # Filter parameters
+        fiscal_year = request.args.get('fiscal_year', type=int)
+        start_month = request.args.get('start_month', type=int)
+        end_month = request.args.get('end_month', type=int)
+        filter_status = request.args.get('status', '').strip().lower()
 
         smt_dir = Path('downloads/smt')
         if not smt_dir.exists():
@@ -5505,7 +5511,8 @@ def api_smt_files():
                 'page': 1,
                 'per_page': per_page,
                 'total_pages': 0,
-                'total_size': '0 B'
+                'total_size': '0 B',
+                'stats': {'total': 0, 'imported': 0, 'pending': 0}
             })
 
         all_files = []
@@ -5524,25 +5531,89 @@ def api_smt_files():
         except Exception:
             pass
 
+        # Helper function for date range comparison
+        def date_to_num(year, month):
+            return year * 12 + month
+
+        # Calculate fiscal year date range if specified
+        fy_start_num = None
+        fy_end_num = None
+        if fiscal_year:
+            # Thai fiscal year: Oct of prev year to Sep of fiscal year
+            # FY 2569 = Oct 2568 - Sep 2569
+            fy_start_year = fiscal_year - 1
+            fy_end_year = fiscal_year
+
+            if start_month:
+                if start_month >= 10:
+                    fy_start_num = date_to_num(fy_start_year, start_month)
+                else:
+                    fy_start_num = date_to_num(fy_end_year, start_month)
+            else:
+                fy_start_num = date_to_num(fy_start_year, 10)  # Default Oct
+
+            if end_month:
+                if end_month >= 10:
+                    fy_end_num = date_to_num(fy_start_year, end_month)
+                else:
+                    fy_end_num = date_to_num(fy_end_year, end_month)
+            else:
+                fy_end_num = date_to_num(fy_end_year, 9)  # Default Sep
+
         for f in smt_dir.glob('smt_budget_*.csv'):
             stat = f.stat()
-            total_bytes += stat.st_size
 
-            # Extract vendor_id from filename: smt_budget_0000010670_20260113_050850.csv
+            # Extract vendor_id and date from filename: smt_budget_0000010670_20260113_050850.csv
             parts = f.name.replace('.csv', '').split('_')
             vendor_id = parts[2] if len(parts) >= 3 else None
             is_imported = vendor_id in imported_vendors if vendor_id else False
+
+            # Extract download date (CE format: 20260113)
+            file_year = None
+            file_month = None
+            if len(parts) >= 4:
+                date_str = parts[3]
+                if len(date_str) == 8:
+                    try:
+                        file_year_ce = int(date_str[:4])
+                        file_month = int(date_str[4:6])
+                        # Convert CE to BE
+                        file_year = file_year_ce + 543
+                    except ValueError:
+                        pass
+
+            # Apply fiscal year/month filter
+            if fiscal_year and file_year and file_month:
+                file_num = date_to_num(file_year, file_month)
+                if fy_start_num and fy_end_num:
+                    if file_num < fy_start_num or file_num > fy_end_num:
+                        continue
+
+            # Apply status filter
+            if filter_status:
+                if filter_status == 'imported' and not is_imported:
+                    continue
+                elif filter_status == 'pending' and is_imported:
+                    continue
+
+            total_bytes += stat.st_size
 
             all_files.append({
                 'filename': f.name,
                 'size': humanize.naturalsize(stat.st_size),
                 'size_bytes': stat.st_size,
                 'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M'),
-                'imported': is_imported
+                'imported': is_imported,
+                'file_year': file_year,
+                'file_month': file_month
             })
 
         # Sort by modified date, newest first
         all_files.sort(key=lambda x: x['modified'], reverse=True)
+
+        # Calculate stats from filtered files
+        imported_count = sum(1 for f in all_files if f['imported'])
+        pending_count = len(all_files) - imported_count
 
         # Calculate pagination
         total = len(all_files)
@@ -5557,7 +5628,12 @@ def api_smt_files():
             'page': page,
             'per_page': per_page,
             'total_pages': total_pages,
-            'total_size': humanize.naturalsize(total_bytes)
+            'total_size': humanize.naturalsize(total_bytes),
+            'stats': {
+                'total': total,
+                'imported': imported_count,
+                'pending': pending_count
+            }
         })
 
     except Exception as e:
