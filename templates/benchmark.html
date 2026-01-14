@@ -196,28 +196,40 @@
             </div>
         </div>
 
-        <!-- Monthly Trend Chart -->
+        <!-- Monthly Trend Chart with Year Comparison -->
         <div class="bg-white rounded-xl shadow-md overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
-                <div class="flex justify-between items-center">
+                <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
                     <h3 class="text-lg font-semibold text-gray-800 flex items-center">
                         <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
                         </svg>
                         แนวโน้มรายเดือน
                     </h3>
-                    <div class="flex items-center gap-3">
-                        <select id="trend-metric" onchange="updateTrendChart()" class="px-3 py-1 text-sm border border-gray-300 rounded-lg">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <!-- Metric Selector -->
+                        <select id="trend-metric" onchange="updateTrendChart()" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
                             <option value="total_amount">ยอดรวม</option>
                             <option value="wait_amount">ยอดรอจ่าย</option>
                             <option value="debt_amount">ยอดหนี้สิน</option>
                         </select>
+                        <!-- Year Comparison Checkboxes -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-500">เปรียบเทียบปี:</span>
+                            <div id="year-checkboxes" class="flex flex-wrap gap-2">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="p-6">
                 <div class="relative" style="height: 350px;">
                     <canvas id="trend-chart"></canvas>
+                </div>
+                <!-- Year Legend -->
+                <div id="year-legend" class="mt-4 flex flex-wrap justify-center gap-4 text-sm">
+                    <!-- Populated by JS -->
                 </div>
             </div>
         </div>
@@ -297,6 +309,17 @@ let currentHospitalData = null;
 let trendChart = null;
 let searchTimeout = null;
 let comparisonHospitals = [];
+let comparisonYearsData = {}; // { year: monthlyData[] }
+
+// Chart colors for year comparison
+const yearColors = [
+    { border: 'rgb(59, 130, 246)', bg: 'rgba(59, 130, 246, 0.1)' },      // Blue (current year)
+    { border: 'rgb(34, 197, 94)', bg: 'rgba(34, 197, 94, 0.1)' },        // Green
+    { border: 'rgb(249, 115, 22)', bg: 'rgba(249, 115, 22, 0.1)' },      // Orange
+    { border: 'rgb(168, 85, 247)', bg: 'rgba(168, 85, 247, 0.1)' },      // Purple
+    { border: 'rgb(236, 72, 153)', bg: 'rgba(236, 72, 153, 0.1)' },      // Pink
+    { border: 'rgb(20, 184, 166)', bg: 'rgba(20, 184, 166, 0.1)' }       // Teal
+];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
@@ -410,6 +433,7 @@ async function loadMyHospital() {
         }
 
         currentHospitalData = hospitalResult;
+        comparisonYearsData = {}; // Reset comparison data
 
         // Update hospital info
         updateHospitalInfo(hospitalResult.hospital);
@@ -418,6 +442,7 @@ async function loadMyHospital() {
         updateSummaryCards(hospitalResult.summary);
         updateRiskAssessment(hospitalResult.risk_score);
         updateFundBreakdown(hospitalResult.fund_breakdown);
+        populateYearCheckboxes();
         updateTrendChart();
 
         showAnalytics();
@@ -442,6 +467,61 @@ function updateHospitalInfo(hospital) {
     // Save to localStorage
     localStorage.setItem('my_hospital_vendor', currentVendorId);
     localStorage.setItem('my_hospital_name', hospital.name || '');
+}
+
+function populateYearCheckboxes() {
+    var container = document.getElementById('year-checkboxes');
+    container.textContent = '';
+
+    var currentYear = parseInt(document.getElementById('fiscal-year').value);
+
+    // Create checkboxes for previous years (up to 4 years back)
+    for (var i = 1; i <= 4; i++) {
+        var year = currentYear - i;
+        var label = document.createElement('label');
+        label.className = 'flex items-center gap-1 px-2 py-1 rounded cursor-pointer hover:bg-gray-100 transition-colors';
+
+        var checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = 'year-' + year;
+        checkbox.value = year;
+        checkbox.className = 'rounded text-purple-600 focus:ring-purple-500';
+        checkbox.onchange = function() { toggleComparisonYear(this.value, this.checked); };
+
+        var span = document.createElement('span');
+        span.className = 'text-sm text-gray-700';
+        span.textContent = year;
+
+        label.appendChild(checkbox);
+        label.appendChild(span);
+        container.appendChild(label);
+    }
+}
+
+async function toggleComparisonYear(year, isChecked) {
+    if (isChecked) {
+        // Fetch data for this year
+        await fetchYearData(year);
+    } else {
+        // Remove from comparison
+        delete comparisonYearsData[year];
+    }
+    updateTrendChart();
+}
+
+async function fetchYearData(year) {
+    if (!currentVendorId) return;
+
+    try {
+        var res = await fetch('/api/benchmark/my-hospital?vendor_id=' + currentVendorId + '&fiscal_year=' + year);
+        var result = await res.json();
+
+        if (result.success && result.monthly_trend) {
+            comparisonYearsData[year] = result.monthly_trend;
+        }
+    } catch (e) {
+        console.error('Error fetching year data for ' + year + ':', e);
+    }
 }
 
 function updateSummaryCards(summary) {
@@ -610,33 +690,75 @@ async function updateTrendChart() {
 
     var ctx = document.getElementById('trend-chart').getContext('2d');
     var metric = document.getElementById('trend-metric').value;
+    var currentYear = document.getElementById('fiscal-year').value;
 
     // Destroy existing chart
     if (trendChart) {
         trendChart.destroy();
     }
 
-    var monthlyData = currentHospitalData.monthly_trend;
+    // Fiscal year months (Oct-Sep)
+    var fiscalMonthOrder = ['10', '11', '12', '01', '02', '03', '04', '05', '06', '07', '08', '09'];
     var monthNames = {
         '01': 'ม.ค.', '02': 'ก.พ.', '03': 'มี.ค.', '04': 'เม.ย.',
         '05': 'พ.ค.', '06': 'มิ.ย.', '07': 'ก.ค.', '08': 'ส.ค.',
         '09': 'ก.ย.', '10': 'ต.ค.', '11': 'พ.ย.', '12': 'ธ.ค.'
     };
 
-    var labels = monthlyData.map(function(m) {
-        var parts = m.month.split('-');
-        return monthNames[parts[1]] || parts[1];
+    // Labels are fiscal month names
+    var labels = fiscalMonthOrder.map(function(m) { return monthNames[m]; });
+
+    // Helper to get value for a month
+    function getMonthValue(monthlyData, monthNum, metric) {
+        if (!monthlyData) return null;
+        var found = monthlyData.find(function(m) {
+            var parts = m.month.split('-');
+            return parts[1] === monthNum;
+        });
+        return found ? (found[metric] || 0) : null;
+    }
+
+    // Current year dataset
+    var currentYearData = fiscalMonthOrder.map(function(m) {
+        return getMonthValue(currentHospitalData.monthly_trend, m, metric);
     });
 
     var datasets = [{
-        label: currentHospitalData.hospital.name,
-        data: monthlyData.map(function(m) { return m[metric] || 0; }),
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        borderWidth: 2,
+        label: 'ปีงบ ' + currentYear,
+        data: currentYearData,
+        borderColor: yearColors[0].border,
+        backgroundColor: yearColors[0].bg,
+        borderWidth: 3,
         tension: 0.3,
-        fill: true
+        fill: true,
+        pointRadius: 4,
+        pointHoverRadius: 6
     }];
+
+    // Add comparison years
+    var colorIndex = 1;
+    var sortedYears = Object.keys(comparisonYearsData).sort(function(a, b) { return b - a; });
+
+    sortedYears.forEach(function(year) {
+        var yearData = fiscalMonthOrder.map(function(m) {
+            return getMonthValue(comparisonYearsData[year], m, metric);
+        });
+
+        var color = yearColors[colorIndex % yearColors.length];
+        datasets.push({
+            label: 'ปีงบ ' + year,
+            data: yearData,
+            borderColor: color.border,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            tension: 0.3,
+            fill: false,
+            pointRadius: 3,
+            pointHoverRadius: 5
+        });
+        colorIndex++;
+    });
 
     trendChart = new Chart(ctx, {
         type: 'line',
@@ -647,6 +769,10 @@ async function updateTrendChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
             plugins: {
                 legend: {
                     display: true,
@@ -656,6 +782,7 @@ async function updateTrendChart() {
                     callbacks: {
                         label: function(context) {
                             var value = context.parsed.y;
+                            if (value === null) return context.dataset.label + ': ไม่มีข้อมูล';
                             return context.dataset.label + ': ' + formatMoneyShort(value);
                         }
                     }
@@ -672,6 +799,31 @@ async function updateTrendChart() {
                 }
             }
         }
+    });
+
+    // Update year legend
+    updateYearLegend(currentYear, sortedYears);
+}
+
+function updateYearLegend(currentYear, comparisonYears) {
+    var legendDiv = document.getElementById('year-legend');
+    legendDiv.textContent = '';
+
+    // Current year
+    var currentSpan = document.createElement('span');
+    currentSpan.className = 'flex items-center gap-2';
+    currentSpan.innerHTML = '<span class="w-4 h-1 rounded" style="background-color: ' + yearColors[0].border + '"></span>' +
+                           '<span>ปีงบ ' + currentYear + ' (ปัจจุบัน)</span>';
+    legendDiv.appendChild(currentSpan);
+
+    // Comparison years
+    comparisonYears.forEach(function(year, index) {
+        var color = yearColors[(index + 1) % yearColors.length];
+        var span = document.createElement('span');
+        span.className = 'flex items-center gap-2';
+        span.innerHTML = '<span class="w-4 h-1 rounded border-dashed border-2" style="border-color: ' + color.border + '"></span>' +
+                        '<span>ปีงบ ' + year + '</span>';
+        legendDiv.appendChild(span);
     });
 }
 
