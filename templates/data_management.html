@@ -4,9 +4,37 @@
 
 {% block content %}
 <!-- Header -->
-<div class="mb-6">
-    <h2 class="text-3xl font-bold text-gray-800 mb-2">Data Management</h2>
-    <p class="text-gray-600">จัดการข้อมูล E-Claim: Download, Import, และตั้งค่าระบบ</p>
+<div class="mb-6 flex items-start justify-between">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-800 mb-2">Data Management</h2>
+        <p class="text-gray-600">จัดการข้อมูล E-Claim: Download, Import, และตั้งค่าระบบ</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <!-- Sync Status Button -->
+        <button onclick="syncSystemStatus()" id="btn-sync-status" class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
+            <svg id="sync-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <span id="sync-btn-text">ตรวจสอบ & Sync</span>
+        </button>
+    </div>
+</div>
+
+<!-- Sync Result Toast (Hidden by default) -->
+<div id="sync-result-toast" class="hidden fixed top-4 right-4 z-50 max-w-md p-4 rounded-lg shadow-lg border animate-slide-in">
+    <div class="flex items-start gap-3">
+        <div id="sync-toast-icon" class="flex-shrink-0 w-6 h-6"></div>
+        <div class="flex-1">
+            <p id="sync-toast-title" class="font-semibold text-sm"></p>
+            <p id="sync-toast-message" class="text-sm mt-1"></p>
+            <div id="sync-toast-details" class="mt-2 text-xs space-y-1"></div>
+        </div>
+        <button onclick="hideSyncToast()" class="flex-shrink-0 text-gray-400 hover:text-gray-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+    </div>
 </div>
 
 <!-- Tab Navigation -->
@@ -1452,6 +1480,7 @@
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Posting Date</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">วันที่โอน</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ref Doc</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fund Group</th>
                             <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
@@ -1462,7 +1491,7 @@
                     </thead>
                     <tbody id="smt-db-records" class="bg-white divide-y divide-gray-200 text-sm">
                         <tr>
-                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">Click Refresh to load records</td>
+                            <td colspan="8" class="px-4 py-8 text-center text-gray-500">Click Refresh to load records</td>
                         </tr>
                     </tbody>
                 </table>
@@ -1813,9 +1842,176 @@
     </div>
 </div>
 
+<style>
+/* Spin animation for sync icon */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Slide-in animation for toast */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+.animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+</style>
+
 <script>
 let scheduleTimes = [];
 let currentTab = 'download';
+
+// ==================== System Sync Functions ====================
+
+/**
+ * Sync system status - check processes, reset stuck progress, sync files with history
+ */
+async function syncSystemStatus() {
+    const btn = document.getElementById('btn-sync-status');
+    const icon = document.getElementById('sync-icon');
+    const btnText = document.getElementById('sync-btn-text');
+
+    // Show loading state
+    btn.disabled = true;
+    btn.classList.add('opacity-75', 'cursor-not-allowed');
+    icon.classList.add('animate-spin');
+    btnText.textContent = 'กำลังตรวจสอบ...';
+
+    try {
+        const response = await fetch('/api/system/sync-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showSyncToast(result);
+
+            // Refresh page data if any changes were made
+            const actionsCount = result.summary.processes_reset +
+                               result.summary.files_added +
+                               result.summary.files_removed;
+            if (actionsCount > 0) {
+                // Reload page after a short delay to reflect changes
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            }
+        } else {
+            showSyncToast({
+                success: false,
+                message: result.error || 'เกิดข้อผิดพลาดในการ sync'
+            });
+        }
+    } catch (error) {
+        console.error('Sync error:', error);
+        showSyncToast({
+            success: false,
+            message: 'ไม่สามารถเชื่อมต่อกับ server ได้'
+        });
+    } finally {
+        // Reset button state
+        btn.disabled = false;
+        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+        icon.classList.remove('animate-spin');
+        btnText.textContent = 'ตรวจสอบ & Sync';
+    }
+}
+
+/**
+ * Show sync result toast notification
+ */
+function showSyncToast(result) {
+    const toast = document.getElementById('sync-result-toast');
+    const iconEl = document.getElementById('sync-toast-icon');
+    const titleEl = document.getElementById('sync-toast-title');
+    const messageEl = document.getElementById('sync-toast-message');
+    const detailsEl = document.getElementById('sync-toast-details');
+
+    // Determine toast style based on result
+    const actionsCount = result.summary ?
+        (result.summary.processes_reset + result.summary.files_added + result.summary.files_removed) : 0;
+
+    if (result.success && actionsCount > 0) {
+        // Changes were made
+        toast.className = 'fixed top-4 right-4 z-50 max-w-md p-4 rounded-lg shadow-lg border bg-green-50 border-green-200';
+        iconEl.innerHTML = '<svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        titleEl.className = 'font-semibold text-sm text-green-800';
+        titleEl.textContent = 'Sync สำเร็จ - มีการแก้ไข';
+        messageEl.className = 'text-sm mt-1 text-green-700';
+    } else if (result.success) {
+        // No changes needed
+        toast.className = 'fixed top-4 right-4 z-50 max-w-md p-4 rounded-lg shadow-lg border bg-blue-50 border-blue-200';
+        iconEl.innerHTML = '<svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+        titleEl.className = 'font-semibold text-sm text-blue-800';
+        titleEl.textContent = 'ตรวจสอบเสร็จสิ้น';
+        messageEl.className = 'text-sm mt-1 text-blue-700';
+    } else {
+        // Error
+        toast.className = 'fixed top-4 right-4 z-50 max-w-md p-4 rounded-lg shadow-lg border bg-red-50 border-red-200';
+        iconEl.innerHTML = '<svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        titleEl.className = 'font-semibold text-sm text-red-800';
+        titleEl.textContent = 'เกิดข้อผิดพลาด';
+        messageEl.className = 'text-sm mt-1 text-red-700';
+    }
+
+    messageEl.textContent = result.message || '';
+
+    // Build details section
+    detailsEl.innerHTML = '';
+    if (result.summary) {
+        const summary = result.summary;
+        if (summary.processes_reset > 0) {
+            detailsEl.innerHTML += `<p class="text-gray-600">• Reset ${summary.processes_reset} stuck process(es)</p>`;
+        }
+        if (summary.files_added > 0) {
+            detailsEl.innerHTML += `<p class="text-gray-600">• Added ${summary.files_added} file(s) to history</p>`;
+        }
+        if (summary.files_removed > 0) {
+            detailsEl.innerHTML += `<p class="text-gray-600">• Removed ${summary.files_removed} orphaned record(s)</p>`;
+        }
+        if (summary.files_synced > 0 && actionsCount === 0) {
+            detailsEl.innerHTML += `<p class="text-gray-600">• ${summary.files_synced} file(s) verified</p>`;
+        }
+    }
+
+    // Show actions if any
+    if (result.actions && result.actions.length > 0) {
+        const processActions = result.actions.filter(a => a.type === 'process_check' && a.action !== 'none');
+        if (processActions.length > 0) {
+            const actionText = processActions.map(a => `${a.name}: ${a.status}`).join(', ');
+            detailsEl.innerHTML += `<p class="text-gray-500 text-xs mt-1">Process: ${actionText}</p>`;
+        }
+    }
+
+    // Show toast
+    toast.classList.remove('hidden');
+
+    // Auto-hide after 8 seconds
+    setTimeout(hideSyncToast, 8000);
+}
+
+/**
+ * Hide sync toast notification
+ */
+function hideSyncToast() {
+    const toast = document.getElementById('sync-result-toast');
+    toast.classList.add('hidden');
+}
+
+// ==================== End System Sync Functions ====================
 
 // Number formatting helper
 function formatNumber(num, decimals) {
@@ -1951,6 +2147,9 @@ function initRepDbFiscalYear() {
         option.textContent = 'ปี ' + fy;
         select.appendChild(option);
     }
+
+    // Always default to current fiscal year
+    select.value = currentFiscalYear;
 }
 
 async function loadRepDbRecords(page) {
@@ -2161,7 +2360,12 @@ function refreshRepDbRecords() {
 
 function clearRepDbFilter() {
     document.getElementById('rep-db-view-mode').value = 'rep';
-    document.getElementById('rep-db-fiscal-year').value = '';
+    // Reset to current fiscal year (not empty)
+    var currentYear = new Date().getFullYear();
+    var currentYearBE = currentYear + 543;
+    var currentMonth = new Date().getMonth() + 1;
+    var currentFiscalYear = currentMonth >= 10 ? currentYearBE + 1 : currentYearBE;
+    document.getElementById('rep-db-fiscal-year').value = currentFiscalYear;
     document.getElementById('rep-db-rep-no').value = '';
     document.getElementById('rep-db-status').value = '';
     loadRepDbRecords(1);
@@ -2227,6 +2431,9 @@ function initStmDbFiscalYear() {
         option.textContent = 'ปี ' + fy;
         select.appendChild(option);
     }
+
+    // Always default to current fiscal year
+    select.value = currentFiscalYear;
 }
 
 async function loadStmDbRecords(page) {
@@ -2440,7 +2647,12 @@ function refreshStmDbRecords() {
 
 function clearStmDbFilter() {
     document.getElementById('stm-db-view-mode').value = 'rep';
-    document.getElementById('stm-db-fiscal-year').value = '';
+    // Reset to current fiscal year (not empty)
+    var currentYear = new Date().getFullYear();
+    var currentYearBE = currentYear + 543;
+    var currentMonth = new Date().getMonth() + 1;
+    var currentFiscalYear = currentMonth >= 10 ? currentYearBE + 1 : currentYearBE;
+    document.getElementById('stm-db-fiscal-year').value = currentFiscalYear;
     document.getElementById('stm-db-rep-no').value = '';
     document.getElementById('stm-db-status').value = '';
     loadStmDbRecords(1);

@@ -33,6 +33,9 @@ CREATE TABLE download_history (
     -- Status tracking
     downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     file_exists BOOLEAN DEFAULT TRUE,
+    download_status VARCHAR(20) DEFAULT 'success',  -- 'pending', 'downloading', 'success', 'failed'
+    retry_count INTEGER DEFAULT 0,
+    last_attempt_at TIMESTAMP,
 
     -- Import tracking (link to imported_files tables)
     imported BOOLEAN DEFAULT FALSE,
@@ -60,6 +63,7 @@ CREATE INDEX idx_download_history_scheme ON download_history(scheme);
 CREATE INDEX idx_download_history_downloaded_at ON download_history(downloaded_at);
 CREATE INDEX idx_download_history_imported ON download_history(imported);
 CREATE INDEX idx_download_history_document_no ON download_history(document_no);
+CREATE INDEX idx_download_history_status ON download_history(download_status);
 
 -- Trigger to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_download_history_updated_at()

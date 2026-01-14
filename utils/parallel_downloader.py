@@ -27,6 +27,7 @@ from utils.browser_fingerprints import (
     get_fingerprint
 )
 from utils.log_stream import stream_log
+from config.db_pool import get_connection, return_connection
 
 # Configuration
 PARALLEL_CONFIG = {
@@ -52,12 +53,12 @@ class ParallelDownloader:
 
     This class manages a pool of HTTP sessions with different browser
     fingerprints to download files concurrently while avoiding rate limiting.
+    Supports multiple NHSO accounts for better distribution.
     """
 
     def __init__(
         self,
-        username: str,
-        password: str,
+        credentials: List[Dict],  # List of {"username": "", "password": "", "note": ""}
         month: int,
         year: int,
         scheme: str = 'ucs',
@@ -65,8 +66,11 @@ class ParallelDownloader:
         download_dir: str = 'downloads/rep',
         progress_callback: Callable = None
     ):
-        self.username = username
-        self.password = password
+        # Store credentials list (filter enabled only)
+        self.credentials = [c for c in credentials if c.get('enabled', True)]
+        if not self.credentials:
+            raise ValueError("No enabled credentials provided")
+
         self.month = month
         self.year = year
         self.scheme = scheme
@@ -75,10 +79,15 @@ class ParallelDownloader:
         self.download_dir.mkdir(parents=True, exist_ok=True)
         self.progress_callback = progress_callback
 
-        # URLs
+        # Check if we have multiple accounts
+        self.multi_account = len(self.credentials) > 1
+        if self.multi_account:
+            stream_log(f"Multi-account mode: {len(self.credentials)} accounts available", 'info')
+
+        # URLs (same as regular downloader - webComponent endpoints work, .aspx returns 500)
         self.base_url = "https://eclaim.nhso.go.th"
-        self.login_url = f"{self.base_url}/NHSO.WebClaim.Otp/LoginPage.aspx"
-        self.validation_url = f"{self.base_url}/NHSO.WebClaim.Otp/Validation.aspx?month={month}&year={year}&scheme={scheme}"
+        self.login_url = f"{self.base_url}/webComponent/login/LoginAction.do"
+        self.validation_url = f"{self.base_url}/webComponent/validation/ValidationMainAction.do?mo={month}&ye={year}&maininscl={scheme}"
 
         # Session pool
         self.session_pool = []
@@ -96,36 +105,84 @@ class ParallelDownloader:
             'start_time': None,
             'end_time': None,
             'errors': [],
+            'multi_account': self.multi_account,
+            'accounts_used': len(self.credentials),
         }
         self.progress_lock = threading.Lock()
 
         # Progress file
         self.progress_file = Path('parallel_download_progress.json')
 
-        # Download history (to skip already downloaded files)
-        self.download_history = self._load_history()
-
-    def _load_history(self) -> dict:
-        """Load download history from JSON file"""
-        history_file = Path('download_history.json')
-        if history_file.exists():
-            try:
-                with open(history_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return {'downloads': []}
+        # Download history - now using database (no need to load entire history)
+        # Just check DB on demand for each file
 
     def _is_already_downloaded(self, filename: str) -> bool:
-        """Check if file was already downloaded"""
-        # Check in history
-        for record in self.download_history.get('downloads', []):
-            if record.get('filename') == filename and record.get('scheme') == self.scheme:
-                # Also check if file exists
+        """Check if file was already downloaded (using database)"""
+        conn = None
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 1 FROM download_history
+                WHERE download_type = 'rep'
+                  AND filename = %s
+                  AND file_exists = TRUE
+                  AND download_status = 'success'
+            """, (filename,))
+            exists_in_db = cursor.fetchone() is not None
+            cursor.close()
+            return_connection(conn)
+            conn = None
+
+            # Also check if file exists on disk
+            if exists_in_db:
                 file_path = self.download_dir / filename
                 if file_path.exists():
                     return True
-        return False
+
+            return False
+        except Exception as e:
+            stream_log(f"Warning: Could not check download history: {e}", 'warning')
+            return False
+        finally:
+            if conn:
+                return_connection(conn)
+
+    def _record_download(self, filename: str, file_size: int, url: str):
+        """Record a successful download to database (thread-safe)"""
+        conn = None
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            file_path = str(self.download_dir / filename)
+
+            cursor.execute("""
+                INSERT INTO download_history
+                (download_type, filename, scheme, fiscal_year, service_month,
+                 file_size, file_path, source_url, file_exists, download_status)
+                VALUES ('rep', %s, %s, %s, %s, %s, %s, %s, TRUE, 'success')
+                ON CONFLICT (download_type, filename) DO UPDATE SET
+                    file_size = EXCLUDED.file_size,
+                    file_path = EXCLUDED.file_path,
+                    file_exists = TRUE,
+                    download_status = 'success',
+                    updated_at = CURRENT_TIMESTAMP
+            """, (filename, self.scheme, self.year, self.month,
+                  file_size, file_path, url))
+
+            conn.commit()
+            cursor.close()
+            return_connection(conn)
+            conn = None
+
+        except Exception as e:
+            stream_log(f"Warning: Could not record download to DB: {e}", 'warning')
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                return_connection(conn)
 
     def _save_progress(self):
         """Save progress to file for real-time tracking"""
@@ -156,17 +213,34 @@ class ParallelDownloader:
     def initialize_sessions(self) -> bool:
         """
         Create session pool and login each session.
+        If multiple accounts available, each worker uses a different account.
 
         Returns:
             bool: True if at least one session was successfully authenticated
         """
-        stream_log(f"[{datetime.now().strftime('%H:%M:%S')}] Initializing {self.max_workers} parallel sessions...")
+        if self.multi_account:
+            stream_log(f"[{datetime.now().strftime('%H:%M:%S')}] Initializing {self.max_workers} workers with {len(self.credentials)} accounts...")
+        else:
+            stream_log(f"[{datetime.now().strftime('%H:%M:%S')}] Initializing {self.max_workers} parallel sessions...")
 
         self.session_pool = create_session_pool(self.max_workers)
         successful_logins = 0
 
         for i, session_info in enumerate(self.session_pool):
+            # Assign credential to worker (round-robin if more workers than accounts)
+            cred_index = i % len(self.credentials)
+            cred = self.credentials[cred_index]
+            username = cred.get('username', '')
+            password = cred.get('password', '')
+            account_note = cred.get('note', '') or username[-4:]  # Last 4 digits as identifier
+
+            # Store credential info in session_info for later use
+            session_info['credential'] = cred
+            session_info['account_id'] = account_note
+
             worker_name = f"Worker {i+1} ({session_info['name']})"
+            if self.multi_account:
+                worker_name += f" [Acc: {account_note}]"
 
             try:
                 stream_log(f"  {worker_name}: Logging in...")
@@ -177,8 +251,8 @@ class ParallelDownloader:
                 response = session.get(self.login_url, timeout=PARALLEL_CONFIG['download']['timeout'])
                 response.raise_for_status()
 
-                # Post login
-                login_data = {'user': self.username, 'pass': self.password}
+                # Post login with assigned credential
+                login_data = {'user': username, 'pass': password}
                 response = session.post(
                     self.login_url,
                     data=login_data,
@@ -188,7 +262,7 @@ class ParallelDownloader:
                 response.raise_for_status()
 
                 # Verify login by trying to access validation page
-                test_url = f"{self.base_url}/NHSO.WebClaim.Otp/Validation.aspx?month={self.month}&year={self.year}&scheme={self.scheme}"
+                test_url = self.validation_url
                 verify_response = session.get(test_url, timeout=60)
 
                 # If redirected back to login or got error page, login failed
@@ -368,6 +442,9 @@ class ParallelDownloader:
                 result['file_size'] = file_size
                 session_info['total_downloads'] = session_info.get('total_downloads', 0) + 1
                 session_info['error_count'] = 0
+
+                # Record to history for file listing
+                self._record_download(filename, file_size, url)
 
                 stream_log(f"[{worker_name}] [{file_idx}/{total_files}] ✓ Downloaded: {filename} ({file_size:,} bytes)", 'success')
 

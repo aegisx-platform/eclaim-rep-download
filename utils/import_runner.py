@@ -26,10 +26,11 @@ class ImportRunner:
 
         try:
             pid = int(self.pid_file.read_text().strip())
-            # Check if process exists
-            subprocess.run(['ps', '-p', str(pid)], check=True, capture_output=True)
+            # Check if process exists using os.kill with signal 0
+            import os
+            os.kill(pid, 0)
             return True
-        except (ValueError, subprocess.CalledProcessError):
+        except (ValueError, OSError, ProcessLookupError):
             # PID file exists but process is dead
             self.pid_file.unlink(missing_ok=True)
             return False

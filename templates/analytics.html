@@ -765,10 +765,69 @@ function refreshAllData() {
     loadDenial();
 }
 
+// Handle fiscal year selection - auto-fill date range
+function onFiscalYearChange() {
+    const fiscalYear = parseInt(document.getElementById('fiscal-year-filter').value);
+    const startDateInput = document.getElementById('start-date-filter');
+    const endDateInput = document.getElementById('end-date-filter');
+
+    if (fiscalYear) {
+        // Thai fiscal year: October 1 of previous year to September 30 of current year
+        // ปีงบ 2569 = 1 ต.ค. 2568 ถึง 30 ก.ย. 2569
+        const startYear = fiscalYear - 1 - 543; // Convert BE to CE and subtract 1 for October
+        const endYear = fiscalYear - 543;       // Convert BE to CE
+
+        // Format: YYYY-MM-DD for date input
+        const startDate = `${startYear}-10-01`;  // October 1
+        const endDate = `${endYear}-09-30`;       // September 30
+
+        startDateInput.value = startDate;
+        endDateInput.value = endDate;
+    } else {
+        // Clear dates if "ทั้งหมด" selected
+        startDateInput.value = '';
+        endDateInput.value = '';
+    }
+}
+
+// Get current Thai fiscal year
+function getCurrentFiscalYear() {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1; // 1-12
+    const currentYear = now.getFullYear();
+    const beYear = currentYear + 543;
+
+    // Thai fiscal year: Oct-Sep
+    // If Oct-Dec, fiscal year is next BE year
+    // If Jan-Sep, fiscal year is current BE year
+    if (currentMonth >= 10) {
+        return beYear + 1;
+    } else {
+        return beYear;
+    }
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async function() {
     // Load fiscal years dropdown first
     await loadFiscalYears();
+
+    // Add change event listener for fiscal year dropdown
+    document.getElementById('fiscal-year-filter').addEventListener('change', onFiscalYearChange);
+
+    // Set default to current fiscal year
+    const currentFY = getCurrentFiscalYear();
+    const fySelect = document.getElementById('fiscal-year-filter');
+
+    // Check if current fiscal year exists in options
+    const options = Array.from(fySelect.options);
+    const hasCurrentFY = options.some(opt => opt.value === String(currentFY));
+
+    if (hasCurrentFY) {
+        fySelect.value = String(currentFY);
+        onFiscalYearChange(); // Trigger to fill date fields
+    }
+
     // Then load all data
     refreshAllData();
 });

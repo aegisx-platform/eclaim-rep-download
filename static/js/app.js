@@ -2024,56 +2024,52 @@ let currentSmtDbPage = 1;
 
 /**
  * Load available fiscal years and populate dropdown
+ * Always defaults to current fiscal year
  */
 async function loadSmtFiscalYears() {
+    const select = document.getElementById('smt-db-fiscal-year');
+    const infoEl = document.getElementById('smt-db-available-years');
+
+    // Calculate current fiscal year (Thai: Oct-Sep)
+    const now = new Date();
+    const thaiYear = now.getFullYear() + 543;
+    const currentMonth = now.getMonth() + 1; // 1-12
+    const currentFiscalYear = currentMonth >= 10 ? thaiYear + 1 : thaiYear;
+
+    // Always populate with current and past 5 fiscal years
+    if (select) {
+        // Remove existing options except "ทั้งหมด"
+        const options = select.querySelectorAll('option:not([value=""])');
+        options.forEach(opt => opt.remove());
+
+        for (let i = 0; i <= 5; i++) {
+            const year = currentFiscalYear - i;
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = 'ปี ' + year;
+            select.appendChild(option);
+        }
+
+        // Always default to current fiscal year
+        select.value = currentFiscalYear;
+
+        // Trigger change to set date range
+        onSmtFiscalYearChange();
+    }
+
+    // Fetch available years from database for info display
     try {
         const response = await fetch('/api/smt/fiscal-years');
         const data = await response.json();
 
-        const select = document.getElementById('smt-db-fiscal-year');
-        const infoEl = document.getElementById('smt-db-available-years');
-
-        // Calculate current fiscal year (Thai: Oct-Sep)
-        const now = new Date();
-        const thaiYear = now.getFullYear() + 543;
-        const currentMonth = now.getMonth() + 1; // 1-12
-        const currentFiscalYear = currentMonth >= 10 ? thaiYear + 1 : thaiYear;
-
-        if (data.success && data.fiscal_years && data.fiscal_years.length > 0) {
-            // Populate dropdown
-            if (select) {
-                // Keep the "all" option
-                const options = select.querySelectorAll('option:not([value=""])');
-                options.forEach(opt => opt.remove());
-
-                data.fiscal_years.forEach(year => {
-                    const option = document.createElement('option');
-                    option.value = year;
-                    option.textContent = 'ปี ' + year;
-                    select.appendChild(option);
-                });
-
-                // Set default to current fiscal year if available
-                if (data.fiscal_years.includes(currentFiscalYear)) {
-                    select.value = currentFiscalYear;
-                } else if (data.fiscal_years.length > 0) {
-                    // Or select the latest year
-                    select.value = data.fiscal_years[0];
-                }
-
-                // Trigger change to set date range
-                onSmtFiscalYearChange();
-            }
-
-            // Show available years info
-            if (infoEl) {
-                infoEl.textContent = 'ปี ' + data.fiscal_years.join(', ');
-            }
-        } else {
-            console.log('No fiscal years found in database');
+        if (data.success && data.fiscal_years && data.fiscal_years.length > 0 && infoEl) {
+            infoEl.textContent = 'ปี ' + data.fiscal_years.join(', ');
+        } else if (infoEl) {
+            infoEl.textContent = 'ยังไม่มีข้อมูล';
         }
     } catch (error) {
         console.error('Error loading fiscal years:', error);
+        if (infoEl) infoEl.textContent = '-';
     }
 }
 
@@ -2120,16 +2116,21 @@ function onSmtFiscalYearChange() {
 }
 
 /**
- * Clear SMT database filter
+ * Clear SMT database filter - reset to current fiscal year
  */
 function clearSmtDbFilter() {
     const select = document.getElementById('smt-db-fiscal-year');
     const startInput = document.getElementById('smt-db-start-date');
     const endInput = document.getElementById('smt-db-end-date');
 
-    if (select) select.value = '';
-    if (startInput) startInput.value = '';
-    if (endInput) endInput.value = '';
+    // Reset to current fiscal year (not "ทั้งหมด")
+    const now = new Date();
+    const thaiYear = now.getFullYear() + 543;
+    const currentMonth = now.getMonth() + 1;
+    const currentFiscalYear = currentMonth >= 10 ? thaiYear + 1 : thaiYear;
+
+    if (select) select.value = currentFiscalYear;
+    onSmtFiscalYearChange(); // This will set the date range
 
     loadSmtDbRecords(1);
 }
@@ -2210,7 +2211,7 @@ function renderSmtDbRecords(records) {
     if (!records || records.length === 0) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 7;
+        td.colSpan = 8;
         td.className = 'px-4 py-8 text-center text-gray-500';
         td.textContent = 'No records found';
         tr.appendChild(td);
@@ -2222,11 +2223,28 @@ function renderSmtDbRecords(records) {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50';
 
-        // Posting Date
+        // Posting Date (วันที่ Posting)
         const tdDate = document.createElement('td');
         tdDate.className = 'px-3 py-2 text-gray-900';
         tdDate.textContent = r.posting_date || '-';
         tr.appendChild(tdDate);
+
+        // Run Date (วันที่โอน) - Format: YYYY-MM-DD to DD/MM/YYYY BE
+        const tdRunDate = document.createElement('td');
+        tdRunDate.className = 'px-3 py-2 text-gray-600 text-sm';
+        if (r.run_date) {
+            // Convert YYYY-MM-DD to DD/MM/YYYY BE
+            const parts = r.run_date.split('-');
+            if (parts.length === 3) {
+                const beYear = parseInt(parts[0]) + 543;
+                tdRunDate.textContent = parts[2] + '/' + parts[1] + '/' + beYear;
+            } else {
+                tdRunDate.textContent = r.run_date;
+            }
+        } else {
+            tdRunDate.textContent = '-';
+        }
+        tr.appendChild(tdRunDate);
 
         // Ref Doc
         const tdRef = document.createElement('td');

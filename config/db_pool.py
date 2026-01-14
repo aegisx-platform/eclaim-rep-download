@@ -208,11 +208,16 @@ def return_connection(conn):
     Return a connection to the pool.
 
     Args:
-        conn: The connection to return
+        conn: The connection to return (PooledConnection wrapper or raw connection)
     """
     global _pool
 
     if conn is None or _pool is None:
+        return
+
+    # Handle PooledConnection wrapper - just call close() which returns to pool
+    if isinstance(conn, PooledConnection):
+        conn.close()
         return
 
     db_type = _get_db_type()
