@@ -422,9 +422,9 @@ function initSmtDateFields() {
     const thaiYear = now.getFullYear() + 543;
     const currentFiscalYear = currentMonth >= 10 ? thaiYear + 1 : thaiYear;
 
-    // Populate fiscal year dropdown (from 2566 to current fiscal year)
-    // SMT data starts from fiscal year 2566
-    const minFiscalYear = 2566;
+    // Populate fiscal year dropdown (from 2565 to current fiscal year)
+    // SMT data starts from fiscal year 2565
+    const minFiscalYear = 2565;
     if (fiscalYearSelect) {
         fiscalYearSelect.innerHTML = '';
         for (let fy = currentFiscalYear; fy >= minFiscalYear; fy--) {
