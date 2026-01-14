@@ -226,6 +226,29 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Multi-Year Chart Section -->
+            <div class="p-6 border-t border-gray-200">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                    <h4 class="text-md font-medium text-gray-700 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        กราฟเปรียบเทียบรายปี
+                    </h4>
+                    <div class="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                        <button id="chart-type-grouped" onclick="switchYearChartType('grouped')" class="px-3 py-1.5 text-sm font-medium rounded-md transition-all bg-white text-indigo-600 shadow-sm">
+                            Grouped Bar
+                        </button>
+                        <button id="chart-type-mixed" onclick="switchYearChartType('mixed')" class="px-3 py-1.5 text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-700">
+                            Bar + Line
+                        </button>
+                    </div>
+                </div>
+                <div class="relative" style="height: 350px;">
+                    <canvas id="multi-year-chart"></canvas>
+                </div>
+            </div>
         </div>
 
         <!-- Risk Assessment -->
@@ -390,6 +413,8 @@ let currentVendorId = null;
 let currentHospitalData = null;
 let currentHospitalInfo = null;
 let trendChart = null;
+let multiYearChart = null;
+let currentYearChartType = 'grouped';
 let searchTimeout = null;
 let comparisonHospitals = [];
 let hospitalYearsData = []; // { year, has_data, records, total_amount }
@@ -2072,6 +2097,251 @@ function updateMultiYearComparisonTable() {
 
         tbody.appendChild(tr);
     });
+
+    // Update the multi-year chart
+    updateMultiYearChart();
+}
+
+// Switch between chart types
+function switchYearChartType(type) {
+    currentYearChartType = type;
+
+    // Update button styles
+    var groupedBtn = document.getElementById('chart-type-grouped');
+    var mixedBtn = document.getElementById('chart-type-mixed');
+
+    if (type === 'grouped') {
+        groupedBtn.className = 'px-3 py-1.5 text-sm font-medium rounded-md transition-all bg-white text-indigo-600 shadow-sm';
+        mixedBtn.className = 'px-3 py-1.5 text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-700';
+    } else {
+        groupedBtn.className = 'px-3 py-1.5 text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-700';
+        mixedBtn.className = 'px-3 py-1.5 text-sm font-medium rounded-md transition-all bg-white text-indigo-600 shadow-sm';
+    }
+
+    updateMultiYearChart();
+}
+
+// Multi-Year Bar Chart colors
+const barChartColors = {
+    total: { border: 'rgb(59, 130, 246)', bg: 'rgba(59, 130, 246, 0.7)' },      // Blue
+    wait: { border: 'rgb(251, 191, 36)', bg: 'rgba(251, 191, 36, 0.7)' },       // Amber
+    debt: { border: 'rgb(239, 68, 68)', bg: 'rgba(239, 68, 68, 0.7)' }          // Red
+};
+
+// Update Multi-Year Chart
+function updateMultiYearChart() {
+    var canvas = document.getElementById('multi-year-chart');
+    if (!canvas) return;
+
+    var ctx = canvas.getContext('2d');
+
+    // Destroy existing chart
+    if (multiYearChart) {
+        multiYearChart.destroy();
+        multiYearChart = null;
+    }
+
+    // Need at least 2 years
+    if (selectedYears.length < 2) return;
+
+    // Sort years ascending for chart display
+    var years = selectedYears.slice().sort(function(a, b) { return a - b; });
+    var labels = years.map(function(y) { return 'ปี ' + y; });
+
+    // Gather data
+    var totalData = [];
+    var waitData = [];
+    var debtData = [];
+    var waitRatioData = [];
+    var debtRatioData = [];
+
+    years.forEach(function(year) {
+        var data = yearsDataCache[year];
+        if (data && data.summary) {
+            totalData.push(data.summary.total_amount || 0);
+            waitData.push(data.summary.wait_amount || 0);
+            debtData.push(data.summary.debt_amount || 0);
+            waitRatioData.push(data.summary.wait_ratio || 0);
+            debtRatioData.push(data.summary.debt_ratio || 0);
+        } else {
+            totalData.push(0);
+            waitData.push(0);
+            debtData.push(0);
+            waitRatioData.push(0);
+            debtRatioData.push(0);
+        }
+    });
+
+    if (currentYearChartType === 'grouped') {
+        // Grouped Bar Chart
+        multiYearChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'รายได้รวม',
+                        data: totalData,
+                        backgroundColor: barChartColors.total.bg,
+                        borderColor: barChartColors.total.border,
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'ยอดรอจ่าย',
+                        data: waitData,
+                        backgroundColor: barChartColors.wait.bg,
+                        borderColor: barChartColors.wait.border,
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'ยอดหนี้สิน',
+                        data: debtData,
+                        backgroundColor: barChartColors.debt.bg,
+                        borderColor: barChartColors.debt.border,
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { usePointStyle: true, padding: 20 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + formatMoney(context.raw);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                if (value >= 1000000000) return (value / 1000000000).toFixed(1) + 'B';
+                                if (value >= 1000000) return (value / 1000000).toFixed(0) + 'M';
+                                if (value >= 1000) return (value / 1000).toFixed(0) + 'K';
+                                return value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        // Mixed Bar + Line Chart
+        multiYearChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'รายได้รวม',
+                        data: totalData,
+                        backgroundColor: barChartColors.total.bg,
+                        borderColor: barChartColors.total.border,
+                        borderWidth: 1,
+                        yAxisID: 'y'
+                    },
+                    {
+                        type: 'line',
+                        label: '% รอจ่าย',
+                        data: waitRatioData,
+                        borderColor: barChartColors.wait.border,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: 5,
+                        pointBackgroundColor: barChartColors.wait.border,
+                        tension: 0.3,
+                        yAxisID: 'y1'
+                    },
+                    {
+                        type: 'line',
+                        label: '% หนี้สิน',
+                        data: debtRatioData,
+                        borderColor: barChartColors.debt.border,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: 5,
+                        pointBackgroundColor: barChartColors.debt.border,
+                        tension: 0.3,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { usePointStyle: true, padding: 20 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if (context.dataset.type === 'line' || context.datasetIndex > 0) {
+                                    return context.dataset.label + ': ' + context.raw.toFixed(1) + '%';
+                                }
+                                return context.dataset.label + ': ' + formatMoney(context.raw);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false }
+                    },
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'จำนวนเงิน (บาท)',
+                            color: barChartColors.total.border
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                if (value >= 1000000000) return (value / 1000000000).toFixed(1) + 'B';
+                                if (value >= 1000000) return (value / 1000000).toFixed(0) + 'M';
+                                if (value >= 1000) return (value / 1000).toFixed(0) + 'K';
+                                return value;
+                            }
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        beginAtZero: true,
+                        max: 30,
+                        title: {
+                            display: true,
+                            text: 'สัดส่วน (%)',
+                            color: barChartColors.debt.border
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 }
 
 // Update Summary Cards with YoY comparison
