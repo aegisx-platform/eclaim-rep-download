@@ -99,13 +99,19 @@ class ImportRunner:
             filepath
         ]
 
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            start_new_session=True  # Detach from parent
-        )
+        # Write to log file instead of PIPE to prevent deadlock
+        log_dir = Path('logs')
+        log_dir.mkdir(exist_ok=True)
+        log_file = log_dir / f"import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+
+        with open(log_file, 'w') as log_f:
+            process = subprocess.Popen(
+                cmd,
+                stdout=log_f,
+                stderr=subprocess.STDOUT,
+                text=True,
+                start_new_session=True  # Detach from parent
+            )
 
         # Save PID
         self.pid_file.write_text(str(process.pid))
@@ -160,13 +166,19 @@ class ImportRunner:
             '--directory', directory
         ]
 
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            start_new_session=True  # Detach from parent
-        )
+        # Write to log file instead of PIPE to prevent deadlock
+        log_dir = Path('logs')
+        log_dir.mkdir(exist_ok=True)
+        log_file = log_dir / f"import_bulk_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+
+        with open(log_file, 'w') as log_f:
+            process = subprocess.Popen(
+                cmd,
+                stdout=log_f,
+                stderr=subprocess.STDOUT,
+                text=True,
+                start_new_session=True  # Detach from parent
+            )
 
         # Save PID
         self.pid_file.write_text(str(process.pid))

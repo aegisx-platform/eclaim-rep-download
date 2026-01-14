@@ -104,19 +104,19 @@ async function loadSummary() {
         const data = await response.json();
 
         if (data.success) {
-            // REP
+            // REP - use formatCurrencyLarge for main display (no decimals)
             setText('rep-total-records', formatNumber(data.rep.total_records || 0));
-            setText('rep-total-amount', formatCurrency(data.rep.total_amount || 0));
+            setText('rep-total-amount', formatCurrencyLarge(data.rep.total_amount || 0));
             setText('rep-files-count', data.rep.files_count || '0');
 
             // Statement
             setText('stm-total-records', formatNumber(data.stm.total_records || 0));
-            setText('stm-total-amount', formatCurrency(data.stm.total_amount || 0));
+            setText('stm-total-amount', formatCurrencyLarge(data.stm.total_amount || 0));
             setText('stm-files-count', data.stm.files_count || '0');
 
             // SMT
             setText('smt-total-records', formatNumber(data.smt.total_records || 0));
-            setText('smt-total-amount', formatCurrency(data.smt.total_amount || 0));
+            setText('smt-total-amount', formatCurrencyLarge(data.smt.total_amount || 0));
             setText('smt-files-count', data.smt.files_count || '0');
 
             // Update filter info text
@@ -506,6 +506,12 @@ function formatNumber(value) {
 function formatCurrency(value) {
     if (value === null || value === undefined) return '-';
     return parseFloat(value).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Format currency without decimals for large display
+function formatCurrencyLarge(value) {
+    if (value === null || value === undefined) return '-';
+    return Math.round(parseFloat(value)).toLocaleString('th-TH');
 }
 
 function getStatusClass(status) {

@@ -517,22 +517,33 @@ def data_management():
     # Get filter parameters for files tab
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
-    filter_month = request.args.get('month', type=int)
-    filter_year = request.args.get('year', type=int)
 
-    # Default to current month/year if not specified
+    # Support both old (month/year) and new (start_month/end_month) parameters
+    start_month = request.args.get('start_month', type=int) or request.args.get('month', type=int)
+    start_year = request.args.get('start_year', type=int) or request.args.get('year', type=int)
+    end_month = request.args.get('end_month', type=int)
+    end_year = request.args.get('end_year', type=int)
+    filter_scheme = request.args.get('scheme', '').strip().lower()
+    filter_status = request.args.get('status', '').strip().lower()  # imported, pending, or empty for all
+
+    # Default to show all if no date specified
     now = datetime.now(TZ_BANGKOK)
-    if filter_month is None:
-        filter_month = now.month
-    if filter_year is None:
-        filter_year = now.year + 543  # Convert to Buddhist Era
+    show_all_dates = start_month is None and end_month is None
+
+    # For backward compatibility
+    filter_month = start_month or now.month
+    filter_year = start_year or (now.year + 543)
 
     all_files = history_manager.get_all_downloads()
 
     # Get import status from database
     import_status_map = get_import_status_map()
 
-    # Filter by month/year
+    # Helper function to convert month/year to comparable number
+    def date_to_num(m, y):
+        return y * 12 + m
+
+    # Filter files
     filtered_files = []
     for file in all_files:
         file_month = file.get('month')
@@ -546,8 +557,47 @@ def data_management():
                 file_year = int(match.group(1))
                 file_month = int(match.group(2))
 
-        if file_month == filter_month and file_year == filter_year:
-            filtered_files.append(file)
+        # Skip if still no date info
+        if file_month is None or file_year is None:
+            if not show_all_dates:
+                continue
+        else:
+            # Date range filter
+            if not show_all_dates:
+                file_date_num = date_to_num(file_month, file_year)
+
+                if start_month and start_year:
+                    start_num = date_to_num(start_month, start_year)
+                    if file_date_num < start_num:
+                        continue
+
+                if end_month and end_year:
+                    end_num = date_to_num(end_month, end_year)
+                    if file_date_num > end_num:
+                        continue
+
+        # Scheme filter (check filename)
+        if filter_scheme:
+            filename_lower = file.get('filename', '').lower()
+            if filter_scheme not in filename_lower:
+                continue
+
+        # Add import status early for status filtering
+        filename = file.get('filename', '')
+        file['imported'] = filename in import_status_map
+        if filename in import_status_map:
+            file['import_status'] = import_status_map[filename]
+        else:
+            file['import_status'] = None
+
+        # Status filter
+        if filter_status:
+            if filter_status == 'imported' and not file['imported']:
+                continue
+            if filter_status == 'pending' and file['imported']:
+                continue
+
+        filtered_files.append(file)
 
     # Sort by download date (most recent first)
     filtered_files = sorted(
@@ -566,7 +616,7 @@ def data_management():
     end_idx = start_idx + per_page
     paginated_files = filtered_files[start_idx:end_idx]
 
-    # Format for display and add import status
+    # Format for display (import status already added during filtering)
     for file in paginated_files:
         file['size_formatted'] = humanize.naturalsize(file.get('file_size') or 0)
         try:
@@ -579,15 +629,6 @@ def data_management():
         except (ValueError, TypeError, AttributeError):
             file['date_formatted'] = file.get('download_date', 'Unknown')
             file['date_relative'] = 'Unknown'
-
-        # Add import status
-        filename = file.get('filename', '')
-        if filename in import_status_map:
-            file['import_status'] = import_status_map[filename]
-            file['imported'] = True
-        else:
-            file['import_status'] = None
-            file['imported'] = False
 
     # Count imported vs not imported
     imported_count = sum(1 for f in all_files if f.get('filename', '') in import_status_map)
@@ -2447,19 +2488,50 @@ def trigger_parallel_download():
                 )
                 result = downloader.run()
 
-                # Auto import if enabled
+                # Auto import if enabled - only import files that were just downloaded
                 if auto_import and result.get('completed', 0) > 0:
-                    from utils.eclaim.importer_v2 import import_files_parallel
+                    from utils.eclaim.importer_v2 import import_eclaim_file
                     from config.database import get_db_config, DB_TYPE
                     from pathlib import Path
+                    from utils.log_stream import log_streamer
 
-                    # Get downloaded files
+                    # Get only the successfully downloaded files from this session
                     download_dir = Path('downloads/rep')
-                    files = [str(f) for f in download_dir.glob('*.xls')]
+                    downloaded_files = []
+                    for r in result.get('results', []):
+                        if r.get('success') and not r.get('skipped'):
+                            filepath = download_dir / r['filename']
+                            if filepath.exists():
+                                downloaded_files.append(str(filepath))
 
-                    if files:
+                    if downloaded_files:
+                        log_streamer.write_log(f"\n📥 Auto-import: Starting import of {len(downloaded_files)} files...", 'info', 'import')
                         db_config = get_db_config()
-                        import_files_parallel(files, db_config, DB_TYPE, max_workers=3)
+
+                        import_success = 0
+                        import_failed = 0
+                        total_records = 0
+
+                        for idx, filepath in enumerate(downloaded_files, 1):
+                            filename = Path(filepath).name
+                            log_streamer.write_log(f"[{idx}/{len(downloaded_files)}] Importing: {filename}", 'info', 'import')
+
+                            try:
+                                import_result = import_eclaim_file(filepath, db_config, DB_TYPE)
+                                if import_result.get('success'):
+                                    records = import_result.get('imported_records', 0)
+                                    total_records += records
+                                    import_success += 1
+                                    log_streamer.write_log(f"  ✓ Imported: {records} records", 'success', 'import')
+                                else:
+                                    import_failed += 1
+                                    error_msg = import_result.get('error', 'Unknown error')
+                                    log_streamer.write_log(f"  ✗ Failed: {error_msg}", 'error', 'import')
+                            except Exception as import_error:
+                                import_failed += 1
+                                log_streamer.write_log(f"  ✗ Import error: {str(import_error)}", 'error', 'import')
+
+                        log_streamer.write_log(f"\n📊 Import complete: {import_success}/{len(downloaded_files)} files, {total_records} records", 'success', 'import')
 
             except Exception as e:
                 app.logger.error(f"Parallel download error: {e}")
@@ -4010,6 +4082,8 @@ def api_schedule():
             type_stm = data.get('schedule_type_stm', False)
             type_smt = data.get('schedule_type_smt', False)
             smt_vendor_id = data.get('schedule_smt_vendor_id', '')
+            parallel_download = data.get('schedule_parallel_download', False)
+            parallel_workers = data.get('schedule_parallel_workers', 3)
 
             # Validate at least one data type is selected when enabled
             if enabled and not type_rep and not type_stm and not type_smt:
@@ -4046,7 +4120,8 @@ def api_schedule():
 
             # Save unified settings (including all data type flags)
             success = settings_manager.update_schedule_settings(
-                enabled, times, auto_import, type_rep, type_stm, type_smt, smt_vendor_id
+                enabled, times, auto_import, type_rep, type_stm, type_smt, smt_vendor_id,
+                parallel_download, parallel_workers
             )
             if success:
                 # Save schedule_schemes separately
@@ -4068,8 +4143,9 @@ def api_schedule():
                 data_types.append('SMT')
             data_types_str = ', '.join(data_types) if data_types else 'None'
 
+            parallel_info = f", parallel={parallel_workers}w" if parallel_download else ""
             log_streamer.write_log(
-                f"✓ Unified schedule updated: {len(times)} times, types=[{data_types_str}], {len(schemes)} schemes, enabled={enabled}",
+                f"✓ Unified schedule updated: {len(times)} times, types=[{data_types_str}], {len(schemes)} schemes, enabled={enabled}{parallel_info}",
                 'success',
                 'system'
             )
@@ -5423,29 +5499,48 @@ def api_analytics_overview():
         }
 
         # Drug summary with date filter (parameterized query)
+        # Show both reimb_amount (ยอดชดเชย) and claim_amount (ยอดเรียกเก็บ)
+        # Include count of distinct cases and calculate rates
         drug_where = date_filter if date_filter else "1=1"
         drug_query = """
             SELECT
                 COUNT(*) as total_drugs,
-                COALESCE(SUM(claim_amount), 0) as total_drug_cost
+                COALESCE(SUM(reimb_amount), 0) as total_drug_reimb,
+                COALESCE(SUM(claim_amount), 0) as total_drug_claim,
+                COUNT(DISTINCT tran_id) as total_drug_cases
             FROM eclaim_drug
             WHERE """ + drug_where
         cursor.execute(drug_query, filter_params)
         drug_row = cursor.fetchone()
-        overview['total_drug_items'] = drug_row[0] or 0
-        overview['total_drug_cost'] = float(drug_row[1] or 0)
+        total_drug_items = drug_row[0] or 0
+        total_drug_reimb = float(drug_row[1] or 0)
+        total_drug_claim = float(drug_row[2] or 0)
+        total_drug_cases = drug_row[3] or 0
+
+        overview['total_drug_items'] = total_drug_items
+        overview['total_drug_cost'] = total_drug_reimb  # ยอดชดเชย (ตัวใหญ่)
+        overview['total_drug_claim'] = total_drug_claim  # ยอดเรียกเก็บ (ตัวเล็ก)
+        overview['total_drug_cases'] = total_drug_cases
+        # อัตราได้รับชดเชย % = (ยอดชดเชย / ยอดเรียกเก็บ) x 100
+        overview['drug_reimb_rate'] = round((total_drug_reimb / total_drug_claim * 100), 2) if total_drug_claim > 0 else 0
+        # ยอดเฉลี่ยต่อ case
+        overview['drug_avg_claim_per_case'] = round(total_drug_claim / total_drug_cases, 2) if total_drug_cases > 0 else 0
+        overview['drug_avg_reimb_per_case'] = round(total_drug_reimb / total_drug_cases, 2) if total_drug_cases > 0 else 0
 
         # Instrument summary with date filter (parameterized query)
+        # Show both reimb_amount (ยอดชดเชย) and claim_amount (ยอดเรียกเก็บ)
         inst_query = """
             SELECT
                 COUNT(*) as total_instruments,
-                COALESCE(SUM(claim_amount), 0) as total_instrument_cost
+                COALESCE(SUM(reimb_amount), 0) as total_instrument_reimb,
+                COALESCE(SUM(claim_amount), 0) as total_instrument_claim
             FROM eclaim_instrument
             WHERE """ + drug_where
         cursor.execute(inst_query, filter_params)
         inst_row = cursor.fetchone()
         overview['total_instrument_items'] = inst_row[0] or 0
-        overview['total_instrument_cost'] = float(inst_row[1] or 0)
+        overview['total_instrument_cost'] = float(inst_row[1] or 0)  # ยอดชดเชย (ตัวใหญ่)
+        overview['total_instrument_claim'] = float(inst_row[2] or 0)  # ยอดเรียกเก็บ (ตัวเล็ก)
 
         # Denial summary with date filter (parameterized query)
         deny_query = "SELECT COUNT(*) FROM eclaim_deny WHERE " + drug_where
@@ -5746,18 +5841,19 @@ def api_analytics_drug():
             base_where += f" AND {date_filter_joined}"
             all_where = date_filter_joined
 
-        # Top drugs by cost - JOIN with claims table to get dateadm
+        # Top drugs by reimb - JOIN with claims table to get dateadm
+        # Use reimb_amount (ยอดชดเชย) instead of claim_amount (ยอดเรียกเก็บ)
         query = f"""
             SELECT
                 COALESCE(d.generic_name, d.trade_name, d.drug_code) as drug_name,
                 COUNT(*) as prescriptions,
                 COALESCE(SUM(d.quantity), 0) as total_qty,
-                COALESCE(SUM(d.claim_amount), 0) as total_cost
+                COALESCE(SUM(d.reimb_amount), 0) as total_reimb
             FROM eclaim_drug d
             INNER JOIN claim_rep_opip_nhso_item c ON d.tran_id = c.tran_id
             WHERE {base_where}
             GROUP BY COALESCE(d.generic_name, d.trade_name, d.drug_code)
-            ORDER BY SUM(d.claim_amount) DESC NULLS LAST
+            ORDER BY SUM(d.reimb_amount) DESC NULLS LAST
             LIMIT 15
         """
         cursor.execute(query, filter_params)

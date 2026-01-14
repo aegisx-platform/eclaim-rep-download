@@ -608,11 +608,37 @@
                         <span class="w-7 h-7 rounded-full bg-purple-600 text-white text-sm font-bold flex items-center justify-center mr-2">3</span>
                         <span class="font-semibold text-gray-800">ตัวเลือกเพิ่มเติม</span>
                     </div>
-                    <div class="bg-white rounded-lg border border-gray-200 p-4">
+                    <div class="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+                        <!-- Auto Import -->
                         <label class="flex items-center cursor-pointer">
                             <input type="checkbox" id="schedule-auto-import" class="w-5 h-5 text-purple-600 rounded border-gray-300">
                             <span class="ml-3 text-sm text-gray-700">นำเข้าฐานข้อมูลอัตโนมัติหลังดาวน์โหลดเสร็จ</span>
                         </label>
+
+                        <!-- Parallel Download (REP only) -->
+                        <div class="border-t pt-4">
+                            <label class="flex items-center cursor-pointer mb-3">
+                                <input type="checkbox" id="schedule-parallel-download" class="w-5 h-5 text-purple-600 rounded border-gray-300" onchange="toggleScheduleParallelWorkers()">
+                                <span class="ml-3 text-sm text-gray-700">
+                                    <span class="font-medium text-purple-700">Parallel Download</span>
+                                    <span class="text-gray-500">(เร็วขึ้น ~3x สำหรับ REP)</span>
+                                </span>
+                            </label>
+                            <div id="schedule-parallel-workers-section" class="hidden ml-8 space-y-2">
+                                <div class="flex items-center gap-3">
+                                    <label class="text-sm text-gray-600">Workers:</label>
+                                    <select id="schedule-parallel-workers" class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                        <option value="2">2 (Safe)</option>
+                                        <option value="3" selected>3 (Recommended)</option>
+                                        <option value="4">4 (Fast)</option>
+                                        <option value="5">5 (Aggressive)</option>
+                                    </select>
+                                </div>
+                                <p class="text-xs text-gray-500">
+                                    ใช้หลาย sessions พร้อมกันสำหรับดาวน์โหลด REP files (ปลอมเป็นหลาย browser)
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -2680,6 +2706,21 @@ function initFromUrl() {
     var params = new URLSearchParams(window.location.search);
     var tab = params.get('tab') || 'download';
     switchTab(tab);
+
+    // Restore status filter from URL
+    var status = params.get('status') || 'all';
+    currentStatusFilter = status;
+
+    // Update button styles
+    document.querySelectorAll('.file-filter-btn').forEach(function(btn) {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-gray-200', 'text-gray-700');
+    });
+    var activeBtn = document.getElementById('filter-' + status);
+    if (activeBtn) {
+        activeBtn.classList.remove('bg-gray-200', 'text-gray-700');
+        activeBtn.classList.add('bg-blue-600', 'text-white');
+    }
 }
 
 // Year dropdowns
@@ -2761,8 +2802,9 @@ function updateBulkEstimate() {
     }
 }
 
-// File filtering
+// File filtering - now uses server-side filtering
 function filterFilesStatus(status) {
+    // Update button styles
     document.querySelectorAll('.file-filter-btn').forEach(function(btn) {
         btn.classList.remove('bg-blue-600', 'text-white');
         btn.classList.add('bg-gray-200', 'text-gray-700');
@@ -2770,13 +2812,9 @@ function filterFilesStatus(status) {
     document.getElementById('filter-' + status).classList.remove('bg-gray-200', 'text-gray-700');
     document.getElementById('filter-' + status).classList.add('bg-blue-600', 'text-white');
 
-    document.querySelectorAll('.file-row').forEach(function(row) {
-        if (status === 'all') {
-            row.style.display = '';
-        } else {
-            row.style.display = row.dataset.status === status ? '' : 'none';
-        }
-    });
+    // Set current status and apply filter server-side
+    currentStatusFilter = status;
+    applyFilesFilter();
 }
 
 function filterFilesByMonth() {
@@ -2784,7 +2822,10 @@ function filterFilesByMonth() {
     applyFilesFilter();
 }
 
-// Apply files filter with date range and scheme
+// Track current status filter
+var currentStatusFilter = 'all';
+
+// Apply files filter with date range, scheme, and status
 function applyFilesFilter() {
     var startSelect = document.getElementById('filter-start-month');
     var endSelect = document.getElementById('filter-end-month');
@@ -2809,6 +2850,11 @@ function applyFilesFilter() {
     // Scheme filter
     if (schemeSelect && schemeSelect.value) {
         params.set('scheme', schemeSelect.value);
+    }
+
+    // Status filter (imported/pending)
+    if (currentStatusFilter && currentStatusFilter !== 'all') {
+        params.set('status', currentStatusFilter);
     }
 
     window.location.href = '?' + params.toString();
@@ -2853,6 +2899,18 @@ async function loadScheduleSettings() {
                 smtVendorInput.value = data.settings.schedule_smt_vendor_id || '';
             }
 
+            // Load parallel download settings
+            var parallelCheckbox = document.getElementById('schedule-parallel-download');
+            var parallelWorkersSelect = document.getElementById('schedule-parallel-workers');
+            if (parallelCheckbox) {
+                parallelCheckbox.checked = data.settings.schedule_parallel_download === true;
+            }
+            if (parallelWorkersSelect) {
+                parallelWorkersSelect.value = data.settings.schedule_parallel_workers || 3;
+            }
+            // Initialize parallel workers section visibility
+            toggleScheduleParallelWorkers();
+
             // Update card states based on loaded settings
             initScheduleCards();
 
@@ -2869,7 +2927,8 @@ function updateScheduleSummary(settings) {
     if (!summary) return;
 
     if (!settings.schedule_enabled) {
-        summary.innerHTML = '<span class="text-gray-400">ปิดอยู่</span>';
+        summary.textContent = 'ปิดอยู่';
+        summary.className = 'ml-3 text-sm text-gray-400';
         return;
     }
 
@@ -2879,13 +2938,22 @@ function updateScheduleSummary(settings) {
     if (settings.schedule_type_stm) types.push('STM');
     if (settings.schedule_type_smt) types.push('SMT');
 
+    // Check parallel download mode
+    var parallelInfo = '';
+    if (settings.schedule_parallel_download) {
+        var workers = settings.schedule_parallel_workers || 3;
+        parallelInfo = ' [' + workers + 'x]';
+    }
+
     if (times.length === 0) {
-        summary.innerHTML = '<span class="text-yellow-600">เปิดอยู่ · ยังไม่ตั้งเวลา</span>';
+        summary.textContent = 'เปิดอยู่ · ยังไม่ตั้งเวลา';
+        summary.className = 'ml-3 text-sm text-yellow-600';
     } else {
         var timeStr = times.map(function(t) {
             return String(t.hour).padStart(2, '0') + ':' + String(t.minute).padStart(2, '0');
         }).join(', ');
-        summary.innerHTML = '<span class="text-green-600">เปิดอยู่</span> · ' + timeStr + ' · ' + types.join(', ');
+        summary.textContent = 'เปิดอยู่ · ' + timeStr + ' · ' + types.join(', ') + parallelInfo;
+        summary.className = 'ml-3 text-sm text-green-600';
     }
 }
 
@@ -3049,6 +3117,18 @@ function toggleScheduleTypeCard(type) {
     }
 }
 
+function toggleScheduleParallelWorkers() {
+    var checkbox = document.getElementById('schedule-parallel-download');
+    var section = document.getElementById('schedule-parallel-workers-section');
+    if (section) {
+        if (checkbox && checkbox.checked) {
+            section.classList.remove('hidden');
+        } else {
+            section.classList.add('hidden');
+        }
+    }
+}
+
 function initScheduleCards() {
     // Initialize card states based on checkbox values
     ['rep', 'stm', 'smt'].forEach(function(type) {
@@ -3093,6 +3173,12 @@ async function saveScheduleSettings() {
         var scheduleTypeSmt = typeSmt ? typeSmt.checked : false;
         var smtVendorId = smtVendorInput ? smtVendorInput.value.trim() : '';
 
+        // Get parallel download settings
+        var parallelCheckbox = document.getElementById('schedule-parallel-download');
+        var parallelWorkersSelect = document.getElementById('schedule-parallel-workers');
+        var scheduleParallelDownload = parallelCheckbox ? parallelCheckbox.checked : false;
+        var scheduleParallelWorkers = parallelWorkersSelect ? parseInt(parallelWorkersSelect.value) : 3;
+
         // Validate at least one data type is selected when enabling
         var scheduleEnabled = document.getElementById('schedule-enabled').checked;
         if (scheduleEnabled && !scheduleTypeRep && !scheduleTypeStm && !scheduleTypeSmt) {
@@ -3114,6 +3200,8 @@ async function saveScheduleSettings() {
                 schedule_enabled: scheduleEnabled,
                 schedule_times: scheduleTimes,
                 schedule_auto_import: document.getElementById('schedule-auto-import').checked,
+                schedule_parallel_download: scheduleParallelDownload,
+                schedule_parallel_workers: scheduleParallelWorkers,
                 schedule_schemes: scheduleSchemes,
                 schedule_type_rep: scheduleTypeRep,
                 schedule_type_stm: scheduleTypeStm,

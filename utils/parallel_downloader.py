@@ -212,48 +212,84 @@ class ParallelDownloader:
 
     def initialize_sessions(self) -> bool:
         """
-        Create session pool and login each session.
-        If multiple accounts available, each worker uses a different account.
+        Create session pool and login.
+        - Single account: Login once and share cookies to all workers
+        - Multiple accounts: Each account logs in separately
 
         Returns:
             bool: True if at least one session was successfully authenticated
         """
-        if self.multi_account:
-            stream_log(f"[{datetime.now().strftime('%H:%M:%S')}] Initializing {self.max_workers} workers with {len(self.credentials)} accounts...")
-        else:
-            stream_log(f"[{datetime.now().strftime('%H:%M:%S')}] Initializing {self.max_workers} parallel sessions...")
-
         self.session_pool = create_session_pool(self.max_workers)
         successful_logins = 0
 
-        for i, session_info in enumerate(self.session_pool):
-            # Assign credential to worker (round-robin if more workers than accounts)
-            cred_index = i % len(self.credentials)
-            cred = self.credentials[cred_index]
+        if self.multi_account:
+            # Multi-account mode: each worker logs in with different account
+            stream_log(f"[{datetime.now().strftime('%H:%M:%S')}] Initializing {self.max_workers} workers with {len(self.credentials)} accounts...")
+
+            for i, session_info in enumerate(self.session_pool):
+                cred_index = i % len(self.credentials)
+                cred = self.credentials[cred_index]
+                username = cred.get('username', '')
+                password = cred.get('password', '')
+                account_note = cred.get('note', '') or username[-4:]
+
+                session_info['credential'] = cred
+                session_info['account_id'] = account_note
+
+                worker_name = f"Worker {i+1} ({session_info['name']}) [Acc: {account_note}]"
+
+                try:
+                    stream_log(f"  {worker_name}: Logging in...")
+                    session = session_info['session']
+
+                    response = session.get(self.login_url, timeout=PARALLEL_CONFIG['download']['timeout'])
+                    response.raise_for_status()
+
+                    login_data = {'user': username, 'pass': password}
+                    response = session.post(
+                        self.login_url,
+                        data=login_data,
+                        timeout=PARALLEL_CONFIG['download']['timeout'],
+                        allow_redirects=True
+                    )
+                    response.raise_for_status()
+
+                    verify_response = session.get(self.validation_url, timeout=90)
+                    if 'login' in verify_response.url.lower():
+                        raise Exception("Redirected back to login page")
+                    if verify_response.status_code != 200:
+                        raise Exception(f"Validation page returned status {verify_response.status_code}")
+
+                    session_info['logged_in'] = True
+                    successful_logins += 1
+                    stream_log(f"  {worker_name}: ✓ Login successful", 'success')
+                    time.sleep(1)
+
+                except Exception as e:
+                    stream_log(f"  {worker_name}: ✗ Login failed: {e}", 'error')
+                    session_info['logged_in'] = False
+
+        else:
+            # Single account mode: Login once and share cookies to all workers
+            stream_log(f"[{datetime.now().strftime('%H:%M:%S')}] Single account mode: Login once, share to {self.max_workers} workers...")
+
+            cred = self.credentials[0]
             username = cred.get('username', '')
             password = cred.get('password', '')
-            account_note = cred.get('note', '') or username[-4:]  # Last 4 digits as identifier
+            account_note = cred.get('note', '') or username[-4:]
 
-            # Store credential info in session_info for later use
-            session_info['credential'] = cred
-            session_info['account_id'] = account_note
-
-            worker_name = f"Worker {i+1} ({session_info['name']})"
-            if self.multi_account:
-                worker_name += f" [Acc: {account_note}]"
+            # Login with first session
+            first_session_info = self.session_pool[0]
+            first_session = first_session_info['session']
 
             try:
-                stream_log(f"  {worker_name}: Logging in...")
+                stream_log(f"  Logging in with account {account_note}...")
 
-                session = session_info['session']
-
-                # Get login page first
-                response = session.get(self.login_url, timeout=PARALLEL_CONFIG['download']['timeout'])
+                response = first_session.get(self.login_url, timeout=PARALLEL_CONFIG['download']['timeout'])
                 response.raise_for_status()
 
-                # Post login with assigned credential
                 login_data = {'user': username, 'pass': password}
-                response = session.post(
+                response = first_session.post(
                     self.login_url,
                     data=login_data,
                     timeout=PARALLEL_CONFIG['download']['timeout'],
@@ -261,28 +297,33 @@ class ParallelDownloader:
                 )
                 response.raise_for_status()
 
-                # Verify login by trying to access validation page
-                test_url = self.validation_url
-                verify_response = session.get(test_url, timeout=60)
-
-                # If redirected back to login or got error page, login failed
+                verify_response = first_session.get(self.validation_url, timeout=90)
                 if 'login' in verify_response.url.lower():
                     raise Exception("Redirected back to login page")
-
-                # Check for valid content (should contain tables or download links)
                 if verify_response.status_code != 200:
                     raise Exception(f"Validation page returned status {verify_response.status_code}")
 
-                session_info['logged_in'] = True
-                successful_logins += 1
-                stream_log(f"  {worker_name}: ✓ Login successful", 'success')
+                stream_log(f"  ✓ Login successful, sharing cookies to all workers...", 'success')
 
-                # Small delay between logins
-                time.sleep(1)
+                # Copy cookies to all sessions
+                login_cookies = first_session.cookies.get_dict()
+
+                for i, session_info in enumerate(self.session_pool):
+                    session_info['credential'] = cred
+                    session_info['account_id'] = account_note
+
+                    # Copy cookies from first session
+                    for cookie_name, cookie_value in login_cookies.items():
+                        session_info['session'].cookies.set(cookie_name, cookie_value)
+
+                    session_info['logged_in'] = True
+                    successful_logins += 1
+                    stream_log(f"  Worker {i+1} ({session_info['name']}): ✓ Ready (shared session)", 'success')
 
             except Exception as e:
-                stream_log(f"  {worker_name}: ✗ Login failed: {e}", 'error')
-                session_info['logged_in'] = False
+                stream_log(f"  ✗ Login failed: {e}", 'error')
+                for session_info in self.session_pool:
+                    session_info['logged_in'] = False
 
         stream_log(f"[{datetime.now().strftime('%H:%M:%S')}] {successful_logins}/{self.max_workers} sessions ready")
 
@@ -467,11 +508,11 @@ class ParallelDownloader:
                             new_session_info = rotate_session(session_info)
                             # Re-login new session
                             new_session = new_session_info['session']
-                            new_session.get(self.login_url, timeout=60)
+                            new_session.get(self.login_url, timeout=90)
                             new_session.post(
                                 self.login_url,
                                 data={'user': self.username, 'pass': self.password},
-                                timeout=60
+                                timeout=90
                             )
                             # Update session in pool
                             idx = self.session_pool.index(session_info)
