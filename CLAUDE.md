@@ -175,6 +175,57 @@ Database (PostgreSQL/MySQL)
 - PostgreSQL: `database/schema-postgresql-merged.sql`
 - MySQL: `database/schema-mysql-merged.sql`
 
+### Database Migration System
+
+The project uses a migration system that automatically runs on container startup:
+
+**Directory Structure:**
+```
+database/
+├── migrations/
+│   ├── postgresql/
+│   │   ├── 001_initial_schema.sql    # Core tables
+│   │   ├── 002_stm_tables.sql        # Statement/reconciliation tables
+│   │   ├── 003_job_history.sql       # Job tracking
+│   │   └── 004_system_alerts.sql     # Alert system
+│   └── mysql/
+│       ├── 001_initial_schema.sql
+│       ├── 002_stm_tables.sql
+│       ├── 003_job_history.sql
+│       └── 004_system_alerts.sql
+├── seeds/                             # (Optional) Seed data
+│   ├── postgresql/
+│   └── mysql/
+└── migrate.py                         # Migration runner
+```
+
+**How It Works:**
+1. On container startup, `docker-entrypoint.sh` waits for database
+2. Runs `python database/migrate.py` to apply pending migrations
+3. Migration tracking table `_migrations` records applied versions
+4. Only pending migrations are executed (idempotent)
+
+**Migration Commands:**
+```bash
+# Check migration status
+docker-compose exec web python database/migrate.py --status
+
+# Run pending migrations (automatic on startup)
+docker-compose exec web python database/migrate.py
+
+# Force re-run all migrations
+docker-compose exec web python database/migrate.py --force
+
+# Run seed data
+docker-compose exec web python database/migrate.py --seed
+```
+
+**Adding New Migrations:**
+1. Create numbered SQL file in `database/migrations/{db_type}/`
+2. Use naming: `NNN_description.sql` (e.g., `005_add_new_feature.sql`)
+3. Use `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`
+4. For MySQL, quote `row_number` as it's a reserved keyword
+
 ### Configuration
 
 **Environment Variables (`.env`):**

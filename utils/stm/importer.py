@@ -380,16 +380,18 @@ class STMImporter:
         ]
 
         placeholders = ', '.join(['%s'] * len(columns))
-        column_str = ', '.join(columns)
 
+        # Quote column names for MySQL (row_number is a reserved keyword in MySQL 8.0)
         if self.db_type == 'mysql':
-            update_clause = ', '.join([f"{col} = VALUES({col})" for col in columns if col not in ['file_id', 'tran_id']])
+            column_str = ', '.join([f'`{col}`' for col in columns])
+            update_clause = ', '.join([f"`{col}` = VALUES(`{col}`)" for col in columns if col not in ['file_id', 'tran_id']])
             query = f"""
                 INSERT INTO stm_claim_item ({column_str})
                 VALUES ({placeholders})
                 ON DUPLICATE KEY UPDATE {update_clause}
             """
         else:
+            column_str = ', '.join(columns)
             update_clause = ', '.join([f"{col} = EXCLUDED.{col}" for col in columns if col not in ['file_id', 'tran_id']])
             query = f"""
                 INSERT INTO stm_claim_item ({column_str})

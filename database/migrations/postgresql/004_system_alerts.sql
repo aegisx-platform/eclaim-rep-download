@@ -34,5 +34,3 @@ CREATE INDEX IF NOT EXISTS idx_alerts_created ON system_alerts(created_at DESC);
 
 -- Comments
 COMMENT ON TABLE system_alerts IS 'System alerts and notifications';
-COMMENT ON COLUMN system_alerts.alert_type IS 'Type: job_failed, disk_warning, memory_warning, stale_process, db_error';
-COMMENT ON COLUMN system_alerts.severity IS 'Severity: info, warning, critical';

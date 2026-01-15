@@ -12,7 +12,9 @@ services:
       TZ: ${TZ:-Asia/Bangkok}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./database/schema-mysql-merged.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      # Initial schema runs only on first volume creation
+      # Subsequent updates handled by migrations
+      - ./database/migrations/mysql/001_initial_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     ports:
       - "3306:3306"
     networks:

@@ -4,12 +4,13 @@ FROM python:3.12-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (include mysql-client for both DB support)
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     postgresql-client \
     libpq-dev \
+    default-mysql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -28,7 +29,8 @@ RUN mkdir -p logs downloads config backups && \
     chmod -R 755 /app
 
 # Set permissions for scripts
-RUN chmod +x eclaim_import.py eclaim_downloader_http.py bulk_downloader.py 2>/dev/null || true
+RUN chmod +x eclaim_import.py eclaim_downloader_http.py bulk_downloader.py 2>/dev/null || true && \
+    chmod +x docker-entrypoint.sh
 
 # Expose Flask port
 EXPOSE 5001
@@ -39,8 +41,11 @@ ENV PYTHONUNBUFFERED=1
 ENV TZ=Asia/Bangkok
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:5001/ || exit 1
+
+# Use entrypoint script for migrations
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 # Default command: run Flask app
 CMD ["python", "app.py"]

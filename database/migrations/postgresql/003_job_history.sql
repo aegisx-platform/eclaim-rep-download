@@ -42,7 +42,3 @@ CREATE INDEX IF NOT EXISTS idx_job_history_type_status ON job_history(job_type, 
 
 -- Comments
 COMMENT ON TABLE job_history IS 'Tracks all download, import, and scheduled job executions';
-COMMENT ON COLUMN job_history.job_type IS 'Type: download, import, schedule';
-COMMENT ON COLUMN job_history.job_subtype IS 'Subtype: single, bulk, parallel, scheduled';
-COMMENT ON COLUMN job_history.parameters IS 'Job parameters as JSON';
-COMMENT ON COLUMN job_history.results IS 'Job results as JSON';
