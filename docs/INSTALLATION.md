@@ -135,7 +135,7 @@ ECLAIM_PASSWORD: ********
 | External DB | `--no-db` | เชื่อมต่อ Database ภายนอก (ไม่สร้าง container DB) |
 | Custom Dir | `--dir NAME` | กำหนดชื่อโฟลเดอร์ |
 
-> **หมายเหตุ:** `--no-db` จะถามข้อมูล Database ภายนอก (host, port, user, password) ระหว่างติดตั้ง
+> **หมายเหตุ:** `--no-db` จะสร้าง template ใน `.env` ให้แก้ไข DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD ก่อนใช้งาน
 
 **Examples:**
 
