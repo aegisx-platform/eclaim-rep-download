@@ -123,13 +123,13 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 **Options:**
 ```bash
 # MySQL instead of PostgreSQL
-curl -fsSL .../install.sh | bash -s -- --mysql
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --mysql
 
 # Download-only (no database)
-curl -fsSL .../install.sh | bash -s -- --no-db
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --no-db
 
 # Custom directory
-curl -fsSL .../install.sh | bash -s -- --dir my-nhso
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --dir my-nhso
 ```
 
 ### Manual Docker Deployment

@@ -66,7 +66,7 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 ### ตัวอย่างการติดตั้ง
 
 ```
-$ curl -fsSL .../install.sh | bash
+$ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
 
 ╔═══════════════════════════════════════════════════════════╗
 ║        NHSO Revenue Intelligence - Quick Install          ║
@@ -119,16 +119,16 @@ ECLAIM_PASSWORD: ********
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
 
 # MySQL
-curl -fsSL .../install.sh | bash -s -- --mysql
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --mysql
 
 # Download only (no database)
-curl -fsSL .../install.sh | bash -s -- --no-db
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --no-db
 
 # Custom directory
-curl -fsSL .../install.sh | bash -s -- --dir my-hospital
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --dir my-hospital
 
 # Combined options
-curl -fsSL .../install.sh | bash -s -- --mysql --dir hospital-nhso
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --mysql --dir hospital-nhso
 ```
 
 ### โครงสร้างหลังติดตั้ง

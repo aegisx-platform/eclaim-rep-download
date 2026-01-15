@@ -1,5 +1,5 @@
 # NHSO Revenue Intelligence - Production Deployment (MySQL)
-# ติดตั้งผ่าน: curl -fsSL .../install.sh | bash -s -- --mysql
+# ติดตั้งผ่าน: curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --mysql
 
 services:
   db:

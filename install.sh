@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             echo "NHSO Revenue Intelligence Installer"
             echo ""
-            echo "Usage: curl -fsSL .../install.sh | bash -s -- [OPTIONS]"
+            echo "Usage: curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --mysql      Use MySQL instead of PostgreSQL"

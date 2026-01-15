@@ -1,5 +1,5 @@
 # NHSO Revenue Intelligence - Download Only (No Database)
-# ติดตั้งผ่าน: curl -fsSL .../install.sh | bash -s -- --no-db
+# ติดตั้งผ่าน: curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --no-db
 
 services:
   web:
