@@ -173,6 +173,7 @@ CREATE TABLE claim_rep_opip_nhso_item (
   seq_no VARCHAR(15),
   invoice_no VARCHAR(20),
   invoice_lt VARCHAR(20),
+  scheme VARCHAR(10),
   inp_id INTEGER,
   inp_date TIMESTAMP,
   lastupdate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -194,6 +195,7 @@ CREATE INDEX idx_opip_dateadm ON claim_rep_opip_nhso_item(dateadm);
 CREATE INDEX idx_opip_an ON claim_rep_opip_nhso_item(an);
 CREATE INDEX idx_opip_tran_id ON claim_rep_opip_nhso_item(tran_id);
 CREATE INDEX idx_opip_error_code ON claim_rep_opip_nhso_item(error_code);
+CREATE INDEX idx_opip_scheme ON claim_rep_opip_nhso_item(scheme);
 CREATE INDEX idx_opip_reconcile ON claim_rep_opip_nhso_item(his_matched, reconcile_status);
 
 -- Trigger for updated_at
@@ -749,6 +751,460 @@ CREATE TABLE IF NOT EXISTS health_offices_import_log (
     error_message   TEXT,
     duration_seconds NUMERIC(10,2)
 );
+
+-- ============================================================================
+-- 10. MASTER DATA TABLES (for Analytics)
+-- ============================================================================
+
+-- ICD-10 Diagnosis Codes
+CREATE TABLE IF NOT EXISTS icd10_codes (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(10) UNIQUE NOT NULL,
+    description_th VARCHAR(500),
+    description_en VARCHAR(500),
+    chapter VARCHAR(5),
+    chapter_name_th VARCHAR(200),
+    chapter_name_en VARCHAR(200),
+    block_code VARCHAR(10),
+    block_name VARCHAR(200),
+    category VARCHAR(5),
+    is_valid BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_icd10_code ON icd10_codes(code);
+CREATE INDEX IF NOT EXISTS idx_icd10_chapter ON icd10_codes(chapter);
+CREATE INDEX IF NOT EXISTS idx_icd10_block ON icd10_codes(block_code);
+
+COMMENT ON TABLE icd10_codes IS 'ICD-10 International Classification of Diseases codes for diagnosis lookup';
+
+-- ICD-9-CM Procedure Codes
+CREATE TABLE IF NOT EXISTS icd9cm_procedures (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(10) UNIQUE NOT NULL,
+    description_th VARCHAR(500),
+    description_en VARCHAR(500),
+    chapter VARCHAR(5),
+    chapter_name VARCHAR(200),
+    is_valid BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_icd9_code ON icd9cm_procedures(code);
+CREATE INDEX IF NOT EXISTS idx_icd9_chapter ON icd9cm_procedures(chapter);
+
+COMMENT ON TABLE icd9cm_procedures IS 'ICD-9-CM Procedure codes for medical procedure lookup';
+
+-- DRG (Diagnosis Related Groups) - NHSO Thai Version 6
+CREATE TABLE IF NOT EXISTS drg_codes (
+    id SERIAL PRIMARY KEY,
+    drg_code VARCHAR(10) UNIQUE NOT NULL,
+    drg_name_th VARCHAR(300),
+    drg_name_en VARCHAR(300),
+    mdc VARCHAR(3),
+    mdc_name VARCHAR(200),
+    drg_type VARCHAR(20),
+    base_rw DECIMAL(10,4),
+    adjrw_min DECIMAL(10,4),
+    adjrw_max DECIMAL(10,4),
+    los_min INTEGER,
+    los_max INTEGER,
+    version VARCHAR(10) DEFAULT '6',
+    effective_date DATE,
+    is_valid BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_drg_code ON drg_codes(drg_code);
+CREATE INDEX IF NOT EXISTS idx_drg_mdc ON drg_codes(mdc);
+CREATE INDEX IF NOT EXISTS idx_drg_type ON drg_codes(drg_type);
+
+COMMENT ON TABLE drg_codes IS 'DRG Thai Version 6 codes for grouping diagnoses';
+
+-- NHSO Error/Denial Codes
+CREATE TABLE IF NOT EXISTS nhso_error_codes (
+    id SERIAL PRIMARY KEY,
+    error_code VARCHAR(20) UNIQUE NOT NULL,
+    error_description_th VARCHAR(500),
+    error_description_en VARCHAR(500),
+    error_category VARCHAR(50),
+    error_severity VARCHAR(20),
+    resolution_guide TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_error_code ON nhso_error_codes(error_code);
+CREATE INDEX IF NOT EXISTS idx_error_category ON nhso_error_codes(error_category);
+
+COMMENT ON TABLE nhso_error_codes IS 'NHSO E-Claim error and denial codes with resolution guide';
+
+-- Fund/Insurance Scheme Types
+CREATE TABLE IF NOT EXISTS fund_types (
+    id SERIAL PRIMARY KEY,
+    fund_code VARCHAR(20) UNIQUE NOT NULL,
+    fund_name_th VARCHAR(200),
+    fund_name_en VARCHAR(200),
+    fund_category VARCHAR(50),
+    parent_fund_code VARCHAR(20),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_fund_code ON fund_types(fund_code);
+CREATE INDEX IF NOT EXISTS idx_fund_category ON fund_types(fund_category);
+
+COMMENT ON TABLE fund_types IS 'NHSO fund types and insurance scheme categories';
+
+-- Service Types
+CREATE TABLE IF NOT EXISTS service_types (
+    id SERIAL PRIMARY KEY,
+    service_code VARCHAR(10) UNIQUE NOT NULL,
+    service_name_th VARCHAR(200),
+    service_name_en VARCHAR(200),
+    service_category VARCHAR(50),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_code ON service_types(service_code);
+
+COMMENT ON TABLE service_types IS 'Service type codes for classification';
+
+-- TMT Drug Codes (Thai Medicines Terminology)
+CREATE TABLE IF NOT EXISTS tmt_drugs (
+    id SERIAL PRIMARY KEY,
+    tmt_code VARCHAR(20) UNIQUE NOT NULL,
+    generic_name VARCHAR(500),
+    trade_name VARCHAR(300),
+    dosage_form VARCHAR(100),
+    strength VARCHAR(100),
+    manufacturer VARCHAR(200),
+    atc_code VARCHAR(10),
+    nhso_code VARCHAR(20),
+    unit_price DECIMAL(10,2),
+    ceiling_price DECIMAL(10,2),
+    is_ned BOOLEAN DEFAULT FALSE,
+    is_high_cost BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_tmt_code ON tmt_drugs(tmt_code);
+CREATE INDEX IF NOT EXISTS idx_tmt_generic ON tmt_drugs(generic_name);
+CREATE INDEX IF NOT EXISTS idx_tmt_atc ON tmt_drugs(atc_code);
+
+COMMENT ON TABLE tmt_drugs IS 'Thai Medicines Terminology drug codes';
+
+-- Date Dimension Table (for BI/Analytics)
+CREATE TABLE IF NOT EXISTS dim_date (
+    date_id INTEGER PRIMARY KEY,
+    full_date DATE UNIQUE NOT NULL,
+    day_of_week INTEGER,
+    day_name VARCHAR(20),
+    day_of_month INTEGER,
+    day_of_year INTEGER,
+    week_of_year INTEGER,
+    month_number INTEGER,
+    month_name VARCHAR(20),
+    month_name_th VARCHAR(30),
+    quarter INTEGER,
+    year INTEGER,
+    fiscal_year INTEGER,
+    fiscal_quarter INTEGER,
+    is_weekend BOOLEAN,
+    is_holiday BOOLEAN DEFAULT FALSE,
+    holiday_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_dim_date_full ON dim_date(full_date);
+CREATE INDEX IF NOT EXISTS idx_dim_date_year_month ON dim_date(year, month_number);
+CREATE INDEX IF NOT EXISTS idx_dim_date_fiscal ON dim_date(fiscal_year, fiscal_quarter);
+
+COMMENT ON TABLE dim_date IS 'Date dimension table for BI analytics';
+
+-- Populate date dimension (5 years back and 2 years forward)
+INSERT INTO dim_date (date_id, full_date, day_of_week, day_name, day_of_month, day_of_year,
+                      week_of_year, month_number, month_name, month_name_th, quarter, year,
+                      fiscal_year, fiscal_quarter, is_weekend)
+SELECT
+    TO_CHAR(d, 'YYYYMMDD')::INTEGER as date_id,
+    d as full_date,
+    EXTRACT(DOW FROM d)::INTEGER as day_of_week,
+    TO_CHAR(d, 'Day') as day_name,
+    EXTRACT(DAY FROM d)::INTEGER as day_of_month,
+    EXTRACT(DOY FROM d)::INTEGER as day_of_year,
+    EXTRACT(WEEK FROM d)::INTEGER as week_of_year,
+    EXTRACT(MONTH FROM d)::INTEGER as month_number,
+    TO_CHAR(d, 'Month') as month_name,
+    CASE EXTRACT(MONTH FROM d)
+        WHEN 1 THEN 'มกราคม' WHEN 2 THEN 'กุมภาพันธ์' WHEN 3 THEN 'มีนาคม'
+        WHEN 4 THEN 'เมษายน' WHEN 5 THEN 'พฤษภาคม' WHEN 6 THEN 'มิถุนายน'
+        WHEN 7 THEN 'กรกฎาคม' WHEN 8 THEN 'สิงหาคม' WHEN 9 THEN 'กันยายน'
+        WHEN 10 THEN 'ตุลาคม' WHEN 11 THEN 'พฤศจิกายน' WHEN 12 THEN 'ธันวาคม'
+    END as month_name_th,
+    EXTRACT(QUARTER FROM d)::INTEGER as quarter,
+    EXTRACT(YEAR FROM d)::INTEGER as year,
+    CASE WHEN EXTRACT(MONTH FROM d) >= 10 THEN EXTRACT(YEAR FROM d)::INTEGER + 1
+         ELSE EXTRACT(YEAR FROM d)::INTEGER
+    END as fiscal_year,
+    CASE
+        WHEN EXTRACT(MONTH FROM d) IN (10,11,12) THEN 1
+        WHEN EXTRACT(MONTH FROM d) IN (1,2,3) THEN 2
+        WHEN EXTRACT(MONTH FROM d) IN (4,5,6) THEN 3
+        ELSE 4
+    END as fiscal_quarter,
+    EXTRACT(DOW FROM d) IN (0, 6) as is_weekend
+FROM generate_series(
+    CURRENT_DATE - INTERVAL '5 years',
+    CURRENT_DATE + INTERVAL '2 years',
+    INTERVAL '1 day'
+)::DATE as d
+ON CONFLICT (date_id) DO NOTHING;
+
+-- ============================================================================
+-- 11. ANALYTICS VIEWS
+-- ============================================================================
+
+-- Monthly Revenue Analysis by Fund Type
+CREATE OR REPLACE VIEW v_monthly_revenue_by_fund AS
+SELECT
+    d.year,
+    d.month_number,
+    d.month_name_th,
+    d.fiscal_year,
+    d.fiscal_quarter,
+    c.ptype,
+    c.main_fund,
+    c.scheme,
+    COUNT(*) as total_cases,
+    SUM(c.claim_drg) as total_claimed,
+    SUM(c.reimb_nhso) as total_reimb_nhso,
+    SUM(c.reimb_agency) as total_reimb_agency,
+    AVG(c.reimb_nhso) as avg_reimb_nhso,
+    SUM(CASE WHEN c.error_code IS NOT NULL AND c.error_code != '-' THEN 1 ELSE 0 END) as denied_cases
+FROM claim_rep_opip_nhso_item c
+JOIN dim_date d ON DATE(c.dateadm) = d.full_date
+GROUP BY d.year, d.month_number, d.month_name_th, d.fiscal_year, d.fiscal_quarter,
+         c.ptype, c.main_fund, c.scheme
+ORDER BY d.year DESC, d.month_number DESC, c.ptype, c.main_fund;
+
+-- Daily Revenue Analysis
+CREATE OR REPLACE VIEW v_daily_revenue AS
+SELECT
+    DATE(c.dateadm) as service_date,
+    c.ptype,
+    c.main_inscl,
+    COUNT(*) as total_cases,
+    SUM(c.reimb_nhso) as total_reimb,
+    AVG(c.reimb_nhso) as avg_reimb,
+    SUM(CASE WHEN c.error_code IS NOT NULL AND c.error_code != '-' THEN 1 ELSE 0 END) as denied_count
+FROM claim_rep_opip_nhso_item c
+WHERE c.dateadm IS NOT NULL
+GROUP BY DATE(c.dateadm), c.ptype, c.main_inscl
+ORDER BY service_date DESC, c.ptype, c.main_inscl;
+
+-- Error/Denial Analysis
+CREATE OR REPLACE VIEW v_error_analysis AS
+SELECT
+    c.error_code,
+    e.error_description_th,
+    e.error_category,
+    c.ptype,
+    COUNT(*) as total_cases,
+    SUM(c.claim_drg) as total_claimed,
+    SUM(c.reimb_nhso) as total_reimb,
+    SUM(c.claim_drg) - SUM(c.reimb_nhso) as total_denied_amount,
+    ROUND(AVG(c.claim_drg - c.reimb_nhso), 2) as avg_denied_amount
+FROM claim_rep_opip_nhso_item c
+LEFT JOIN nhso_error_codes e ON c.error_code = e.error_code
+WHERE c.error_code IS NOT NULL AND c.error_code != '-'
+GROUP BY c.error_code, e.error_description_th, e.error_category, c.ptype
+ORDER BY total_cases DESC;
+
+-- Fund Type Performance
+CREATE OR REPLACE VIEW v_fund_performance AS
+SELECT
+    c.main_fund,
+    c.sub_fund,
+    f.fund_name_th,
+    c.ptype,
+    COUNT(*) as total_cases,
+    SUM(c.claim_drg) as total_claimed,
+    SUM(c.reimb_nhso) as total_reimb,
+    ROUND(AVG(c.reimb_nhso), 2) as avg_reimb,
+    ROUND(SUM(c.reimb_nhso) * 100.0 / NULLIF(SUM(c.claim_drg), 0), 2) as reimb_rate_pct
+FROM claim_rep_opip_nhso_item c
+LEFT JOIN fund_types f ON c.main_fund = f.fund_code
+GROUP BY c.main_fund, c.sub_fund, f.fund_name_th, c.ptype
+ORDER BY total_reimb DESC;
+
+-- HC (High Cost) Analysis
+CREATE OR REPLACE VIEW v_hc_analysis AS
+SELECT
+    d.year,
+    d.month_number,
+    d.month_name_th,
+    c.ptype,
+    COUNT(*) as total_cases,
+    SUM(COALESCE(c.iphc, 0)) as total_iphc,
+    SUM(COALESCE(c.ophc, 0)) as total_ophc,
+    SUM(COALESCE(c.iphc, 0) + COALESCE(c.ophc, 0)) as total_hc,
+    AVG(COALESCE(c.iphc, 0) + COALESCE(c.ophc, 0)) as avg_hc
+FROM claim_rep_opip_nhso_item c
+JOIN dim_date d ON DATE(c.dateadm) = d.full_date
+WHERE COALESCE(c.iphc, 0) > 0 OR COALESCE(c.ophc, 0) > 0
+GROUP BY d.year, d.month_number, d.month_name_th, c.ptype
+ORDER BY d.year DESC, d.month_number DESC;
+
+-- AE (Accident & Emergency) Analysis
+CREATE OR REPLACE VIEW v_ae_analysis AS
+SELECT
+    d.year,
+    d.month_number,
+    d.month_name_th,
+    c.ptype,
+    COUNT(*) as total_cases,
+    SUM(COALESCE(c.ae_opae, 0)) as total_opae,
+    SUM(COALESCE(c.ae_ipnb, 0)) as total_ipnb,
+    SUM(COALESCE(c.ae_ipuc, 0)) as total_ipuc,
+    SUM(COALESCE(c.ae_carae, 0)) as total_carae,
+    SUM(COALESCE(c.ae_opae, 0) + COALESCE(c.ae_ipnb, 0) + COALESCE(c.ae_ipuc, 0) +
+        COALESCE(c.ae_ip3sss, 0) + COALESCE(c.ae_ip7sss, 0) + COALESCE(c.ae_carae, 0) +
+        COALESCE(c.ae_caref, 0) + COALESCE(c.ae_caref_puc, 0)) as total_ae
+FROM claim_rep_opip_nhso_item c
+JOIN dim_date d ON DATE(c.dateadm) = d.full_date
+WHERE COALESCE(c.ae_opae, 0) > 0 OR COALESCE(c.ae_ipnb, 0) > 0 OR COALESCE(c.ae_ipuc, 0) > 0
+GROUP BY d.year, d.month_number, d.month_name_th, c.ptype
+ORDER BY d.year DESC, d.month_number DESC;
+
+-- DMIS (Chronic Disease) Analysis
+CREATE OR REPLACE VIEW v_dmis_analysis AS
+SELECT
+    d.year,
+    d.month_number,
+    d.month_name_th,
+    COUNT(*) as total_cases,
+    SUM(COALESCE(c.cataract_amt, 0)) as total_cataract,
+    SUM(COALESCE(c.dmisrc_amt, 0)) as total_dmisrc,
+    SUM(COALESCE(c.rcuhosc_amt, 0)) as total_rcuhosc,
+    SUM(COALESCE(c.rcuhosr_amt, 0)) as total_rcuhosr,
+    SUM(COALESCE(c.dmis_stroke_drug, 0)) as total_stroke_drug,
+    SUM(COALESCE(c.dmis_dm, 0)) as total_dm,
+    SUM(COALESCE(c.dmis_pp, 0)) as total_pp
+FROM claim_rep_opip_nhso_item c
+JOIN dim_date d ON DATE(c.dateadm) = d.full_date
+WHERE COALESCE(c.cataract_amt, 0) > 0 OR COALESCE(c.dmisrc_amt, 0) > 0 OR
+      COALESCE(c.rcuhosc_amt, 0) > 0 OR COALESCE(c.dmis_dm, 0) > 0
+GROUP BY d.year, d.month_number, d.month_name_th
+ORDER BY d.year DESC, d.month_number DESC;
+
+-- Denial Category Analysis
+CREATE OR REPLACE VIEW v_denial_breakdown AS
+SELECT
+    d.year,
+    d.month_number,
+    d.month_name_th,
+    c.ptype,
+    COUNT(*) as total_cases,
+    SUM(CASE WHEN c.deny_hc IS NOT NULL AND c.deny_hc != '-' THEN 1 ELSE 0 END) as deny_hc_count,
+    SUM(CASE WHEN c.deny_ae IS NOT NULL AND c.deny_ae != '-' THEN 1 ELSE 0 END) as deny_ae_count,
+    SUM(CASE WHEN c.deny_inst IS NOT NULL AND c.deny_inst != '-' THEN 1 ELSE 0 END) as deny_inst_count,
+    SUM(CASE WHEN c.deny_ip IS NOT NULL AND c.deny_ip != '-' THEN 1 ELSE 0 END) as deny_ip_count,
+    SUM(CASE WHEN c.deny_dmis IS NOT NULL AND c.deny_dmis != '-' THEN 1 ELSE 0 END) as deny_dmis_count
+FROM claim_rep_opip_nhso_item c
+JOIN dim_date d ON DATE(c.dateadm) = d.full_date
+GROUP BY d.year, d.month_number, d.month_name_th, c.ptype
+ORDER BY d.year DESC, d.month_number DESC;
+
+-- Import File Summary
+CREATE OR REPLACE VIEW v_file_import_summary AS
+SELECT
+    f.id as file_id,
+    f.filename,
+    f.file_type,
+    f.hospital_code,
+    f.file_date,
+    f.status,
+    f.total_records,
+    f.imported_records,
+    f.failed_records,
+    f.import_started_at,
+    f.import_completed_at,
+    EXTRACT(EPOCH FROM (f.import_completed_at - f.import_started_at)) as duration_seconds,
+    COALESCE(c.total_reimb, 0) as total_reimb,
+    COALESCE(c.total_claimed, 0) as total_claimed
+FROM eclaim_imported_files f
+LEFT JOIN (
+    SELECT file_id,
+           SUM(reimb_nhso) as total_reimb,
+           SUM(claim_drg) as total_claimed
+    FROM claim_rep_opip_nhso_item
+    GROUP BY file_id
+) c ON f.id = c.file_id
+ORDER BY f.import_started_at DESC;
+
+-- Hospital Comparison (if multiple hospitals)
+CREATE OR REPLACE VIEW v_hospital_comparison AS
+SELECT
+    c.hcode,
+    h.name as hospital_name,
+    h.health_region,
+    d.year,
+    d.month_number,
+    COUNT(*) as total_cases,
+    SUM(c.reimb_nhso) as total_reimb,
+    AVG(c.reimb_nhso) as avg_reimb,
+    SUM(CASE WHEN c.error_code IS NOT NULL AND c.error_code != '-' THEN 1 ELSE 0 END) as denied_cases,
+    ROUND(SUM(CASE WHEN c.error_code IS NOT NULL AND c.error_code != '-' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as denial_rate_pct
+FROM claim_rep_opip_nhso_item c
+JOIN dim_date d ON DATE(c.dateadm) = d.full_date
+LEFT JOIN health_offices h ON c.hcode = h.code
+GROUP BY c.hcode, h.name, h.health_region, d.year, d.month_number
+ORDER BY d.year DESC, d.month_number DESC, total_reimb DESC;
+
+-- DRG Distribution Analysis
+CREATE OR REPLACE VIEW v_drg_distribution AS
+SELECT
+    c.drg,
+    dg.drg_name_th,
+    dg.mdc,
+    dg.mdc_name,
+    COUNT(*) as total_cases,
+    AVG(c.rw) as avg_rw,
+    SUM(c.reimb_nhso) as total_reimb,
+    AVG(c.reimb_nhso) as avg_reimb
+FROM claim_rep_opip_nhso_item c
+LEFT JOIN drg_codes dg ON c.drg = dg.drg_code
+WHERE c.drg IS NOT NULL AND c.drg != '-'
+GROUP BY c.drg, dg.drg_name_th, dg.mdc, dg.mdc_name
+ORDER BY total_cases DESC;
+
+-- Payment Type Analysis
+CREATE OR REPLACE VIEW v_payment_type_analysis AS
+SELECT
+    c.payment_type,
+    c.ptype,
+    d.year,
+    d.month_number,
+    COUNT(*) as total_cases,
+    SUM(c.reimb_nhso) as total_reimb,
+    AVG(c.reimb_nhso) as avg_reimb
+FROM claim_rep_opip_nhso_item c
+JOIN dim_date d ON DATE(c.dateadm) = d.full_date
+WHERE c.payment_type IS NOT NULL
+GROUP BY c.payment_type, c.ptype, d.year, d.month_number
+ORDER BY d.year DESC, d.month_number DESC, total_reimb DESC;
 
 -- ============================================================================
 -- END OF SCHEMA

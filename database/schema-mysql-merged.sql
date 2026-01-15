@@ -198,6 +198,7 @@ CREATE TABLE `claim_rep_opip_nhso_item` (
   `seq_no` VARCHAR(15) DEFAULT NULL,
   `invoice_no` VARCHAR(20) DEFAULT NULL,
   `invoice_lt` VARCHAR(20) DEFAULT NULL,
+  `scheme` VARCHAR(10) DEFAULT NULL COMMENT 'Insurance scheme: UCS, LGO, SSS, OFC',
 
   -- ORIGINAL: Hospital internal fields
   `inp_id` INT DEFAULT NULL,
@@ -228,6 +229,7 @@ CREATE TABLE `claim_rep_opip_nhso_item` (
 
   -- NEW: Additional indexes
   KEY `idx_file_id` (`file_id`),
+  KEY `idx_scheme` (`scheme`),
   KEY `idx_reconcile` (`his_matched`, `reconcile_status`),
 
   -- NEW: Unique constraint for UPSERT
