@@ -110,34 +110,33 @@ class AlertManager:
             Alert ID or None if failed
         """
         try:
-            conn = get_db_connection()
-            if not conn:
-                return None
+            with get_db_connection() as conn:
+                if not conn:
+                    return None
 
-            cursor = conn.cursor()
+                cursor = conn.cursor()
 
-            if DB_TYPE == 'mysql':
-                cursor.execute("""
-                    INSERT INTO system_alerts
-                    (alert_type, severity, title, message, related_type, related_id)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (alert_type, severity, title, message, related_type, related_id))
-                alert_id = cursor.lastrowid
-            else:
-                cursor.execute("""
-                    INSERT INTO system_alerts
-                    (alert_type, severity, title, message, related_type, related_id)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                """, (alert_type, severity, title, message, related_type, related_id))
-                result = cursor.fetchone()
-                alert_id = result[0] if result else None
+                if DB_TYPE == 'mysql':
+                    cursor.execute("""
+                        INSERT INTO system_alerts
+                        (alert_type, severity, title, message, related_type, related_id)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (alert_type, severity, title, message, related_type, related_id))
+                    alert_id = cursor.lastrowid
+                else:
+                    cursor.execute("""
+                        INSERT INTO system_alerts
+                        (alert_type, severity, title, message, related_type, related_id)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    """, (alert_type, severity, title, message, related_type, related_id))
+                    result = cursor.fetchone()
+                    alert_id = result[0] if result else None
 
-            conn.commit()
-            cursor.close()
-            conn.close()
+                conn.commit()
+                cursor.close()
 
-            return alert_id
+                return alert_id
 
         except Exception as e:
             print(f"Error creating alert: {e}")
@@ -146,20 +145,19 @@ class AlertManager:
     def get_unread_count(self) -> int:
         """Get count of unread, not dismissed alerts"""
         try:
-            conn = get_db_connection()
-            if not conn:
-                return 0
+            with get_db_connection() as conn:
+                if not conn:
+                    return 0
 
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT COUNT(*) FROM system_alerts
-                WHERE is_read = FALSE AND is_dismissed = FALSE
-            """)
-            result = cursor.fetchone()
-            cursor.close()
-            conn.close()
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT COUNT(*) FROM system_alerts
+                    WHERE is_read = FALSE AND is_dismissed = FALSE
+                """)
+                result = cursor.fetchone()
+                cursor.close()
 
-            return result[0] if result else 0
+                return result[0] if result else 0
 
         except Exception as e:
             print(f"Error getting unread count: {e}")
@@ -185,46 +183,45 @@ class AlertManager:
             List of alert dicts
         """
         try:
-            conn = get_db_connection()
-            if not conn:
-                return []
+            with get_db_connection() as conn:
+                if not conn:
+                    return []
 
-            cursor = conn.cursor()
+                cursor = conn.cursor()
 
-            query = "SELECT * FROM system_alerts WHERE 1=1"
-            params = []
+                query = "SELECT * FROM system_alerts WHERE 1=1"
+                params = []
 
-            if not include_dismissed:
-                query += " AND is_dismissed = FALSE"
+                if not include_dismissed:
+                    query += " AND is_dismissed = FALSE"
 
-            if alert_type:
-                query += " AND alert_type = %s"
-                params.append(alert_type)
+                if alert_type:
+                    query += " AND alert_type = %s"
+                    params.append(alert_type)
 
-            if severity:
-                query += " AND severity = %s"
-                params.append(severity)
+                if severity:
+                    query += " AND severity = %s"
+                    params.append(severity)
 
-            query += " ORDER BY created_at DESC LIMIT %s"
-            params.append(limit)
+                query += " ORDER BY created_at DESC LIMIT %s"
+                params.append(limit)
 
-            cursor.execute(query, params)
-            columns = [desc[0] for desc in cursor.description]
-            rows = cursor.fetchall()
+                cursor.execute(query, params)
+                columns = [desc[0] for desc in cursor.description]
+                rows = cursor.fetchall()
 
-            cursor.close()
-            conn.close()
+                cursor.close()
 
-            alerts = []
-            for row in rows:
-                alert = dict(zip(columns, row))
-                # Convert datetime to ISO string
-                for key in ['created_at', 'read_at', 'dismissed_at']:
-                    if alert.get(key) and hasattr(alert[key], 'isoformat'):
-                        alert[key] = alert[key].isoformat()
-                alerts.append(alert)
+                alerts = []
+                for row in rows:
+                    alert = dict(zip(columns, row))
+                    # Convert datetime to ISO string
+                    for key in ['created_at', 'read_at', 'dismissed_at']:
+                        if alert.get(key) and hasattr(alert[key], 'isoformat'):
+                            alert[key] = alert[key].isoformat()
+                    alerts.append(alert)
 
-            return alerts
+                return alerts
 
         except Exception as e:
             print(f"Error getting alerts: {e}")
@@ -233,22 +230,21 @@ class AlertManager:
     def mark_as_read(self, alert_id: int) -> bool:
         """Mark an alert as read"""
         try:
-            conn = get_db_connection()
-            if not conn:
-                return False
+            with get_db_connection() as conn:
+                if not conn:
+                    return False
 
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE system_alerts
-                SET is_read = TRUE, read_at = %s
-                WHERE id = %s
-            """, (datetime.now(), alert_id))
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE system_alerts
+                    SET is_read = TRUE, read_at = %s
+                    WHERE id = %s
+                """, (datetime.now(), alert_id))
 
-            conn.commit()
-            cursor.close()
-            conn.close()
+                conn.commit()
+                cursor.close()
 
-            return True
+                return True
 
         except Exception as e:
             print(f"Error marking alert as read: {e}")
@@ -257,23 +253,22 @@ class AlertManager:
     def mark_all_as_read(self) -> int:
         """Mark all unread alerts as read"""
         try:
-            conn = get_db_connection()
-            if not conn:
-                return 0
+            with get_db_connection() as conn:
+                if not conn:
+                    return 0
 
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE system_alerts
-                SET is_read = TRUE, read_at = %s
-                WHERE is_read = FALSE
-            """, (datetime.now(),))
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE system_alerts
+                    SET is_read = TRUE, read_at = %s
+                    WHERE is_read = FALSE
+                """, (datetime.now(),))
 
-            affected = cursor.rowcount
-            conn.commit()
-            cursor.close()
-            conn.close()
+                affected = cursor.rowcount
+                conn.commit()
+                cursor.close()
 
-            return affected
+                return affected
 
         except Exception as e:
             print(f"Error marking all as read: {e}")
@@ -282,22 +277,21 @@ class AlertManager:
     def dismiss_alert(self, alert_id: int) -> bool:
         """Dismiss an alert"""
         try:
-            conn = get_db_connection()
-            if not conn:
-                return False
+            with get_db_connection() as conn:
+                if not conn:
+                    return False
 
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE system_alerts
-                SET is_dismissed = TRUE, dismissed_at = %s
-                WHERE id = %s
-            """, (datetime.now(), alert_id))
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE system_alerts
+                    SET is_dismissed = TRUE, dismissed_at = %s
+                    WHERE id = %s
+                """, (datetime.now(), alert_id))
 
-            conn.commit()
-            cursor.close()
-            conn.close()
+                conn.commit()
+                cursor.close()
 
-            return True
+                return True
 
         except Exception as e:
             print(f"Error dismissing alert: {e}")
@@ -306,23 +300,22 @@ class AlertManager:
     def dismiss_all(self) -> int:
         """Dismiss all alerts"""
         try:
-            conn = get_db_connection()
-            if not conn:
-                return 0
+            with get_db_connection() as conn:
+                if not conn:
+                    return 0
 
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE system_alerts
-                SET is_dismissed = TRUE, dismissed_at = %s
-                WHERE is_dismissed = FALSE
-            """, (datetime.now(),))
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE system_alerts
+                    SET is_dismissed = TRUE, dismissed_at = %s
+                    WHERE is_dismissed = FALSE
+                """, (datetime.now(),))
 
-            affected = cursor.rowcount
-            conn.commit()
-            cursor.close()
-            conn.close()
+                affected = cursor.rowcount
+                conn.commit()
+                cursor.close()
 
-            return affected
+                return affected
 
         except Exception as e:
             print(f"Error dismissing all: {e}")
