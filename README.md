@@ -39,8 +39,8 @@ If you find this project helpful, consider buying me a coffee!
 
 **NHSO Revenue Intelligence** (เดิมชื่อ E-Claim Downloader) เป็นระบบวิเคราะห์รายได้จากการเบิกจ่าย สปสช. สำหรับโรงพยาบาล ครอบคลุมตั้งแต่การ download ข้อมูล E-Claim, import เข้าฐานข้อมูล, วิเคราะห์รายได้, จนถึงกระทบยอดกับข้อมูล SMT Budget
 
-**Version:** v3.0.0
-**Last Updated:** 2026-01-11
+**Version:** v3.1.0
+**Last Updated:** 2026-01-15
 
 ### Data Sources
 
@@ -87,6 +87,17 @@ If you find this project helpful, consider buying me a coffee!
 - **Files Tab**: จัดการไฟล์ & Import status
 - **SMT Sync Tab**: ดึงข้อมูล SMT Budget
 - **Settings Tab**: Credentials & Scheduler
+
+### Benchmark & Analytics
+- **My Hospital Analytics**: วิเคราะห์ข้อมูลเฉพาะโรงพยาบาล
+- **Benchmark Page**: เปรียบเทียบกับโรงพยาบาลอื่นในกลุ่มเดียวกัน
+- **Job History**: ประวัติการ download/import ทั้งหมด
+
+### Master Data
+- **ICD-10 Codes**: รหัสโรค ICD-10 TM
+- **ICD-9 CM Procedures**: รหัสหัตถการ
+- **TMT Drugs**: รหัสยา TMT
+- **Health Offices**: ข้อมูลหน่วยบริการ
 
 ### Auto Scheduling
 - ตั้งเวลา download ได้หลายช่วงต่อวัน
@@ -248,30 +259,30 @@ eclaim-rep-download/
 
 ## Version History
 
-### v3.0.0 (2026-01-11) - Revenue Intelligence Release
+See **[CHANGELOG.md](CHANGELOG.md)** for detailed version history.
 
-**Major Changes:**
-- Rebrand to **NHSO Revenue Intelligence**
-- New **Revenue Dashboard** with KPIs
-- New **Analytics Dashboard** with filters
-- **Reconciliation** (REP vs SMT)
-- Combined **Data Management** page
-- SMT Budget integration
-- New navigation structure (4 main pages)
+### Latest: v3.1.0 (2026-01-15)
 
-### v2.0.0 (2026-01-08) - Hospital Schema Release
+**New Features:**
+- TRAN_ID search field
+- Job History tracking
+- Benchmark page
+- My Hospital Analytics
+- Master data import (ICD-10, TMT, etc.)
 
-- Hospital database schema
-- Complete Field Mapping (170+ fields)
-- Multi-Database support
-- Import fixes
+**Bug Fixes:**
+- Header row skip in additional sheets import
+- Connection pool issues
+- DNS resolution in Docker
 
-### v1.0.0 - Initial Release
+### Previous Releases
 
-- E-Claim Downloader
-- Web UI Dashboard
-- Database Import
-- Docker Support
+| Version | Date | Highlights |
+|---------|------|------------|
+| v3.0.0 | 2026-01-11 | Revenue Intelligence, Dashboard, Reconciliation |
+| v2.0.0 | 2026-01-08 | Hospital Schema, Complete Field Mapping |
+| v1.1.0 | 2026-01-05 | Bulk Download, Auto Scheduler |
+| v1.0.0 | 2026-01-01 | Initial Release |
 
 ---
 
@@ -336,4 +347,4 @@ This software is **legal** when used correctly with authorized credentials and f
 
 **Made with love by [aegisx platform](https://github.com/aegisx-platform)**
 
-**Last Updated:** 2026-01-11 | **Version:** v3.0.0
+**Last Updated:** 2026-01-15 | **Version:** v3.1.0
