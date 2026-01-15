@@ -19,8 +19,74 @@ from utils.settings_manager import SettingsManager
 from utils.scheduler import download_scheduler
 from utils.job_history_manager import job_history_manager
 from utils.alert_manager import alert_manager
-from config.database import get_db_config
+from config.database import get_db_config, DB_TYPE
 from config.db_pool import init_pool, close_pool, get_connection as get_pooled_connection, return_connection, get_pool_status
+
+
+# Database-specific SQL helpers for PostgreSQL/MySQL compatibility
+# Note: MySQL % in DATE_FORMAT must be escaped as %% when used with cursor.execute()
+def sql_date_trunc_month(column: str) -> str:
+    """Generate SQL for truncating date to month start"""
+    if DB_TYPE == 'mysql':
+        return f"DATE_FORMAT({column}, '%%Y-%%m-01')"
+    return f"DATE_TRUNC('month', {column})"
+
+
+def sql_count_distinct_months(column: str) -> str:
+    """Generate SQL for counting distinct months"""
+    if DB_TYPE == 'mysql':
+        return f"COUNT(DISTINCT DATE_FORMAT({column}, '%%Y-%%m'))"
+    return f"COUNT(DISTINCT DATE_TRUNC('month', {column}))"
+
+
+def sql_current_month_start() -> str:
+    """Generate SQL for start of current month"""
+    if DB_TYPE == 'mysql':
+        return "DATE_FORMAT(CURRENT_DATE, '%%Y-%%m-01')"
+    return "DATE_TRUNC('month', CURRENT_DATE)"
+
+
+def sql_interval_months(months: int) -> str:
+    """Generate SQL for interval in months"""
+    if DB_TYPE == 'mysql':
+        return f"INTERVAL {months} MONTH"
+    return f"INTERVAL '{months} months'"
+
+
+def sql_format_year_month(column: str) -> str:
+    """Generate SQL for formatting date as YYYY-MM"""
+    if DB_TYPE == 'mysql':
+        return f"DATE_FORMAT({column}, '%%Y-%%m')"
+    return f"TO_CHAR({column}, 'YYYY-MM')"
+
+
+def sql_cast_numeric(expr: str) -> str:
+    """Generate SQL for casting to numeric type"""
+    if DB_TYPE == 'mysql':
+        return f"CAST({expr} AS DECIMAL(15,2))"
+    return f"({expr})::numeric"
+
+
+def sql_interval_days(days: int) -> str:
+    """Generate SQL for interval in days"""
+    if DB_TYPE == 'mysql':
+        return f"INTERVAL {days} DAY"
+    return f"INTERVAL '{days} days'"
+
+
+def sql_regex_match(column: str, pattern: str) -> str:
+    """Generate SQL for regex matching (is numeric check)"""
+    if DB_TYPE == 'mysql':
+        return f"{column} REGEXP '{pattern}'"
+    return f"{column} ~ '{pattern}'"
+
+
+def sql_coalesce_numeric(column: str, default: int = 0) -> str:
+    """Generate SQL for COALESCE with numeric cast"""
+    if DB_TYPE == 'mysql':
+        return f"CAST(COALESCE({column}, {default}) AS DECIMAL(15,2))"
+    return f"COALESCE({column}, {default})::numeric"
+
 
 # Thailand timezone
 TZ_BANGKOK = ZoneInfo('Asia/Bangkok')
@@ -6516,7 +6582,7 @@ def api_analytics_overview():
                 COALESCE(SUM(paid), 0) as total_paid,
                 COALESCE(SUM(claim_drg), 0) as total_claim_drg,
                 COUNT(DISTINCT hn) as unique_patients,
-                COUNT(DISTINCT DATE_TRUNC('month', dateadm)) as active_months
+                """ + sql_count_distinct_months('dateadm') + """ as active_months
             FROM claim_rep_opip_nhso_item
             WHERE """ + base_where
         cursor.execute(query, filter_params)
@@ -6690,9 +6756,10 @@ def api_analytics_monthly_trend():
             base_where += f" AND {date_filter}"
 
         # Monthly claims and amounts
+        year_month_col = sql_format_year_month('dateadm')
         query = f"""
             SELECT
-                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                {year_month_col} as month,
                 COUNT(*) as claims,
                 COALESCE(SUM(reimb_nhso), 0) as reimb,
                 COALESCE(SUM(paid), 0) as paid,
@@ -6700,7 +6767,7 @@ def api_analytics_monthly_trend():
                 COUNT(DISTINCT hn) as patients
             FROM claim_rep_opip_nhso_item
             WHERE {base_where}
-            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+            GROUP BY {year_month_col}
             ORDER BY month DESC
             LIMIT 12
         """
@@ -7177,15 +7244,16 @@ def api_analytics_comparison():
             base_where += f" AND {date_filter}"
 
         # Monthly comparison
+        year_month_col = sql_format_year_month('dateadm')
         query = f"""
             SELECT
-                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                {year_month_col} as month,
                 COALESCE(SUM(claim_drg), 0) as claimed,
                 COALESCE(SUM(reimb_nhso), 0) as approved,
                 COALESCE(SUM(paid), 0) as paid
             FROM claim_rep_opip_nhso_item
             WHERE {base_where}
-            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+            GROUP BY {year_month_col}
             ORDER BY month DESC
             LIMIT 12
         """
@@ -7611,12 +7679,12 @@ def api_denial_root_cause():
         # 5. Monthly trend
         trend_query = """
             SELECT
-                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                """ + sql_format_year_month('dateadm') + """ as month,
                 COUNT(*) as count,
                 COALESCE(SUM(claim_drg), 0) as total_amount
             FROM claim_rep_opip_nhso_item
             WHERE """ + where_clause + """ AND dateadm IS NOT NULL
-            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+            GROUP BY """ + sql_format_year_month('dateadm') + """
             ORDER BY month DESC
             LIMIT 12
         """
@@ -7687,8 +7755,7 @@ def api_alerts():
                 COALESCE(SUM(claim_drg), 0) as total_claimed,
                 COALESCE(SUM(paid), 0) as total_paid
             FROM claim_rep_opip_nhso_item
-            WHERE dateadm >= DATE_TRUNC('month', CURRENT_DATE)
-        """)
+            WHERE dateadm >= """ + sql_current_month_start())
         current = cursor.fetchone()
 
         if current[0] > 0:
@@ -7750,12 +7817,12 @@ def api_alerts():
         # Alert 3: Month-over-Month decline
         cursor.execute("""
             SELECT
-                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                """ + sql_format_year_month('dateadm') + """ as month,
                 COUNT(*) as claims,
                 COALESCE(SUM(reimb_nhso), 0) as reimb
             FROM claim_rep_opip_nhso_item
-            WHERE dateadm >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '2 months'
-            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+            WHERE dateadm >= """ + sql_current_month_start() + """ - """ + sql_interval_months(2) + """
+            GROUP BY """ + sql_format_year_month('dateadm') + """
             ORDER BY month DESC
             LIMIT 2
         """)
@@ -7792,12 +7859,12 @@ def api_alerts():
                     })
 
         # Alert 4: Pending claims (no payment)
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT COUNT(*)
             FROM claim_rep_opip_nhso_item
             WHERE (paid IS NULL OR paid = 0)
             AND claim_drg > 0
-            AND dateadm < CURRENT_DATE - INTERVAL '30 days'
+            AND dateadm < CURRENT_DATE - {sql_interval_days(30)}
         """)
         pending = cursor.fetchone()[0]
         if pending > 100:
@@ -7857,15 +7924,15 @@ def api_revenue_forecast():
         # Get historical monthly data (last 24 months)
         query = """
             SELECT
-                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                """ + sql_format_year_month('dateadm') + """ as month,
                 COUNT(*) as claims,
                 COALESCE(SUM(claim_drg), 0) as claimed,
                 COALESCE(SUM(reimb_nhso), 0) as reimb,
                 COALESCE(SUM(paid), 0) as paid
             FROM claim_rep_opip_nhso_item
             WHERE dateadm IS NOT NULL
-              AND dateadm >= CURRENT_DATE - INTERVAL '24 months'
-            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+              AND dateadm >= CURRENT_DATE - """ + sql_interval_months(24) + """
+            GROUP BY """ + sql_format_year_month('dateadm') + """
             ORDER BY month ASC
         """
         cursor.execute(query)
@@ -8187,8 +8254,9 @@ def api_export_report(report_type):
 
         elif report_type == 'monthly':
             # Export monthly summary
-            query = """
-                SELECT TO_CHAR(dateadm, 'YYYY-MM') as month,
+            year_month_col = sql_format_year_month('dateadm')
+            query = f"""
+                SELECT {year_month_col} as month,
                        COUNT(*) as claims,
                        SUM(claim_drg) as claimed,
                        SUM(reimb_nhso) as reimb,
@@ -8196,7 +8264,7 @@ def api_export_report(report_type):
                        COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as denials
                 FROM claim_rep_opip_nhso_item
                 WHERE dateadm IS NOT NULL
-                GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+                GROUP BY {year_month_col}
                 ORDER BY month DESC
             """
             cursor.execute(query)
@@ -9002,7 +9070,7 @@ def api_benchmark_my_hospital():
         # Get monthly trend
         cursor.execute("""
             SELECT
-                TO_CHAR(run_date, 'YYYY-MM') as month,
+                """ + sql_format_year_month('run_date') + """ as month,
                 COALESCE(SUM(total_amount), 0) as total_amount,
                 COALESCE(SUM(wait_amount), 0) as wait_amount,
                 COALESCE(SUM(debt_amount), 0) as debt_amount,
@@ -9010,7 +9078,7 @@ def api_benchmark_my_hospital():
             FROM smt_budget_transfers
             WHERE (vendor_no = %s OR vendor_no = %s)
               AND run_date >= %s AND run_date <= %s
-            GROUP BY TO_CHAR(run_date, 'YYYY-MM')
+            GROUP BY """ + sql_format_year_month('run_date') + """
             ORDER BY month
         """, (vendor_id_10, vendor_id_5, start_date, end_date))
 
@@ -9206,7 +9274,7 @@ def api_benchmark_region_average():
         # Get monthly trend for region
         cursor.execute("""
             SELECT
-                TO_CHAR(s.run_date, 'YYYY-MM') as month,
+                """ + sql_format_year_month('s.run_date') + """ as month,
                 COALESCE(SUM(s.total_amount), 0) as total_amount,
                 COALESCE(AVG(s.total_amount), 0) as avg_amount
             FROM smt_budget_transfers s
@@ -9216,7 +9284,7 @@ def api_benchmark_region_average():
             )
             WHERE h.health_region = %s
               AND s.run_date >= %s AND s.run_date <= %s
-            GROUP BY TO_CHAR(s.run_date, 'YYYY-MM')
+            GROUP BY """ + sql_format_year_month('s.run_date') + """
             ORDER BY month
         """, (health_region_pattern, start_date, end_date))
 
@@ -9421,13 +9489,14 @@ def api_denial_risk():
             })
 
         # 4. Error rate by claim amount ranges
-        cursor.execute("""
+        claim_numeric = sql_coalesce_numeric('claim_drg', 0)
+        cursor.execute(f"""
             SELECT
                 CASE
-                    WHEN COALESCE(claim_drg, 0)::numeric < 1000 THEN 'Under 1,000'
-                    WHEN COALESCE(claim_drg, 0)::numeric < 5000 THEN '1,000-5,000'
-                    WHEN COALESCE(claim_drg, 0)::numeric < 10000 THEN '5,000-10,000'
-                    WHEN COALESCE(claim_drg, 0)::numeric < 50000 THEN '10,000-50,000'
+                    WHEN {claim_numeric} < 1000 THEN 'Under 1,000'
+                    WHEN {claim_numeric} < 5000 THEN '1,000-5,000'
+                    WHEN {claim_numeric} < 10000 THEN '5,000-10,000'
+                    WHEN {claim_numeric} < 50000 THEN '10,000-50,000'
                     ELSE 'Over 50,000'
                 END as amount_range,
                 COUNT(*) as total_claims,
@@ -9437,10 +9506,10 @@ def api_denial_risk():
                     NULLIF(COUNT(*), 0), 2
                 ) as error_rate,
                 CASE
-                    WHEN COALESCE(claim_drg, 0)::numeric < 1000 THEN 1
-                    WHEN COALESCE(claim_drg, 0)::numeric < 5000 THEN 2
-                    WHEN COALESCE(claim_drg, 0)::numeric < 10000 THEN 3
-                    WHEN COALESCE(claim_drg, 0)::numeric < 50000 THEN 4
+                    WHEN {claim_numeric} < 1000 THEN 1
+                    WHEN {claim_numeric} < 5000 THEN 2
+                    WHEN {claim_numeric} < 10000 THEN 3
+                    WHEN {claim_numeric} < 50000 THEN 4
                     ELSE 5
                 END as sort_order
             FROM claim_rep_opip_nhso_item
@@ -9507,42 +9576,112 @@ def api_anomalies():
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
         cursor = conn.cursor()
+        claim_numeric = sql_coalesce_numeric('claim_drg', 0)
+        reimb_numeric = sql_coalesce_numeric('reimb_nhso', 0)
 
         # 1. Calculate statistical metrics for claim amounts
-        cursor.execute("""
-            SELECT
-                AVG(COALESCE(claim_drg, 0)::numeric) as mean_amount,
-                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY COALESCE(claim_drg, 0)::numeric) as median_amount,
-                STDDEV(COALESCE(claim_drg, 0)::numeric) as std_amount,
-                MIN(COALESCE(claim_drg, 0)::numeric) as min_amount,
-                MAX(COALESCE(claim_drg, 0)::numeric) as max_amount,
-                PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY COALESCE(claim_drg, 0)::numeric) as q1,
-                PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY COALESCE(claim_drg, 0)::numeric) as q3
-            FROM claim_rep_opip_nhso_item
-            WHERE claim_drg IS NOT NULL
-        """)
-        stats_row = cursor.fetchone()
-        stats = {
-            'mean': float(stats_row[0]) if stats_row[0] else 0,
-            'median': float(stats_row[1]) if stats_row[1] else 0,
-            'std': float(stats_row[2]) if stats_row[2] else 0,
-            'min': float(stats_row[3]) if stats_row[3] else 0,
-            'max': float(stats_row[4]) if stats_row[4] else 0,
-            'q1': float(stats_row[5]) if stats_row[5] else 0,
-            'q3': float(stats_row[6]) if stats_row[6] else 0
-        }
+        if DB_TYPE == 'mysql':
+            # MySQL: Calculate basic stats, then compute percentiles via subqueries
+            cursor.execute(f"""
+                SELECT
+                    AVG({claim_numeric}) as mean_amount,
+                    STDDEV({claim_numeric}) as std_amount,
+                    MIN({claim_numeric}) as min_amount,
+                    MAX({claim_numeric}) as max_amount,
+                    COUNT(*) as total_count
+                FROM claim_rep_opip_nhso_item
+                WHERE claim_drg IS NOT NULL
+            """)
+            basic_stats = cursor.fetchone()
+            total_count = basic_stats[4] if basic_stats[4] else 0
+
+            # Compute percentiles using LIMIT/OFFSET for MySQL
+            median = 0
+            q1 = 0
+            q3 = 0
+            if total_count > 0:
+                # Median (50th percentile)
+                offset_50 = max(0, int(total_count * 0.5) - 1)
+                cursor.execute(f"""
+                    SELECT {claim_numeric}
+                    FROM claim_rep_opip_nhso_item
+                    WHERE claim_drg IS NOT NULL
+                    ORDER BY claim_drg
+                    LIMIT 1 OFFSET {offset_50}
+                """)
+                median_row = cursor.fetchone()
+                median = float(median_row[0]) if median_row and median_row[0] else 0
+
+                # Q1 (25th percentile)
+                offset_25 = max(0, int(total_count * 0.25) - 1)
+                cursor.execute(f"""
+                    SELECT {claim_numeric}
+                    FROM claim_rep_opip_nhso_item
+                    WHERE claim_drg IS NOT NULL
+                    ORDER BY claim_drg
+                    LIMIT 1 OFFSET {offset_25}
+                """)
+                q1_row = cursor.fetchone()
+                q1 = float(q1_row[0]) if q1_row and q1_row[0] else 0
+
+                # Q3 (75th percentile)
+                offset_75 = max(0, int(total_count * 0.75) - 1)
+                cursor.execute(f"""
+                    SELECT {claim_numeric}
+                    FROM claim_rep_opip_nhso_item
+                    WHERE claim_drg IS NOT NULL
+                    ORDER BY claim_drg
+                    LIMIT 1 OFFSET {offset_75}
+                """)
+                q3_row = cursor.fetchone()
+                q3 = float(q3_row[0]) if q3_row and q3_row[0] else 0
+
+            stats = {
+                'mean': float(basic_stats[0]) if basic_stats[0] else 0,
+                'median': median,
+                'std': float(basic_stats[1]) if basic_stats[1] else 0,
+                'min': float(basic_stats[2]) if basic_stats[2] else 0,
+                'max': float(basic_stats[3]) if basic_stats[3] else 0,
+                'q1': q1,
+                'q3': q3
+            }
+        else:
+            # PostgreSQL: Use PERCENTILE_CONT
+            cursor.execute(f"""
+                SELECT
+                    AVG({claim_numeric}) as mean_amount,
+                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {claim_numeric}) as median_amount,
+                    STDDEV({claim_numeric}) as std_amount,
+                    MIN({claim_numeric}) as min_amount,
+                    MAX({claim_numeric}) as max_amount,
+                    PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY {claim_numeric}) as q1,
+                    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY {claim_numeric}) as q3
+                FROM claim_rep_opip_nhso_item
+                WHERE claim_drg IS NOT NULL
+            """)
+            stats_row = cursor.fetchone()
+            stats = {
+                'mean': float(stats_row[0]) if stats_row[0] else 0,
+                'median': float(stats_row[1]) if stats_row[1] else 0,
+                'std': float(stats_row[2]) if stats_row[2] else 0,
+                'min': float(stats_row[3]) if stats_row[3] else 0,
+                'max': float(stats_row[4]) if stats_row[4] else 0,
+                'q1': float(stats_row[5]) if stats_row[5] else 0,
+                'q3': float(stats_row[6]) if stats_row[6] else 0
+            }
+
         # Calculate IQR bounds for outliers
         iqr = stats['q3'] - stats['q1']
         lower_bound = stats['q1'] - (1.5 * iqr)
         upper_bound = stats['q3'] + (1.5 * iqr)
 
         # 2. Find high-value anomalies (claims above upper bound)
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT
                 tran_id, hn, name, dateadm, service_type, drg,
                 claim_drg, reimb_nhso, error_code
             FROM claim_rep_opip_nhso_item
-            WHERE COALESCE(claim_drg, 0)::numeric > %s
+            WHERE {claim_numeric} > %s
             ORDER BY claim_drg DESC
             LIMIT 20
         """, (upper_bound,))
@@ -9563,19 +9702,19 @@ def api_anomalies():
             })
 
         # 3. Find claims with large reimbursement variance
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT
                 tran_id, hn, name, dateadm, service_type, drg,
                 claim_drg, reimb_nhso, paid,
-                COALESCE(claim_drg, 0)::numeric - COALESCE(reimb_nhso, 0)::numeric as variance
+                {claim_numeric} - {reimb_numeric} as variance
             FROM claim_rep_opip_nhso_item
             WHERE claim_drg IS NOT NULL
               AND reimb_nhso IS NOT NULL
-              AND ABS(COALESCE(claim_drg, 0)::numeric - COALESCE(reimb_nhso, 0)::numeric) >
-                  (SELECT AVG(ABS(COALESCE(claim_drg, 0)::numeric - COALESCE(reimb_nhso, 0)::numeric)) * 3
+              AND ABS({claim_numeric} - {reimb_numeric}) >
+                  (SELECT AVG(ABS({claim_numeric} - {reimb_numeric})) * 3
                    FROM claim_rep_opip_nhso_item
                    WHERE claim_drg IS NOT NULL AND reimb_nhso IS NOT NULL)
-            ORDER BY ABS(COALESCE(claim_drg, 0)::numeric - COALESCE(reimb_nhso, 0)::numeric) DESC
+            ORDER BY ABS({claim_numeric} - {reimb_numeric}) DESC
             LIMIT 20
         """)
         variance_anomalies = []
@@ -9597,30 +9736,32 @@ def api_anomalies():
         # 4. Find unusual RW (relative weight) values
         # Skip RW analysis if data has non-numeric values
         rw_anomalies = []
+        rw_cast = sql_cast_numeric('rw')
+        rw_regex = sql_regex_match('rw', '^[0-9]+\\.?[0-9]*$')
         try:
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT
-                    AVG(rw::numeric) as mean_rw,
-                    STDDEV(rw::numeric) as std_rw
+                    AVG({rw_cast}) as mean_rw,
+                    STDDEV({rw_cast}) as std_rw
                 FROM claim_rep_opip_nhso_item
                 WHERE rw IS NOT NULL
                   AND rw <> ''
-                  AND rw ~ '^[0-9]+\.?[0-9]*$'
+                  AND {rw_regex}
             """)
             rw_stats = cursor.fetchone()
             rw_mean = float(rw_stats[0]) if rw_stats[0] else 0
             rw_std = float(rw_stats[1]) if rw_stats[1] else 1
 
             if rw_mean > 0:
-                cursor.execute("""
+                cursor.execute(f"""
                     SELECT
                         tran_id, hn, name, dateadm, drg, rw, claim_drg
                     FROM claim_rep_opip_nhso_item
                     WHERE rw IS NOT NULL
                       AND rw <> ''
-                      AND rw ~ '^[0-9]+\.?[0-9]*$'
-                      AND rw::numeric > %s
-                    ORDER BY rw::numeric DESC
+                      AND {rw_regex}
+                      AND {rw_cast} > %s
+                    ORDER BY {rw_cast} DESC
                     LIMIT 15
                 """, (rw_mean + (2 * rw_std),))
                 for row in cursor.fetchall():
@@ -9639,11 +9780,11 @@ def api_anomalies():
             conn.rollback()  # Reset transaction state
 
         # 5. Anomaly summary
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT
                 COUNT(*) as total_claims,
-                COUNT(CASE WHEN COALESCE(claim_drg, 0)::numeric > %s THEN 1 END) as high_value_count,
-                COUNT(CASE WHEN COALESCE(claim_drg, 0)::numeric < %s THEN 1 END) as low_value_count
+                COUNT(CASE WHEN {claim_numeric} > %s THEN 1 END) as high_value_count,
+                COUNT(CASE WHEN {claim_numeric} < %s THEN 1 END) as low_value_count
             FROM claim_rep_opip_nhso_item
         """, (upper_bound, lower_bound if lower_bound > 0 else 0))
         anomaly_summary = cursor.fetchone()
@@ -9688,18 +9829,20 @@ def api_opportunities():
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
         cursor = conn.cursor()
+        claim_numeric = sql_coalesce_numeric('claim_drg', 0)
+        paid_numeric = sql_coalesce_numeric('paid', 0)
 
         # 1. Under-reimbursed claims (claimed more than received)
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT
                 tran_id, hn, name, dateadm, service_type, drg,
                 claim_drg, reimb_nhso, paid,
-                COALESCE(claim_drg, 0)::numeric - COALESCE(paid, 0)::numeric as potential_recovery,
+                {claim_numeric} - {paid_numeric} as potential_recovery,
                 error_code
             FROM claim_rep_opip_nhso_item
-            WHERE COALESCE(claim_drg, 0)::numeric > COALESCE(paid, 0)::numeric + 100
-              AND error_code IS NULL OR error_code = ''
-            ORDER BY COALESCE(claim_drg, 0)::numeric - COALESCE(paid, 0)::numeric DESC
+            WHERE {claim_numeric} > {paid_numeric} + 100
+              AND (error_code IS NULL OR error_code = '')
+            ORDER BY {claim_numeric} - {paid_numeric} DESC
             LIMIT 30
         """)
         under_reimbursed = []
@@ -9719,14 +9862,14 @@ def api_opportunities():
             })
 
         # 2. Summary of potential recovery by fund
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT
                 main_fund,
                 COUNT(*) as claims,
-                SUM(COALESCE(claim_drg, 0)::numeric - COALESCE(paid, 0)::numeric) as total_gap,
-                AVG(COALESCE(claim_drg, 0)::numeric - COALESCE(paid, 0)::numeric) as avg_gap
+                SUM({claim_numeric} - {paid_numeric}) as total_gap,
+                AVG({claim_numeric} - {paid_numeric}) as avg_gap
             FROM claim_rep_opip_nhso_item
-            WHERE COALESCE(claim_drg, 0)::numeric > COALESCE(paid, 0)::numeric + 100
+            WHERE {claim_numeric} > {paid_numeric} + 100
               AND main_fund IS NOT NULL AND main_fund != ''
             GROUP BY main_fund
             ORDER BY total_gap DESC
@@ -9742,31 +9885,36 @@ def api_opportunities():
 
         # 3. Claims with potential coding improvements (low RW vs high claim)
         coding_opportunities = []
+        rw_cast = sql_cast_numeric('rw')
+        rw_regex = sql_regex_match('rw', '^[0-9]+\\.?[0-9]*$')
+        c_rw_cast = sql_cast_numeric('c.rw')
+        c_rw_regex = sql_regex_match('c.rw', '^[0-9]+\\.?[0-9]*$')
+        c_claim_numeric = sql_coalesce_numeric('c.claim_drg', 0)
         try:
-            cursor.execute("""
+            cursor.execute(f"""
                 WITH rw_stats AS (
                     SELECT
                         LEFT(drg, 3) as drg_group,
-                        AVG(rw::numeric) as avg_rw
+                        AVG({rw_cast}) as avg_rw
                     FROM claim_rep_opip_nhso_item
                     WHERE drg IS NOT NULL
                       AND rw IS NOT NULL
                       AND rw <> ''
-                      AND rw ~ '^[0-9]+\.?[0-9]*$'
+                      AND {rw_regex}
                     GROUP BY LEFT(drg, 3)
                 )
                 SELECT
                     c.tran_id, c.hn, c.name, c.dateadm, c.drg, c.rw,
                     c.claim_drg, r.avg_rw,
-                    r.avg_rw - c.rw::numeric as rw_gap
+                    r.avg_rw - {c_rw_cast} as rw_gap
                 FROM claim_rep_opip_nhso_item c
                 JOIN rw_stats r ON LEFT(c.drg, 3) = r.drg_group
                 WHERE c.rw IS NOT NULL
                   AND c.rw <> ''
-                  AND c.rw ~ '^[0-9]+\.?[0-9]*$'
-                  AND c.rw::numeric < r.avg_rw * 0.7
+                  AND {c_rw_regex}
+                  AND {c_rw_cast} < r.avg_rw * 0.7
                   AND c.claim_drg IS NOT NULL
-                  AND COALESCE(c.claim_drg, 0)::numeric > 5000
+                  AND {c_claim_numeric} > 5000
                 ORDER BY c.claim_drg DESC
                 LIMIT 20
             """)
@@ -9787,12 +9935,12 @@ def api_opportunities():
             conn.rollback()  # Reset transaction state
 
         # 4. Error claims that could be resubmitted
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT
                 error_code,
                 COUNT(*) as count,
-                SUM(COALESCE(claim_drg, 0)::numeric) as total_value,
-                AVG(COALESCE(claim_drg, 0)::numeric) as avg_value
+                SUM({claim_numeric}) as total_value,
+                AVG({claim_numeric}) as avg_value
             FROM claim_rep_opip_nhso_item
             WHERE error_code IS NOT NULL AND error_code != ''
             GROUP BY error_code
@@ -9809,15 +9957,15 @@ def api_opportunities():
             })
 
         # 5. Overall opportunity summary
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT
                 COUNT(*) as total_claims,
-                SUM(COALESCE(claim_drg, 0)::numeric) as total_claimed,
-                SUM(COALESCE(paid, 0)::numeric) as total_paid,
-                SUM(COALESCE(claim_drg, 0)::numeric) - SUM(COALESCE(paid, 0)::numeric) as total_gap,
+                SUM({claim_numeric}) as total_claimed,
+                SUM({paid_numeric}) as total_paid,
+                SUM({claim_numeric}) - SUM({paid_numeric}) as total_gap,
                 COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as error_claims,
                 SUM(CASE WHEN error_code IS NOT NULL AND error_code != ''
-                    THEN COALESCE(claim_drg, 0)::numeric ELSE 0 END) as error_claim_value
+                    THEN {claim_numeric} ELSE 0 END) as error_claim_value
             FROM claim_rep_opip_nhso_item
         """)
         summary_row = cursor.fetchone()
@@ -9868,14 +10016,14 @@ def api_insights():
         # 1. Check overall denial rate trend
         cursor.execute("""
             SELECT
-                TO_CHAR(dateadm, 'YYYY-MM') as month,
+                """ + sql_format_year_month('dateadm') + """ as month,
                 COUNT(*) as total,
                 COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as errors,
                 ROUND(COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) * 100.0 /
                       NULLIF(COUNT(*), 0), 2) as error_rate
             FROM claim_rep_opip_nhso_item
             WHERE dateadm IS NOT NULL
-            GROUP BY TO_CHAR(dateadm, 'YYYY-MM')
+            GROUP BY """ + sql_format_year_month('dateadm') + """
             ORDER BY month DESC
             LIMIT 6
         """)
@@ -9936,11 +10084,10 @@ def api_insights():
         # 3. Check reimbursement rate
         cursor.execute("""
             SELECT
-                SUM(COALESCE(claim_drg, 0)::numeric) as claimed,
-                SUM(COALESCE(paid, 0)::numeric) as paid
+                SUM(COALESCE(claim_drg, 0)) as claimed,
+                SUM(COALESCE(paid, 0)) as paid
             FROM claim_rep_opip_nhso_item
-            WHERE dateadm >= NOW() - INTERVAL '3 months'
-        """)
+            WHERE dateadm >= NOW() - """ + sql_interval_months(3))
         reimb_row = cursor.fetchone()
         if reimb_row[0] and reimb_row[0] > 0:
             reimb_rate = float(reimb_row[1] or 0) / float(reimb_row[0]) * 100
@@ -9969,10 +10116,10 @@ def api_insights():
         # 4. Check for common error codes
         cursor.execute("""
             SELECT error_code, COUNT(*) as count,
-                   SUM(COALESCE(claim_drg, 0)::numeric) as total_value
+                   SUM(COALESCE(claim_drg, 0)) as total_value
             FROM claim_rep_opip_nhso_item
             WHERE error_code IS NOT NULL AND error_code != ''
-              AND dateadm >= NOW() - INTERVAL '3 months'
+              AND dateadm >= NOW() - """ + sql_interval_months(3) + """
             GROUP BY error_code
             ORDER BY count DESC
             LIMIT 3
@@ -9992,12 +10139,13 @@ def api_insights():
             priority_score += 10
 
         # 5. Check for pending long-duration claims
-        cursor.execute("""
+        paid_numeric = sql_coalesce_numeric('paid', 0)
+        cursor.execute(f"""
             SELECT COUNT(*)
             FROM claim_rep_opip_nhso_item
-            WHERE dateadm < NOW() - INTERVAL '60 days'
-              AND (paid IS NULL OR COALESCE(paid, 0)::numeric = 0)
-              AND error_code IS NULL OR error_code = ''
+            WHERE dateadm < NOW() - {sql_interval_days(60)}
+              AND (paid IS NULL OR {paid_numeric} = 0)
+              AND (error_code IS NULL OR error_code = '')
         """)
         pending_count = cursor.fetchone()[0]
         if pending_count > 10:
