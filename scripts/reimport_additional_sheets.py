@@ -23,6 +23,7 @@ def get_db_connection():
     return psycopg2.connect(**db_config)
 
 DOWNLOADS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'downloads')
+REP_DIR = os.path.join(DOWNLOADS_DIR, 'rep')
 
 
 def main():
@@ -77,7 +78,10 @@ def main():
         }
 
         for file_id, filename in files:
+            # Check both downloads/ and downloads/rep/ directories
             filepath = os.path.join(DOWNLOADS_DIR, filename)
+            if not os.path.exists(filepath):
+                filepath = os.path.join(REP_DIR, filename)
 
             if not os.path.exists(filepath):
                 print(f"  - Skipped {filename} (file not found)")
@@ -85,13 +89,25 @@ def main():
                 continue
 
             # Only process IP files (they have additional sheets)
-            if '_IP_' not in filename.upper():
+            if '_IP' not in filename.upper():
                 continue
 
             print(f"  Processing: {filename}")
 
             try:
-                results = importer.import_additional_sheets(file_id, filepath)
+                # Detect file type from filename
+                if '_IPLGO_' in filename.upper():
+                    file_type = 'IPLGO'
+                elif '_IPSSS_' in filename.upper():
+                    file_type = 'IPSSS'
+                elif '_IPBKK_' in filename.upper():
+                    file_type = 'IPBKK'
+                elif '_IP_APPEAL' in filename.upper():
+                    file_type = 'IP_APPEAL'
+                else:
+                    file_type = 'IP'
+
+                results = importer.import_all_sheets(filepath, file_id, file_type)
 
                 for key in ['drug', 'instrument', 'deny', 'zero_paid']:
                     if key in results:
