@@ -215,6 +215,10 @@ class AdditionalSheetsImporter:
             if not tran_id:
                 continue
 
+            # Skip header rows (Excel may have repeated headers)
+            if tran_id.upper() == 'TRAN_ID':
+                continue
+
             record = {
                 'file_id': file_id,
                 'row_number': idx,
@@ -267,6 +271,10 @@ class AdditionalSheetsImporter:
             if not tran_id:
                 continue
 
+            # Skip header rows (Excel may have repeated headers)
+            if tran_id.upper() == 'TRAN_ID':
+                continue
+
             record = {
                 'file_id': file_id,
                 'row_number': idx,
@@ -313,6 +321,10 @@ class AdditionalSheetsImporter:
             if not tran_id:
                 continue
 
+            # Skip header rows (Excel may have repeated headers)
+            if tran_id.upper() == 'TRAN_ID':
+                continue
+
             record = {
                 'file_id': file_id,
                 'row_number': idx,
@@ -354,6 +366,10 @@ class AdditionalSheetsImporter:
         for idx, row in df.iterrows():
             tran_id = self._safe_string(row.iloc[1] if len(row) > 1 else None, 20)
             if not tran_id:
+                continue
+
+            # Skip header rows (Excel may have repeated headers)
+            if tran_id.upper() == 'TRAN_ID':
                 continue
 
             record = {
