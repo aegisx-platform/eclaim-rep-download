@@ -3591,7 +3591,7 @@ def clear_stm_files():
 
 @app.route('/api/stm/records')
 def get_stm_records():
-    """Get Statement database records with reconciliation status"""
+    """Get Statement database records with reconciliation status using optimized view"""
     try:
         page = int(request.args.get('page', 1))
         limit = int(request.args.get('limit', 50))
@@ -3605,37 +3605,34 @@ def get_stm_records():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Build WHERE clause
+        # Build WHERE clause using the v_stm_rep_reconciliation view
         where_clauses = []
         params = []
 
         if fiscal_year:
-            # Fiscal year filter - statement_month (1-12) and statement_year stored separately
-            # FY 2569 = Oct 2568 (year=2568, month>=10) to Sep 2569 (year=2569, month<=9)
+            # Fiscal year filter
             fy = int(fiscal_year)
-            # Two ranges: Oct-Dec of previous year OR Jan-Sep of fiscal year
             where_clauses.append("""
-                ((f.statement_year = %s AND f.statement_month >= 10)
-                 OR (f.statement_year = %s AND f.statement_month <= 9))
+                ((statement_year = %s AND statement_month >= 10)
+                 OR (statement_year = %s AND statement_month <= 9))
             """)
             params.extend([fy - 1, fy])
 
         if rep_no:
-            where_clauses.append("c.rep_no LIKE %s")
+            where_clauses.append("rep_repno LIKE %s")
             params.append(f"%{rep_no}%")
 
         if status:
-            where_clauses.append("c.reconcile_status = %s")
+            where_clauses.append("reconcile_status = %s")
             params.append(status)
 
         where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
         if view_mode == 'rep':
-            # Group by REP No
+            # Group by REP No - use aggregated query on the view
             count_sql = f"""
-                SELECT COUNT(DISTINCT c.rep_no)
-                FROM stm_claim_item c
-                JOIN stm_imported_files f ON c.file_id = f.id
+                SELECT COUNT(DISTINCT rep_repno)
+                FROM v_stm_rep_reconciliation
                 WHERE {where_sql}
             """
             cursor.execute(count_sql, params)
@@ -3643,33 +3640,27 @@ def get_stm_records():
 
             query = f"""
                 SELECT
-                    c.rep_no,
+                    rep_repno as rep_no,
                     COUNT(*) as count,
-                    SUM(COALESCE(c.paid_after_deduction, 0)) as stm_amount,
-                    (
-                        SELECT SUM(COALESCE(r.reimb_nhso, 0))
-                        FROM claim_rep_opip_nhso_item r
-                        WHERE r.rep_no = c.rep_no
-                    ) as rep_amount,
+                    SUM(stm_compensation) as stm_amount,
+                    SUM(rep_reimb_nhso) as rep_amount,
                     CASE
-                        WHEN COUNT(CASE WHEN c.reconcile_status = 'matched' THEN 1 END) = COUNT(*) THEN 'matched'
-                        WHEN COUNT(CASE WHEN c.reconcile_status = 'diff_amount' THEN 1 END) > 0 THEN 'diff_amount'
+                        WHEN SUM(CASE WHEN reconcile_status = 'matched' THEN 1 ELSE 0 END) = COUNT(*) THEN 'matched'
+                        WHEN SUM(CASE WHEN reconcile_status IN ('amount_diff', 'diff_amount') THEN 1 ELSE 0 END) > 0 THEN 'diff_amount'
                         ELSE 'stm_only'
                     END as status
-                FROM stm_claim_item c
-                JOIN stm_imported_files f ON c.file_id = f.id
+                FROM v_stm_rep_reconciliation
                 WHERE {where_sql}
-                GROUP BY c.rep_no
-                ORDER BY c.rep_no DESC
+                GROUP BY rep_repno
+                ORDER BY rep_repno DESC
                 LIMIT %s OFFSET %s
             """
             cursor.execute(query, params + [limit, offset])
         else:
-            # Individual transactions
+            # Individual transactions from view
             count_sql = f"""
                 SELECT COUNT(*)
-                FROM stm_claim_item c
-                JOIN stm_imported_files f ON c.file_id = f.id
+                FROM v_stm_rep_reconciliation
                 WHERE {where_sql}
             """
             cursor.execute(count_sql, params)
@@ -3677,22 +3668,16 @@ def get_stm_records():
 
             query = f"""
                 SELECT
-                    c.tran_id,
-                    c.rep_no,
-                    c.patient_name,
-                    c.hn,
-                    COALESCE(c.paid_after_deduction, 0) as stm_amount,
-                    (
-                        SELECT COALESCE(r.reimb_nhso, 0)
-                        FROM claim_rep_opip_nhso_item r
-                        WHERE r.tran_id = c.tran_id
-                        LIMIT 1
-                    ) as rep_amount,
-                    c.reconcile_status as status
-                FROM stm_claim_item c
-                JOIN stm_imported_files f ON c.file_id = f.id
+                    tran_id,
+                    rep_repno as rep_no,
+                    patient_name,
+                    hn,
+                    stm_compensation as stm_amount,
+                    rep_reimb_nhso as rep_amount,
+                    reconcile_status as status
+                FROM v_stm_rep_reconciliation
                 WHERE {where_sql}
-                ORDER BY c.rep_no DESC, c.tran_id
+                ORDER BY rep_repno DESC, tran_id
                 LIMIT %s OFFSET %s
             """
             cursor.execute(query, params + [limit, offset])
@@ -3706,34 +3691,22 @@ def get_stm_records():
                 if key in rec and rec[key] is not None:
                     rec[key] = float(rec[key])
 
-        # Get stats - count matched records by checking if REP exists
+        # Get stats from view (much faster than correlated subquery)
         stats_sql = """
             SELECT
                 COUNT(*) as total,
-                COUNT(CASE WHEN EXISTS (
-                    SELECT 1 FROM claim_rep_opip_nhso_item r
-                    WHERE r.tran_id = c.tran_id
-                    AND ABS(COALESCE(r.reimb_nhso, 0) - COALESCE(c.paid_after_deduction, 0)) < 1
-                ) THEN 1 END) as matched,
-                COUNT(CASE WHEN EXISTS (
-                    SELECT 1 FROM claim_rep_opip_nhso_item r
-                    WHERE r.tran_id = c.tran_id
-                    AND ABS(COALESCE(r.reimb_nhso, 0) - COALESCE(c.paid_after_deduction, 0)) >= 1
-                ) THEN 1 END) as diff_amount
-            FROM stm_claim_item c
+                SUM(CASE WHEN reconcile_status = 'matched' THEN 1 ELSE 0 END) as matched,
+                SUM(CASE WHEN reconcile_status IN ('amount_diff', 'diff_amount') THEN 1 ELSE 0 END) as diff_amount,
+                SUM(CASE WHEN reconcile_status = 'stm_only' OR reconcile_status IS NULL THEN 1 ELSE 0 END) as stm_only
+            FROM v_stm_rep_reconciliation
         """
         cursor.execute(stats_sql)
         stats_row = cursor.fetchone()
-        total = stats_row[0] or 0
-        matched = stats_row[1] or 0
-        diff_amount = stats_row[2] or 0
-        stm_only = total - matched - diff_amount
-
         stats = {
-            'total': total,
-            'matched': matched,
-            'diff_amount': diff_amount,
-            'stm_only': stm_only
+            'total': int(stats_row[0] or 0),
+            'matched': int(stats_row[1] or 0),
+            'diff_amount': int(stats_row[2] or 0),
+            'stm_only': int(stats_row[3] or 0)
         }
 
         cursor.close()
