@@ -1,4 +1,4 @@
-.PHONY: help setup build pull up down restart logs shell db-shell clean test
+.PHONY: help setup build pull up down restart logs shell db-shell clean test migrate seed
 
 # Configuration
 COMPOSE_FILE ?= docker-compose.yml
@@ -47,6 +47,9 @@ help:
 	@echo "  make python         - Open Python REPL in web container"
 	@echo ""
 	@echo "$(CYAN)Database Operations:$(RESET)"
+	@echo "  make migrate        - Run database migrations"
+	@echo "  make migrate-status - Check migration status"
+	@echo "  make seed           - Import health offices seed data"
 	@echo "  make db-backup      - Backup database to backups/"
 	@echo "  make db-restore     - Restore from backup.sql"
 	@echo "  make db-reset       - Reset database (WARNING: deletes data)"
@@ -54,6 +57,8 @@ help:
 	@echo ""
 	@echo "$(CYAN)Import & Download:$(RESET)"
 	@echo "  make import         - Import all files from downloads/"
+	@echo "  make import-rep     - Import REP files from downloads/rep/"
+	@echo "  make import-stm     - Import STM files from downloads/stm/"
 	@echo "  make import-file    - Import single file (FILE=path)"
 	@echo "  make download       - Run manual download"
 	@echo ""
@@ -228,6 +233,41 @@ python:
 
 # ==================== Database Operations ====================
 
+migrate:
+	@echo "$(BOLD)$(GREEN)==> Running database migrations...$(RESET)"
+	@if docker-compose ps | grep -q "web.*Up"; then \
+		docker-compose exec web python database/migrate.py; \
+	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
+		docker-compose -f $(COMPOSE_MYSQL) exec web python database/migrate.py; \
+	else \
+		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓$(RESET) Migrations complete"
+
+migrate-status:
+	@echo "$(BOLD)$(GREEN)==> Checking migration status...$(RESET)"
+	@if docker-compose ps | grep -q "web.*Up"; then \
+		docker-compose exec web python database/migrate.py --status; \
+	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
+		docker-compose -f $(COMPOSE_MYSQL) exec web python database/migrate.py --status; \
+	else \
+		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
+		exit 1; \
+	fi
+
+seed:
+	@echo "$(BOLD)$(GREEN)==> Importing health offices seed data...$(RESET)"
+	@if docker-compose ps | grep -q "web.*Up"; then \
+		docker-compose exec web python database/seeds/health_offices_importer.py; \
+	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
+		docker-compose -f $(COMPOSE_MYSQL) exec web python database/seeds/health_offices_importer.py; \
+	else \
+		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓$(RESET) Seed data import complete"
+
 db-backup:
 	@echo "$(BOLD)$(GREEN)==> Backing up database...$(RESET)"
 	@mkdir -p backups
@@ -295,6 +335,30 @@ import:
 	@echo "$(BOLD)$(GREEN)==> Importing all files from downloads/...$(RESET)"
 	docker-compose exec web python eclaim_import.py downloads/
 	@echo "$(GREEN)✓$(RESET) Import complete"
+
+import-rep:
+	@echo "$(BOLD)$(GREEN)==> Importing REP files from downloads/rep/...$(RESET)"
+	@if docker-compose ps | grep -q "web.*Up"; then \
+		docker-compose exec web python eclaim_import.py --directory /app/downloads/rep/; \
+	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
+		docker-compose -f $(COMPOSE_MYSQL) exec web python eclaim_import.py --directory /app/downloads/rep/; \
+	else \
+		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓$(RESET) REP import complete"
+
+import-stm:
+	@echo "$(BOLD)$(GREEN)==> Importing STM files from downloads/stm/...$(RESET)"
+	@if docker-compose ps | grep -q "web.*Up"; then \
+		docker-compose exec web python stm_import.py /app/downloads/stm/; \
+	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
+		docker-compose -f $(COMPOSE_MYSQL) exec web python stm_import.py /app/downloads/stm/; \
+	else \
+		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓$(RESET) STM import complete"
 
 import-file:
 	@if [ -z "$(FILE)" ]; then \
