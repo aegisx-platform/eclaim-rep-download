@@ -57,6 +57,36 @@ class HistoryManager:
                 return download
         return None
 
+    def add_download(self, download_record):
+        """
+        Add a download record to history
+
+        Args:
+            download_record (dict): Download record with fields:
+                - filename (required)
+                - file_size (optional)
+                - download_date (optional)
+                - month, year (optional)
+                - scheme (optional)
+
+        Returns:
+            bool: True if added, False if already exists
+        """
+        history = self.load_history()
+        downloads = history.get('downloads', [])
+
+        # Check if already exists
+        filename = download_record.get('filename')
+        if any(d['filename'] == filename for d in downloads):
+            return False
+
+        # Add to downloads
+        downloads.append(download_record)
+        history['downloads'] = downloads
+
+        self.save_history(history)
+        return True
+
     def delete_download(self, filename):
         """Remove download record from history"""
         history = self.load_history()
@@ -367,3 +397,97 @@ class HistoryManager:
         filtered.sort(key=lambda d: d.get('download_date', ''), reverse=True)
 
         return filtered
+
+    def scan_and_register_files(self, directory='downloads/rep'):
+        """
+        Scan a directory for .xls files and register them in history.
+        Files not in history will be added with metadata extracted from filename.
+
+        Args:
+            directory (str): Path to scan for files
+
+        Returns:
+            dict: Report with added, skipped, and error counts
+        """
+        import re
+        from pathlib import Path
+
+        report = {
+            'added': 0,
+            'skipped': 0,
+            'errors': 0,
+            'error_files': [],
+            'directory': directory
+        }
+
+        scan_dir = Path(directory)
+        if not scan_dir.exists():
+            report['errors'] = 1
+            report['error_files'].append(f'Directory not found: {directory}')
+            return report
+
+        # Get all .xls files
+        xls_files = list(scan_dir.glob('*.xls'))
+
+        for file_path in xls_files:
+            try:
+                filename = file_path.name
+
+                # Check if already in history
+                if self.get_download(filename) is not None:
+                    report['skipped'] += 1
+                    continue
+
+                # Extract metadata from filename
+                # Format: eclaim_10670_OP_25681001_123456789.xls
+                # Or: STM_10670_IPUCS256810_01.xls
+                month = None
+                year = None
+                file_type = None
+                scheme = 'ucs'
+
+                # Try eclaim format: eclaim_10670_OP_25681001_xxx.xls
+                match = re.search(r'eclaim_\d+_(\w+)_(\d{4})(\d{2})\d{2}_', filename)
+                if match:
+                    file_type = match.group(1)  # OP, IP, ORF
+                    year = int(match.group(2))   # 2568
+                    month = int(match.group(3))  # 10
+
+                    # Detect scheme from filename if present
+                    scheme_match = re.search(r'_(ucs|ofc|sss|lgo|nhs|bkk)_', filename.lower())
+                    if scheme_match:
+                        scheme = scheme_match.group(1)
+
+                # Get file size and modification time
+                stat = file_path.stat()
+                file_size = stat.st_size
+                mtime = datetime.fromtimestamp(stat.st_mtime)
+
+                # Create download record
+                download_record = {
+                    'filename': filename,
+                    'file_size': file_size,
+                    'download_date': mtime.isoformat(),
+                    'source': 'file_scan',
+                }
+
+                if month:
+                    download_record['month'] = month
+                if year:
+                    download_record['year'] = year
+                if file_type:
+                    download_record['file_type'] = file_type
+                if scheme:
+                    download_record['scheme'] = scheme
+
+                # Add to history
+                if self.add_download(download_record):
+                    report['added'] += 1
+                else:
+                    report['skipped'] += 1
+
+            except Exception as e:
+                report['errors'] += 1
+                report['error_files'].append(f'{filename}: {str(e)}')
+
+        return report

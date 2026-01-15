@@ -14,6 +14,7 @@ Usage:
 """
 
 import logging
+import os
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 import humanize
@@ -22,6 +23,9 @@ import re
 from config.db_pool import get_connection, return_connection
 
 logger = logging.getLogger(__name__)
+
+# Get database type from environment
+DB_TYPE = os.environ.get('DB_TYPE', 'postgresql').lower()
 
 
 class HistoryManagerDB:
@@ -39,6 +43,7 @@ class HistoryManagerDB:
             download_type: 'rep', 'stm', or 'smt'
         """
         self.download_type = download_type
+        self.db_type = DB_TYPE
         self._file_dir = self._get_file_directory()
 
     def _get_file_directory(self) -> str:
@@ -109,7 +114,7 @@ class HistoryManagerDB:
                     service_month as month, patient_type, rep_no,
                     file_size, file_path, file_hash, file_exists,
                     downloaded_at as download_date, imported,
-                    imported_at, download_status, source_url
+                    imported_at, source_url
                 FROM download_history
                 WHERE download_type = %s
                 ORDER BY downloaded_at DESC
@@ -158,7 +163,7 @@ class HistoryManagerDB:
                     service_month as month, patient_type, rep_no,
                     file_size, file_path, file_exists,
                     downloaded_at as download_date, imported,
-                    download_status, source_url
+                    source_url
                 FROM download_history
                 WHERE download_type = %s AND filename = %s
             """
@@ -232,20 +237,36 @@ class HistoryManagerDB:
             conn = self._get_connection()
             cursor = conn.cursor()
 
-            query = """
-                INSERT INTO download_history
-                (download_type, filename, document_no, scheme, fiscal_year,
-                 service_month, patient_type, rep_no, file_size, file_path,
-                 source_url, file_exists, download_status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (download_type, filename) DO UPDATE SET
-                    file_size = EXCLUDED.file_size,
-                    file_path = EXCLUDED.file_path,
-                    file_exists = EXCLUDED.file_exists,
-                    updated_at = CURRENT_TIMESTAMP
-            """
-
             file_path = f"{self._file_dir}/{data.get('filename')}"
+
+            # Use appropriate UPSERT syntax based on database type
+            if self.db_type == 'mysql':
+                query = """
+                    INSERT INTO download_history
+                    (download_type, filename, document_no, scheme, fiscal_year,
+                     service_month, patient_type, rep_no, file_size, file_path,
+                     source_url, file_exists)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        file_size = VALUES(file_size),
+                        file_path = VALUES(file_path),
+                        file_exists = VALUES(file_exists),
+                        updated_at = CURRENT_TIMESTAMP
+                """
+            else:
+                # PostgreSQL syntax
+                query = """
+                    INSERT INTO download_history
+                    (download_type, filename, document_no, scheme, fiscal_year,
+                     service_month, patient_type, rep_no, file_size, file_path,
+                     source_url, file_exists)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (download_type, filename) DO UPDATE SET
+                        file_size = EXCLUDED.file_size,
+                        file_path = EXCLUDED.file_path,
+                        file_exists = EXCLUDED.file_exists,
+                        updated_at = CURRENT_TIMESTAMP
+                """
 
             cursor.execute(query, (
                 self.download_type,
@@ -259,8 +280,7 @@ class HistoryManagerDB:
                 data.get('file_size'),
                 file_path,
                 data.get('source_url'),
-                True,  # file_exists
-                'success'  # download_status
+                True  # file_exists
             ))
 
             conn.commit()
@@ -733,6 +753,116 @@ class HistoryManagerDB:
     def record_download(self, data: Dict) -> bool:
         """Record a new successful download"""
         return self.add_download(data)
+
+    def scan_and_register_files(self, directory: str = None) -> Dict:
+        """
+        Scan a directory for .xls files and register them in database.
+        Files not in database will be added with metadata extracted from filename.
+
+        Args:
+            directory (str): Path to scan for files. Defaults based on download_type.
+
+        Returns:
+            dict: Report with added, skipped, and error counts
+        """
+        import re
+        from pathlib import Path
+        from datetime import datetime
+
+        # Default directories based on download_type
+        if directory is None:
+            if self.download_type == 'rep':
+                directory = 'downloads/rep'
+            elif self.download_type == 'stm':
+                directory = 'downloads/stm'
+            else:
+                directory = 'downloads'
+
+        report = {
+            'added': 0,
+            'skipped': 0,
+            'errors': 0,
+            'error_files': [],
+            'directory': directory,
+            'download_type': self.download_type
+        }
+
+        scan_dir = Path(directory)
+        if not scan_dir.exists():
+            report['errors'] = 1
+            report['error_files'].append(f'Directory not found: {directory}')
+            return report
+
+        # Get all .xls files
+        xls_files = list(scan_dir.glob('*.xls'))
+
+        for file_path in xls_files:
+            try:
+                filename = file_path.name
+
+                # Check if already in history
+                if self.get_download(filename) is not None:
+                    report['skipped'] += 1
+                    continue
+
+                # Extract metadata from filename
+                month = None
+                year = None
+                file_type = None
+                scheme = 'ucs'
+
+                # Try eclaim REP format: eclaim_10670_OP_25681001_xxx.xls
+                match = re.search(r'eclaim_(\d+)_(\w+)_(\d{4})(\d{2})\d{2}_', filename)
+                if match:
+                    hospital_code = match.group(1)
+                    file_type = match.group(2)  # OP, IP, ORF
+                    year = int(match.group(3))  # 2568
+                    month = int(match.group(4))  # 10
+
+                # Try STM format: STM_10670_IPUCS256810_01.xls
+                stm_match = re.search(r'STM_(\d+)_(\w+)(\d{4})(\d{2})_', filename)
+                if stm_match and not match:
+                    hospital_code = stm_match.group(1)
+                    file_type = stm_match.group(2)  # IPUCS, OPUCS
+                    year = int(stm_match.group(3))  # 2568
+                    month = int(stm_match.group(4))  # 10
+
+                # Get file size and modification time
+                stat = file_path.stat()
+                file_size = stat.st_size
+                mtime = datetime.fromtimestamp(stat.st_mtime)
+
+                # Create download record
+                download_record = {
+                    'filename': filename,
+                    'file_size': file_size,
+                    'download_date': mtime.isoformat(),
+                    'file_path': str(file_path),
+                    'source': 'file_scan',
+                }
+
+                if month:
+                    download_record['month'] = month
+                    download_record['service_month'] = month
+                if year:
+                    download_record['year'] = year
+                    download_record['fiscal_year'] = year
+                if file_type:
+                    download_record['file_type'] = file_type
+                if scheme:
+                    download_record['scheme'] = scheme
+
+                # Add to history
+                if self.add_download(download_record):
+                    report['added'] += 1
+                else:
+                    report['skipped'] += 1
+
+            except Exception as e:
+                report['errors'] += 1
+                report['error_files'].append(f'{filename}: {str(e)}')
+
+        return report
 
 
 # Factory function for easy initialization

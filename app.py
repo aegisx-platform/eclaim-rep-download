@@ -11604,6 +11604,59 @@ def get_files_update_status():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/files/scan', methods=['POST'])
+def scan_files_to_history():
+    """
+    Scan files in downloads directory and register them in download_history database.
+    This is useful when files are manually added to the directory.
+
+    Request body (optional):
+        {
+            "types": ["rep", "stm"]  // defaults to both
+        }
+
+    Returns:
+        {
+            "success": true,
+            "reports": [
+                {"directory": "downloads/rep", "added": 807, "skipped": 0, "errors": 0},
+                {"directory": "downloads/stm", "added": 123, "skipped": 0, "errors": 0}
+            ],
+            "total_added": 930
+        }
+    """
+    try:
+        # Get types from request or default to both
+        data = request.get_json(silent=True) or {}
+        types = data.get('types', ['rep', 'stm'])
+
+        reports = []
+        total_added = 0
+
+        # Scan REP files
+        if 'rep' in types:
+            report = history_manager.scan_and_register_files('downloads/rep')
+            reports.append(report)
+            total_added += report.get('added', 0)
+
+        # Scan STM files
+        if 'stm' in types:
+            report = stm_history_manager.scan_and_register_files('downloads/stm')
+            reports.append(report)
+            total_added += report.get('added', 0)
+
+        return jsonify({
+            'success': True,
+            'reports': reports,
+            'total_added': total_added,
+            'message': f'Scanned {len(types)} directories, added {total_added} files to history'
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 def recover_stale_downloads():
     """
     Auto-recovery: Clean up stale/orphaned download progress files on server startup.

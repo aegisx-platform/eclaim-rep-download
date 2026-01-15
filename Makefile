@@ -60,6 +60,7 @@ help:
 	@echo "  make import-rep     - Import REP files from downloads/rep/"
 	@echo "  make import-stm     - Import STM files from downloads/stm/"
 	@echo "  make import-file    - Import single file (FILE=path)"
+	@echo "  make scan-files     - Scan downloads/ and register files to history"
 	@echo "  make download       - Run manual download"
 	@echo ""
 	@echo "$(CYAN)Admin Tools:$(RESET)"
@@ -359,6 +360,18 @@ import-stm:
 		exit 1; \
 	fi
 	@echo "$(GREEN)✓$(RESET) STM import complete"
+
+scan-files:
+	@echo "$(BOLD)$(GREEN)==> Scanning files and registering to history...$(RESET)"
+	@if docker-compose ps | grep -q "web.*Up"; then \
+		docker-compose exec web curl -s -X POST http://localhost:5001/api/files/scan | python -m json.tool; \
+	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
+		docker-compose -f $(COMPOSE_MYSQL) exec web curl -s -X POST http://localhost:5001/api/files/scan | python -m json.tool; \
+	else \
+		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓$(RESET) File scan complete"
 
 import-file:
 	@if [ -z "$(FILE)" ]; then \
