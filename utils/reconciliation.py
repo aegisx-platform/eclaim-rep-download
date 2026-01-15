@@ -454,12 +454,14 @@ class ReconciliationReport:
         rep_years = set(row[0] for row in cursor.fetchall())
 
         # Get fiscal years from SMT data
-        smt_query = """
+        # MySQL uses SIGNED instead of INT for CAST
+        int_type = "SIGNED" if DB_TYPE == 'mysql' else "INT"
+        smt_query = f"""
         SELECT DISTINCT
             CASE
-                WHEN CAST(SUBSTRING(posting_date, 5, 2) AS INT) >= 10
-                THEN CAST(SUBSTRING(posting_date, 1, 4) AS INT) + 1
-                ELSE CAST(SUBSTRING(posting_date, 1, 4) AS INT)
+                WHEN CAST(SUBSTRING(posting_date, 5, 2) AS {int_type}) >= 10
+                THEN CAST(SUBSTRING(posting_date, 1, 4) AS {int_type}) + 1
+                ELSE CAST(SUBSTRING(posting_date, 1, 4) AS {int_type})
             END as fiscal_year
         FROM smt_budget_transfers
         WHERE posting_date IS NOT NULL AND LENGTH(posting_date) >= 6
