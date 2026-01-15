@@ -5096,14 +5096,23 @@ def sync_system_status():
 
             # Files on disk but not in database -> add to database
             missing_from_db = disk_files - db_filenames
+            db_type = os.environ.get('DB_TYPE', 'postgresql').lower()
             for filename in missing_from_db:
                 file_path = rep_dir / filename
-                cursor.execute("""
-                    INSERT INTO download_history
-                    (download_type, filename, file_size, file_path, file_exists, download_status)
-                    VALUES ('rep', %s, %s, %s, TRUE, 'success')
-                    ON CONFLICT (download_type, filename) DO NOTHING
-                """, (filename, file_path.stat().st_size, str(file_path)))
+                if db_type == 'mysql':
+                    cursor.execute("""
+                        INSERT INTO download_history
+                        (download_type, filename, file_size, file_path, file_exists)
+                        VALUES ('rep', %s, %s, %s, TRUE)
+                        ON DUPLICATE KEY UPDATE file_size = VALUES(file_size)
+                    """, (filename, file_path.stat().st_size, str(file_path)))
+                else:
+                    cursor.execute("""
+                        INSERT INTO download_history
+                        (download_type, filename, file_size, file_path, file_exists)
+                        VALUES ('rep', %s, %s, %s, TRUE)
+                        ON CONFLICT (download_type, filename) DO NOTHING
+                    """, (filename, file_path.stat().st_size, str(file_path)))
                 report['summary']['files_added'] += 1
 
             # Files in database but not on disk -> mark as file_exists=FALSE
@@ -5157,14 +5166,23 @@ def sync_system_status():
 
             # Files on disk but not in database -> add to database
             stm_missing_from_db = stm_disk_files - stm_db_filenames
+            db_type = os.environ.get('DB_TYPE', 'postgresql').lower()
             for filename in stm_missing_from_db:
                 file_path = stm_dir / filename
-                cursor.execute("""
-                    INSERT INTO download_history
-                    (download_type, filename, file_size, file_path, file_exists, download_status)
-                    VALUES ('stm', %s, %s, %s, TRUE, 'success')
-                    ON CONFLICT (download_type, filename) DO NOTHING
-                """, (filename, file_path.stat().st_size, str(file_path)))
+                if db_type == 'mysql':
+                    cursor.execute("""
+                        INSERT INTO download_history
+                        (download_type, filename, file_size, file_path, file_exists)
+                        VALUES ('stm', %s, %s, %s, TRUE)
+                        ON DUPLICATE KEY UPDATE file_size = VALUES(file_size)
+                    """, (filename, file_path.stat().st_size, str(file_path)))
+                else:
+                    cursor.execute("""
+                        INSERT INTO download_history
+                        (download_type, filename, file_size, file_path, file_exists)
+                        VALUES ('stm', %s, %s, %s, TRUE)
+                        ON CONFLICT (download_type, filename) DO NOTHING
+                    """, (filename, file_path.stat().st_size, str(file_path)))
                 report['summary']['files_added'] += 1
 
             # Files in database but not on disk -> mark as file_exists=FALSE
@@ -11482,43 +11500,68 @@ def get_files_update_status():
 
         # Get last download for each type/scheme combination
         # Use CTE to get the actual latest month from the latest year (not just current year)
-        cursor.execute("""
-            WITH latest_info AS (
-                SELECT
-                    download_type,
-                    scheme,
-                    fiscal_year,
-                    service_month,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY download_type, scheme
-                        ORDER BY fiscal_year DESC, service_month DESC
-                    ) as rn
-                FROM download_history
-                WHERE download_status = 'success' AND file_exists = TRUE
-            ),
-            agg_info AS (
+        # Check database type for appropriate query syntax
+        db_type = os.environ.get('DB_TYPE', 'postgresql').lower()
+
+        if db_type == 'mysql':
+            # MySQL compatible query (no CTE with window functions)
+            cursor.execute("""
                 SELECT
                     download_type,
                     scheme,
                     MAX(downloaded_at) as last_download,
-                    COUNT(*) as file_count
+                    COUNT(*) as file_count,
+                    MAX(fiscal_year) as latest_year,
+                    MAX(CASE WHEN fiscal_year = (
+                        SELECT MAX(fiscal_year) FROM download_history h2
+                        WHERE h2.download_type = download_history.download_type
+                        AND COALESCE(h2.scheme, '') = COALESCE(download_history.scheme, '')
+                        AND h2.file_exists = TRUE
+                    ) THEN service_month ELSE NULL END) as latest_month
                 FROM download_history
-                WHERE download_status = 'success' AND file_exists = TRUE
+                WHERE file_exists = TRUE
                 GROUP BY download_type, scheme
-            )
-            SELECT
-                a.download_type,
-                a.scheme,
-                a.last_download,
-                a.file_count,
-                l.fiscal_year as latest_year,
-                l.service_month as latest_month
-            FROM agg_info a
-            LEFT JOIN latest_info l ON l.download_type = a.download_type
-                AND COALESCE(l.scheme, '') = COALESCE(a.scheme, '')
-                AND l.rn = 1
-            ORDER BY a.download_type, a.scheme
-        """)
+                ORDER BY download_type, scheme
+            """)
+        else:
+            # PostgreSQL query with CTE
+            cursor.execute("""
+                WITH latest_info AS (
+                    SELECT
+                        download_type,
+                        scheme,
+                        fiscal_year,
+                        service_month,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY download_type, scheme
+                            ORDER BY fiscal_year DESC, service_month DESC
+                        ) as rn
+                    FROM download_history
+                    WHERE file_exists = TRUE
+                ),
+                agg_info AS (
+                    SELECT
+                        download_type,
+                        scheme,
+                        MAX(downloaded_at) as last_download,
+                        COUNT(*) as file_count
+                    FROM download_history
+                    WHERE file_exists = TRUE
+                    GROUP BY download_type, scheme
+                )
+                SELECT
+                    a.download_type,
+                    a.scheme,
+                    a.last_download,
+                    a.file_count,
+                    l.fiscal_year as latest_year,
+                    l.service_month as latest_month
+                FROM agg_info a
+                LEFT JOIN latest_info l ON l.download_type = a.download_type
+                    AND COALESCE(l.scheme, '') = COALESCE(a.scheme, '')
+                    AND l.rn = 1
+                ORDER BY a.download_type, a.scheme
+            """)
 
         rows = cursor.fetchall()
 
@@ -11573,7 +11616,7 @@ def get_files_update_status():
                 COUNT(*) as total,
                 MAX(downloaded_at) as last_download
             FROM download_history
-            WHERE download_status = 'success' AND file_exists = TRUE
+            WHERE file_exists = TRUE
             GROUP BY download_type
         """)
         summary_rows = cursor.fetchall()
