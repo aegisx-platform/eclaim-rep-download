@@ -130,10 +130,12 @@ ECLAIM_PASSWORD: ********
 
 | Option | Command | Description |
 |--------|---------|-------------|
-| PostgreSQL | (default) | แนะนำสำหรับ production |
-| MySQL | `--mysql` | สำหรับผู้ใช้ MySQL |
-| No Database | `--no-db` | Download only |
+| PostgreSQL | (default) | สร้าง PostgreSQL container ใน compose |
+| MySQL | `--mysql` | สร้าง MySQL container ใน compose |
+| External DB | `--no-db` | เชื่อมต่อ Database ภายนอก (ไม่สร้าง container DB) |
 | Custom Dir | `--dir NAME` | กำหนดชื่อโฟลเดอร์ |
+
+> **หมายเหตุ:** `--no-db` จะถามข้อมูล Database ภายนอก (host, port, user, password) ระหว่างติดตั้ง
 
 **Examples:**
 
