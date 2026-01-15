@@ -7,6 +7,44 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from decimal import Decimal
 
+from config.database import DB_TYPE
+
+
+# SQL helpers for cross-database compatibility
+def sql_extract_year(column: str) -> str:
+    """Generate SQL for extracting year as integer"""
+    if DB_TYPE == 'mysql':
+        return f"YEAR({column})"
+    return f"EXTRACT(YEAR FROM {column})::int"
+
+
+def sql_extract_month(column: str) -> str:
+    """Generate SQL for extracting month"""
+    if DB_TYPE == 'mysql':
+        return f"MONTH({column})"
+    return f"EXTRACT(MONTH FROM {column})"
+
+
+def sql_extract_month_text(column: str) -> str:
+    """Generate SQL for extracting month as zero-padded text"""
+    if DB_TYPE == 'mysql':
+        return f"LPAD(MONTH({column}), 2, '0')"
+    return f"LPAD(EXTRACT(MONTH FROM {column})::text, 2, '0')"
+
+
+def sql_year_month_format(column: str) -> str:
+    """Generate SQL for YYYY-MM format"""
+    if DB_TYPE == 'mysql':
+        return f"DATE_FORMAT({column}, '%Y-%m')"
+    return f"TO_CHAR({column}, 'YYYY-MM')"
+
+
+def sql_be_month(column: str) -> str:
+    """Generate SQL for Buddhist Era YYYYMM format"""
+    if DB_TYPE == 'mysql':
+        return f"CONCAT(YEAR({column}) + 543, LPAD(MONTH({column}), 2, '0'))"
+    return f"(EXTRACT(YEAR FROM {column})::int + 543)::text || LPAD(EXTRACT(MONTH FROM {column})::text, 2, '0')"
+
 
 # Fund code mapping: REP main_fund codes to SMT fund groups
 FUND_MAPPING = {
@@ -95,11 +133,13 @@ class ReconciliationReport:
         """
         cursor = self.conn.cursor()
 
-        query = """
+        month_gregorian_sql = sql_year_month_format('dateadm')
+        be_month_sql = sql_be_month('dateadm')
+
+        query = f"""
         SELECT
-            TO_CHAR(dateadm, 'YYYY-MM') as month_gregorian,
-            (EXTRACT(YEAR FROM dateadm)::int + 543)::text ||
-                LPAD(EXTRACT(MONTH FROM dateadm)::text, 2, '0') as month_be,
+            {month_gregorian_sql} as month_gregorian,
+            {be_month_sql} as month_be,
             main_fund,
             COUNT(*) as claim_count,
             COALESCE(SUM(reimb_nhso), 0) as reimb_nhso,
@@ -107,9 +147,8 @@ class ReconciliationReport:
         FROM claim_rep_opip_nhso_item
         WHERE dateadm IS NOT NULL
         GROUP BY
-            TO_CHAR(dateadm, 'YYYY-MM'),
-            (EXTRACT(YEAR FROM dateadm)::int + 543)::text ||
-                LPAD(EXTRACT(MONTH FROM dateadm)::text, 2, '0'),
+            {month_gregorian_sql},
+            {be_month_sql},
             main_fund
         ORDER BY month_gregorian DESC, main_fund
         """
@@ -196,10 +235,10 @@ class ReconciliationReport:
         cursor = self.conn.cursor()
 
         # Get REP summary by month
-        rep_query = """
+        be_month_sql = sql_be_month('dateadm')
+        rep_query = f"""
         SELECT
-            (EXTRACT(YEAR FROM dateadm)::int + 543)::text ||
-                LPAD(EXTRACT(MONTH FROM dateadm)::text, 2, '0') as month_be,
+            {be_month_sql} as month_be,
             COUNT(*) as claim_count,
             COUNT(DISTINCT tran_id) as unique_claims,
             COALESCE(SUM(reimb_nhso), 0) as total_reimb_nhso,
@@ -207,8 +246,7 @@ class ReconciliationReport:
         FROM claim_rep_opip_nhso_item
         WHERE dateadm IS NOT NULL
         GROUP BY
-            (EXTRACT(YEAR FROM dateadm)::int + 543)::text ||
-                LPAD(EXTRACT(MONTH FROM dateadm)::text, 2, '0')
+            {be_month_sql}
         ORDER BY month_be DESC
         """
 
@@ -306,10 +344,8 @@ class ReconciliationReport:
         smt_where = "WHERE posting_date IS NOT NULL"
 
         if month_be:
-            rep_where += f"""
-                AND (EXTRACT(YEAR FROM dateadm)::int + 543)::text ||
-                    LPAD(EXTRACT(MONTH FROM dateadm)::text, 2, '0') = '{month_be}'
-            """
+            be_month_sql = sql_be_month('dateadm')
+            rep_where += f" AND {be_month_sql} = '{month_be}'"
             smt_where += f" AND LEFT(posting_date, 6) = '{month_be}'"
 
         # Get REP by fund
@@ -402,12 +438,14 @@ class ReconciliationReport:
         cursor = self.conn.cursor()
 
         # Get fiscal years from REP data
-        rep_query = """
+        year_expr = sql_extract_year('dateadm')
+        month_expr = sql_extract_month('dateadm')
+        rep_query = f"""
         SELECT DISTINCT
             CASE
-                WHEN EXTRACT(MONTH FROM dateadm) >= 10
-                THEN EXTRACT(YEAR FROM dateadm)::int + 544
-                ELSE EXTRACT(YEAR FROM dateadm)::int + 543
+                WHEN {month_expr} >= 10
+                THEN {year_expr} + 544
+                ELSE {year_expr} + 543
             END as fiscal_year
         FROM claim_rep_opip_nhso_item
         WHERE dateadm IS NOT NULL
@@ -453,10 +491,12 @@ class ReconciliationReport:
         fy_end_year_be = fiscal_year  # End in fiscal year
 
         # Get REP data for fiscal year
-        rep_query = """
+        be_month_sql = sql_be_month('dateadm')
+        year_expr = sql_extract_year('dateadm')
+        month_expr = sql_extract_month('dateadm')
+        rep_query = f"""
         SELECT
-            (EXTRACT(YEAR FROM dateadm)::int + 543)::text ||
-                LPAD(EXTRACT(MONTH FROM dateadm)::text, 2, '0') as month_be,
+            {be_month_sql} as month_be,
             COUNT(*) as claim_count,
             COUNT(DISTINCT tran_id) as unique_claims,
             COALESCE(SUM(reimb_nhso), 0) as total_reimb_nhso,
@@ -464,13 +504,12 @@ class ReconciliationReport:
         FROM claim_rep_opip_nhso_item
         WHERE dateadm IS NOT NULL
           AND (
-            (EXTRACT(YEAR FROM dateadm)::int + 543 = %s AND EXTRACT(MONTH FROM dateadm) >= 10)
+            ({year_expr} + 543 = %s AND {month_expr} >= 10)
             OR
-            (EXTRACT(YEAR FROM dateadm)::int + 543 = %s AND EXTRACT(MONTH FROM dateadm) <= 9)
+            ({year_expr} + 543 = %s AND {month_expr} <= 9)
           )
         GROUP BY
-            (EXTRACT(YEAR FROM dateadm)::int + 543)::text ||
-                LPAD(EXTRACT(MONTH FROM dateadm)::text, 2, '0')
+            {be_month_sql}
         ORDER BY month_be
         """
         cursor.execute(rep_query, (fy_start_year_be, fy_end_year_be))
@@ -574,8 +613,11 @@ class ReconciliationReport:
             fy_start_year_be = fiscal_year - 1
             fy_end_year_be = fiscal_year
 
+            year_expr = sql_extract_year('dateadm')
+            month_expr = sql_extract_month('dateadm')
+
             # REP stats for FY
-            cursor.execute("""
+            cursor.execute(f"""
             SELECT
                 COUNT(*) as total_claims,
                 COUNT(DISTINCT tran_id) as unique_claims,
@@ -586,9 +628,9 @@ class ReconciliationReport:
             FROM claim_rep_opip_nhso_item
             WHERE dateadm IS NOT NULL
               AND (
-                (EXTRACT(YEAR FROM dateadm)::int + 543 = %s AND EXTRACT(MONTH FROM dateadm) >= 10)
+                ({year_expr} + 543 = %s AND {month_expr} >= 10)
                 OR
-                (EXTRACT(YEAR FROM dateadm)::int + 543 = %s AND EXTRACT(MONTH FROM dateadm) <= 9)
+                ({year_expr} + 543 = %s AND {month_expr} <= 9)
               )
             """, (fy_start_year_be, fy_end_year_be))
             rep_row = cursor.fetchone()

@@ -88,6 +88,54 @@ def sql_coalesce_numeric(column: str, default: int = 0) -> str:
     return f"COALESCE({column}, {default})::numeric"
 
 
+def sql_cast_int(expr: str) -> str:
+    """Generate SQL for casting to integer"""
+    if DB_TYPE == 'mysql':
+        return f"CAST({expr} AS SIGNED)"
+    return f"({expr})::int"
+
+
+def sql_extract_year(column: str) -> str:
+    """Generate SQL for extracting year as integer"""
+    if DB_TYPE == 'mysql':
+        return f"YEAR({column})"
+    return f"EXTRACT(YEAR FROM {column})::int"
+
+
+def sql_extract_month(column: str) -> str:
+    """Generate SQL for extracting month"""
+    if DB_TYPE == 'mysql':
+        return f"MONTH({column})"
+    return f"EXTRACT(MONTH FROM {column})"
+
+
+def sql_full_outer_join(left_table: str, right_table: str, left_alias: str, right_alias: str, join_condition: str) -> str:
+    """
+    Generate SQL for FULL OUTER JOIN.
+    MySQL doesn't support FULL OUTER JOIN, so we simulate it with UNION of LEFT and RIGHT JOINs.
+    For PostgreSQL, use native FULL OUTER JOIN.
+
+    Note: This returns a subquery that can be used in FROM clause.
+    """
+    if DB_TYPE == 'mysql':
+        return f"""(
+            SELECT * FROM {left_table} {left_alias}
+            LEFT JOIN {right_table} {right_alias} ON {join_condition}
+            UNION
+            SELECT * FROM {left_table} {left_alias}
+            RIGHT JOIN {right_table} {right_alias} ON {join_condition}
+            WHERE {left_alias}.{join_condition.split('=')[0].strip().split('.')[-1]} IS NULL
+        )"""
+    return f"{left_table} {left_alias} FULL OUTER JOIN {right_table} {right_alias} ON {join_condition}"
+
+
+def sql_ilike(column: str, pattern: str) -> str:
+    """Generate SQL for case-insensitive LIKE"""
+    if DB_TYPE == 'mysql':
+        return f"{column} LIKE {pattern}"  # MySQL LIKE is case-insensitive by default with utf8mb4
+    return f"{column} ILIKE {pattern}"
+
+
 # Thailand timezone
 TZ_BANGKOK = ZoneInfo('Asia/Bangkok')
 
@@ -1052,53 +1100,114 @@ def api_analysis_reconciliation():
 
         if group_by == 'tran_id':
             # Transaction-level reconciliation by tran_id
-            query = f"""
-                WITH rep_data AS (
+            if DB_TYPE == 'mysql':
+                # MySQL doesn't support FULL OUTER JOIN, use UNION of LEFT and RIGHT JOINs
+                query = f"""
+                    WITH rep_data AS (
+                        SELECT
+                            tran_id,
+                            rep_no,
+                            name as patient_name,
+                            hn,
+                            COALESCE(reimb_nhso, 0) as rep_amount
+                        FROM claim_rep_opip_nhso_item
+                        WHERE {' AND '.join(rep_cte_where)}
+                    ),
+                    stm_data AS (
+                        SELECT
+                            tran_id,
+                            rep_no,
+                            patient_name,
+                            hn,
+                            COALESCE(paid_after_deduction, 0) as stm_amount
+                        FROM stm_claim_item
+                        WHERE {' AND '.join(stm_cte_where)}
+                    ),
+                    combined AS (
+                        SELECT
+                            COALESCE(r.tran_id, s.tran_id) as tran_id,
+                            COALESCE(r.rep_no, s.rep_no) as rep_no,
+                            COALESCE(r.patient_name, s.patient_name) as patient_name,
+                            COALESCE(r.hn, s.hn) as hn,
+                            COALESCE(r.rep_amount, 0) as rep_amount,
+                            COALESCE(s.stm_amount, 0) as stm_amount,
+                            COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
+                            CASE
+                                WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL
+                                     AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
+                                WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL THEN 'diff_amount'
+                                WHEN r.tran_id IS NOT NULL THEN 'rep_only'
+                                ELSE 'stm_only'
+                            END as status
+                        FROM rep_data r
+                        LEFT JOIN stm_data s ON r.tran_id = s.tran_id
+                        UNION
+                        SELECT
+                            s.tran_id as tran_id,
+                            s.rep_no as rep_no,
+                            s.patient_name as patient_name,
+                            s.hn as hn,
+                            0 as rep_amount,
+                            COALESCE(s.stm_amount, 0) as stm_amount,
+                            0 - COALESCE(s.stm_amount, 0) as diff,
+                            'stm_only' as status
+                        FROM stm_data s
+                        LEFT JOIN rep_data r ON r.tran_id = s.tran_id
+                        WHERE r.tran_id IS NULL
+                    )
+                    SELECT * FROM combined
+                """
+            else:
+                # PostgreSQL supports FULL OUTER JOIN natively
+                query = f"""
+                    WITH rep_data AS (
+                        SELECT
+                            tran_id,
+                            rep_no,
+                            name as patient_name,
+                            hn,
+                            COALESCE(reimb_nhso, 0) as rep_amount
+                        FROM claim_rep_opip_nhso_item
+                        WHERE {' AND '.join(rep_cte_where)}
+                    ),
+                    stm_data AS (
+                        SELECT
+                            tran_id,
+                            rep_no,
+                            patient_name,
+                            hn,
+                            COALESCE(paid_after_deduction, 0) as stm_amount
+                        FROM stm_claim_item
+                        WHERE {' AND '.join(stm_cte_where)}
+                    )
                     SELECT
-                        tran_id,
-                        rep_no,
-                        name as patient_name,
-                        hn,
-                        COALESCE(reimb_nhso, 0) as rep_amount
-                    FROM claim_rep_opip_nhso_item
-                    WHERE {' AND '.join(rep_cte_where)}
-                ),
-                stm_data AS (
-                    SELECT
-                        tran_id,
-                        rep_no,
-                        patient_name,
-                        hn,
-                        COALESCE(paid_after_deduction, 0) as stm_amount
-                    FROM stm_claim_item
-                    WHERE {' AND '.join(stm_cte_where)}
-                )
-                SELECT
-                    COALESCE(r.tran_id, s.tran_id) as tran_id,
-                    COALESCE(r.rep_no, s.rep_no) as rep_no,
-                    COALESCE(r.patient_name, s.patient_name) as patient_name,
-                    COALESCE(r.hn, s.hn) as hn,
-                    COALESCE(r.rep_amount, 0) as rep_amount,
-                    COALESCE(s.stm_amount, 0) as stm_amount,
-                    COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
-                    CASE
-                        WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL
-                             AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
-                        WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL THEN 'diff_amount'
-                        WHEN r.tran_id IS NOT NULL THEN 'rep_only'
-                        ELSE 'stm_only'
-                    END as status
-                FROM rep_data r
-                FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
-            """
+                        COALESCE(r.tran_id, s.tran_id) as tran_id,
+                        COALESCE(r.rep_no, s.rep_no) as rep_no,
+                        COALESCE(r.patient_name, s.patient_name) as patient_name,
+                        COALESCE(r.hn, s.hn) as hn,
+                        COALESCE(r.rep_amount, 0) as rep_amount,
+                        COALESCE(s.stm_amount, 0) as stm_amount,
+                        COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
+                        CASE
+                            WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL
+                                 AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
+                            WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL THEN 'diff_amount'
+                            WHEN r.tran_id IS NOT NULL THEN 'rep_only'
+                            ELSE 'stm_only'
+                        END as status
+                    FROM rep_data r
+                    FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
+                """
 
             # CTE params first
             params.extend(cte_params_rep)
             params.extend(cte_params_stm)
 
+            # ILIKE is PostgreSQL-specific, MySQL LIKE is case-insensitive by default
+            like_op = "LIKE" if DB_TYPE == 'mysql' else "ILIKE"
             if rep_no_filter:
                 # In tran_id mode, search by both tran_id and rep_no
-                where_clauses.append("(tran_id ILIKE %s OR rep_no ILIKE %s)")
+                where_clauses.append(f"(tran_id {like_op} %s OR rep_no {like_op} %s)")
                 params.extend([f'%{rep_no_filter}%', f'%{rep_no_filter}%'])
 
             if status_filter:
@@ -1124,42 +1233,97 @@ def api_analysis_reconciliation():
             if has_error:
                 rep_where.append("error_code IS NOT NULL AND error_code != ''")
 
-            query = f"""
-                WITH rep_data AS (
+            if DB_TYPE == 'mysql':
+                # MySQL doesn't support FULL OUTER JOIN
+                query = f"""
+                    WITH rep_data AS (
+                        SELECT
+                            rep_no,
+                            SUM(COALESCE(reimb_nhso, 0)) as rep_amount,
+                            COUNT(*) as rep_count
+                        FROM claim_rep_opip_nhso_item
+                        WHERE {' AND '.join(rep_where)}
+                        GROUP BY rep_no
+                    ),
+                    stm_data AS (
+                        SELECT
+                            rep_no,
+                            SUM(COALESCE(paid_after_deduction, 0)) as stm_amount,
+                            COUNT(*) as stm_count
+                        FROM stm_claim_item
+                        WHERE {' AND '.join(stm_where)}
+                        GROUP BY rep_no
+                    ),
+                    combined AS (
+                        SELECT
+                            COALESCE(r.rep_no, s.rep_no) as rep_no,
+                            COALESCE(r.rep_count, 0) as rep_count,
+                            COALESCE(s.stm_count, 0) as stm_count,
+                            COALESCE(r.rep_amount, 0) as rep_amount,
+                            COALESCE(s.stm_amount, 0) as stm_amount,
+                            COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
+                            CASE
+                                WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL
+                                     AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
+                                WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL THEN 'diff_amount'
+                                WHEN r.rep_no IS NOT NULL THEN 'rep_only'
+                                ELSE 'stm_only'
+                            END as status
+                        FROM rep_data r
+                        LEFT JOIN stm_data s ON r.rep_no = s.rep_no
+                        UNION
+                        SELECT
+                            s.rep_no as rep_no,
+                            0 as rep_count,
+                            COALESCE(s.stm_count, 0) as stm_count,
+                            0 as rep_amount,
+                            COALESCE(s.stm_amount, 0) as stm_amount,
+                            0 - COALESCE(s.stm_amount, 0) as diff,
+                            'stm_only' as status
+                        FROM stm_data s
+                        LEFT JOIN rep_data r ON r.rep_no = s.rep_no
+                        WHERE r.rep_no IS NULL
+                    )
+                    SELECT * FROM combined
+                """
+            else:
+                # PostgreSQL supports FULL OUTER JOIN
+                query = f"""
+                    WITH rep_data AS (
+                        SELECT
+                            rep_no,
+                            SUM(COALESCE(reimb_nhso, 0)) as rep_amount,
+                            COUNT(*) as rep_count
+                        FROM claim_rep_opip_nhso_item
+                        WHERE {' AND '.join(rep_where)}
+                        GROUP BY rep_no
+                    ),
+                    stm_data AS (
+                        SELECT
+                            rep_no,
+                            SUM(COALESCE(paid_after_deduction, 0)) as stm_amount,
+                            COUNT(*) as stm_count
+                        FROM stm_claim_item
+                        WHERE {' AND '.join(stm_where)}
+                        GROUP BY rep_no
+                    )
                     SELECT
-                        rep_no,
-                        SUM(COALESCE(reimb_nhso, 0)) as rep_amount,
-                        COUNT(*) as rep_count
-                    FROM claim_rep_opip_nhso_item
-                    WHERE {' AND '.join(rep_where)}
-                    GROUP BY rep_no
-                ),
-                stm_data AS (
-                    SELECT
-                        rep_no,
-                        SUM(COALESCE(paid_after_deduction, 0)) as stm_amount,
-                        COUNT(*) as stm_count
-                    FROM stm_claim_item
-                    WHERE {' AND '.join(stm_where)}
-                    GROUP BY rep_no
-                )
-                SELECT
-                    COALESCE(r.rep_no, s.rep_no) as rep_no,
-                    COALESCE(r.rep_count, 0) as rep_count,
-                    COALESCE(s.stm_count, 0) as stm_count,
-                    COALESCE(r.rep_amount, 0) as rep_amount,
-                    COALESCE(s.stm_amount, 0) as stm_amount,
-                    COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
-                    CASE
-                        WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL
-                             AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
-                        WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL THEN 'diff_amount'
-                        WHEN r.rep_no IS NOT NULL THEN 'rep_only'
-                        ELSE 'stm_only'
-                    END as status
-                FROM rep_data r
-                FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
-            """
+                        COALESCE(r.rep_no, s.rep_no) as rep_no,
+                        COALESCE(r.rep_count, 0) as rep_count,
+                        COALESCE(s.stm_count, 0) as stm_count,
+                        COALESCE(r.rep_amount, 0) as rep_amount,
+                        COALESCE(s.stm_amount, 0) as stm_amount,
+                        COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
+                        CASE
+                            WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL
+                                 AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
+                            WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL THEN 'diff_amount'
+                            WHEN r.rep_no IS NOT NULL THEN 'rep_only'
+                            ELSE 'stm_only'
+                        END as status
+                    FROM rep_data r
+                    FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
+                """
 
             # Add CTE params for rep_no mode
             if date_from:
@@ -1169,8 +1333,9 @@ def api_analysis_reconciliation():
                 params.append(date_to)
                 params.append(date_to)
 
+            like_op = "LIKE" if DB_TYPE == 'mysql' else "ILIKE"
             if rep_no_filter:
-                where_clauses.append("rep_no ILIKE %s")
+                where_clauses.append(f"rep_no {like_op} %s")
                 params.append(f'%{rep_no_filter}%')
 
             if status_filter:
@@ -1205,23 +1370,51 @@ def api_analysis_reconciliation():
                 })
 
             # Stats for tran_id mode
-            stats_query = """
-                WITH rep_data AS (
-                    SELECT tran_id, COALESCE(reimb_nhso, 0) as amount
-                    FROM claim_rep_opip_nhso_item WHERE tran_id IS NOT NULL
-                ),
-                stm_data AS (
-                    SELECT tran_id, COALESCE(paid_after_deduction, 0) as amount
-                    FROM stm_claim_item WHERE tran_id IS NOT NULL
-                )
-                SELECT
-                    COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(r.amount - s.amount) < 0.01 THEN 1 END) as matched,
-                    COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NULL THEN 1 END) as rep_only,
-                    COUNT(CASE WHEN r.tran_id IS NULL AND s.tran_id IS NOT NULL THEN 1 END) as stm_only,
-                    COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(r.amount - s.amount) >= 0.01 THEN 1 END) as diff_amount
-                FROM rep_data r
-                FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
-            """
+            if DB_TYPE == 'mysql':
+                # MySQL doesn't support FULL OUTER JOIN, use UNION of LEFT and RIGHT JOINs
+                stats_query = """
+                    WITH rep_data AS (
+                        SELECT tran_id, COALESCE(reimb_nhso, 0) as amount
+                        FROM claim_rep_opip_nhso_item WHERE tran_id IS NOT NULL
+                    ),
+                    stm_data AS (
+                        SELECT tran_id, COALESCE(paid_after_deduction, 0) as amount
+                        FROM stm_claim_item WHERE tran_id IS NOT NULL
+                    ),
+                    combined AS (
+                        SELECT r.tran_id as r_tran_id, r.amount as r_amount, s.tran_id as s_tran_id, s.amount as s_amount
+                        FROM rep_data r LEFT JOIN stm_data s ON r.tran_id = s.tran_id
+                        UNION
+                        SELECT r.tran_id as r_tran_id, r.amount as r_amount, s.tran_id as s_tran_id, s.amount as s_amount
+                        FROM stm_data s LEFT JOIN rep_data r ON r.tran_id = s.tran_id
+                        WHERE r.tran_id IS NULL
+                    )
+                    SELECT
+                        COUNT(CASE WHEN r_tran_id IS NOT NULL AND s_tran_id IS NOT NULL AND ABS(r_amount - s_amount) < 0.01 THEN 1 END) as matched,
+                        COUNT(CASE WHEN r_tran_id IS NOT NULL AND s_tran_id IS NULL THEN 1 END) as rep_only,
+                        COUNT(CASE WHEN r_tran_id IS NULL AND s_tran_id IS NOT NULL THEN 1 END) as stm_only,
+                        COUNT(CASE WHEN r_tran_id IS NOT NULL AND s_tran_id IS NOT NULL AND ABS(r_amount - s_amount) >= 0.01 THEN 1 END) as diff_amount
+                    FROM combined
+                """
+            else:
+                # PostgreSQL supports FULL OUTER JOIN natively
+                stats_query = """
+                    WITH rep_data AS (
+                        SELECT tran_id, COALESCE(reimb_nhso, 0) as amount
+                        FROM claim_rep_opip_nhso_item WHERE tran_id IS NOT NULL
+                    ),
+                    stm_data AS (
+                        SELECT tran_id, COALESCE(paid_after_deduction, 0) as amount
+                        FROM stm_claim_item WHERE tran_id IS NOT NULL
+                    )
+                    SELECT
+                        COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(r.amount - s.amount) < 0.01 THEN 1 END) as matched,
+                        COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NULL THEN 1 END) as rep_only,
+                        COUNT(CASE WHEN r.tran_id IS NULL AND s.tran_id IS NOT NULL THEN 1 END) as stm_only,
+                        COUNT(CASE WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL AND ABS(r.amount - s.amount) >= 0.01 THEN 1 END) as diff_amount
+                    FROM rep_data r
+                    FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
+                """
         else:
             # REP-level records
             for row in rows:
@@ -1236,27 +1429,59 @@ def api_analysis_reconciliation():
                 })
 
             # Stats for rep_no mode
-            stats_query = """
-                WITH rep_data AS (
-                    SELECT rep_no, SUM(COALESCE(reimb_nhso, 0)) as amount
-                    FROM claim_rep_opip_nhso_item
-                    WHERE rep_no IS NOT NULL AND rep_no != ''
-                    GROUP BY rep_no
-                ),
-                stm_data AS (
-                    SELECT rep_no, SUM(COALESCE(paid_after_deduction, 0)) as amount
-                    FROM stm_claim_item
-                    WHERE rep_no IS NOT NULL AND rep_no != ''
-                    GROUP BY rep_no
-                )
-                SELECT
-                    COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(r.amount - s.amount) < 0.01 THEN 1 END) as matched,
-                    COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NULL THEN 1 END) as rep_only,
-                    COUNT(CASE WHEN r.rep_no IS NULL AND s.rep_no IS NOT NULL THEN 1 END) as stm_only,
-                    COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(r.amount - s.amount) >= 0.01 THEN 1 END) as diff_amount
-                FROM rep_data r
-                FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
-            """
+            if DB_TYPE == 'mysql':
+                # MySQL doesn't support FULL OUTER JOIN
+                stats_query = """
+                    WITH rep_data AS (
+                        SELECT rep_no, SUM(COALESCE(reimb_nhso, 0)) as amount
+                        FROM claim_rep_opip_nhso_item
+                        WHERE rep_no IS NOT NULL AND rep_no != ''
+                        GROUP BY rep_no
+                    ),
+                    stm_data AS (
+                        SELECT rep_no, SUM(COALESCE(paid_after_deduction, 0)) as amount
+                        FROM stm_claim_item
+                        WHERE rep_no IS NOT NULL AND rep_no != ''
+                        GROUP BY rep_no
+                    ),
+                    combined AS (
+                        SELECT r.rep_no as r_rep_no, r.amount as r_amount, s.rep_no as s_rep_no, s.amount as s_amount
+                        FROM rep_data r LEFT JOIN stm_data s ON r.rep_no = s.rep_no
+                        UNION
+                        SELECT r.rep_no as r_rep_no, r.amount as r_amount, s.rep_no as s_rep_no, s.amount as s_amount
+                        FROM stm_data s LEFT JOIN rep_data r ON r.rep_no = s.rep_no
+                        WHERE r.rep_no IS NULL
+                    )
+                    SELECT
+                        COUNT(CASE WHEN r_rep_no IS NOT NULL AND s_rep_no IS NOT NULL AND ABS(r_amount - s_amount) < 0.01 THEN 1 END) as matched,
+                        COUNT(CASE WHEN r_rep_no IS NOT NULL AND s_rep_no IS NULL THEN 1 END) as rep_only,
+                        COUNT(CASE WHEN r_rep_no IS NULL AND s_rep_no IS NOT NULL THEN 1 END) as stm_only,
+                        COUNT(CASE WHEN r_rep_no IS NOT NULL AND s_rep_no IS NOT NULL AND ABS(r_amount - s_amount) >= 0.01 THEN 1 END) as diff_amount
+                    FROM combined
+                """
+            else:
+                # PostgreSQL supports FULL OUTER JOIN natively
+                stats_query = """
+                    WITH rep_data AS (
+                        SELECT rep_no, SUM(COALESCE(reimb_nhso, 0)) as amount
+                        FROM claim_rep_opip_nhso_item
+                        WHERE rep_no IS NOT NULL AND rep_no != ''
+                        GROUP BY rep_no
+                    ),
+                    stm_data AS (
+                        SELECT rep_no, SUM(COALESCE(paid_after_deduction, 0)) as amount
+                        FROM stm_claim_item
+                        WHERE rep_no IS NOT NULL AND rep_no != ''
+                        GROUP BY rep_no
+                    )
+                    SELECT
+                        COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(r.amount - s.amount) < 0.01 THEN 1 END) as matched,
+                        COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NULL THEN 1 END) as rep_only,
+                        COUNT(CASE WHEN r.rep_no IS NULL AND s.rep_no IS NOT NULL THEN 1 END) as stm_only,
+                        COUNT(CASE WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL AND ABS(r.amount - s.amount) >= 0.01 THEN 1 END) as diff_amount
+                    FROM rep_data r
+                    FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
+                """
 
         cursor.execute(stats_query)
         stats_row = cursor.fetchone()
@@ -1327,79 +1552,173 @@ def api_analysis_export():
         where_clauses = []
 
         if group_by == 'tran_id':
-            query = f"""
-                WITH rep_data AS (
-                    SELECT tran_id, rep_no, name as patient_name, hn, dateadm,
-                           COALESCE(reimb_nhso, 0) as rep_amount, error_code
-                    FROM claim_rep_opip_nhso_item
-                    WHERE {' AND '.join(rep_where)}
-                ),
-                stm_data AS (
-                    SELECT tran_id, rep_no, patient_name, hn, date_admit,
-                           COALESCE(paid_after_deduction, 0) as stm_amount
-                    FROM stm_claim_item
-                    WHERE {' AND '.join(stm_where)}
-                )
-                SELECT
-                    COALESCE(r.tran_id, s.tran_id) as tran_id,
-                    COALESCE(r.rep_no, s.rep_no) as rep_no,
-                    COALESCE(r.patient_name, s.patient_name) as patient_name,
-                    COALESCE(r.hn, s.hn) as hn,
-                    COALESCE(r.dateadm, s.date_admit) as date,
-                    COALESCE(r.rep_amount, 0) as rep_amount,
-                    COALESCE(s.stm_amount, 0) as stm_amount,
-                    COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
-                    CASE
-                        WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL
-                             AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
-                        WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL THEN 'diff_amount'
-                        WHEN r.tran_id IS NOT NULL THEN 'rep_only'
-                        ELSE 'stm_only'
-                    END as status,
-                    r.error_code
-                FROM rep_data r
-                FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
-            """
+            if DB_TYPE == 'mysql':
+                # MySQL doesn't support FULL OUTER JOIN
+                query = f"""
+                    WITH rep_data AS (
+                        SELECT tran_id, rep_no, name as patient_name, hn, dateadm,
+                               COALESCE(reimb_nhso, 0) as rep_amount, error_code
+                        FROM claim_rep_opip_nhso_item
+                        WHERE {' AND '.join(rep_where)}
+                    ),
+                    stm_data AS (
+                        SELECT tran_id, rep_no, patient_name, hn, date_admit,
+                               COALESCE(paid_after_deduction, 0) as stm_amount
+                        FROM stm_claim_item
+                        WHERE {' AND '.join(stm_where)}
+                    ),
+                    combined AS (
+                        SELECT r.tran_id as r_tran_id, r.rep_no as r_rep_no, r.patient_name as r_patient_name,
+                               r.hn as r_hn, r.dateadm as r_dateadm, r.rep_amount, r.error_code,
+                               s.tran_id as s_tran_id, s.rep_no as s_rep_no, s.patient_name as s_patient_name,
+                               s.hn as s_hn, s.date_admit as s_date_admit, s.stm_amount
+                        FROM rep_data r LEFT JOIN stm_data s ON r.tran_id = s.tran_id
+                        UNION
+                        SELECT r.tran_id as r_tran_id, r.rep_no as r_rep_no, r.patient_name as r_patient_name,
+                               r.hn as r_hn, r.dateadm as r_dateadm, r.rep_amount, r.error_code,
+                               s.tran_id as s_tran_id, s.rep_no as s_rep_no, s.patient_name as s_patient_name,
+                               s.hn as s_hn, s.date_admit as s_date_admit, s.stm_amount
+                        FROM stm_data s LEFT JOIN rep_data r ON r.tran_id = s.tran_id
+                        WHERE r.tran_id IS NULL
+                    )
+                    SELECT
+                        COALESCE(r_tran_id, s_tran_id) as tran_id,
+                        COALESCE(r_rep_no, s_rep_no) as rep_no,
+                        COALESCE(r_patient_name, s_patient_name) as patient_name,
+                        COALESCE(r_hn, s_hn) as hn,
+                        COALESCE(r_dateadm, s_date_admit) as date,
+                        COALESCE(rep_amount, 0) as rep_amount,
+                        COALESCE(stm_amount, 0) as stm_amount,
+                        COALESCE(rep_amount, 0) - COALESCE(stm_amount, 0) as diff,
+                        CASE
+                            WHEN r_tran_id IS NOT NULL AND s_tran_id IS NOT NULL
+                                 AND ABS(COALESCE(rep_amount, 0) - COALESCE(stm_amount, 0)) < 0.01 THEN 'matched'
+                            WHEN r_tran_id IS NOT NULL AND s_tran_id IS NOT NULL THEN 'diff_amount'
+                            WHEN r_tran_id IS NOT NULL THEN 'rep_only'
+                            ELSE 'stm_only'
+                        END as status,
+                        error_code
+                    FROM combined
+                """
+            else:
+                # PostgreSQL supports FULL OUTER JOIN natively
+                query = f"""
+                    WITH rep_data AS (
+                        SELECT tran_id, rep_no, name as patient_name, hn, dateadm,
+                               COALESCE(reimb_nhso, 0) as rep_amount, error_code
+                        FROM claim_rep_opip_nhso_item
+                        WHERE {' AND '.join(rep_where)}
+                    ),
+                    stm_data AS (
+                        SELECT tran_id, rep_no, patient_name, hn, date_admit,
+                               COALESCE(paid_after_deduction, 0) as stm_amount
+                        FROM stm_claim_item
+                        WHERE {' AND '.join(stm_where)}
+                    )
+                    SELECT
+                        COALESCE(r.tran_id, s.tran_id) as tran_id,
+                        COALESCE(r.rep_no, s.rep_no) as rep_no,
+                        COALESCE(r.patient_name, s.patient_name) as patient_name,
+                        COALESCE(r.hn, s.hn) as hn,
+                        COALESCE(r.dateadm, s.date_admit) as date,
+                        COALESCE(r.rep_amount, 0) as rep_amount,
+                        COALESCE(s.stm_amount, 0) as stm_amount,
+                        COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
+                        CASE
+                            WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL
+                                 AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
+                            WHEN r.tran_id IS NOT NULL AND s.tran_id IS NOT NULL THEN 'diff_amount'
+                            WHEN r.tran_id IS NOT NULL THEN 'rep_only'
+                            ELSE 'stm_only'
+                        END as status,
+                        r.error_code
+                    FROM rep_data r
+                    FULL OUTER JOIN stm_data s ON r.tran_id = s.tran_id
+                """
             columns = ['TRAN_ID', 'REP_NO', 'PATIENT_NAME', 'HN', 'DATE', 'REP_AMOUNT', 'STM_AMOUNT', 'DIFF', 'STATUS', 'ERROR_CODE']
         else:
-            query = f"""
-                WITH rep_data AS (
-                    SELECT rep_no, SUM(COALESCE(reimb_nhso, 0)) as rep_amount, COUNT(*) as rep_count
-                    FROM claim_rep_opip_nhso_item
-                    WHERE {' AND '.join(rep_where)}
-                    GROUP BY rep_no
-                ),
-                stm_data AS (
-                    SELECT rep_no, SUM(COALESCE(paid_after_deduction, 0)) as stm_amount, COUNT(*) as stm_count
-                    FROM stm_claim_item
-                    WHERE {' AND '.join(stm_where)}
-                    GROUP BY rep_no
-                )
-                SELECT
-                    COALESCE(r.rep_no, s.rep_no) as rep_no,
-                    COALESCE(r.rep_count, 0) as rep_count,
-                    COALESCE(s.stm_count, 0) as stm_count,
-                    COALESCE(r.rep_amount, 0) as rep_amount,
-                    COALESCE(s.stm_amount, 0) as stm_amount,
-                    COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
-                    CASE
-                        WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL
-                             AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
-                        WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL THEN 'diff_amount'
-                        WHEN r.rep_no IS NOT NULL THEN 'rep_only'
-                        ELSE 'stm_only'
-                    END as status
-                FROM rep_data r
-                FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
-            """
+            if DB_TYPE == 'mysql':
+                # MySQL doesn't support FULL OUTER JOIN
+                query = f"""
+                    WITH rep_data AS (
+                        SELECT rep_no, SUM(COALESCE(reimb_nhso, 0)) as rep_amount, COUNT(*) as rep_count
+                        FROM claim_rep_opip_nhso_item
+                        WHERE {' AND '.join(rep_where)}
+                        GROUP BY rep_no
+                    ),
+                    stm_data AS (
+                        SELECT rep_no, SUM(COALESCE(paid_after_deduction, 0)) as stm_amount, COUNT(*) as stm_count
+                        FROM stm_claim_item
+                        WHERE {' AND '.join(stm_where)}
+                        GROUP BY rep_no
+                    ),
+                    combined AS (
+                        SELECT r.rep_no as r_rep_no, r.rep_amount, r.rep_count,
+                               s.rep_no as s_rep_no, s.stm_amount, s.stm_count
+                        FROM rep_data r LEFT JOIN stm_data s ON r.rep_no = s.rep_no
+                        UNION
+                        SELECT r.rep_no as r_rep_no, r.rep_amount, r.rep_count,
+                               s.rep_no as s_rep_no, s.stm_amount, s.stm_count
+                        FROM stm_data s LEFT JOIN rep_data r ON r.rep_no = s.rep_no
+                        WHERE r.rep_no IS NULL
+                    )
+                    SELECT
+                        COALESCE(r_rep_no, s_rep_no) as rep_no,
+                        COALESCE(rep_count, 0) as rep_count,
+                        COALESCE(stm_count, 0) as stm_count,
+                        COALESCE(rep_amount, 0) as rep_amount,
+                        COALESCE(stm_amount, 0) as stm_amount,
+                        COALESCE(rep_amount, 0) - COALESCE(stm_amount, 0) as diff,
+                        CASE
+                            WHEN r_rep_no IS NOT NULL AND s_rep_no IS NOT NULL
+                                 AND ABS(COALESCE(rep_amount, 0) - COALESCE(stm_amount, 0)) < 0.01 THEN 'matched'
+                            WHEN r_rep_no IS NOT NULL AND s_rep_no IS NOT NULL THEN 'diff_amount'
+                            WHEN r_rep_no IS NOT NULL THEN 'rep_only'
+                            ELSE 'stm_only'
+                        END as status
+                    FROM combined
+                """
+            else:
+                # PostgreSQL supports FULL OUTER JOIN natively
+                query = f"""
+                    WITH rep_data AS (
+                        SELECT rep_no, SUM(COALESCE(reimb_nhso, 0)) as rep_amount, COUNT(*) as rep_count
+                        FROM claim_rep_opip_nhso_item
+                        WHERE {' AND '.join(rep_where)}
+                        GROUP BY rep_no
+                    ),
+                    stm_data AS (
+                        SELECT rep_no, SUM(COALESCE(paid_after_deduction, 0)) as stm_amount, COUNT(*) as stm_count
+                        FROM stm_claim_item
+                        WHERE {' AND '.join(stm_where)}
+                        GROUP BY rep_no
+                    )
+                    SELECT
+                        COALESCE(r.rep_no, s.rep_no) as rep_no,
+                        COALESCE(r.rep_count, 0) as rep_count,
+                        COALESCE(s.stm_count, 0) as stm_count,
+                        COALESCE(r.rep_amount, 0) as rep_amount,
+                        COALESCE(s.stm_amount, 0) as stm_amount,
+                        COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0) as diff,
+                        CASE
+                            WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL
+                                 AND ABS(COALESCE(r.rep_amount, 0) - COALESCE(s.stm_amount, 0)) < 0.01 THEN 'matched'
+                            WHEN r.rep_no IS NOT NULL AND s.rep_no IS NOT NULL THEN 'diff_amount'
+                            WHEN r.rep_no IS NOT NULL THEN 'rep_only'
+                            ELSE 'stm_only'
+                        END as status
+                    FROM rep_data r
+                    FULL OUTER JOIN stm_data s ON r.rep_no = s.rep_no
+                """
             columns = ['REP_NO', 'REP_COUNT', 'STM_COUNT', 'REP_AMOUNT', 'STM_AMOUNT', 'DIFF', 'STATUS']
 
         if rep_no_filter:
+            like_op = "LIKE" if DB_TYPE == 'mysql' else "ILIKE"
             if group_by == 'tran_id':
-                where_clauses.append("(tran_id ILIKE %s OR rep_no ILIKE %s)")
+                where_clauses.append(f"(tran_id {like_op} %s OR rep_no {like_op} %s)")
                 params.extend([f'%{rep_no_filter}%', f'%{rep_no_filter}%'])
             else:
-                where_clauses.append("rep_no ILIKE %s")
+                where_clauses.append(f"rep_no {like_op} %s")
                 params.append(f'%{rep_no_filter}%')
 
         if status_filter:
@@ -1459,12 +1778,13 @@ def api_analysis_search():
             return jsonify({'success': False, 'error': 'Search query required'}), 400
 
         # Search in REP data
+        like_op = "LIKE" if DB_TYPE == 'mysql' else "ILIKE"
         rep_results = []
         try:
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT tran_id, rep_no, hn, name, dateadm, reimb_nhso
                 FROM claim_rep_opip_nhso_item
-                WHERE tran_id ILIKE %s OR hn ILIKE %s OR an ILIKE %s OR pid ILIKE %s
+                WHERE tran_id {like_op} %s OR hn {like_op} %s OR an {like_op} %s OR pid {like_op} %s
                 LIMIT 50
             """, (f'%{query_term}%', f'%{query_term}%', f'%{query_term}%', f'%{query_term}%'))
             for row in cursor.fetchall():
@@ -1482,10 +1802,10 @@ def api_analysis_search():
         # Search in Statement data
         stm_results = []
         try:
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT tran_id, rep_no, hn, patient_name, date_admit, paid_after_deduction
                 FROM stm_claim_item
-                WHERE tran_id ILIKE %s OR hn ILIKE %s OR an ILIKE %s OR pid ILIKE %s
+                WHERE tran_id {like_op} %s OR hn {like_op} %s OR an {like_op} %s OR pid {like_op} %s
                 LIMIT 50
             """, (f'%{query_term}%', f'%{query_term}%', f'%{query_term}%', f'%{query_term}%'))
             for row in cursor.fetchall():
@@ -1503,10 +1823,10 @@ def api_analysis_search():
         # Search in SMT Budget data
         smt_results = []
         try:
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT posting_date, ref_doc_no, fund_group_desc, total_amount, payment_status
                 FROM smt_budget_transfers
-                WHERE ref_doc_no ILIKE %s OR fund_group_desc ILIKE %s
+                WHERE ref_doc_no {like_op} %s OR fund_group_desc {like_op} %s
                 LIMIT 50
             """, (f'%{query_term}%', f'%{query_term}%'))
             for row in cursor.fetchall():
@@ -6424,11 +6744,13 @@ def get_analytics_date_filter():
 
 def get_available_fiscal_years(cursor):
     """Get list of available fiscal years from data"""
-    cursor.execute("""
+    year_expr = sql_extract_year('dateadm')
+    month_expr = sql_extract_month('dateadm')
+    cursor.execute(f"""
         SELECT DISTINCT
             CASE
-                WHEN EXTRACT(MONTH FROM dateadm) >= 10 THEN EXTRACT(YEAR FROM dateadm)::int + 544
-                ELSE EXTRACT(YEAR FROM dateadm)::int + 543
+                WHEN {month_expr} >= 10 THEN {year_expr} + 544
+                ELSE {year_expr} + 543
             END as fiscal_year
         FROM claim_rep_opip_nhso_item
         WHERE dateadm IS NOT NULL
@@ -7377,7 +7699,8 @@ def api_claims_detail():
 
         # Search filter (tran_id, hn, pid)
         if search:
-            where_clauses.append("(tran_id ILIKE %s OR hn ILIKE %s OR pid ILIKE %s)")
+            like_op = "LIKE" if DB_TYPE == 'mysql' else "ILIKE"
+            where_clauses.append(f"(tran_id {like_op} %s OR hn {like_op} %s OR pid {like_op} %s)")
             search_pattern = f"%{search}%"
             params.extend([search_pattern, search_pattern, search_pattern])
 
@@ -8040,7 +8363,7 @@ def api_yoy_comparison():
 
         # If no fiscal year specified, get current
         if not fiscal_year:
-            cursor.execute("SELECT MAX(EXTRACT(YEAR FROM dateadm)) FROM claim_rep_opip_nhso_item WHERE dateadm IS NOT NULL")
+            cursor.execute(f"SELECT MAX({sql_extract_year('dateadm')}) FROM claim_rep_opip_nhso_item WHERE dateadm IS NOT NULL")
             max_year = cursor.fetchone()[0]
             if max_year:
                 # Convert to fiscal year (Thai Buddhist Era)
@@ -8082,14 +8405,15 @@ def api_yoy_comparison():
         previous = cursor.fetchone()
 
         # Get monthly breakdown for both years
-        monthly_query = """
+        month_expr = sql_extract_month('dateadm')
+        monthly_query = f"""
             SELECT
-                EXTRACT(MONTH FROM dateadm) as month,
+                {month_expr} as month,
                 COUNT(*) as claims,
                 COALESCE(SUM(reimb_nhso), 0) as reimb
             FROM claim_rep_opip_nhso_item
             WHERE dateadm >= %s AND dateadm <= %s
-            GROUP BY EXTRACT(MONTH FROM dateadm)
+            GROUP BY {month_expr}
             ORDER BY month
         """
 
@@ -8578,6 +8902,7 @@ def api_benchmark_hospitals():
             params = [start_date, end_date]
 
         # Get summary by vendor from smt_budget_transfers with hospital name lookup
+        ltrim_expr = "TRIM(LEADING '0' FROM s.vendor_no)" if DB_TYPE == 'mysql' else "LTRIM(s.vendor_no, '0')"
         query = f"""
             SELECT
                 s.vendor_no,
@@ -8591,7 +8916,7 @@ def api_benchmark_hospitals():
                 h.name as hospital_name
             FROM smt_budget_transfers s
             LEFT JOIN health_offices h ON (
-                h.hcode5 = LTRIM(s.vendor_no, '0')
+                h.hcode5 = {ltrim_expr}
                 OR h.hcode5 = s.vendor_no
             )
             {where_clause}
@@ -8676,23 +9001,27 @@ def api_benchmark_timeseries():
                 params = [start_date, end_date]
 
         # Get monthly summary by vendor
+        year_expr = sql_extract_year('s.run_date')
+        month_expr = sql_extract_month('s.run_date')
+        # LTRIM syntax differs between databases
+        ltrim_expr = "TRIM(LEADING '0' FROM s.vendor_no)" if DB_TYPE == 'mysql' else "LTRIM(s.vendor_no, '0')"
         query = f"""
             SELECT
                 s.vendor_no,
                 h.name as hospital_name,
-                EXTRACT(YEAR FROM s.run_date) as year,
-                EXTRACT(MONTH FROM s.run_date) as month,
+                {year_expr} as year,
+                {month_expr} as month,
                 COUNT(*) as records,
                 COALESCE(SUM(s.total_amount), 0) as total_amount,
                 COALESCE(SUM(s.wait_amount), 0) as wait_amount,
                 COALESCE(SUM(s.debt_amount), 0) as debt_amount
             FROM smt_budget_transfers s
             LEFT JOIN health_offices h ON (
-                h.hcode5 = LTRIM(s.vendor_no, '0')
+                h.hcode5 = {ltrim_expr}
                 OR h.hcode5 = s.vendor_no
             )
             {where_clause}
-            GROUP BY s.vendor_no, h.name, EXTRACT(YEAR FROM s.run_date), EXTRACT(MONTH FROM s.run_date)
+            GROUP BY s.vendor_no, h.name, {year_expr}, {month_expr}
             ORDER BY s.vendor_no, year, month
         """
 
@@ -8700,11 +9029,13 @@ def api_benchmark_timeseries():
         rows = cursor.fetchall()
 
         # Also get available fiscal years
-        cursor.execute("""
+        fy_year_expr = sql_extract_year('run_date')
+        fy_month_expr = sql_extract_month('run_date')
+        cursor.execute(f"""
             SELECT DISTINCT
                 CASE
-                    WHEN EXTRACT(MONTH FROM run_date) >= 10 THEN EXTRACT(YEAR FROM run_date) + 544
-                    ELSE EXTRACT(YEAR FROM run_date) + 543
+                    WHEN {fy_month_expr} >= 10 THEN {fy_year_expr} + 544
+                    ELSE {fy_year_expr} + 543
                 END as fiscal_year
             FROM smt_budget_transfers
             ORDER BY fiscal_year DESC
@@ -8784,16 +9115,23 @@ def api_benchmark_hospital_years():
 
         # Get all fiscal years that have data for this hospital
         # Use flexible matching: cast to numeric and compare to handle different padding
-        cursor.execute("""
+        fy_year_expr = sql_extract_year('run_date')
+        fy_month_expr = sql_extract_month('run_date')
+        # MySQL and PostgreSQL have different REGEXP_REPLACE syntax
+        if DB_TYPE == 'mysql':
+            vendor_cast = "CAST(REGEXP_REPLACE(vendor_no, '[^0-9]', '') AS UNSIGNED)"
+        else:
+            vendor_cast = "CAST(NULLIF(REGEXP_REPLACE(vendor_no, '[^0-9]', '', 'g'), '') AS BIGINT)"
+        cursor.execute(f"""
             SELECT
                 CASE
-                    WHEN EXTRACT(MONTH FROM run_date) >= 10 THEN EXTRACT(YEAR FROM run_date) + 544
-                    ELSE EXTRACT(YEAR FROM run_date) + 543
+                    WHEN {fy_month_expr} >= 10 THEN {fy_year_expr} + 544
+                    ELSE {fy_year_expr} + 543
                 END as fiscal_year,
                 COUNT(*) as records,
                 COALESCE(SUM(total_amount), 0) as total_amount
             FROM smt_budget_transfers
-            WHERE CAST(NULLIF(REGEXP_REPLACE(vendor_no, '[^0-9]', '', 'g'), '') AS BIGINT) = %s
+            WHERE {vendor_cast} = %s
             GROUP BY fiscal_year
             ORDER BY fiscal_year DESC
         """, (int(vendor_id_5),))
@@ -8801,11 +9139,11 @@ def api_benchmark_hospital_years():
         print(f"[DEBUG] Found {len(rows)} years with data for vendor {vendor_id_5}")
 
         # Get all available years in the system (from any hospital)
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT DISTINCT
                 CASE
-                    WHEN EXTRACT(MONTH FROM run_date) >= 10 THEN EXTRACT(YEAR FROM run_date) + 544
-                    ELSE EXTRACT(YEAR FROM run_date) + 543
+                    WHEN {fy_month_expr} >= 10 THEN {fy_year_expr} + 544
+                    ELSE {fy_year_expr} + 543
                 END as fiscal_year
             FROM smt_budget_transfers
             WHERE run_date IS NOT NULL
@@ -8949,17 +9287,19 @@ def api_benchmark_my_hospital():
         # Get fund breakdown by category
         # Categories: OPD, IPD, CR (Central Reimburse), PP (Prevention/Promotion), OTHER
         # Note: %% escapes % for Python string formatting in psycopg2
-        cursor.execute("""
-            SELECT
-                CASE
-                    WHEN fund_name ILIKE '%%ผู้ป่วยใน%%' OR fund_name = 'IP_CF' THEN 'IPD'
-                    WHEN fund_name ILIKE '%%ผู้ป่วยนอก%%' OR fund_name = 'OP_CF' THEN 'OPD'
-                    WHEN fund_name ILIKE '%%CENTRAL REIMBURSE%%' THEN 'CR'
-                    WHEN fund_name ILIKE '%%สร้างเสริมสุขภาพ%%'
-                         OR fund_name ILIKE '%%ป้องกันโรค%%'
-                         OR fund_name ILIKE '%%ควบคุม%%ป้องกัน%%' THEN 'PP'
+        like_op = "LIKE" if DB_TYPE == 'mysql' else "ILIKE"
+        fund_case = f"""CASE
+                    WHEN fund_name {like_op} '%%ผู้ป่วยใน%%' OR fund_name = 'IP_CF' THEN 'IPD'
+                    WHEN fund_name {like_op} '%%ผู้ป่วยนอก%%' OR fund_name = 'OP_CF' THEN 'OPD'
+                    WHEN fund_name {like_op} '%%CENTRAL REIMBURSE%%' THEN 'CR'
+                    WHEN fund_name {like_op} '%%สร้างเสริมสุขภาพ%%'
+                         OR fund_name {like_op} '%%ป้องกันโรค%%'
+                         OR fund_name {like_op} '%%ควบคุม%%ป้องกัน%%' THEN 'PP'
                     ELSE 'OTHER'
-                END as fund_category,
+                END"""
+        cursor.execute(f"""
+            SELECT
+                {fund_case} as fund_category,
                 COALESCE(SUM(total_amount), 0) as total_amount,
                 COALESCE(SUM(wait_amount), 0) as wait_amount,
                 COALESCE(SUM(debt_amount), 0) as debt_amount,
@@ -8967,15 +9307,7 @@ def api_benchmark_my_hospital():
             FROM smt_budget_transfers
             WHERE (vendor_no = %s OR vendor_no = %s)
               AND run_date >= %s AND run_date <= %s
-            GROUP BY CASE
-                WHEN fund_name ILIKE '%%ผู้ป่วยใน%%' OR fund_name = 'IP_CF' THEN 'IPD'
-                WHEN fund_name ILIKE '%%ผู้ป่วยนอก%%' OR fund_name = 'OP_CF' THEN 'OPD'
-                WHEN fund_name ILIKE '%%CENTRAL REIMBURSE%%' THEN 'CR'
-                WHEN fund_name ILIKE '%%สร้างเสริมสุขภาพ%%'
-                     OR fund_name ILIKE '%%ป้องกันโรค%%'
-                     OR fund_name ILIKE '%%ควบคุม%%ป้องกัน%%' THEN 'PP'
-                ELSE 'OTHER'
-            END
+            GROUP BY {fund_case}
         """, (vendor_id_10, vendor_id_5, start_date, end_date))
 
         # Initialize fund categories
@@ -9196,7 +9528,8 @@ def api_benchmark_region_average():
         end_date = f"{gregorian_year}-09-30"
 
         # Get regional averages
-        cursor.execute("""
+        ltrim_expr = "TRIM(LEADING '0' FROM s.vendor_no)" if DB_TYPE == 'mysql' else "LTRIM(s.vendor_no, '0')"
+        cursor.execute(f"""
             WITH hospital_totals AS (
                 SELECT
                     s.vendor_no,
@@ -9205,7 +9538,7 @@ def api_benchmark_region_average():
                     SUM(s.debt_amount) as debt_amount
                 FROM smt_budget_transfers s
                 JOIN health_offices h ON (
-                    h.hcode5 = LTRIM(s.vendor_no, '0')
+                    h.hcode5 = {ltrim_expr}
                     OR h.hcode5 = s.vendor_no
                 )
                 WHERE h.health_region = %s
@@ -9235,7 +9568,7 @@ def api_benchmark_region_average():
         averages['avg_debt_ratio'] = (averages['avg_debt_amount'] / avg_total * 100) if avg_total > 0 else 0
 
         # Get fund breakdown averages for region
-        cursor.execute("""
+        cursor.execute(f"""
             WITH hospital_funds AS (
                 SELECT
                     s.vendor_no,
@@ -9244,7 +9577,7 @@ def api_benchmark_region_average():
                     SUM(s.total_amount) as amount
                 FROM smt_budget_transfers s
                 JOIN health_offices h ON (
-                    h.hcode5 = LTRIM(s.vendor_no, '0')
+                    h.hcode5 = {ltrim_expr}
                     OR h.hcode5 = s.vendor_no
                 )
                 WHERE h.health_region = %s
@@ -9272,19 +9605,20 @@ def api_benchmark_region_average():
             })
 
         # Get monthly trend for region
-        cursor.execute("""
+        month_format = sql_format_year_month('s.run_date')
+        cursor.execute(f"""
             SELECT
-                """ + sql_format_year_month('s.run_date') + """ as month,
+                {month_format} as month,
                 COALESCE(SUM(s.total_amount), 0) as total_amount,
                 COALESCE(AVG(s.total_amount), 0) as avg_amount
             FROM smt_budget_transfers s
             JOIN health_offices h ON (
-                h.hcode5 = LTRIM(s.vendor_no, '0')
+                h.hcode5 = {ltrim_expr}
                 OR h.hcode5 = s.vendor_no
             )
             WHERE h.health_region = %s
               AND s.run_date >= %s AND s.run_date <= %s
-            GROUP BY """ + sql_format_year_month('s.run_date') + """
+            GROUP BY {month_format}
             ORDER BY month
         """, (health_region_pattern, start_date, end_date))
 
@@ -9357,11 +9691,13 @@ def api_benchmark_available_years():
 
         # Get distinct fiscal years from smt_budget_transfers
         # Fiscal year is determined by run_date: Oct-Dec = next year, Jan-Sep = current year
-        cursor.execute("""
+        year_expr = sql_extract_year('run_date')
+        month_expr = sql_extract_month('run_date')
+        cursor.execute(f"""
             SELECT DISTINCT
                 CASE
-                    WHEN EXTRACT(MONTH FROM run_date) >= 10 THEN EXTRACT(YEAR FROM run_date) + 544
-                    ELSE EXTRACT(YEAR FROM run_date) + 543
+                    WHEN {month_expr} >= 10 THEN {year_expr} + 544
+                    ELSE {year_expr} + 543
                 END as fiscal_year
             FROM smt_budget_transfers
             WHERE run_date IS NOT NULL
@@ -10619,7 +10955,8 @@ def api_health_offices_list():
         params = []
 
         if search:
-            where_clauses.append("(name ILIKE %s OR hcode5 ILIKE %s OR hcode9 ILIKE %s)")
+            like_op = "LIKE" if DB_TYPE == 'mysql' else "ILIKE"
+            where_clauses.append(f"(name {like_op} %s OR hcode5 {like_op} %s OR hcode9 {like_op} %s)")
             params.extend([f'%{search}%', f'%{search}%', f'%{search}%'])
         if province:
             where_clauses.append("province = %s")
