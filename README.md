@@ -120,6 +120,10 @@ If you find this project helpful, consider buying me a coffee!
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
 ```
 
+Script จะแสดงสรุปการติดตั้ง (โฟลเดอร์, database, version) และถามยืนยันก่อนเริ่มติดตั้ง
+
+📚 **ดูคู่มือเต็ม:** [docs/INSTALLATION.md](docs/INSTALLATION.md)
+
 **Options:**
 ```bash
 # MySQL instead of PostgreSQL
