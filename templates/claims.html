@@ -181,18 +181,33 @@ async function loadFiscalYears() {
 }
 
 async function loadFilters() {
-    const fundSelect = document.getElementById('filter-fund');
-    ['UC', 'OFC', 'SSS', 'LGO', 'OTHER'].forEach(f => {
-        const opt = document.createElement('option');
-        opt.value = f; opt.textContent = f;
-        fundSelect.appendChild(opt);
-    });
-    const serviceSelect = document.getElementById('filter-service-type');
-    ['ทั่วไป', 'ส่งต่อ', 'ฉุกเฉิน', 'เรื้อรัง', 'PP'].forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s; opt.textContent = s;
-        serviceSelect.appendChild(opt);
-    });
+    try {
+        const response = await fetch('/api/analytics/filter-options');
+        const data = await response.json();
+        if (data.success) {
+            // Load schemes (กองทุนหลัก)
+            const fundSelect = document.getElementById('filter-fund');
+            data.data.schemes.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.value;
+                opt.textContent = item.label + ' (' + item.count.toLocaleString() + ')';
+                fundSelect.appendChild(opt);
+            });
+
+            // Load service types
+            const serviceSelect = document.getElementById('filter-service-type');
+            data.data.service_types.forEach(item => {
+                const opt = document.createElement('option');
+                // Use 'EMPTY' as special value for empty service_type
+                opt.value = item.value === '' ? 'EMPTY' : item.value;
+                opt.textContent = item.label + ' (' + item.count.toLocaleString() + ')';
+                serviceSelect.appendChild(opt);
+            });
+        }
+    } catch (e) {
+        console.error('Error loading filters:', e);
+        // Fallback to empty options
+    }
 }
 
 async function loadAlerts() {
@@ -288,8 +303,8 @@ function renderClaims(claims) {
             { html: true, hn: claim.hn, an: claim.an },
             { text: claim.name || '-' },
             { text: claim.service_type || '-' },
-            { text: claim.main_fund || '-' },
-            { text: formatMoney(claim.claim_net), className: 'text-right font-medium' },
+            { text: claim.scheme || claim.main_fund || '-' },
+            { text: formatMoney(claim.claim_drg), className: 'text-right font-medium' },
             { text: formatMoney(claim.paid), className: 'text-right font-medium text-green-600' },
             { status: true, hasError: claim.has_error, errorCode: claim.error_code },
             { action: true, tranId: claim.tran_id }
@@ -343,8 +358,8 @@ function updatePagination(p) {
 
 function updateStats(claims, total) {
     document.getElementById('stat-total').textContent = total.toLocaleString();
-    const tc = claims.reduce((s, c) => s + c.claim_net, 0);
-    const tp = claims.reduce((s, c) => s + c.paid, 0);
+    const tc = claims.reduce((s, c) => s + (c.claim_drg || 0), 0);
+    const tp = claims.reduce((s, c) => s + (c.paid || 0), 0);
     const ec = claims.filter(c => c.has_error).length;
     document.getElementById('stat-claimed').textContent = formatMoney(tc);
     document.getElementById('stat-paid').textContent = formatMoney(tp);
@@ -368,8 +383,8 @@ function showClaimModal(claim) {
         ['TRAN_ID', claim.tran_id], ['REP_NO', claim.rep_no], ['HN', claim.hn], ['AN', claim.an],
         ['PID', claim.pid], ['ชื่อผู้ป่วย', claim.name], ['วันที่รับบริการ', claim.dateadm],
         ['วันที่จำหน่าย', claim.datedsc], ['ประเภทบริการ', claim.service_type],
-        ['กองทุน', claim.main_fund], ['DRG', claim.drg], ['RW', claim.rw],
-        ['ยอดเบิก', formatMoney(claim.claim_net)], ['Reimb NHSO', formatMoney(claim.reimb_nhso)],
+        ['กองทุน (Scheme)', claim.scheme], ['กองทุนย่อย', claim.main_fund], ['DRG', claim.drg], ['RW', claim.rw],
+        ['ยอดเบิก', formatMoney(claim.claim_drg)], ['Reimb NHSO', formatMoney(claim.reimb_nhso)],
         ['ยอดได้รับ', formatMoney(claim.paid)], ['Error Code', claim.error_code || '-']
     ];
     fields.forEach(([label, value]) => {

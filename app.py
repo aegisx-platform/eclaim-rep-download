@@ -6414,6 +6414,84 @@ def api_analytics_fiscal_years():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/analytics/filter-options')
+def api_analytics_filter_options():
+    """
+    Get dynamic filter options from database for Claims Viewer.
+    Returns distinct values for scheme (กองทุน), service_type, and main_fund.
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Service type mapping for display
+        service_type_labels = {
+            '': 'ไม่ระบุ',
+            'E': 'ฉุกเฉิน (E)',
+            'R': 'ส่งต่อ (R)',
+            'P': 'ป้องกัน (P)',
+            'A': 'อุบัติเหตุ (A)',
+            'C': 'เรื้อรัง (C)',
+            'N': 'ทั่วไป (N)'
+        }
+
+        # Get distinct schemes (กองทุนหลัก)
+        cursor.execute("""
+            SELECT scheme, COUNT(*) as cnt
+            FROM claim_rep_opip_nhso_item
+            WHERE scheme IS NOT NULL AND scheme != ''
+            GROUP BY scheme
+            ORDER BY cnt DESC
+        """)
+        schemes = [{'value': row[0], 'label': row[0], 'count': row[1]} for row in cursor.fetchall()]
+
+        # Get distinct service types
+        cursor.execute("""
+            SELECT COALESCE(service_type, '') as stype, COUNT(*) as cnt
+            FROM claim_rep_opip_nhso_item
+            GROUP BY COALESCE(service_type, '')
+            ORDER BY cnt DESC
+        """)
+        service_types = []
+        for row in cursor.fetchall():
+            stype = row[0]
+            service_types.append({
+                'value': stype,
+                'label': service_type_labels.get(stype, stype or 'ไม่ระบุ'),
+                'count': row[1]
+            })
+
+        # Get distinct main_fund (กองทุนย่อย) - top 20
+        cursor.execute("""
+            SELECT main_fund, COUNT(*) as cnt
+            FROM claim_rep_opip_nhso_item
+            WHERE main_fund IS NOT NULL AND main_fund != ''
+            GROUP BY main_fund
+            ORDER BY cnt DESC
+            LIMIT 20
+        """)
+        main_funds = [{'value': row[0], 'label': row[0], 'count': row[1]} for row in cursor.fetchall()]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'schemes': schemes,
+                'service_types': service_types,
+                'main_funds': main_funds
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in filter options: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/analytics/overview')
 def api_analytics_overview():
     """Get overview statistics for analytics dashboard"""
@@ -7216,15 +7294,18 @@ def api_claims_detail():
             where_clauses.append("dateadm <= %s")
             params.append(end_date)
 
-        # Fund filter
+        # Fund filter (use scheme column for main fund categories like UCS, LGO, SSS)
         if fund:
-            where_clauses.append("main_fund = %s")
+            where_clauses.append("scheme = %s")
             params.append(fund)
 
-        # Service type filter
-        if service_type:
-            where_clauses.append("service_type = %s")
-            params.append(service_type)
+        # Service type filter (handle empty string for 'ไม่ระบุ')
+        if service_type is not None and service_type != '':
+            if service_type == 'EMPTY':
+                where_clauses.append("(service_type IS NULL OR service_type = '')")
+            else:
+                where_clauses.append("service_type = %s")
+                params.append(service_type)
 
         # Search filter (tran_id, hn, pid)
         if search:
@@ -7248,7 +7329,8 @@ def api_claims_detail():
                 claim_drg, reimb_nhso, reimb_agency, paid,
                 drg, rw,
                 error_code,
-                file_id
+                file_id,
+                scheme
             FROM claim_rep_opip_nhso_item
             WHERE """ + where_clause + """
             ORDER BY """ + sort_field + " " + sort_order + """
@@ -7283,6 +7365,7 @@ def api_claims_detail():
                 'rw': float(r[16] or 0) if r[16] else None,
                 'error_code': r[17],
                 'file_id': r[18],
+                'scheme': r[19],
                 'has_error': bool(r[17] and r[17].strip()),
                 'reimb_rate': round(float(r[14] or 0) / float(r[11]) * 100, 1) if r[11] and float(r[11]) > 0 else 0
             }

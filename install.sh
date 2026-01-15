@@ -50,13 +50,47 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Calculate full path
+if [[ "$INSTALL_DIR" = /* ]]; then
+    FULL_PATH="$INSTALL_DIR"
+else
+    FULL_PATH="$(pwd)/$INSTALL_DIR"
+fi
+
+# Database display name
+case $DB_TYPE in
+    postgresql) DB_DISPLAY="PostgreSQL" ;;
+    mysql)      DB_DISPLAY="MySQL" ;;
+    none)       DB_DISPLAY="ไม่ใช้ (Download only)" ;;
+esac
+
 echo -e "${BLUE}"
 echo "╔═══════════════════════════════════════════════════════════╗"
 echo "║        NHSO Revenue Intelligence - Quick Install          ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
-# Check Docker
+# Show installation summary FIRST
+echo -e "${YELLOW}การติดตั้ง:${NC}"
+echo -e "  📁 โฟลเดอร์: ${BLUE}${FULL_PATH}${NC}"
+echo -e "  🗄️  Database: ${BLUE}${DB_DISPLAY}${NC}"
+echo -e "  🐳 Version:  ${BLUE}${VERSION}${NC}"
+echo ""
+
+# Check if directory exists
+if [ -d "$INSTALL_DIR" ]; then
+    echo -e "${YELLOW}⚠️  Warning: โฟลเดอร์ '${INSTALL_DIR}' มีอยู่แล้ว จะถูก overwrite${NC}"
+    echo ""
+fi
+
+# Ask for confirmation BEFORE doing anything
+read -p "ยืนยันการติดตั้ง? (Y/n): " -n 1 -r
+echo ""
+[[ $REPLY =~ ^[Nn]$ ]] && echo "Cancelled" && exit 1
+
+echo ""
+
+# NOW start the actual installation
 echo -e "${YELLOW}[1/5] Checking requirements...${NC}"
 if ! command -v docker &> /dev/null; then
     echo -e "${RED}Error: Docker is not installed${NC}"
@@ -67,13 +101,6 @@ echo -e "${GREEN}✓ Docker found${NC}"
 
 # Create directory
 echo -e "${YELLOW}[2/5] Creating installation directory...${NC}"
-if [ -d "$INSTALL_DIR" ]; then
-    echo -e "${YELLOW}Warning: Directory '$INSTALL_DIR' already exists${NC}"
-    read -p "Overwrite? (y/N): " -n 1 -r
-    echo
-    [[ ! $REPLY =~ ^[Yy]$ ]] && echo "Cancelled" && exit 1
-fi
-
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 echo -e "${GREEN}✓ Created: $(pwd)${NC}"

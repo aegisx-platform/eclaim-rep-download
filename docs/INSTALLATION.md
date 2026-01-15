@@ -72,6 +72,13 @@ $ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-downlo
 ║        NHSO Revenue Intelligence - Quick Install          ║
 ╚═══════════════════════════════════════════════════════════╝
 
+การติดตั้ง:
+  📁 โฟลเดอร์: /home/user/nhso-revenue
+  🗄️  Database: PostgreSQL
+  🐳 Version:  latest
+
+ยืนยันการติดตั้ง? (Y/n): y
+
 [1/5] Checking requirements...
 ✓ Docker found
 
