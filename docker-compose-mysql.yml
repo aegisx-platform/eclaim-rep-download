@@ -44,6 +44,7 @@ services:
       # Flask configuration
       FLASK_APP: app.py
       FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-nhso-revenue-intelligence-secret-key-2024}
       TZ: ${TZ:-Asia/Bangkok}
 
       # E-Claim credentials (update these!)

@@ -27,6 +27,17 @@ except ImportError:
     MYSQL_AVAILABLE = False
 
 
+# MySQL reserved words that need escaping with backticks
+MYSQL_RESERVED_WORDS = {'row_number', 'rank', 'dense_rank', 'row', 'rows', 'over', 'partition'}
+
+
+def escape_column_mysql(col: str) -> str:
+    """Escape column name with backticks if it's a MySQL reserved word"""
+    if col.lower() in MYSQL_RESERVED_WORDS:
+        return f'`{col}`'
+    return col
+
+
 class AdditionalSheetsImporter:
     """
     Import additional sheets from E-Claim files:
@@ -415,7 +426,12 @@ class AdditionalSheetsImporter:
         try:
             columns = list(records[0].keys())
             placeholders = ', '.join(['%s'] * len(columns))
-            column_str = ', '.join(columns)
+
+            # Escape reserved words for MySQL
+            if self.db_type == 'mysql':
+                column_str = ', '.join([escape_column_mysql(col) for col in columns])
+            else:
+                column_str = ', '.join(columns)
 
             query = f"""
                 INSERT INTO {table_name} ({column_str})

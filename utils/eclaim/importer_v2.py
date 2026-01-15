@@ -30,6 +30,17 @@ except ImportError:
     logger.warning("pymysql not available - MySQL support disabled")
 
 
+# MySQL reserved words that need escaping with backticks
+MYSQL_RESERVED_WORDS = {'row_number', 'rank', 'dense_rank', 'row', 'rows', 'over', 'partition'}
+
+
+def escape_column_mysql(col: str) -> str:
+    """Escape column name with backticks if it's a MySQL reserved word"""
+    if col.lower() in MYSQL_RESERVED_WORDS:
+        return f'`{col}`'
+    return col
+
+
 class EClaimImporterV2:
     """
     Import E-Claim data into hospital's existing schema
@@ -978,11 +989,12 @@ class EClaimImporterV2:
         # Get column names from first mapped record
         columns = list(mapped_records[0].keys())
         placeholders = ', '.join(['%s'] * len(columns))
-        column_str = ', '.join(columns)
 
         if self.db_type == 'mysql':
+            # Escape reserved words for MySQL
+            column_str = ', '.join([escape_column_mysql(col) for col in columns])
             # Build UPDATE clause for ON DUPLICATE KEY
-            update_clause = ', '.join([f"{col} = VALUES({col})" for col in columns if col not in ['id', 'file_id', 'tran_id', 'row_number']])
+            update_clause = ', '.join([f"{escape_column_mysql(col)} = VALUES({escape_column_mysql(col)})" for col in columns if col not in ['id', 'file_id', 'tran_id', 'row_number']])
 
             query = f"""
                 INSERT INTO claim_rep_opip_nhso_item
@@ -992,6 +1004,7 @@ class EClaimImporterV2:
                 {update_clause}
             """
         else:  # postgresql
+            column_str = ', '.join(columns)
             update_clause = ', '.join([f"{col} = EXCLUDED.{col}" for col in columns if col not in ['id', 'file_id', 'tran_id', 'row_number']])
 
             query = f"""
@@ -1073,11 +1086,12 @@ class EClaimImporterV2:
         # Get column names from first mapped record
         columns = list(mapped_records[0].keys())
         placeholders = ', '.join(['%s'] * len(columns))
-        column_str = ', '.join(columns)
 
         if self.db_type == 'mysql':
+            # Escape reserved words for MySQL
+            column_str = ', '.join([escape_column_mysql(col) for col in columns])
             # Build UPDATE clause for ON DUPLICATE KEY
-            update_clause = ', '.join([f"{col} = VALUES({col})" for col in columns if col not in ['id', 'file_id', 'tran_id', 'row_number']])
+            update_clause = ', '.join([f"{escape_column_mysql(col)} = VALUES({escape_column_mysql(col)})" for col in columns if col not in ['id', 'file_id', 'tran_id', 'row_number']])
 
             query = f"""
                 INSERT INTO claim_rep_opip_nhso_item
@@ -1087,6 +1101,7 @@ class EClaimImporterV2:
                 {update_clause}
             """
         else:  # postgresql
+            column_str = ', '.join(columns)
             update_clause = ', '.join([f"{col} = EXCLUDED.{col}" for col in columns if col not in ['id', 'file_id', 'tran_id', 'row_number']])
 
             query = f"""
@@ -1145,10 +1160,11 @@ class EClaimImporterV2:
 
         columns = list(mapped_records[0].keys())
         placeholders = ', '.join(['%s'] * len(columns))
-        column_str = ', '.join(columns)
 
         if self.db_type == 'mysql':
-            update_clause = ', '.join([f"{col} = VALUES({col})" for col in columns if col not in ['id', 'file_id', 'tran_id', 'row_number']])
+            # Escape reserved words for MySQL
+            column_str = ', '.join([escape_column_mysql(col) for col in columns])
+            update_clause = ', '.join([f"{escape_column_mysql(col)} = VALUES({escape_column_mysql(col)})" for col in columns if col not in ['id', 'file_id', 'tran_id', 'row_number']])
 
             query = f"""
                 INSERT INTO claim_rep_orf_nhso_item
@@ -1158,6 +1174,7 @@ class EClaimImporterV2:
                 {update_clause}
             """
         else:
+            column_str = ', '.join(columns)
             update_clause = ', '.join([f"{col} = EXCLUDED.{col}" for col in columns if col not in ['id', 'file_id', 'tran_id', 'row_number']])
 
             query = f"""

@@ -135,7 +135,8 @@ class PooledConnection:
                     pass
                 self._pool.putconn(self._conn)
             elif self._db_type == 'mysql':
-                self._conn.close()  # SQLAlchemy returns to pool on close
+                # self._pool is the SQLAlchemy Connection, close it to return to pool
+                self._pool.close()
             self._closed = True
         except Exception as e:
             logger.error(f"Error returning connection to pool: {e}")
@@ -196,8 +197,11 @@ def get_connection():
             conn = _pool.getconn()
             return PooledConnection(conn, _pool, db_type)
         elif db_type == 'mysql':
-            conn = _pool.connect()
-            return PooledConnection(conn, _pool, db_type)
+            # SQLAlchemy connect() returns Connection object
+            # We need the raw DBAPI connection for cursor()
+            sqlalchemy_conn = _pool.connect()
+            raw_conn = sqlalchemy_conn.connection.dbapi_connection
+            return PooledConnection(raw_conn, sqlalchemy_conn, db_type)
     except Exception as e:
         logger.error(f"Failed to get connection from pool: {e}")
         return None

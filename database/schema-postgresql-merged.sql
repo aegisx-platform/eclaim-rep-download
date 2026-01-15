@@ -609,8 +609,11 @@ CREATE TABLE IF NOT EXISTS eclaim_zero_paid (
     expense_category INTEGER,
     claim_qty INTEGER DEFAULT 0,
     paid_qty INTEGER DEFAULT 0,
+    claim_amount DECIMAL(15,2) DEFAULT 0,
     paid_amount DECIMAL(15,2) DEFAULT 0,
     reason VARCHAR(200),
+    error_code VARCHAR(50),
+    deny_code VARCHAR(20),
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 

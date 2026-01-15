@@ -33,56 +33,55 @@ class AlertManager:
     def _ensure_table_exists(self):
         """Create alerts table if not exists"""
         try:
-            conn = get_db_connection()
-            if not conn:
-                return
+            with get_db_connection() as conn:
+                if not conn:
+                    return
 
-            cursor = conn.cursor()
+                cursor = conn.cursor()
 
-            if DB_TYPE == 'mysql':
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS system_alerts (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
-                        alert_type VARCHAR(50) NOT NULL,
-                        severity VARCHAR(20) NOT NULL,
-                        title VARCHAR(255) NOT NULL,
-                        message TEXT,
-                        related_type VARCHAR(50),
-                        related_id VARCHAR(100),
-                        is_read BOOLEAN DEFAULT FALSE,
-                        is_dismissed BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        read_at TIMESTAMP NULL,
-                        dismissed_at TIMESTAMP NULL,
-                        INDEX idx_alerts_type (alert_type),
-                        INDEX idx_alerts_unread (is_read, is_dismissed),
-                        INDEX idx_alerts_created (created_at)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-                """)
-            else:
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS system_alerts (
-                        id SERIAL PRIMARY KEY,
-                        alert_type VARCHAR(50) NOT NULL,
-                        severity VARCHAR(20) NOT NULL,
-                        title VARCHAR(255) NOT NULL,
-                        message TEXT,
-                        related_type VARCHAR(50),
-                        related_id VARCHAR(100),
-                        is_read BOOLEAN DEFAULT FALSE,
-                        is_dismissed BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        read_at TIMESTAMP,
-                        dismissed_at TIMESTAMP
-                    )
-                """)
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_type ON system_alerts(alert_type)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_unread ON system_alerts(is_read, is_dismissed)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_created ON system_alerts(created_at DESC)")
+                if DB_TYPE == 'mysql':
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS system_alerts (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            alert_type VARCHAR(50) NOT NULL,
+                            severity VARCHAR(20) NOT NULL,
+                            title VARCHAR(255) NOT NULL,
+                            message TEXT,
+                            related_type VARCHAR(50),
+                            related_id VARCHAR(100),
+                            is_read BOOLEAN DEFAULT FALSE,
+                            is_dismissed BOOLEAN DEFAULT FALSE,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            read_at TIMESTAMP NULL,
+                            dismissed_at TIMESTAMP NULL,
+                            INDEX idx_alerts_type (alert_type),
+                            INDEX idx_alerts_unread (is_read, is_dismissed),
+                            INDEX idx_alerts_created (created_at)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    """)
+                else:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS system_alerts (
+                            id SERIAL PRIMARY KEY,
+                            alert_type VARCHAR(50) NOT NULL,
+                            severity VARCHAR(20) NOT NULL,
+                            title VARCHAR(255) NOT NULL,
+                            message TEXT,
+                            related_type VARCHAR(50),
+                            related_id VARCHAR(100),
+                            is_read BOOLEAN DEFAULT FALSE,
+                            is_dismissed BOOLEAN DEFAULT FALSE,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            read_at TIMESTAMP,
+                            dismissed_at TIMESTAMP
+                        )
+                    """)
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_type ON system_alerts(alert_type)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_unread ON system_alerts(is_read, is_dismissed)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_created ON system_alerts(created_at DESC)")
 
-            conn.commit()
-            cursor.close()
-            conn.close()
+                conn.commit()
+                cursor.close()
 
         except Exception as e:
             print(f"Error ensuring alerts table: {e}")
