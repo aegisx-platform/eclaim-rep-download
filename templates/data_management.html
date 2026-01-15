@@ -1158,6 +1158,12 @@
                         <input type="text" id="rep-db-rep-no" placeholder="ค้นหา REP" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-32">
                     </div>
 
+                    <!-- TRAN_ID Filter -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">TRAN_ID</label>
+                        <input type="text" id="rep-db-tran-id" placeholder="ค้นหา TRAN ID" class="border border-gray-300 rounded px-3 py-1.5 text-sm w-36">
+                    </div>
+
                     <!-- Status Filter -->
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">สถานะ</label>
@@ -3382,6 +3388,7 @@ async function loadRepDbRecords(page) {
     var viewMode = document.getElementById('rep-db-view-mode').value;
     var fiscalYear = document.getElementById('rep-db-fiscal-year').value;
     var repNo = document.getElementById('rep-db-rep-no').value;
+    var tranId = document.getElementById('rep-db-tran-id').value;
     var status = document.getElementById('rep-db-status').value;
 
     var params = new URLSearchParams({
@@ -3391,6 +3398,7 @@ async function loadRepDbRecords(page) {
     });
     if (fiscalYear) params.append('fiscal_year', fiscalYear);
     if (repNo) params.append('rep_no', repNo);
+    if (tranId) params.append('tran_id', tranId);
     if (status) params.append('status', status);
 
     var tbody = document.getElementById('rep-db-records-body');
@@ -3591,6 +3599,7 @@ function clearRepDbFilter() {
     var currentFiscalYear = currentMonth >= 10 ? currentYearBE + 1 : currentYearBE;
     document.getElementById('rep-db-fiscal-year').value = currentFiscalYear;
     document.getElementById('rep-db-rep-no').value = '';
+    document.getElementById('rep-db-tran-id').value = '';
     document.getElementById('rep-db-status').value = '';
     loadRepDbRecords(1);
 }
