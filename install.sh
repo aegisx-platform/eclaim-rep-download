@@ -84,7 +84,7 @@ if [ -d "$INSTALL_DIR" ]; then
 fi
 
 # Ask for confirmation BEFORE doing anything
-read -p "ยืนยันการติดตั้ง? (Y/n): " -n 1 -r
+read -p "ยืนยันการติดตั้ง? (Y/n): " -n 1 -r REPLY </dev/tty
 echo ""
 [[ $REPLY =~ ^[Nn]$ ]] && echo "Cancelled" && exit 1
 
@@ -127,8 +127,8 @@ echo ""
 echo -e "${BLUE}กรุณาใส่ข้อมูลเข้าสู่ระบบ E-Claim:${NC}"
 echo ""
 
-read -p "ECLAIM_USERNAME: " ECLAIM_USER
-read -s -p "ECLAIM_PASSWORD: " ECLAIM_PASS
+read -p "ECLAIM_USERNAME: " ECLAIM_USER </dev/tty
+read -s -p "ECLAIM_PASSWORD: " ECLAIM_PASS </dev/tty
 echo ""
 
 cat > .env << EOF
