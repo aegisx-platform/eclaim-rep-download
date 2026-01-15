@@ -151,6 +151,7 @@ if [ "$DB_TYPE" = "none" ]; then
     cat >> .env << 'EOF'
 
 # External Database Connection (กรุณาแก้ไขค่าด้านล่าง)
+# DB_TYPE: postgresql หรือ mysql
 DB_TYPE=postgresql
 DB_HOST=localhost
 DB_PORT=5432
