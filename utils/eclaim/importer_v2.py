@@ -36,7 +36,7 @@ class EClaimImporterV2:
     Tables: claim_rep_opip_nhso_item, claim_rep_orf_nhso_item
     """
 
-    # Column mapping: E-Claim column name → Database column name
+    # Column mapping: E-Claim column name → Database column name (legacy, kept for compatibility)
     OPIP_COLUMN_MAP = {
         'REP No.': 'rep_no',
         'ลำดับที่': 'seq',
@@ -87,6 +87,161 @@ class EClaimImporterV2:
         'ค่าพรบ.\n(10)': 'act_amt',
         'เงินเดือน': 'salary_rate',
         'ยอดชดเชยหลังหักเงินเดือน\n(12 = 9-10-11)': 'reimb_diff_salary',
+    }
+
+    # OPIP Index-based column mapping (more reliable than name-based for multi-level headers)
+    # Excel column INDEX → Database column name
+    # Total: 120 columns mapped
+    OPIP_COLUMN_INDEX_MAP = {
+        # Basic Info (0-13)
+        0: 'rep_no',                    # REP No.
+        1: 'seq',                       # ลำดับที่
+        2: 'tran_id',                   # TRAN_ID
+        3: 'hn',                        # HN
+        4: 'an',                        # AN
+        5: 'pid',                       # PID
+        6: 'name',                      # ชื่อ-สกุล
+        7: 'ptype',                     # ประเภทผู้ป่วย
+        8: 'dateadm',                   # วันเข้ารักษา
+        9: 'datedsc',                   # วันจำหน่าย
+        10: 'reimb_nhso',               # ชดเชยสุทธิ (สปสช.)
+        11: 'reimb_agency',             # ชดเชยสุทธิ (หน่วยงาน)
+        12: 'claim_from',               # ชดเชยจาก
+        13: 'error_code',               # Error Code
+
+        # Fund & Service Info (14-22)
+        14: 'main_fund',                # กองทุนหลัก
+        15: 'sub_fund',                 # กองทุนย่อย
+        16: 'service_type',             # ประเภทบริการ
+        17: 'chk_refer',                # การรับส่งต่อ
+        18: 'chk_right',                # การมีสิทธิ
+        19: 'chk_use_right',            # การใช้สิทธิ
+        20: 'chk',                      # CHK
+        21: 'main_inscl',               # สิทธิหลัก
+        22: 'sub_inscl',                # สิทธิย่อย
+
+        # Hospital Codes (23-34)
+        23: 'href',                     # HREF
+        24: 'hcode',                    # HCODE
+        25: 'hmain',                    # HMAIN
+        26: 'prov1',                    # PROV1
+        27: 'rg1',                      # RG1
+        28: 'hmain2',                   # HMAIN2
+        29: 'prov2',                    # PROV2
+        30: 'rg2',                      # RG2
+        31: 'hmain3',                   # DMIS/HMAIN3
+        32: 'da',                       # DA
+        33: 'projcode',                 # PROJ
+        34: 'pa',                       # PA
+
+        # DRG Info (35-37)
+        35: 'drg',                      # DRG
+        36: 'rw',                       # RW
+        37: 'ca_type',                  # CA_TYPE
+
+        # Claim/Reimbursement (38-53)
+        38: 'claim_drg',                # เรียกเก็บ (1) - กลุ่มที่ไม่ใช่ค่ารถ+ยา+อุปกรณ์
+        39: 'claim_xdrg',               # เรียกเก็บ (1.2) - กลุ่มค่ารถ+ยา+อุปกรณ์
+        40: 'claim_net',                # เรียกเก็บ (1.3) - รวมยอดเรียกเก็บ
+        41: 'claim_central_reimb',      # เรียกเก็บ central reimburse (2)
+        42: 'paid',                     # ชำระเอง (3)
+        43: 'pay_point',                # อัตราจ่าย/Point (4)
+        44: 'ps_chk',                   # ล่าช้า PS (5) - flag
+        45: 'ps_percent',               # ล่าช้า PS (5) - เปอร์เซ็นต์
+        46: 'ccuf',                     # CCUF (6)
+        47: 'adjrw_nhso',               # AdjRW_NHSO (7)
+        48: 'adjrw2',                   # AdjRW2 (8 = 6x7)
+        49: 'reimb_amt',                # จ่ายชดเชย (9 = 4x5x8)
+        50: 'act_amt',                  # ค่าพรบ. (10)
+        51: 'salary_rate',              # เงินเดือน - ร้อยละ
+        52: 'salary_amt',               # เงินเดือน - จำนวนเงิน (11)
+        53: 'reimb_diff_salary',        # ยอดชดเชยหลังหักเงินเดือน (12 = 9-10-11)
+
+        # HC - ค่าใช้จ่ายสูง (54-55)
+        54: 'iphc',                     # IPHC
+        55: 'ophc',                     # OPHC
+
+        # AE - อุบัติเหตุฉุกเฉิน (56-63)
+        56: 'ae_opae',                  # OPAE (1.1*4*5)
+        57: 'ae_ipnb',                  # IPNB
+        58: 'ae_ipuc',                  # IPUC
+        59: 'ae_ip3sss',                # IP3SSS
+        60: 'ae_ip7sss',                # IP7SSS
+        61: 'ae_carae',                 # CARAE
+        62: 'ae_caref',                 # CAREF
+        63: 'ae_caref_puc',             # CAREF-PUC
+
+        # INST - อวัยวะเทียม/อุปกรณ์ (64-65)
+        64: 'opinst',                   # OPINST
+        65: 'inst',                     # INST
+
+        # IP - ผู้ป่วยใน (66-74)
+        66: 'ipaec',                    # IPAEC
+        67: 'ipaer',                    # IPAER
+        68: 'ipinrgc',                  # IPINRGC
+        69: 'ipinrgr',                  # IPINRGR
+        70: 'ipinspsn',                 # IPINSPSN
+        71: 'ipprcc',                   # IPPRCC
+        72: 'ipprcc_puc',               # IPPRCC-PUC
+        73: 'ipbkk_inst',               # IPBKK-INST
+        74: 'ip_ontop',                 # IP-ONTOP
+
+        # DMIS - โรคเฉพาะ (75-95)
+        75: 'cataract_amt',             # CATARACT
+        76: 'cataract_oth',             # CATARACT - ค่าภาระงาน(สสจ.)
+        77: 'cataract_hosp',            # CATARACT - ค่าภาระงาน(รพ.)
+        78: 'dmis_catinst',             # CATINST
+        79: 'dmisrc_amt',               # DMISRC
+        80: 'dmisrc_workload',          # DMISRC - ค่าภาระงาน
+        81: 'rcuhosc_amt',              # RCUHOSC
+        82: 'rcuhosc_workload',         # RCUHOSC - ค่าภาระงาน
+        83: 'rcuhosr_amt',              # RCUHOSR
+        84: 'rcuhosr_workload',         # RCUHOSR - ค่าภาระงาน
+        85: 'dmis_llop',                # LLOP
+        86: 'dmis_llrgc',               # LLRGC
+        87: 'dmis_llrgr',               # LLRGR
+        88: 'dmis_lp',                  # LP
+        89: 'dmis_stroke_drug',         # STROKE-STEMI DRUG
+        90: 'dmis_dmidml',              # DMIDML
+        91: 'dmis_pp',                  # PP
+        92: 'dmis_dmishd',              # DMISHD
+        93: 'dmis_dmicnt',              # DMICNT
+        94: 'dmis_paliative',           # Paliative Care
+        95: 'dmis_dm',                  # DM
+
+        # DRUG (96)
+        96: 'drug',                     # DRUG
+
+        # OPBKK - กรุงเทพ (97-103)
+        97: 'opbkk_hc',                 # OPBKK - HC
+        98: 'opbkk_dent',               # OPBKK - DENT
+        99: 'opbkk_drug',               # OPBKK - DRUG
+        100: 'opbkk_fs',                # OPBKK - FS
+        101: 'opbkk_others',            # OPBKK - OTHERS
+        102: 'opbkk_hsub',              # OPBKK - HSUB
+        103: 'opbkk_nhso',              # OPBKK - NHSO
+
+        # Deny (104-108)
+        104: 'deny_hc',                 # Deny - HC
+        105: 'deny_ae',                 # Deny - AE
+        106: 'deny_inst',               # Deny - INST
+        107: 'deny_ip',                 # Deny - IP
+        108: 'deny_dmis',               # Deny - DMIS
+
+        # Base Rate (109-111)
+        109: 'baserate_old',            # base rate เดิม
+        110: 'baserate_add',            # base rate ที่ได้รับเพิ่ม
+        111: 'baserate_total',          # base rate สุทธิ
+
+        # Others (112-119)
+        112: 'fs',                      # FS
+        113: 'va',                      # VA
+        114: 'remark',                  # Remark
+        115: 'audit_results',           # AUDIT RESULTS
+        116: 'payment_type',            # รูปแบบการจ่าย
+        117: 'seq_no',                  # SEQ NO
+        118: 'invoice_no',              # INVOICE NO
+        119: 'invoice_lt',              # INVOICE LT
     }
 
     # LGO Column mapping (อปท. - Local Government Organizations) - 58 columns
@@ -700,6 +855,170 @@ class EClaimImporterV2:
 
         return mapped
 
+    def _map_opip_row_by_index(self, df_row, file_id: int, row_number: int, scheme: str = None) -> Dict:
+        """
+        Map OP/IP DataFrame row to database columns using column INDEX (position-based)
+        More reliable than name-based mapping for Excel files with multi-level headers
+
+        Args:
+            df_row: DataFrame row (Series) with integer position-based index
+            file_id: File ID
+            row_number: Row number
+            scheme: Insurance scheme (UCS, OFC, SSS, LGO)
+
+        Returns:
+            Mapped dict
+        """
+        # Date columns that need parsing
+        date_columns = ['dateadm', 'datedsc', 'inp_date']
+
+        # String field max lengths (from schema)
+        max_lengths = {
+            'chk_refer': 1, 'chk_right': 1, 'chk_use_right': 1, 'chk': 1,
+            'da': 1, 'pa': 1, 'ps_chk': 1,
+            'service_type': 2, 'ca_type': 5, 'ptype': 5,
+            'main_inscl': 5, 'sub_inscl': 5, 'prov1': 5, 'rg1': 5,
+            'prov2': 5, 'rg2': 5, 'salary_rate': 5,
+            'href': 10, 'hcode': 10, 'hmain': 10, 'hmain2': 10, 'hmain3': 10,
+            'drg': 10, 'deny_hc': 10, 'deny_ae': 10, 'deny_inst': 10,
+            'deny_ip': 10, 'deny_dmis': 10,
+            'rep_no': 15, 'tran_id': 15, 'hn': 15, 'an': 15, 'seq_no': 15,
+            'pid': 20, 'invoice_no': 20, 'invoice_lt': 20,
+            'claim_from': 50, 'payment_type': 255,
+            'name': 100, 'main_fund': 100, 'sub_fund': 100, 'projcode': 100,
+            'error_code': 100, 'remark': 100, 'audit_results': 255,
+            'opbkk_hsub': 100, 'opbkk_nhso': 100
+        }
+
+        mapped = {
+            'file_id': file_id,
+            'row_number': row_number,
+            'scheme': scheme
+        }
+
+        for col_idx, db_col in self.OPIP_COLUMN_INDEX_MAP.items():
+            # Get value by position (iloc)
+            if col_idx < len(df_row):
+                value = df_row.iloc[col_idx]
+
+                # Convert NaN to None
+                if pd.isna(value):
+                    mapped[db_col] = None
+                # Handle empty strings and "-" as NULL
+                elif isinstance(value, str) and value.strip() in ['', '-', 'N/A', 'n/a']:
+                    mapped[db_col] = None
+                else:
+                    # Handle date parsing for date columns
+                    if db_col in date_columns:
+                        if isinstance(value, str):
+                            try:
+                                # Try to parse Thai date format: dd/mm/yyyy hh:mm:ss
+                                parsed_date = pd.to_datetime(value, format='%d/%m/%Y %H:%M:%S', errors='coerce')
+                                if pd.isna(parsed_date):
+                                    # Try without time
+                                    parsed_date = pd.to_datetime(value, format='%d/%m/%Y', errors='coerce')
+                                mapped[db_col] = parsed_date if not pd.isna(parsed_date) else None
+                            except (ValueError, TypeError, AttributeError):
+                                mapped[db_col] = None
+                        elif hasattr(value, 'to_pydatetime'):
+                            # Already a datetime-like object
+                            mapped[db_col] = value
+                        else:
+                            mapped[db_col] = None
+                    # Clean ID fields - remove .0 suffix from float conversion
+                    elif db_col in ['tran_id', 'hn', 'an', 'pid', 'rep_no', 'seq_no']:
+                        str_value = str(value).strip()
+                        # Remove .0 suffix if present (pandas converts int to float)
+                        if str_value.endswith('.0'):
+                            str_value = str_value[:-2]
+                        # Apply max length
+                        max_len = max_lengths.get(db_col, 20)
+                        mapped[db_col] = str_value[:max_len] if str_value else None
+                    # Truncate strings to max length
+                    elif db_col in max_lengths:
+                        # Convert to string first if needed
+                        str_value = str(value) if not isinstance(value, str) else value
+                        mapped[db_col] = str_value[:max_lengths[db_col]]
+                    else:
+                        mapped[db_col] = value
+            else:
+                mapped[db_col] = None
+
+        return mapped
+
+    def import_opip_batch_by_index(self, file_id: int, df, start_row: int = 0, file_type: str = None) -> int:
+        """
+        Import batch of OP/IP records from DataFrame using index-based column mapping
+        More reliable than name-based mapping for multi-level header Excel files
+
+        Args:
+            file_id: File ID
+            df: DataFrame with claim data (read with header=None)
+            start_row: Starting row number
+            file_type: File type for determining scheme (OP, IP, etc.)
+
+        Returns:
+            Number of successfully imported records
+        """
+        if df.empty:
+            return 0
+
+        # Determine scheme based on file_type
+        scheme = self.get_scheme_for_type(file_type) if file_type else 'UCS'
+
+        # Map all rows using index-based mapping
+        mapped_records = []
+        for idx, row in df.iterrows():
+            mapped = self._map_opip_row_by_index(row, file_id, start_row + idx, scheme=scheme)
+            mapped_records.append(mapped)
+
+        if not mapped_records:
+            return 0
+
+        # Get column names from first mapped record
+        columns = list(mapped_records[0].keys())
+        placeholders = ', '.join(['%s'] * len(columns))
+        column_str = ', '.join(columns)
+
+        if self.db_type == 'mysql':
+            # Build UPDATE clause for ON DUPLICATE KEY
+            update_clause = ', '.join([f"{col} = VALUES({col})" for col in columns if col not in ['id', 'file_id', 'tran_id', 'row_number']])
+
+            query = f"""
+                INSERT INTO claim_rep_opip_nhso_item
+                ({column_str})
+                VALUES ({placeholders})
+                ON DUPLICATE KEY UPDATE
+                {update_clause}
+            """
+        else:  # postgresql
+            update_clause = ', '.join([f"{col} = EXCLUDED.{col}" for col in columns if col not in ['id', 'file_id', 'tran_id', 'row_number']])
+
+            query = f"""
+                INSERT INTO claim_rep_opip_nhso_item
+                ({column_str})
+                VALUES ({placeholders})
+                ON CONFLICT (tran_id, file_id) DO UPDATE SET
+                {update_clause}
+            """
+
+        try:
+            # Convert dicts to tuples in correct column order
+            values = [[record[col] for col in columns] for record in mapped_records]
+
+            if self.db_type == 'postgresql':
+                pg_execute_batch(self.cursor, query, values, page_size=100)
+            else:
+                self.cursor.executemany(query, values)
+
+            self.conn.commit()
+            logger.info(f"Imported {len(mapped_records)} OP/IP records (index-based)")
+            return len(mapped_records)
+        except Exception as e:
+            self.conn.rollback()
+            logger.error(f"Failed to import OP/IP batch (index-based): {e}")
+            raise
+
     def get_scheme_for_type(self, file_type: str) -> str:
         """
         Get the insurance scheme code based on file type.
@@ -899,7 +1218,7 @@ class EClaimImporterV2:
             file_id = self.create_import_record(metadata)
 
             # Read Excel file based on type
-            if file_type == 'ORF':
+            if file_type == 'ORF' or 'ORF' in file_type:
                 # ORF files have multi-level headers at rows 5, 7, and 8
                 # Skip header rows (0-8) and read data starting from row 9
                 # Use header=None to get positional column indices
@@ -911,8 +1230,19 @@ class EClaimImporterV2:
                 # Also filter out footer/summary rows (usually have text in first column)
                 # Check if column 0 (REP) looks like a valid REP number
                 df = df[df.iloc[:, 0].apply(lambda x: str(x).strip() != '' and str(x).strip() != 'nan')]
+            elif file_type in ['OP', 'IP']:
+                # OP/IP UCS files: Use index-based mapping for complete column coverage
+                # Skip first 5 rows (report header) + 2 header rows + 1 empty row
+                # Header structure: row 5 = main header, row 6 = sub-header, row 7 = empty/units
+                df = pd.read_excel(filepath, engine='xlrd', header=None, skiprows=8)
+
+                # Filter out empty rows (check column 2 which is TRAN_ID)
+                df = df[df.iloc[:, 2].notna()]
+
+                # Filter out footer/summary rows
+                df = df[df.iloc[:, 0].apply(lambda x: str(x).strip() != '' and str(x).strip() != 'nan')]
             else:
-                # OP/IP files: Skip first 5 rows (report header), then skip 2 empty rows after column headers
+                # LGO/SSS/APPEAL files: Use name-based mapping (legacy support)
                 df = pd.read_excel(filepath, engine='xlrd', skiprows=list(range(0,5)) + [6,7])
                 # Remove empty rows
                 if 'TRAN_ID' in df.columns:
@@ -923,8 +1253,11 @@ class EClaimImporterV2:
             # Import data based on file type
             if file_type == 'ORF' or 'ORF' in file_type:
                 imported_records = self.import_orf_batch(file_id, df, file_type=file_type)
-            else:  # OP, IP, OPLGO, IPLGO, OPSSS, IPSSS, APPEAL
-                # Get appropriate column mapping for file type
+            elif file_type in ['OP', 'IP']:
+                # Use index-based mapping for complete 120-column coverage
+                imported_records = self.import_opip_batch_by_index(file_id, df, file_type=file_type)
+            else:  # OPLGO, IPLGO, OPSSS, IPSSS, APPEAL variants
+                # Use name-based mapping for variants (legacy support)
                 column_map = self.get_column_map_for_type(file_type)
                 imported_records = self.import_opip_batch(file_id, df, column_map=column_map, file_type=file_type)
 
