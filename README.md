@@ -114,7 +114,25 @@ If you find this project helpful, consider buying me a coffee!
 
 ## Quick Start
 
-### Docker Deployment (Recommended)
+### One-Line Install (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
+```
+
+**Options:**
+```bash
+# MySQL instead of PostgreSQL
+curl -fsSL .../install.sh | bash -s -- --mysql
+
+# Download-only (no database)
+curl -fsSL .../install.sh | bash -s -- --no-db
+
+# Custom directory
+curl -fsSL .../install.sh | bash -s -- --dir my-nhso
+```
+
+### Manual Docker Deployment
 
 ```bash
 # 1. Clone repository
