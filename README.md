@@ -134,6 +134,9 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 
 # Custom directory
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --dir my-nhso
+
+# ติดตั้งด้วย sudo (ถ้าต้องการ permission)
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh)"
 ```
 
 ### Manual Docker Deployment

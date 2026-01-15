@@ -63,6 +63,22 @@ sudo usermod -aG docker $USER
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
 ```
 
+### ติดตั้งด้วย sudo (ถ้าต้องการ)
+
+ถ้าต้องการติดตั้งใน directory ที่ต้องใช้ sudo:
+
+```bash
+# วิธีที่ 1: sudo ทั้งหมด
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh)"
+
+# วิธีที่ 2: download แล้ว sudo run
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
+sudo bash install.sh
+rm install.sh
+```
+
+> ⚠️ **หมายเหตุ:** `sudo curl ... | bash` จะไม่ทำงาน เพราะ sudo ใช้กับ curl อย่างเดียว
+
 ### ตัวอย่างการติดตั้ง
 
 ```
