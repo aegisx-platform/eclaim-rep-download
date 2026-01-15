@@ -14,6 +14,13 @@ import subprocess
 # Import the main downloader
 from eclaim_downloader_http import EClaimDownloader
 
+# Job history tracking (optional - may not be available in all environments)
+job_history_manager = None
+try:
+    from utils.job_history_manager import job_history_manager
+except ImportError:
+    pass  # Running standalone without job tracking
+
 # Import schemes configuration
 try:
     from config.schemes import (
@@ -235,6 +242,27 @@ class BulkDownloader:
                                      Defaults to DEFAULT_ENABLED_SCHEMES.
             auto_import (bool): Whether to auto-import files after each download iteration.
         """
+        # Start job tracking
+        job_id = None
+        if job_history_manager:
+            try:
+                job_id = job_history_manager.start_job(
+                    job_type='download',
+                    job_subtype='bulk',
+                    parameters={
+                        'start_month': start_month,
+                        'start_year': start_year,
+                        'end_month': end_month,
+                        'end_year': end_year,
+                        'schemes': schemes,
+                        'auto_import': auto_import
+                    },
+                    triggered_by='manual'
+                )
+                stream_log(f"Job ID: {job_id}")
+            except Exception as e:
+                stream_log(f"Warning: Could not start job tracking: {e}", 'warning')
+
         # Get schemes to download
         if schemes is None:
             schemes = DEFAULT_ENABLED_SCHEMES
@@ -448,6 +476,26 @@ class BulkDownloader:
         stream_log(f"\nStarted at: {progress['started_at']}")
         stream_log(f"Completed at: {progress['completed_at']}", 'success')
         stream_log("="*60)
+
+        # Complete job tracking
+        if job_history_manager and job_id:
+            try:
+                total_files = sum(s.get('files', 0) for s in progress.get('scheme_progress', {}).values())
+                job_history_manager.complete_job(
+                    job_id=job_id,
+                    status='completed' if failed_count == 0 else 'completed_with_errors',
+                    results={
+                        'total_iterations': total_iterations,
+                        'completed_iterations': progress['completed_iterations'],
+                        'total_files': total_files,
+                        'failed_iterations': failed_count,
+                        'schemes': scheme_codes,
+                        'months': len(date_range)
+                    },
+                    error_message=f"{failed_count} iterations failed" if failed_count > 0 else None
+                )
+            except Exception as e:
+                stream_log(f"Warning: Could not complete job tracking: {e}", 'warning')
 
 
 def main():

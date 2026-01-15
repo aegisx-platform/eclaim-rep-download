@@ -511,15 +511,49 @@ class EClaimDownloader:
         stream_log(f"Month/Year: {self.month}/{self.year} BE")
         stream_log(f"Insurance Scheme: {self.scheme.upper()}")
 
+        # Start job tracking
+        job_id = None
+        if job_history_manager:
+            try:
+                job_id = job_history_manager.start_job(
+                    job_type='download',
+                    job_subtype='single',
+                    parameters={
+                        'month': self.month,
+                        'year': self.year,
+                        'scheme': self.scheme
+                    },
+                    triggered_by='manual'
+                )
+                stream_log(f"Job ID: {job_id}")
+            except Exception as e:
+                stream_log(f"Warning: Could not start job tracking: {e}", 'warning')
+
+        downloaded = 0
+        skipped = 0
+        errors = 0
+        total_files = 0
+
         try:
             # Login
             self.login()
 
             # Get download links
             download_links = self.get_download_links()
+            total_files = len(download_links)
 
             if not download_links:
                 stream_log("No download links found!", 'warning')
+                # Complete job with no files
+                if job_history_manager and job_id:
+                    try:
+                        job_history_manager.complete_job(
+                            job_id=job_id,
+                            status='completed',
+                            results={'total_files': 0, 'downloaded': 0, 'skipped': 0, 'errors': 0}
+                        )
+                    except Exception:
+                        pass
                 return
 
             # Download files
@@ -535,7 +569,7 @@ class EClaimDownloader:
             stream_log("="*60)
             stream_log("Download Summary", 'success')
             stream_log("="*60)
-            stream_log(f"Total files found: {len(download_links)}")
+            stream_log(f"Total files found: {total_files}")
             stream_log(f"✓ Downloaded: {downloaded}", 'success')
             stream_log(f"⊘ Skipped (already downloaded): {skipped}")
             stream_log(f"✗ Errors: {errors}", 'error' if errors > 0 else 'info')
@@ -543,10 +577,45 @@ class EClaimDownloader:
             stream_log(f"Completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 'success')
             stream_log("="*60)
 
+            # Complete job tracking
+            if job_history_manager and job_id:
+                try:
+                    job_history_manager.complete_job(
+                        job_id=job_id,
+                        status='completed' if errors == 0 else 'completed_with_errors',
+                        results={
+                            'total_files': total_files,
+                            'downloaded': downloaded,
+                            'skipped': skipped,
+                            'errors': errors
+                        },
+                        error_message=f"{errors} files failed" if errors > 0 else None
+                    )
+                except Exception as e:
+                    stream_log(f"Warning: Could not complete job tracking: {e}", 'warning')
+
         except Exception as e:
             stream_log(f"✗ Error: {str(e)}", 'error')
             import traceback
             traceback.print_exc()
+
+            # Mark job as failed
+            if job_history_manager and job_id:
+                try:
+                    job_history_manager.complete_job(
+                        job_id=job_id,
+                        status='failed',
+                        results={
+                            'total_files': total_files,
+                            'downloaded': downloaded,
+                            'skipped': skipped,
+                            'errors': errors
+                        },
+                        error_message=str(e)
+                    )
+                except Exception:
+                    pass
+
             raise
 
 def main():
