@@ -1,0 +1,52 @@
+# NHSO Revenue Intelligence - Production Deployment (MySQL)
+# ติดตั้งผ่าน: curl -fsSL .../install.sh | bash -s -- --mysql
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: nhso-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: eclaim_db
+      MYSQL_USER: eclaim
+      MYSQL_PASSWORD: eclaim_password
+    volumes:
+      - db_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    image: ghcr.io/aegisx-platform/eclaim-rep-download:${VERSION:-latest}
+    container_name: nhso-web
+    restart: unless-stopped
+    environment:
+      ECLAIM_USERNAME: ${ECLAIM_USERNAME}
+      ECLAIM_PASSWORD: ${ECLAIM_PASSWORD}
+      DB_TYPE: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: eclaim_db
+      DB_USER: eclaim
+      DB_PASSWORD: eclaim_password
+      FLASK_ENV: production
+      TZ: Asia/Bangkok
+    volumes:
+      - ./downloads:/app/downloads
+      - ./logs:/app/logs
+      - ./config:/app/config
+    ports:
+      - "${WEB_PORT:-5001}:5001"
+    depends_on:
+      db:
+        condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+volumes:
+  db_data:

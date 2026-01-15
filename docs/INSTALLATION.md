@@ -1,63 +1,81 @@
-# 🚀 Installation Guide
+# Installation Guide
 
-## Docker Deployment (แนะนำ)
+คู่มือการติดตั้ง NHSO Revenue Intelligence
 
-### แบบที่ 1: Full Stack with PostgreSQL 🏥
+---
 
-เหมาะสำหรับใช้งานจริงในโรงพยาบาล มีทั้ง download และ import เข้า database
+## Quick Install (แนะนำ)
+
+### One-Line Install
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/aegisx-platform/eclaim-req-download.git
-cd eclaim-req-download
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
+```
 
-# 2. Setup environment
+Script จะทำการ:
+1. ✅ ตรวจสอบ Docker
+2. ✅ สร้างโฟลเดอร์ `nhso-revenue/`
+3. ✅ Download docker-compose.yml
+4. ✅ ถาม credentials และสร้าง .env
+5. ✅ สร้างโฟลเดอร์ downloads, logs, config
+6. ✅ Pull Docker image และ start services
+
+### Options
+
+```bash
+# PostgreSQL (default)
+curl -fsSL .../install.sh | bash
+
+# MySQL
+curl -fsSL .../install.sh | bash -s -- --mysql
+
+# Download only (no database)
+curl -fsSL .../install.sh | bash -s -- --no-db
+
+# Custom directory
+curl -fsSL .../install.sh | bash -s -- --dir my-hospital
+```
+
+### หลังติดตั้งเสร็จ
+
+```
+nhso-revenue/
+├── docker-compose.yml    # Docker configuration
+├── .env                  # Credentials
+├── downloads/            # Downloaded files
+│   ├── rep/
+│   ├── stm/
+│   └── smt/
+├── logs/                 # Application logs
+└── config/               # User settings
+```
+
+**เข้าใช้งาน:** http://localhost:5001
+
+---
+
+## Manual Install (สำหรับ Developer)
+
+### PostgreSQL
+
+```bash
+git clone https://github.com/aegisx-platform/eclaim-rep-download.git
+cd eclaim-rep-download
 cp .env.example .env
 nano .env  # แก้ไข ECLAIM_USERNAME และ ECLAIM_PASSWORD
-
-# 3. Start all services
 docker-compose up -d
-
-# 4. Check logs
-docker-compose logs -f
 ```
 
-**เข้าใช้งาน:**
-- 🌐 **Web UI**: http://localhost:5001
-- 🗄️ **Database**: postgresql://eclaim:eclaim_password@localhost:5432/eclaim_db
-- 🔧 **pgAdmin**: http://localhost:5050 (admin@eclaim.local / admin)
-
-### แบบที่ 2: Full Stack with MySQL 🏥
-
-ใช้ MySQL แทน PostgreSQL
+### MySQL
 
 ```bash
-# 1-2. เหมือนแบบที่ 1
-
-# 3. Start with MySQL
 docker-compose -f docker-compose-mysql.yml up -d
-
-# 4. Check logs
-docker-compose -f docker-compose-mysql.yml logs -f
 ```
 
-**เข้าใช้งาน:**
-- 🌐 **Web UI**: http://localhost:5001
-- 🗄️ **Database**: mysql://eclaim:eclaim_password@localhost:3306/eclaim_db
-- 🔧 **phpMyAdmin**: http://localhost:5050 (eclaim / eclaim_password)
-
-### แบบที่ 3: Download Only (ไม่มี Database) 📥
-
-เหมาะสำหรับ download ไฟล์อย่างเดียว ไม่ต้องการ import เข้า database
+### Download Only
 
 ```bash
-# 1-2. เหมือนแบบที่ 1
-
-# 3. Start web service only
 docker-compose -f docker-compose-no-db.yml up -d
-
-# 4. Check logs
-docker-compose -f docker-compose-no-db.yml logs -f
 ```
 
 **เข้าใช้งาน:**

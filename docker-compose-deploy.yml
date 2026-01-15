@@ -1,0 +1,50 @@
+# NHSO Revenue Intelligence - Production Deployment
+# ติดตั้งผ่าน: curl -fsSL .../install.sh | bash
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: nhso-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: eclaim
+      POSTGRES_PASSWORD: eclaim_password
+      POSTGRES_DB: eclaim_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eclaim -d eclaim_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    image: ghcr.io/aegisx-platform/eclaim-rep-download:${VERSION:-latest}
+    container_name: nhso-web
+    restart: unless-stopped
+    environment:
+      ECLAIM_USERNAME: ${ECLAIM_USERNAME}
+      ECLAIM_PASSWORD: ${ECLAIM_PASSWORD}
+      DB_TYPE: postgresql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: eclaim_db
+      DB_USER: eclaim
+      DB_PASSWORD: eclaim_password
+      FLASK_ENV: production
+      TZ: Asia/Bangkok
+    volumes:
+      - ./downloads:/app/downloads
+      - ./logs:/app/logs
+      - ./config:/app/config
+    ports:
+      - "${WEB_PORT:-5001}:5001"
+    depends_on:
+      db:
+        condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+volumes:
+  db_data:
