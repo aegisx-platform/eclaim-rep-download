@@ -2766,6 +2766,24 @@ def trigger_stm_download():
         import threading
 
         def run_stm_download():
+            # Start job tracking
+            job_id = None
+            try:
+                job_id = job_history_manager.start_job(
+                    job_type='download',
+                    job_subtype='statement',
+                    parameters={
+                        'year': year,
+                        'month': month,
+                        'scheme': scheme,
+                        'person_type': person_type,
+                        'auto_import': auto_import
+                    },
+                    triggered_by='manual'
+                )
+            except Exception as e:
+                app.logger.warning(f"Could not start job tracking: {e}")
+
             cmd = ['python3', 'stm_downloader_http.py', '--year', str(year), '--scheme', scheme, '--type', person_type]
             if month:
                 cmd.extend(['--month', str(int(month))])
@@ -2773,14 +2791,45 @@ def trigger_stm_download():
             log_file = Path('logs') / f"stm_download_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
             log_file.parent.mkdir(exist_ok=True)
 
-            with open(log_file, 'w') as f:
-                subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+            try:
+                with open(log_file, 'w') as f:
+                    result = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
 
-            # Auto-import if enabled
-            if auto_import:
-                import_log_file = Path('logs') / f"stm_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-                with open(import_log_file, 'w') as f:
-                    subprocess.run(['python3', 'stm_import.py', 'downloads/stm/'], stdout=f, stderr=subprocess.STDOUT)
+                # Auto-import if enabled
+                import_results = None
+                if auto_import:
+                    import_log_file = Path('logs') / f"stm_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+                    with open(import_log_file, 'w') as f:
+                        subprocess.run(['python3', 'stm_import.py', 'downloads/stm/'], stdout=f, stderr=subprocess.STDOUT)
+
+                # Complete job
+                if job_id:
+                    try:
+                        job_history_manager.complete_job(
+                            job_id=job_id,
+                            status='completed',
+                            results={
+                                'scheme': scheme,
+                                'year': year,
+                                'month': month,
+                                'person_type': person_type,
+                                'auto_import': auto_import
+                            }
+                        )
+                    except Exception as e:
+                        app.logger.warning(f"Could not complete job tracking: {e}")
+
+            except Exception as e:
+                if job_id:
+                    try:
+                        job_history_manager.complete_job(
+                            job_id=job_id,
+                            status='failed',
+                            error_message=str(e)
+                        )
+                    except Exception:
+                        pass
+                raise
 
         thread = threading.Thread(target=run_stm_download)
         thread.start()
@@ -3451,6 +3500,7 @@ def get_rep_records():
         view_mode = request.args.get('view_mode', 'rep')  # 'rep' or 'tran'
         fiscal_year = request.args.get('fiscal_year', '')
         rep_no = request.args.get('rep_no', '')
+        tran_id = request.args.get('tran_id', '')
         status = request.args.get('status', '')
 
         conn = get_db_connection()
@@ -3472,6 +3522,10 @@ def get_rep_records():
         if rep_no:
             where_clauses.append("c.rep_no LIKE %s")
             params.append(f"%{rep_no}%")
+
+        if tran_id:
+            where_clauses.append("c.tran_id LIKE %s")
+            params.append(f"%{tran_id}%")
 
         where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
@@ -5099,6 +5153,7 @@ def get_smt_summary():
 @app.route('/api/smt/fetch', methods=['POST'])
 def smt_fetch():
     """Trigger SMT budget fetch"""
+    job_id = None
     try:
         data = request.get_json() or {}
         vendor_id = data.get('vendor_id')
@@ -5115,6 +5170,23 @@ def smt_fetch():
 
         if not vendor_id:
             return jsonify({'success': False, 'error': 'Vendor ID is required'}), 400
+
+        # Start job tracking
+        try:
+            job_id = job_history_manager.start_job(
+                job_type='download',
+                job_subtype='smt_fetch',
+                parameters={
+                    'vendor_id': vendor_id,
+                    'budget_year': budget_year,
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'save_db': save_db
+                },
+                triggered_by='manual'
+            )
+        except Exception as e:
+            app.logger.warning(f"Could not start job tracking: {e}")
 
         # Import and run fetcher
         from smt_budget_fetcher import SMTBudgetFetcher
@@ -5182,6 +5254,23 @@ def smt_fetch():
             'smt'
         )
 
+        # Complete job tracking
+        if job_id:
+            try:
+                job_history_manager.complete_job(
+                    job_id=job_id,
+                    status='completed',
+                    results={
+                        'records': len(records),
+                        'saved': saved_count,
+                        'total_amount': summary['total_amount'],
+                        'vendor_id': vendor_id,
+                        'budget_year': budget_year
+                    }
+                )
+            except Exception as e:
+                app.logger.warning(f"Could not complete job tracking: {e}")
+
         return jsonify({
             'success': True,
             'records': len(records),
@@ -5191,6 +5280,16 @@ def smt_fetch():
         })
 
     except Exception as e:
+        # Mark job as failed
+        if job_id:
+            try:
+                job_history_manager.complete_job(
+                    job_id=job_id,
+                    status='failed',
+                    error_message=str(e)
+                )
+            except Exception:
+                pass
         log_streamer.write_log(
             f"✗ SMT fetch failed: {str(e)}",
             'error',
@@ -5648,6 +5747,7 @@ def api_smt_files():
 @app.route('/api/smt/download', methods=['POST'])
 def api_smt_download():
     """Download SMT budget data and export to CSV, with optional auto-import to database"""
+    job_id = None
     try:
         data = request.get_json() or {}
         vendor_id = data.get('vendor_id')
@@ -5665,6 +5765,23 @@ def api_smt_download():
             # Only use default if vendor_id is not explicitly provided as empty string
             if vendor_id is None and default_vendor:
                 vendor_id = default_vendor
+
+        # Start job tracking
+        try:
+            job_id = job_history_manager.start_job(
+                job_type='download',
+                job_subtype='smt',
+                parameters={
+                    'vendor_id': vendor_id,
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'budget_source': budget_source,
+                    'auto_import': auto_import
+                },
+                triggered_by='manual'
+            )
+        except Exception as e:
+            app.logger.warning(f"Could not start job tracking: {e}")
 
         # Import and run fetcher
         from smt_budget_fetcher import SMTBudgetFetcher
@@ -5762,6 +5879,23 @@ def api_smt_download():
             'smt'
         )
 
+        # Complete job tracking
+        if job_id:
+            try:
+                job_history_manager.complete_job(
+                    job_id=job_id,
+                    status='completed',
+                    results={
+                        'records': len(records),
+                        'new_records': new_records,
+                        'imported': imported_count,
+                        'total_amount': summary['total_amount'],
+                        'export_path': export_path
+                    }
+                )
+            except Exception as e:
+                app.logger.warning(f"Could not complete job tracking: {e}")
+
         return jsonify({
             'success': True,
             'message': message,
@@ -5773,6 +5907,16 @@ def api_smt_download():
         })
 
     except Exception as e:
+        # Mark job as failed
+        if job_id:
+            try:
+                job_history_manager.complete_job(
+                    job_id=job_id,
+                    status='failed',
+                    error_message=str(e)
+                )
+            except Exception:
+                pass
         log_streamer.write_log(f"✗ SMT download failed: {str(e)}", 'error', 'smt')
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -8597,21 +8741,23 @@ def api_benchmark_my_hospital():
         vendor_id_10 = vendor_id.zfill(10)
         vendor_id_5 = vendor_id.lstrip('0')
 
-        # Get hospital info from health_offices
+        # Get hospital info from health_offices (including bed count)
         cursor.execute("""
-            SELECT name, hospital_level, province, health_region, hcode5
+            SELECT name, hospital_level, province, health_region, hcode5, COALESCE(actual_beds, 0) as actual_beds
             FROM health_offices
             WHERE hcode5 = %s OR hcode5 = %s
             LIMIT 1
         """, (vendor_id_5, vendor_id))
         hospital_row = cursor.fetchone()
 
+        actual_beds = int(hospital_row[5]) if hospital_row and hospital_row[5] else 0
         hospital_info = {
             'vendor_no': vendor_id_10,
             'name': hospital_row[0] if hospital_row else f'รพ. {vendor_id_5}',
             'level': hospital_row[1] if hospital_row else None,
             'province': hospital_row[2] if hospital_row else None,
-            'health_region': hospital_row[3] if hospital_row else None
+            'health_region': hospital_row[3] if hospital_row else None,
+            'actual_beds': actual_beds
         }
 
         # Get current year summary
@@ -8644,6 +8790,80 @@ def api_benchmark_my_hospital():
 
         growth_yoy = ((total_amount - prev_total) / prev_total * 100) if prev_total > 0 else 0
 
+        # Calculate per-bed metrics
+        revenue_per_bed = (total_amount / actual_beds) if actual_beds > 0 else 0
+        wait_per_bed = (wait_amount / actual_beds) if actual_beds > 0 else 0
+        debt_per_bed = (debt_amount / actual_beds) if actual_beds > 0 else 0
+
+        # Get fund breakdown by category
+        # Categories: OPD, IPD, CR (Central Reimburse), PP (Prevention/Promotion), OTHER
+        # Note: %% escapes % for Python string formatting in psycopg2
+        cursor.execute("""
+            SELECT
+                CASE
+                    WHEN fund_name ILIKE '%%ผู้ป่วยใน%%' OR fund_name = 'IP_CF' THEN 'IPD'
+                    WHEN fund_name ILIKE '%%ผู้ป่วยนอก%%' OR fund_name = 'OP_CF' THEN 'OPD'
+                    WHEN fund_name ILIKE '%%CENTRAL REIMBURSE%%' THEN 'CR'
+                    WHEN fund_name ILIKE '%%สร้างเสริมสุขภาพ%%'
+                         OR fund_name ILIKE '%%ป้องกันโรค%%'
+                         OR fund_name ILIKE '%%ควบคุม%%ป้องกัน%%' THEN 'PP'
+                    ELSE 'OTHER'
+                END as fund_category,
+                COALESCE(SUM(total_amount), 0) as total_amount,
+                COALESCE(SUM(wait_amount), 0) as wait_amount,
+                COALESCE(SUM(debt_amount), 0) as debt_amount,
+                COUNT(*) as records
+            FROM smt_budget_transfers
+            WHERE (vendor_no = %s OR vendor_no = %s)
+              AND run_date >= %s AND run_date <= %s
+            GROUP BY CASE
+                WHEN fund_name ILIKE '%%ผู้ป่วยใน%%' OR fund_name = 'IP_CF' THEN 'IPD'
+                WHEN fund_name ILIKE '%%ผู้ป่วยนอก%%' OR fund_name = 'OP_CF' THEN 'OPD'
+                WHEN fund_name ILIKE '%%CENTRAL REIMBURSE%%' THEN 'CR'
+                WHEN fund_name ILIKE '%%สร้างเสริมสุขภาพ%%'
+                     OR fund_name ILIKE '%%ป้องกันโรค%%'
+                     OR fund_name ILIKE '%%ควบคุม%%ป้องกัน%%' THEN 'PP'
+                ELSE 'OTHER'
+            END
+        """, (vendor_id_10, vendor_id_5, start_date, end_date))
+
+        # Initialize fund categories
+        fund_categories = {
+            'OPD': {'total_amount': 0, 'wait_amount': 0, 'debt_amount': 0, 'records': 0, 'label': 'ผู้ป่วยนอก'},
+            'IPD': {'total_amount': 0, 'wait_amount': 0, 'debt_amount': 0, 'records': 0, 'label': 'ผู้ป่วยใน'},
+            'CR': {'total_amount': 0, 'wait_amount': 0, 'debt_amount': 0, 'records': 0, 'label': 'Central Reimburse'},
+            'PP': {'total_amount': 0, 'wait_amount': 0, 'debt_amount': 0, 'records': 0, 'label': 'ส่งเสริมป้องกัน'},
+            'OTHER': {'total_amount': 0, 'wait_amount': 0, 'debt_amount': 0, 'records': 0, 'label': 'อื่นๆ'}
+        }
+
+        ipd_total = 0
+        ipd_wait = 0
+        ipd_debt = 0
+        opd_total = 0
+        for row in cursor.fetchall():
+            cat = row[0]
+            if cat in fund_categories:
+                fund_categories[cat]['total_amount'] = float(row[1]) if row[1] else 0
+                fund_categories[cat]['wait_amount'] = float(row[2]) if row[2] else 0
+                fund_categories[cat]['debt_amount'] = float(row[3]) if row[3] else 0
+                fund_categories[cat]['records'] = row[4]
+            if cat == 'IPD':
+                ipd_total = float(row[1]) if row[1] else 0
+                ipd_wait = float(row[2]) if row[2] else 0
+                ipd_debt = float(row[3]) if row[3] else 0
+            elif cat == 'OPD':
+                opd_total = float(row[1]) if row[1] else 0
+
+        # Calculate per-bed metrics from IPD only (beds are for inpatients)
+        ipd_revenue_per_bed = (ipd_total / actual_beds) if actual_beds > 0 else 0
+        ipd_wait_per_bed = (ipd_wait / actual_beds) if actual_beds > 0 else 0
+        ipd_debt_per_bed = (ipd_debt / actual_beds) if actual_beds > 0 else 0
+
+        # Calculate ratios for each fund category
+        for cat in fund_categories:
+            cat_amount = fund_categories[cat]['total_amount']
+            fund_categories[cat]['ratio'] = round((cat_amount / total_amount * 100) if total_amount > 0 else 0, 1)
+
         summary = {
             'total_amount': total_amount,
             'wait_amount': wait_amount,
@@ -8652,7 +8872,20 @@ def api_benchmark_my_hospital():
             'wait_ratio': (wait_amount / total_amount * 100) if total_amount > 0 else 0,
             'debt_ratio': (debt_amount / total_amount * 100) if total_amount > 0 else 0,
             'record_count': summary_row[0] if summary_row else 0,
-            'growth_yoy': round(growth_yoy, 1)
+            'growth_yoy': round(growth_yoy, 1),
+            # Per-bed metrics (all from IPD since beds are for inpatients)
+            'actual_beds': actual_beds,
+            'revenue_per_bed': round(ipd_revenue_per_bed, 2),  # IPD revenue per bed
+            'ipd_revenue_per_bed': round(ipd_revenue_per_bed, 2),  # same as above (for backward compat)
+            'wait_per_bed': round(ipd_wait_per_bed, 2),  # IPD wait per bed
+            'debt_per_bed': round(ipd_debt_per_bed, 2),  # IPD debt per bed
+            # Fund category breakdown (OPD, IPD, CR, PP, OTHER)
+            'fund_categories': fund_categories,
+            # Legacy OPD/IPD fields for backward compatibility
+            'ipd_amount': ipd_total,
+            'opd_amount': opd_total,
+            'ipd_ratio': round((ipd_total / total_amount * 100) if total_amount > 0 else 0, 1),
+            'opd_ratio': round((opd_total / total_amount * 100) if total_amount > 0 else 0, 1)
         }
 
         # Get fund breakdown

@@ -39,6 +39,7 @@
                         <span id="hospital-level">-</span>
                         <span id="hospital-province">-</span>
                         <span id="hospital-region">-</span>
+                        <span id="hospital-beds" class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded">-</span>
                     </div>
                 </div>
             </div>
@@ -59,17 +60,12 @@
                 <div id="year-checkboxes-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                     <!-- Year checkboxes populated by JS -->
                 </div>
-                <div class="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between">
+                <div class="mt-3 pt-3 border-t border-gray-200">
                     <p class="text-xs text-gray-500">
                         <span id="selected-years-count">0</span>/5 ปีที่เลือก |
                         <span id="total-records-count">0</span> records
+                        <span class="text-blue-600 ml-2">(เลือกแล้วโหลดอัตโนมัติ)</span>
                     </p>
-                    <button onclick="loadSelectedYears()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-1">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                        </svg>
-                        โหลดข้อมูล
-                    </button>
                 </div>
             </div>
         </div>
@@ -198,55 +194,115 @@
             </div>
         </div>
 
-        <!-- Multi-Year Comparison Table (shows when multiple years selected) -->
-        <div id="multi-year-comparison" class="hidden bg-white rounded-xl shadow-md overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-gray-800 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                        </svg>
-                        เปรียบเทียบผลประกอบการหลายปี
-                    </h3>
-                    <span id="comparison-years-badge" class="text-sm text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full">
-                        0 ปี
-                    </span>
+        <!-- Per-Bed Efficiency Metrics -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                ประสิทธิภาพต่อเตียง
+                <span id="beds-count-badge" class="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">- เตียง</span>
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Revenue per Bed (IPD only) -->
+                <div class="p-4 rounded-lg bg-blue-50">
+                    <div class="text-sm text-gray-600 mb-1">รายได้ผู้ป่วยใน/เตียง <span class="text-xs text-blue-500">(IPD)</span></div>
+                    <div class="text-xl font-bold text-blue-700" id="revenue-per-bed">-</div>
+                    <div class="text-xs text-gray-500 mt-1">บาท/เตียง/ปี</div>
+                </div>
+                <!-- Wait per Bed -->
+                <div class="p-4 rounded-lg bg-amber-50">
+                    <div class="text-sm text-gray-600 mb-1">ยอดรอจ่ายต่อเตียง</div>
+                    <div class="text-xl font-bold text-amber-700" id="wait-per-bed">-</div>
+                    <div class="text-xs text-gray-500 mt-1">บาท/เตียง</div>
+                </div>
+                <!-- Debt per Bed -->
+                <div class="p-4 rounded-lg bg-red-50">
+                    <div class="text-sm text-gray-600 mb-1">หนี้สินต่อเตียง</div>
+                    <div class="text-xl font-bold text-red-700" id="debt-per-bed">-</div>
+                    <div class="text-xs text-gray-500 mt-1">บาท/เตียง</div>
                 </div>
             </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50">ตัวชี้วัด</th>
-                            <!-- Year columns populated by JS -->
-                        </tr>
-                    </thead>
-                    <tbody id="comparison-table-body" class="bg-white divide-y divide-gray-200">
-                        <!-- Rows populated by JS -->
-                    </tbody>
-                </table>
+        </div>
+
+        <!-- Fund Category Breakdown -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                </svg>
+                สัดส่วนรายได้ตามประเภทกองทุน
+            </h3>
+
+            <!-- Stacked Progress Bar -->
+            <div class="mb-4">
+                <div class="h-6 bg-gray-100 rounded-full overflow-hidden flex" id="fund-stacked-bar">
+                    <div id="bar-opd" class="h-full bg-green-500 transition-all duration-500" style="width: 0%"></div>
+                    <div id="bar-ipd" class="h-full bg-blue-500 transition-all duration-500" style="width: 0%"></div>
+                    <div id="bar-cr" class="h-full bg-purple-500 transition-all duration-500" style="width: 0%"></div>
+                    <div id="bar-pp" class="h-full bg-amber-500 transition-all duration-500" style="width: 0%"></div>
+                    <div id="bar-other" class="h-full bg-gray-400 transition-all duration-500" style="width: 0%"></div>
+                </div>
             </div>
 
-            <!-- Multi-Year Chart Section -->
-            <div class="p-6 border-t border-gray-200">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                    <h4 class="text-md font-medium text-gray-700 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                        </svg>
-                        กราฟเปรียบเทียบรายปี
-                    </h4>
-                    <div class="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-                        <button id="chart-type-grouped" onclick="switchYearChartType('grouped')" class="px-3 py-1.5 text-sm font-medium rounded-md transition-all bg-white text-indigo-600 shadow-sm">
-                            Grouped Bar
-                        </button>
-                        <button id="chart-type-mixed" onclick="switchYearChartType('mixed')" class="px-3 py-1.5 text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-700">
-                            Bar + Line
-                        </button>
+            <!-- Fund Category Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3" id="fund-category-cards">
+                <!-- OPD -->
+                <div class="p-3 rounded-lg bg-green-50 border border-green-200">
+                    <div class="flex items-center gap-2 mb-1">
+                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span class="text-xs font-medium text-gray-600">OPD</span>
                     </div>
+                    <div class="text-lg font-bold text-green-700" id="cat-opd-amount">-</div>
+                    <div class="text-sm text-green-600" id="cat-opd-ratio">-%</div>
                 </div>
-                <div class="relative" style="height: 350px;">
-                    <canvas id="multi-year-chart"></canvas>
+                <!-- IPD -->
+                <div class="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                    <div class="flex items-center gap-2 mb-1">
+                        <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <span class="text-xs font-medium text-gray-600">IPD</span>
+                    </div>
+                    <div class="text-lg font-bold text-blue-700" id="cat-ipd-amount">-</div>
+                    <div class="text-sm text-blue-600" id="cat-ipd-ratio">-%</div>
+                </div>
+                <!-- CR -->
+                <div class="p-3 rounded-lg bg-purple-50 border border-purple-200">
+                    <div class="flex items-center gap-2 mb-1">
+                        <div class="w-3 h-3 rounded-full bg-purple-500"></div>
+                        <span class="text-xs font-medium text-gray-600">CR</span>
+                    </div>
+                    <div class="text-lg font-bold text-purple-700" id="cat-cr-amount">-</div>
+                    <div class="text-sm text-purple-600" id="cat-cr-ratio">-%</div>
+                </div>
+                <!-- PP -->
+                <div class="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                    <div class="flex items-center gap-2 mb-1">
+                        <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                        <span class="text-xs font-medium text-gray-600">PP</span>
+                    </div>
+                    <div class="text-lg font-bold text-amber-700" id="cat-pp-amount">-</div>
+                    <div class="text-sm text-amber-600" id="cat-pp-ratio">-%</div>
+                </div>
+                <!-- OTHER -->
+                <div class="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                    <div class="flex items-center gap-2 mb-1">
+                        <div class="w-3 h-3 rounded-full bg-gray-400"></div>
+                        <span class="text-xs font-medium text-gray-600">อื่นๆ</span>
+                    </div>
+                    <div class="text-lg font-bold text-gray-700" id="cat-other-amount">-</div>
+                    <div class="text-sm text-gray-600" id="cat-other-ratio">-%</div>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="mt-4 pt-3 border-t border-gray-100">
+                <div class="flex flex-wrap gap-4 text-xs text-gray-500">
+                    <span><span class="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span>OPD = ผู้ป่วยนอก</span>
+                    <span><span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1"></span>IPD = ผู้ป่วยใน</span>
+                    <span><span class="inline-block w-2 h-2 rounded-full bg-purple-500 mr-1"></span>CR = Central Reimburse</span>
+                    <span><span class="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1"></span>PP = ส่งเสริมป้องกัน</span>
+                    <span><span class="inline-block w-2 h-2 rounded-full bg-gray-400 mr-1"></span>อื่นๆ = กองทุนอื่นๆ</span>
                 </div>
             </div>
         </div>
@@ -261,6 +317,81 @@
             </h3>
             <div id="risk-indicators" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <!-- Populated by JS -->
+            </div>
+
+            <!-- Monthly Trend Chart (inside Risk Indicators card) -->
+            <div class="mt-6 pt-6 border-t border-gray-200">
+                <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-4">
+                    <h4 class="text-md font-semibold text-gray-700 flex items-center">
+                        <svg class="w-4 h-4 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                        </svg>
+                        แนวโน้มรายเดือน
+                    </h4>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <select id="trend-metric" onchange="updateTrendChartWithAllYears()" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
+                            <option value="total_amount">ยอดรวม</option>
+                            <option value="wait_amount">ยอดรอจ่าย</option>
+                            <option value="debt_amount">ยอดหนี้สิน</option>
+                        </select>
+                        <div id="chart-years-info" class="flex items-center gap-2 text-sm text-gray-500">
+                            <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            แสดงปีที่เลือกทั้งหมดอัตโนมัติ
+                        </div>
+                        <div id="year-checkboxes" class="hidden"></div>
+                    </div>
+                </div>
+                <div class="relative" style="height: 300px;">
+                    <canvas id="trend-chart"></canvas>
+                </div>
+                <div id="year-legend" class="mt-4 flex flex-wrap justify-center gap-4 text-sm">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Multi-Year Comparison Table (shows when multiple years selected) -->
+        <div id="multi-year-comparison" class="hidden bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        เปรียบเทียบผลประกอบการหลายปี
+                        <span id="comparison-years-badge" class="ml-2 px-2 py-0.5 bg-indigo-600 text-white text-xs rounded-full">-</span>
+                    </h3>
+                    <!-- Chart Type Toggle -->
+                    <div class="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
+                        <button id="chart-type-grouped" onclick="switchYearChartType('grouped')" class="px-3 py-1.5 text-sm font-medium rounded-md transition-all bg-white text-indigo-600 shadow-sm">
+                            Grouped
+                        </button>
+                        <button id="chart-type-mixed" onclick="switchYearChartType('mixed')" class="px-3 py-1.5 text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-700">
+                            Mixed
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6">
+                <!-- Multi-Year Chart -->
+                <div class="mb-6">
+                    <canvas id="multi-year-chart" style="max-height: 350px;"></canvas>
+                </div>
+                <!-- Comparison Table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <!-- Built dynamically by JS -->
+                            </tr>
+                        </thead>
+                        <tbody id="comparison-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Built dynamically by JS -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -287,46 +418,6 @@
                     <tbody id="fund-breakdown-tbody" class="bg-white divide-y divide-gray-200">
                     </tbody>
                 </table>
-            </div>
-        </div>
-
-        <!-- Monthly Trend Chart with Year Comparison -->
-        <div class="bg-white rounded-xl shadow-md overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
-                <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
-                    <h3 class="text-lg font-semibold text-gray-800 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
-                        </svg>
-                        แนวโน้มรายเดือน
-                    </h3>
-                    <div class="flex flex-wrap items-center gap-4">
-                        <!-- Metric Selector -->
-                        <select id="trend-metric" onchange="updateTrendChartWithAllYears()" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
-                            <option value="total_amount">ยอดรวม</option>
-                            <option value="wait_amount">ยอดรอจ่าย</option>
-                            <option value="debt_amount">ยอดหนี้สิน</option>
-                        </select>
-                        <!-- Auto Year Info -->
-                        <div id="chart-years-info" class="flex items-center gap-2 text-sm text-gray-500">
-                            <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            แสดงปีที่เลือกทั้งหมดอัตโนมัติ
-                        </div>
-                        <!-- Hidden container for backward compatibility -->
-                        <div id="year-checkboxes" class="hidden"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="p-6">
-                <div class="relative" style="height: 350px;">
-                    <canvas id="trend-chart"></canvas>
-                </div>
-                <!-- Year Legend -->
-                <div id="year-legend" class="mt-4 flex flex-wrap justify-center gap-4 text-sm">
-                    <!-- Populated by JS -->
-                </div>
             </div>
         </div>
 
@@ -385,10 +476,14 @@
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">โรงพยาบาล</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">เตียง</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">รายได้รวม</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-green-600 uppercase">OPD</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-blue-600 uppercase">IPD</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-purple-600 uppercase">IPD/เตียง</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Wait %</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Debt %</th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Growth YoY</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Growth</th>
                                     <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
@@ -696,6 +791,7 @@ function renderYearCheckboxes() {
 }
 
 const MAX_SELECTED_YEARS = 5;
+let yearSelectionTimeout = null;
 
 function toggleYearSelection(year, isSelected) {
     if (isSelected) {
@@ -714,6 +810,16 @@ function toggleYearSelection(year, isSelected) {
         selectedYears = selectedYears.filter(function(y) { return y !== year; });
     }
     updateSelectedYearsCount();
+
+    // Auto-load with debounce (500ms delay to allow multiple selections)
+    if (yearSelectionTimeout) {
+        clearTimeout(yearSelectionTimeout);
+    }
+    yearSelectionTimeout = setTimeout(function() {
+        if (selectedYears.length > 0) {
+            loadSelectedYears();
+        }
+    }, 500);
 }
 
 function updateYearCheckboxStates() {
@@ -876,7 +982,7 @@ async function loadSelectedYears() {
     // Fetch data for each selected year
     yearsDataCache = {};
     for (var i = 0; i < selectedYears.length; i++) {
-        var year = selectedYears[i];
+        var year = parseInt(selectedYears[i]); // Ensure numeric key
         try {
             var response = await fetch('/api/benchmark/my-hospital?vendor_id=' + currentVendorId + '&fiscal_year=' + year);
             var result = await response.json();
@@ -894,8 +1000,8 @@ async function loadSelectedYears() {
     }
 
     // Use the most recent year as primary display (or keep current if still valid)
-    if (!primaryYear || !selectedYears.includes(primaryYear)) {
-        primaryYear = selectedYears[0];
+    if (!primaryYear || !selectedYears.map(function(y) { return parseInt(y); }).includes(primaryYear)) {
+        primaryYear = parseInt(selectedYears[0]);
     }
     currentHospitalData = yearsDataCache[primaryYear];
 
@@ -939,8 +1045,8 @@ function renderYearPills() {
 
     container.innerHTML = '';
 
-    // Sort years descending
-    var years = selectedYears.slice().sort(function(a, b) { return b - a; });
+    // Sort years descending and ensure numbers
+    var years = selectedYears.map(function(y) { return parseInt(y); }).sort(function(a, b) { return b - a; });
 
     years.forEach(function(year) {
         var pill = document.createElement('button');
@@ -962,9 +1068,13 @@ function renderYearPills() {
 
 // Switch the primary year displayed in summary
 function switchPrimaryYear(year) {
+    // Ensure year is a number for consistent comparison and lookup
+    year = parseInt(year);
+
     if (year === primaryYear) return;
     if (!yearsDataCache[year]) {
         showToast('ไม่มีข้อมูลปี ' + year, 'warning');
+        console.log('yearsDataCache keys:', Object.keys(yearsDataCache), 'looking for:', year, typeof year);
         return;
     }
 
@@ -977,6 +1087,8 @@ function switchPrimaryYear(year) {
     updateSummaryCardsWithYoY();
     updateRiskAssessment(currentHospitalData.risk_score);
     updateFundBreakdown(currentHospitalData.fund_breakdown);
+    updateTrendChartWithAllYears(); // Update trend chart to highlight new primary year
+    updateMultiYearComparisonTable(); // Update multi-year comparison table
 
     showToast('เปลี่ยนเป็นปีงบ ' + year, 'info');
 }
@@ -986,9 +1098,10 @@ function updateHospitalInfo(hospital) {
 
     document.getElementById('hospital-name').textContent = hospital.name || '-';
     document.getElementById('hospital-code').textContent = 'รหัส: ' + (hospital.vendor_no || '').replace(/^0+/, '');
-    document.getElementById('hospital-level').textContent = hospital.level ? (hospital.level + ' - โรงพยาบาลศูนย์') : '-';
+    document.getElementById('hospital-level').textContent = hospital.level || '-';
     document.getElementById('hospital-province').textContent = hospital.province || '-';
     document.getElementById('hospital-region').textContent = hospital.health_region ? ('เขตสุขภาพที่ ' + hospital.health_region) : '-';
+    document.getElementById('hospital-beds').textContent = hospital.actual_beds ? (hospital.actual_beds.toLocaleString() + ' เตียง') : '-';
 
     document.getElementById('selected-hospital').classList.remove('hidden');
 
@@ -1005,9 +1118,9 @@ function populateYearComparisonCheckboxes() {
     container.innerHTML = '';
 
     // Get years with data excluding the primary year
-    var primaryYear = selectedYears.length > 0 ? selectedYears[0] : null;
+    var currentPrimaryYear = primaryYear || (selectedYears.length > 0 ? selectedYears[0] : null);
     var yearsWithData = hospitalYearsData.filter(function(y) {
-        return y.has_data && y.year !== primaryYear;
+        return y.has_data && y.year !== currentPrimaryYear;
     });
 
     if (yearsWithData.length === 0) {
@@ -1091,6 +1204,75 @@ function updateSummaryCards(summary) {
     // Debt Amount
     document.getElementById('debt-amount').textContent = formatMoney(summary.debt_amount);
     document.getElementById('debt-ratio').textContent = (summary.debt_ratio || 0).toFixed(1) + '% ของยอดรวม';
+
+    // Update per-bed metrics
+    updatePerBedMetrics(summary);
+}
+
+function updatePerBedMetrics(summary) {
+    if (!summary) return;
+
+    var beds = summary.actual_beds || 0;
+
+    // Update beds count badge
+    var bedsBadge = document.getElementById('beds-count-badge');
+    if (bedsBadge) {
+        bedsBadge.textContent = beds > 0 ? beds.toLocaleString() + ' เตียง' : 'ไม่มีข้อมูล';
+    }
+
+    // Update per-bed metrics (use IPD revenue per bed)
+    var revenuePerBed = document.getElementById('revenue-per-bed');
+    var waitPerBed = document.getElementById('wait-per-bed');
+    var debtPerBed = document.getElementById('debt-per-bed');
+
+    if (beds > 0) {
+        // Use IPD revenue per bed since beds are for inpatients
+        if (revenuePerBed) revenuePerBed.textContent = formatMoney(summary.ipd_revenue_per_bed || 0);
+        if (waitPerBed) waitPerBed.textContent = formatMoney(summary.wait_per_bed || 0);
+        if (debtPerBed) debtPerBed.textContent = formatMoney(summary.debt_per_bed || 0);
+    } else {
+        if (revenuePerBed) revenuePerBed.textContent = '-';
+        if (waitPerBed) waitPerBed.textContent = '-';
+        if (debtPerBed) debtPerBed.textContent = '-';
+    }
+
+    // Update OPD/IPD breakdown
+    updateOpdIpdBreakdown(summary);
+}
+
+function updateFundCategoryBreakdown(summary) {
+    if (!summary || !summary.fund_categories) return;
+
+    var categories = summary.fund_categories;
+
+    // Update each category card and progress bar
+    var catKeys = ['OPD', 'IPD', 'CR', 'PP', 'OTHER'];
+    var barIds = ['bar-opd', 'bar-ipd', 'bar-cr', 'bar-pp', 'bar-other'];
+    var amountIds = ['cat-opd-amount', 'cat-ipd-amount', 'cat-cr-amount', 'cat-pp-amount', 'cat-other-amount'];
+    var ratioIds = ['cat-opd-ratio', 'cat-ipd-ratio', 'cat-cr-ratio', 'cat-pp-ratio', 'cat-other-ratio'];
+
+    for (var i = 0; i < catKeys.length; i++) {
+        var cat = categories[catKeys[i]] || {};
+        var amount = cat.total_amount || 0;
+        var ratio = cat.ratio || 0;
+
+        // Update progress bar segment
+        var barEl = document.getElementById(barIds[i]);
+        if (barEl) barEl.style.width = ratio + '%';
+
+        // Update amount
+        var amountEl = document.getElementById(amountIds[i]);
+        if (amountEl) amountEl.textContent = formatMoney(amount);
+
+        // Update ratio
+        var ratioEl = document.getElementById(ratioIds[i]);
+        if (ratioEl) ratioEl.textContent = ratio.toFixed(1) + '%';
+    }
+}
+
+// Legacy function for backward compatibility
+function updateOpdIpdBreakdown(summary) {
+    updateFundCategoryBreakdown(summary);
 }
 
 function updateRiskAssessment(riskScore) {
@@ -1228,8 +1410,8 @@ function updateTrendChart() {
     var metric = document.getElementById('trend-metric').value;
 
     // Primary year is the first selected year
-    var primaryYear = selectedYears.length > 0 ? selectedYears[0] : null;
-    if (!primaryYear) return;
+    var currentPrimaryYear = primaryYear || (selectedYears.length > 0 ? selectedYears[0] : null);
+    if (!currentPrimaryYear) return;
 
     // Destroy existing chart
     if (trendChart) {
@@ -1549,7 +1731,8 @@ async function doCompareSearch() {
 
                 var infoDiv = document.createElement('div');
                 infoDiv.className = 'text-sm text-gray-500 mt-0.5';
-                infoDiv.textContent = 'รหัส: ' + h.hcode5 + ' | ' + (h.province || '') + (h.level ? ' | ระดับ ' + h.level : '');
+                var bedInfo = h.actual_beds ? ' | ' + h.actual_beds.toLocaleString() + ' เตียง' : '';
+                infoDiv.textContent = 'รหัส: ' + h.hcode5 + ' | ' + (h.province || '') + (h.hospital_level ? ' | ' + h.hospital_level : '') + bedInfo;
                 div.appendChild(infoDiv);
 
                 resultsDiv.appendChild(div);
@@ -1905,7 +2088,7 @@ async function loadComparisonHospitalsFromStorage() {
 function populateComparisonYearDropdown() {
     var pillsContainer = document.getElementById('comparison-year-pills');
     var hiddenInput = document.getElementById('comparison-year');
-    var primaryYear = selectedYears.length > 0 ? selectedYears[0] : null;
+    var currentPrimaryYear = primaryYear || (selectedYears.length > 0 ? selectedYears[0] : null);
     pillsContainer.innerHTML = '';
 
     // Add years that my hospital has data
@@ -1960,7 +2143,7 @@ function updateComparisonTable() {
     var selectedYear = parseInt(document.getElementById('comparison-year').value);
     tbody.innerHTML = '';
 
-    var primaryYear = selectedYears.length > 0 ? selectedYears[0] : null;
+    var currentPrimaryYear = primaryYear || (selectedYears.length > 0 ? selectedYears[0] : null);
 
     // Add my hospital first
     if (currentHospitalData && currentHospitalInfo) {
@@ -2053,10 +2236,17 @@ function createComparisonRow(hospital, isMyHospital, year) {
     }
     tr.appendChild(tdName);
 
+    // Bed count (always show, even without SMT data)
+    var tdBeds = document.createElement('td');
+    tdBeds.className = 'px-4 py-3 text-right text-purple-700';
+    var beds = hospital.actual_beds || (summary && summary.actual_beds) || 0;
+    tdBeds.textContent = beds > 0 ? beds.toLocaleString() : '-';
+    tr.appendChild(tdBeds);
+
     if (!hasData) {
         // No data for this year - show fetch button for comparison hospitals
         var tdNoData = document.createElement('td');
-        tdNoData.colSpan = 4;
+        tdNoData.colSpan = 7;  // Updated for OPD/IPD columns
         tdNoData.className = 'px-4 py-3 text-center';
 
         if (!isMyHospital && year) {
@@ -2077,6 +2267,34 @@ function createComparisonRow(hospital, isMyHospital, year) {
         tdTotal.className = 'px-4 py-3 text-right font-medium';
         tdTotal.textContent = formatMoney(summary.total_amount);
         tr.appendChild(tdTotal);
+
+        // OPD
+        var tdOpd = document.createElement('td');
+        tdOpd.className = 'px-4 py-3 text-right text-green-600';
+        var opdAmount = summary.opd_amount || 0;
+        var opdRatio = summary.opd_ratio || 0;
+        tdOpd.innerHTML = '<div>' + formatMoney(opdAmount) + '</div><div class="text-xs text-green-500">' + opdRatio.toFixed(1) + '%</div>';
+        tr.appendChild(tdOpd);
+
+        // IPD
+        var tdIpd = document.createElement('td');
+        tdIpd.className = 'px-4 py-3 text-right text-blue-600';
+        var ipdAmount = summary.ipd_amount || 0;
+        var ipdRatio = summary.ipd_ratio || 0;
+        tdIpd.innerHTML = '<div>' + formatMoney(ipdAmount) + '</div><div class="text-xs text-blue-500">' + ipdRatio.toFixed(1) + '%</div>';
+        tr.appendChild(tdIpd);
+
+        // IPD Revenue per Bed
+        var tdRevPerBed = document.createElement('td');
+        tdRevPerBed.className = 'px-4 py-3 text-right text-purple-600';
+        if (beds > 0) {
+            // Use IPD revenue per bed (since beds are for inpatients)
+            var ipdPerBed = summary.ipd_revenue_per_bed || (ipdAmount / beds);
+            tdRevPerBed.textContent = formatMoney(ipdPerBed);
+        } else {
+            tdRevPerBed.textContent = '-';
+        }
+        tr.appendChild(tdRevPerBed);
 
         // Wait %
         var tdWait = document.createElement('td');
@@ -2130,7 +2348,7 @@ function updateTrendChartWithAllYears() {
 
     // Sort years descending
     var years = selectedYears.slice().sort(function(a, b) { return b - a; });
-    var primaryYear = years[0];
+    var currentPrimaryYear = primaryYear || years[0];
 
     // Destroy existing chart
     if (trendChart) {
@@ -2169,7 +2387,7 @@ function updateTrendChartWithAllYears() {
         });
 
         var color = yearColors[index % yearColors.length];
-        var isPrimary = index === 0;
+        var isPrimary = year === currentPrimaryYear;
 
         datasets.push({
             label: 'ปีงบ ' + year + (isPrimary ? ' (หลัก)' : ''),
@@ -2236,10 +2454,11 @@ function updateTrendChartWithAllYears() {
 function updateYearLegendAll(years) {
     var legendDiv = document.getElementById('year-legend');
     legendDiv.innerHTML = '';
+    var currentPrimaryYear = primaryYear || years[0];
 
     years.forEach(function(year, index) {
         var color = yearColors[index % yearColors.length];
-        var isPrimary = index === 0;
+        var isPrimary = year === currentPrimaryYear;
 
         var span = document.createElement('span');
         span.className = 'flex items-center gap-2';
@@ -2616,25 +2835,26 @@ function updateMultiYearChart() {
 
 // Update Summary Cards with YoY comparison
 function updateSummaryCardsWithYoY() {
-    var primaryYear = selectedYears.length > 0 ? selectedYears[0] : null;
-    var compareYear = selectedYears.length > 1 ? selectedYears[1] : null;
+    // Use global primaryYear instead of selectedYears[0]
+    var currentPrimary = primaryYear || (selectedYears.length > 0 ? selectedYears[0] : null);
+
+    // Find compare year (the year right before primary in selectedYears)
+    var sortedYears = selectedYears.slice().sort(function(a, b) { return b - a; });
+    var primaryIndex = sortedYears.indexOf(currentPrimary);
+    var compareYear = primaryIndex >= 0 && primaryIndex < sortedYears.length - 1 ? sortedYears[primaryIndex + 1] : null;
 
     // Update primary year display
     var primaryDisplay = document.getElementById('primary-year-display');
     if (primaryDisplay) {
-        primaryDisplay.textContent = primaryYear || '-';
+        primaryDisplay.textContent = currentPrimary || '-';
     }
 
-    var primaryData = yearsDataCache[primaryYear];
+    var primaryData = yearsDataCache[currentPrimary];
     var compareData = compareYear ? yearsDataCache[compareYear] : null;
 
-    // Update YoY compare label
+    // Always hide YoY compare label as requested by user
     var yoyLabel = document.getElementById('yoy-compare-label');
-    var compareYearDisplay = document.getElementById('compare-year-display');
-    if (compareYear && compareData) {
-        yoyLabel.classList.remove('hidden');
-        compareYearDisplay.textContent = compareYear;
-    } else {
+    if (yoyLabel) {
         yoyLabel.classList.add('hidden');
     }
 
@@ -2710,11 +2930,11 @@ function updateSummaryCardsWithYoY() {
 function formatMoney(amount) {
     if (!amount) return '0 บาท';
     if (amount >= 1000000000) {
-        return (amount / 1000000000).toFixed(2) + ' พันล้าน';
+        return (amount / 1000000000).toFixed(0) + ' พันล้าน';
     } else if (amount >= 1000000) {
-        return (amount / 1000000).toFixed(2) + ' ล้าน';
+        return Math.round(amount / 1000000).toLocaleString() + ' ล้าน';
     }
-    return amount.toLocaleString() + ' บาท';
+    return Math.round(amount).toLocaleString() + ' บาท';
 }
 
 function formatMoneyShort(amount) {
