@@ -1,0 +1,126 @@
+name: Auto Release on Merge
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'VERSION'  # Only trigger when VERSION file changes
+
+permissions:
+  contents: write
+
+jobs:
+  auto-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from file
+        id: version
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "TAG=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "📦 Version: ${VERSION}"
+
+      - name: Check if tag exists
+        id: check_tag
+        env:
+          TAG: ${{ steps.version.outputs.TAG }}
+        run: |
+          if git rev-parse "${TAG}" >/dev/null 2>&1; then
+            echo "EXISTS=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Tag ${TAG} already exists, skipping release"
+          else
+            echo "EXISTS=false" >> $GITHUB_OUTPUT
+            echo "✅ Tag ${TAG} does not exist, will create release"
+          fi
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.EXISTS == 'false'
+        env:
+          TAG: ${{ steps.version.outputs.TAG }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+          echo "🏷️ Created and pushed tag: ${TAG}"
+
+      - name: Generate release notes
+        if: steps.check_tag.outputs.EXISTS == 'false'
+        id: notes
+        env:
+          TAG: ${{ steps.version.outputs.TAG }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Get previous tag
+          PREV_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+
+          cat > RELEASE_NOTES.md << 'HEADER'
+          ## What's Changed
+
+          HEADER
+
+          if [ -n "${PREV_TAG}" ]; then
+            git log ${PREV_TAG}..HEAD~1 --pretty=format:"- %s (%h)" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            echo "**Full Changelog**: https://github.com/${REPO}/compare/${PREV_TAG}...${TAG}" >> RELEASE_NOTES.md
+          else
+            echo "Initial release" >> RELEASE_NOTES.md
+          fi
+
+          cat >> RELEASE_NOTES.md << FOOTER
+
+          ---
+
+          ## 🐳 Docker Image
+
+          \`\`\`bash
+          # Pull this version
+          docker pull ghcr.io/${REPO}:${TAG}
+
+          # Or latest
+          docker pull ghcr.io/${REPO}:latest
+          \`\`\`
+
+          ## 🚀 Quick Start
+
+          \`\`\`bash
+          curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | bash
+          \`\`\`
+          FOOTER
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.EXISTS == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: Release ${{ steps.version.outputs.TAG }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        if: steps.check_tag.outputs.EXISTS == 'false'
+        env:
+          TAG: ${{ steps.version.outputs.TAG }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "## 🎉 Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Docker Image:** \`ghcr.io/${REPO}:${TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View Release](https://github.com/${REPO}/releases/tag/${TAG})" >> $GITHUB_STEP_SUMMARY

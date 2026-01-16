@@ -558,11 +558,19 @@ v{MAJOR}.{MINOR}.{PATCH}
 | `main` | Production releases | `latest`, `main`, `vX.Y.Z` |
 | `develop` | Development/staging | `develop` |
 
-### Release Workflow
+### Release Workflow (Automatic)
 
 ```
-develop → PR → main → tag (vX.Y.Z) → GitHub Release + Docker Image
+develop (bump VERSION) → PR → merge to main → Auto Tag + Release + Docker Image
 ```
+
+**How it works:**
+1. Update `VERSION` file on `develop` branch
+2. Create PR to `main`
+3. When merged, GitHub Actions automatically:
+   - Creates git tag (vX.Y.Z)
+   - Creates GitHub Release with changelog
+   - Builds and pushes Docker images
 
 **Quick Release Commands:**
 ```bash
