@@ -232,57 +232,68 @@ docker-compose exec web python database/migrate.py --seed
 
 On `docker-compose up`, the entrypoint automatically runs:
 1. **Wait for database** - Retries connection up to 30 times
-2. **Run migrations** - Applies pending database migrations
+2. **Run migrations** - Applies pending database migrations (creates 27 tables)
 3. **Scan files** - Registers existing files in `downloads/rep/` and `downloads/stm/` to download_history.json
 4. **Start Flask** - Launches the web application
 
-**Manual steps required after first startup:**
+**Fresh Installation (Complete Setup):**
+
 ```bash
-# Load seed data (dim_date, fund_types, service_types) - run once
-docker-compose exec web python database/migrate.py --seed
+# Step 1: Start containers (PostgreSQL default)
+docker-compose up -d
+
+# Step 2: Wait for startup to complete
+docker-compose logs -f web  # Wait until "Starting Flask application..."
+
+# Step 3: Import ALL seed data (REQUIRED for full functionality)
+make seed-all
+# This runs:
+#   - seed-dim: dim_date (7 years), fund_types, service_types
+#   - seed: health_offices master data (43,884 records)
+#   - seed-error-codes: NHSO error codes
+
+# Step 4: Configure SMT Vendor ID
+# Go to http://localhost:5001/data-management?tab=settings
+# Enter your hospital's 5-digit vendor code (e.g., 10670)
+
+# Step 5 (Optional): Import existing data files
+make reimport-all    # Import REP + STM files and fetch SMT from API
 ```
 
-**Re-import existing files (if you have downloaded files):**
+**MySQL Installation:**
 ```bash
-# Using make commands (recommended)
-make import-rep      # Import REP files from downloads/rep/
-make import-stm      # Import STM files from downloads/stm/
-make import-smt      # Fetch and import SMT budget from API
-make reimport-all    # Import all data (REP + STM + SMT)
-
-# Or manually with docker-compose
-# REP files (E-Claim reimbursement)
-docker-compose exec -T web bash -c 'for f in downloads/rep/eclaim_*.xls; do python eclaim_import.py "$f"; done'
-
-# STM files (Statement)
-docker-compose exec -T web python stm_import.py downloads/stm/
-
-# SMT budget (fetch from API)
-docker-compose exec -T web python smt_budget_fetcher.py --save-db
+docker-compose -f docker-compose-mysql.yml up -d
+# Wait for startup, then:
+make seed-all
 ```
+
+**Seed Data Commands:**
+| Command | Description | Records |
+|---------|-------------|---------|
+| `make seed-dim` | Dimension tables (dim_date, fund_types, service_types) | ~2,600 |
+| `make seed` | Health offices master data | 43,884 |
+| `make seed-error-codes` | NHSO error codes | ~200 |
+| `make seed-all` | Run ALL seed imports above | - |
+
+**Data Import Commands:**
+| Command | Description | Source |
+|---------|-------------|--------|
+| `make import-rep` | Import REP (E-Claim) files | `downloads/rep/` |
+| `make import-stm` | Import STM (Statement) files | `downloads/stm/` |
+| `make import-smt` | Fetch & import SMT budget | API (requires vendor_id) |
+| `make reimport-all` | Run all imports above | - |
 
 **Data Types:**
-| Type | Directory | Description | Import Command |
-|------|-----------|-------------|----------------|
-| REP | `downloads/rep/` | E-Claim reimbursement (OP/IP) | `make import-rep` |
-| STM | `downloads/stm/` | Statement reconciliation | `make import-stm` |
-| SMT | API fetch | Smart Money Transfer budget | `make import-smt` |
+| Type | Directory | Description |
+|------|-----------|-------------|
+| REP | `downloads/rep/` | E-Claim reimbursement (OP/IP) |
+| STM | `downloads/stm/` | Statement reconciliation |
+| SMT | API fetch | Smart Money Transfer budget |
 
-**Fresh Installation (Complete Setup):**
+**Verify Installation:**
 ```bash
-# PostgreSQL (default)
-docker-compose down -v                    # Remove old volumes
-docker-compose up -d                      # Start fresh (migrations + file scan automatic)
-docker-compose exec web python database/migrate.py --seed  # Load seed data
-
-# MySQL
-docker-compose -f docker-compose-mysql.yml down -v
-docker-compose -f docker-compose-mysql.yml up -d
-docker-compose -f docker-compose-mysql.yml exec web python database/migrate.py --seed
-
-# Verify installation
-docker-compose exec web python database/migrate.py --status
-# Should show: 6 migrations, 6 applied
+make migrate-status   # Should show: 6 migrations, 6 applied
+make db-status        # Shows record counts for all tables
 ```
 
 **Switching Between Databases:**
