@@ -7432,6 +7432,7 @@ def api_analytics_fund():
             SELECT
                 COALESCE(main_fund, 'ไม่ระบุ') as fund,
                 COUNT(*) as claims,
+                COALESCE(SUM(claim_drg), 0) as claimed,
                 COALESCE(SUM(reimb_nhso), 0) as reimb,
                 COALESCE(SUM(paid), 0) as paid,
                 COUNT(DISTINCT hn) as patients
@@ -7448,9 +7449,10 @@ def api_analytics_fund():
             {
                 'fund': row[0],
                 'claims': row[1],
-                'reimb': float(row[2] or 0),
-                'paid': float(row[3] or 0),
-                'patients': row[4]
+                'claimed': float(row[2] or 0),
+                'reimb': float(row[3] or 0),
+                'paid': float(row[4] or 0),
+                'patients': row[5]
             }
             for row in rows
         ]

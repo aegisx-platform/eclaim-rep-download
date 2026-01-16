@@ -215,20 +215,67 @@
     </div>
 </div>
 
-<!-- Service Type Summary -->
+<!-- Phase 2: Analytics Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- Monthly Revenue Trend -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <span class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                </svg>
+                Monthly Revenue Trend
+            </span>
+        </h3>
+        <div id="monthly-trend-chart" class="h-64 flex items-center justify-center">
+            <div class="text-gray-400">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Fund Comparison (Claimed vs Reimbursed) -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <span class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                Fund Comparison (Claim vs Reimb)
+            </span>
+        </h3>
+        <div id="fund-comparison-chart" class="h-64 flex items-center justify-center">
+            <div class="text-gray-400">Loading...</div>
+        </div>
+    </div>
+</div>
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <!-- Service Type Distribution -->
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">Service Type Distribution</h3>
+        <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <span class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                </svg>
+                Service Type Distribution
+            </span>
+        </h3>
         <div id="service-type-chart" class="h-64 flex items-center justify-center">
             <div class="text-gray-400">Loading...</div>
         </div>
     </div>
 
-    <!-- Top Funds -->
+    <!-- Top Error Codes (Loss Analysis) -->
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">Top 5 Funds by Revenue</h3>
-        <div id="top-funds-list" class="space-y-3">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <span class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                Top Denial Reasons (Loss)
+            </span>
+        </h3>
+        <div id="error-codes-chart" class="h-64 flex items-center justify-center">
             <div class="text-gray-400">Loading...</div>
         </div>
     </div>
@@ -366,55 +413,214 @@ async function loadServiceTypeData() {
     }
 }
 
-// Load fund data
-async function loadFundData() {
+// Phase 2: Load Monthly Revenue Trend Chart
+async function loadMonthlyTrendChart() {
+    try {
+        var response = await fetch('/api/analytics/monthly-trend');
+        var data = await response.json();
+
+        var container = document.getElementById('monthly-trend-chart');
+        container.textContent = '';
+
+        if (data.success && data.data.length > 0) {
+            var canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+
+            // Reverse to show oldest first
+            var chartData = data.data.slice(0, 6).reverse();
+
+            new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: chartData.map(function(d) { return d.month; }),
+                    datasets: [
+                        {
+                            label: 'ยอดเคลม',
+                            data: chartData.map(function(d) { return d.claim_drg; }),
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'ยอดชดเชย',
+                            data: chartData.map(function(d) { return d.reimb; }),
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatMoney(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            var msg = document.createElement('div');
+            msg.className = 'text-gray-400 text-center';
+            msg.textContent = 'ไม่มีข้อมูล';
+            container.appendChild(msg);
+        }
+    } catch (error) {
+        console.error('Error loading monthly trend:', error);
+        var container = document.getElementById('monthly-trend-chart');
+        container.textContent = '';
+        var msg = document.createElement('div');
+        msg.className = 'text-gray-400 text-center';
+        msg.textContent = 'ไม่สามารถโหลดข้อมูลได้';
+        container.appendChild(msg);
+    }
+}
+
+// Phase 2: Load Fund Comparison Chart (Claimed vs Reimbursed)
+async function loadFundComparisonChart() {
     try {
         var response = await fetch('/api/analytics/fund');
         var data = await response.json();
 
+        var container = document.getElementById('fund-comparison-chart');
+        container.textContent = '';
+
         if (data.success && data.data.length > 0) {
-            var container = document.getElementById('top-funds-list');
-            container.textContent = '';
+            var canvas = document.createElement('canvas');
+            container.appendChild(canvas);
 
             var topFunds = data.data.slice(0, 5);
-            var maxAmount = topFunds[0].reimb || 0;
 
-            topFunds.forEach(function(fund) {
-                var item = document.createElement('div');
-                item.className = 'space-y-1';
-
-                var header = document.createElement('div');
-                header.className = 'flex justify-between text-sm';
-
-                var nameSpan = document.createElement('span');
-                nameSpan.className = 'font-medium text-gray-700';
-                nameSpan.textContent = fund.fund || 'Unknown';
-
-                var amountSpan = document.createElement('span');
-                amountSpan.className = 'text-gray-600';
-                amountSpan.textContent = formatMoney(fund.reimb);
-
-                header.appendChild(nameSpan);
-                header.appendChild(amountSpan);
-
-                var barContainer = document.createElement('div');
-                barContainer.className = 'w-full bg-gray-200 rounded-full h-2';
-
-                var bar = document.createElement('div');
-                bar.className = 'bg-blue-600 h-2 rounded-full';
-                var percentage = maxAmount > 0 ? ((fund.reimb / maxAmount) * 100) : 0;
-                bar.style.width = percentage + '%';
-
-                barContainer.appendChild(bar);
-
-                item.appendChild(header);
-                item.appendChild(barContainer);
-
-                container.appendChild(item);
+            new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: topFunds.map(function(d) { return d.fund || 'ไม่ระบุ'; }),
+                    datasets: [
+                        {
+                            label: 'ยอดเคลม',
+                            data: topFunds.map(function(d) { return d.claimed || 0; }),
+                            backgroundColor: '#3B82F6'
+                        },
+                        {
+                            label: 'ยอดชดเชย',
+                            data: topFunds.map(function(d) { return d.reimb || 0; }),
+                            backgroundColor: '#10B981'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatMoney(value);
+                                }
+                            }
+                        }
+                    }
+                }
             });
+        } else {
+            var msg = document.createElement('div');
+            msg.className = 'text-gray-400 text-center';
+            msg.textContent = 'ไม่มีข้อมูล';
+            container.appendChild(msg);
         }
     } catch (error) {
-        console.error('Error loading fund data:', error);
+        console.error('Error loading fund comparison:', error);
+        var container = document.getElementById('fund-comparison-chart');
+        container.textContent = '';
+        var msg = document.createElement('div');
+        msg.className = 'text-gray-400 text-center';
+        msg.textContent = 'ไม่สามารถโหลดข้อมูลได้';
+        container.appendChild(msg);
+    }
+}
+
+// Phase 2: Load Error Codes Chart (Top Denial Reasons)
+async function loadErrorCodesChart() {
+    try {
+        var response = await fetch('/api/analytics/denial');
+        var data = await response.json();
+
+        var container = document.getElementById('error-codes-chart');
+        container.textContent = '';
+
+        if (data.success && data.data && data.data.by_error_code && data.data.by_error_code.length > 0) {
+            var canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+
+            var topErrors = data.data.by_error_code.slice(0, 5);
+
+            new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: topErrors.map(function(d) { return d.error_code || 'ไม่ระบุ'; }),
+                    datasets: [{
+                        label: 'ยอดปฏิเสธ (บาท)',
+                        data: topErrors.map(function(d) { return d.denied_amount || 0; }),
+                        backgroundColor: '#EF4444'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    var item = topErrors[context.dataIndex];
+                                    return item.cases + ' รายการ';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatMoney(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            var msg = document.createElement('div');
+            msg.className = 'text-gray-400 text-center';
+            msg.textContent = 'ไม่มีข้อมูลการปฏิเสธ';
+            container.appendChild(msg);
+        }
+    } catch (error) {
+        console.error('Error loading error codes:', error);
+        var container = document.getElementById('error-codes-chart');
+        container.textContent = '';
+        var msg = document.createElement('div');
+        msg.className = 'text-gray-400 text-center';
+        msg.textContent = 'ไม่สามารถโหลดข้อมูลได้';
+        container.appendChild(msg);
     }
 }
 
@@ -530,11 +736,13 @@ async function loadAlerts() {
     }
 }
 
-// Initialize
+// Initialize Dashboard - Phase 2
 document.addEventListener('DOMContentLoaded', function() {
     loadKPIData();
+    loadMonthlyTrendChart();
+    loadFundComparisonChart();
     loadServiceTypeData();
-    loadFundData();
+    loadErrorCodesChart();
     loadAlerts();
 });
 </script>
