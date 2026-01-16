@@ -388,10 +388,20 @@ import-stm:
 
 import-smt:
 	@echo "$(BOLD)$(GREEN)==> Fetching and importing SMT budget data...$(RESET)"
-	@if docker-compose ps | grep -q "web.*Up"; then \
-		docker-compose exec -T web python smt_budget_fetcher.py --save-db; \
+	@VENDOR_ID=$$(docker-compose exec -T web python -c "import json; s=json.load(open('config/settings.json')); print(s.get('smt_vendor_id',''))" 2>/dev/null || echo ""); \
+	if [ -z "$$VENDOR_ID" ]; then \
+		VENDOR_ID=$$(docker-compose -f $(COMPOSE_MYSQL) exec -T web python -c "import json; s=json.load(open('config/settings.json')); print(s.get('smt_vendor_id',''))" 2>/dev/null || echo ""); \
+	fi; \
+	if [ -z "$$VENDOR_ID" ]; then \
+		echo "$(YELLOW)Error: SMT Vendor ID not configured$(RESET)"; \
+		echo "Please set 'smt_vendor_id' in Settings page or config/settings.json"; \
+		exit 1; \
+	fi; \
+	echo "Using Vendor ID: $$VENDOR_ID"; \
+	if docker-compose ps | grep -q "web.*Up"; then \
+		docker-compose exec -T web python smt_budget_fetcher.py --vendor-id $$VENDOR_ID --save-db; \
 	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
-		docker-compose -f $(COMPOSE_MYSQL) exec -T web python smt_budget_fetcher.py --save-db; \
+		docker-compose -f $(COMPOSE_MYSQL) exec -T web python smt_budget_fetcher.py --vendor-id $$VENDOR_ID --save-db; \
 	else \
 		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
 		exit 1; \
