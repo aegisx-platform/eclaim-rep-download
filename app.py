@@ -794,8 +794,9 @@ def data_management():
     current_settings = settings_manager.load_settings()
 
     # Get database info
+    db_type_display = 'MySQL' if DB_TYPE == 'mysql' else 'PostgreSQL'
     db_info = {
-        'type': 'PostgreSQL',
+        'type': db_type_display,
         'claims_count': 0,
         'budget_count': 0
     }
