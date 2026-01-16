@@ -82,22 +82,22 @@ run_migrations() {
 
 # Function to scan and register existing files
 scan_files() {
-    echo "[entrypoint] Scanning and registering download files..."
+    echo "[entrypoint] Scanning and registering download files to database..."
 
     python -c "
-from utils.history_manager import HistoryManager
+from utils.history_manager_db import HistoryManagerDB
 import os
-
-hm = HistoryManager()
 
 # Scan REP files
 if os.path.exists('downloads/rep'):
-    result = hm.scan_and_register_files('downloads/rep')
+    hm_rep = HistoryManagerDB(download_type='rep')
+    result = hm_rep.scan_and_register_files('downloads/rep')
     print(f'[entrypoint] REP files: added={result[\"added\"]}, skipped={result[\"skipped\"]}')
 
 # Scan STM files
 if os.path.exists('downloads/stm'):
-    result = hm.scan_and_register_files('downloads/stm')
+    hm_stm = HistoryManagerDB(download_type='stm')
+    result = hm_stm.scan_and_register_files('downloads/stm')
     print(f'[entrypoint] STM files: added={result[\"added\"]}, skipped={result[\"skipped\"]}')
 
 print('[entrypoint] File scanning completed!')
