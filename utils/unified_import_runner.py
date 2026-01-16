@@ -70,8 +70,16 @@ class UnifiedImportRunner:
             with open(self.progress_file, 'r') as f:
                 progress = json.load(f)
 
-            # Add running status based on PID
-            progress['running'] = self.is_running()
+            # Determine running status:
+            # 1. If progress file says completed/error/cancelled, trust it (not running)
+            # 2. Otherwise, check PID to see if process is still alive
+            status = progress.get('status', '')
+            if status in ('completed', 'error', 'cancelled', 'interrupted'):
+                progress['running'] = False
+                # Clean up PID file if status is terminal
+                self.pid_file.unlink(missing_ok=True)
+            else:
+                progress['running'] = self.is_running()
 
             return progress
 
