@@ -25,6 +25,8 @@ class SettingsManager:
             'eclaim_credentials': [],  # List of {"username": "", "password": "", "note": "", "enabled": true}
             'download_dir': 'downloads',
             'auto_import_default': False,
+            # Global Hospital Settings
+            'hospital_code': '',  # 5-digit hospital/vendor code (used for SMT and per-bed KPIs)
             # Unified schedule settings (applies to all data types)
             'schedule_enabled': False,
             'schedule_times': [],
@@ -33,12 +35,12 @@ class SettingsManager:
             'schedule_type_rep': True,   # Download REP files in schedule
             'schedule_type_stm': False,  # Download Statement files in schedule
             'schedule_type_smt': False,  # Download SMT Budget in schedule
-            'schedule_smt_vendor_id': '', # Vendor ID for SMT schedule (uses smt_vendor_id if empty)
+            'schedule_smt_vendor_id': '', # Vendor ID for SMT schedule (uses hospital_code if empty)
             # Insurance scheme settings
             'enabled_schemes': ['ucs', 'ofc', 'sss', 'lgo'],  # Default 4 main schemes
             # SMT Budget settings
             'smt_enabled': False,
-            'smt_vendor_id': '',
+            'smt_vendor_id': '',  # Legacy field - prefer hospital_code
             'smt_schedule_enabled': False,
             'smt_schedule_times': [],
             'smt_auto_save_db': True
@@ -331,10 +333,10 @@ class SettingsManager:
             schedule_smt_vendor_id, schedule_parallel_download, schedule_parallel_workers
         """
         settings = self.load_settings()
-        # For SMT vendor ID, fallback to smt_vendor_id from SMT settings if not set
+        # For SMT vendor ID, use schedule_smt_vendor_id first, then hospital_code
         smt_vendor = settings.get('schedule_smt_vendor_id', '')
         if not smt_vendor:
-            smt_vendor = settings.get('smt_vendor_id', '')
+            smt_vendor = self.get_hospital_code()
 
         return {
             'schedule_enabled': settings.get('schedule_enabled', False),
@@ -480,6 +482,40 @@ class SettingsManager:
         """
         settings = self.load_settings()
         return settings.get(key, default)
+
+    # ===== Hospital Settings =====
+
+    def get_hospital_code(self) -> str:
+        """
+        Get the global hospital code.
+        Falls back to smt_vendor_id for backward compatibility.
+
+        Returns:
+            Hospital code (5-digit string) or empty string
+        """
+        settings = self.load_settings()
+        hospital_code = settings.get('hospital_code', '').strip()
+        if hospital_code:
+            return hospital_code
+        # Fallback to legacy smt_vendor_id
+        return settings.get('smt_vendor_id', '').strip()
+
+    def set_hospital_code(self, hospital_code: str) -> bool:
+        """
+        Set the global hospital code.
+        Also updates smt_vendor_id for backward compatibility.
+
+        Args:
+            hospital_code: 5-digit hospital/vendor code
+
+        Returns:
+            True if successful
+        """
+        settings = self.load_settings()
+        settings['hospital_code'] = hospital_code.strip()
+        # Also update smt_vendor_id for backward compatibility
+        settings['smt_vendor_id'] = hospital_code.strip()
+        return self.save_settings(settings)
 
     # ===== STM (Statement) Schedule Settings =====
 

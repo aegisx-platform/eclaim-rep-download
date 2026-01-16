@@ -40,8 +40,16 @@
 <!-- Tab Navigation - Grouped -->
 <div class="bg-white rounded-t-lg shadow-md border-b">
     <nav class="flex items-center" id="tab-nav">
+        <!-- Dashboard (Standalone - First Tab) -->
+        <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-5 py-4 text-sm font-medium border-b-2 border-blue-600 text-blue-600 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+            Dashboard
+        </button>
+
         <!-- Download (Standalone) -->
-        <button onclick="switchTab('download')" id="tab-download" class="tab-btn px-5 py-4 text-sm font-medium border-b-2 border-blue-600 text-blue-600 flex items-center">
+        <button onclick="switchTab('download')" id="tab-download" class="tab-btn px-5 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 flex items-center">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
             </svg>
@@ -132,8 +140,314 @@
 <!-- Tab Content Container -->
 <div class="bg-white rounded-b-lg shadow-md">
 
+    <!-- ==================== DASHBOARD TAB ==================== -->
+    <div id="content-dashboard" class="tab-content p-6">
+        <!-- Quick Actions, Auto Download, Data Status -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Quick Actions -->
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h4 class="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    Quick Actions
+                </h4>
+                <div class="space-y-2">
+                    <a href="{{ url_for('analytics') }}" class="flex items-center p-2 bg-white hover:bg-blue-50 rounded border border-gray-100 transition-colors text-sm">
+                        <svg class="w-4 h-4 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        <span class="text-gray-700">Full Analytics</span>
+                    </a>
+                    <a href="{{ url_for('reconciliation') }}" class="flex items-center p-2 bg-white hover:bg-green-50 rounded border border-gray-100 transition-colors text-sm">
+                        <svg class="w-4 h-4 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        <span class="text-gray-700">Reconciliation</span>
+                    </a>
+                    <button onclick="switchTab('download')" class="w-full flex items-center p-2 bg-white hover:bg-purple-50 rounded border border-gray-100 transition-colors text-sm text-left">
+                        <svg class="w-4 h-4 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        <span class="text-gray-700">Download Data</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Auto Download Status -->
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h4 class="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Auto Download
+                </h4>
+                {% if schedule_settings.schedule_enabled %}
+                <div class="flex items-center mb-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span class="w-1.5 h-1.5 bg-green-600 rounded-full mr-1 animate-pulse"></span>
+                        Active
+                    </span>
+                    {% if schedule_settings.schedule_auto_import %}
+                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        Auto-import
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="space-y-1">
+                    {% for time in schedule_settings.schedule_times %}
+                    <div class="flex items-center text-xs text-gray-700 bg-white px-2 py-1.5 rounded border border-gray-100">
+                        <svg class="w-3 h-3 text-gray-400 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="font-medium">{{ "%02d"|format(time.hour) }}:{{ "%02d"|format(time.minute) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if schedule_jobs and schedule_jobs|length > 0 %}
+                <div class="mt-2 p-1.5 bg-blue-50 rounded text-xs">
+                    <span class="text-blue-600 font-medium">Next:</span>
+                    {% set next_job = schedule_jobs[0] %}
+                    {% if next_job.next_run_time %}
+                    <span class="text-blue-800">{{ next_job.next_run_time[:16]|replace('T', ' ') }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="text-center py-2">
+                    <p class="text-gray-500 text-xs mb-2">Disabled</p>
+                    <button onclick="switchTab('download')" class="text-blue-600 hover:text-blue-800 text-xs font-medium">
+                        Enable Schedule
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Data Status -->
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h4 class="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Data Status
+                </h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Total Files</span>
+                        <span class="font-bold text-gray-800">{{ stats.total_files }}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Last Download</span>
+                        <span class="font-medium text-gray-800 text-xs">{{ stats.last_run }}</span>
+                    </div>
+                    <div class="pt-1 border-t border-gray-200">
+                        <span class="text-gray-500 text-xs">File Types:</span>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            {% for type, count in stats.file_types.items() %}
+                            <span class="inline-block px-1.5 py-0.5 bg-white border border-gray-200 rounded text-xs">{{ type }}: {{ count }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% if downloader_running %}
+                <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                    <div class="flex items-center">
+                        <svg class="w-3 h-3 text-yellow-600 mr-1.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span class="text-yellow-800 font-medium">Downloading...</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Data Import Status -->
+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+            Data Import Status
+        </h3>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- REP Import Status -->
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h4 class="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    REP Import Status
+                </h4>
+                <div id="dm-rep-status" class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Total Files</span>
+                        <span class="font-bold text-gray-800" id="dm-rep-total">-</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Imported</span>
+                        <span class="font-bold text-green-600" id="dm-rep-imported">-</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Failed</span>
+                        <span class="font-bold text-red-600" id="dm-rep-failed">-</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div id="dm-rep-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-gray-500 text-right" id="dm-rep-progress-text">0%</div>
+                </div>
+            </div>
+
+            <!-- STM Import Status -->
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h4 class="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    STM Import Status
+                </h4>
+                <div id="dm-stm-status" class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Total Files</span>
+                        <span class="font-bold text-gray-800" id="dm-stm-total">-</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Imported</span>
+                        <span class="font-bold text-green-600" id="dm-stm-imported">-</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Failed</span>
+                        <span class="font-bold text-red-600" id="dm-stm-failed">-</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div id="dm-stm-progress-bar" class="bg-purple-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-gray-500 text-right" id="dm-stm-progress-text">0%</div>
+                </div>
+            </div>
+
+            <!-- STM-REP Reconciliation -->
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h4 class="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    STM-REP Reconciliation
+                </h4>
+                <div id="dm-reconciliation-status" class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Total Records</span>
+                        <span class="font-bold text-gray-800" id="dm-recon-total">-</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Matched</span>
+                        <span class="font-bold text-green-600" id="dm-recon-matched">-</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Unmatched</span>
+                        <span class="font-bold text-orange-600" id="dm-recon-unmatched">-</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div id="dm-recon-progress-bar" class="bg-teal-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-gray-500 text-right" id="dm-recon-progress-text">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SMT Budget Overview -->
+        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h4 class="text-sm font-bold text-gray-800 flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    SMT Budget Overview
+                </h4>
+                <a href="{{ url_for('smt_budget') }}" class="text-blue-600 hover:text-blue-700 text-xs font-medium">
+                    View Details
+                </a>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white rounded-lg p-3 border border-gray-100">
+                    <div class="text-xs text-gray-600 mb-1">Total Budget Received</div>
+                    <div class="text-xl font-bold text-green-600" id="dm-smt-total-amount">-</div>
+                </div>
+                <div class="bg-white rounded-lg p-3 border border-gray-100">
+                    <div class="text-xs text-gray-600 mb-1">Budget Records</div>
+                    <div class="text-xl font-bold text-gray-800" id="dm-smt-total-records">-</div>
+                </div>
+                <div class="bg-white rounded-lg p-3 border border-gray-100">
+                    <div class="text-xs text-gray-600 mb-1">Last Sync</div>
+                    <div class="text-lg font-medium text-gray-600" id="dm-smt-last-sync">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Latest Files Section -->
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                <h4 class="text-sm font-bold text-gray-800">Latest Files</h4>
+                <a href="{{ url_for('data_management') }}?tab=rep" class="text-blue-600 hover:text-blue-700 font-medium text-xs">
+                    View All
+                </a>
+            </div>
+            <div id="dm-latest-files-container">
+                {% if latest_files %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filename</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for file in latest_files %}
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        {% if '_OP_' in file.filename %}
+                                        <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                                        {% elif '_IP_' in file.filename %}
+                                        <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                                        {% elif '_ORF_' in file.filename %}
+                                        <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                                        {% else %}
+                                        <span class="w-2 h-2 bg-gray-500 rounded-full mr-2"></span>
+                                        {% endif %}
+                                        <span class="text-sm text-gray-900 font-medium">{{ file.filename }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                    {{ file.date_formatted }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                    {{ file.size_formatted }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="px-4 py-8 text-center">
+                    <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="text-gray-500 text-sm mb-3">No files downloaded yet</p>
+                    <button onclick="switchTab('download')" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg text-sm">
+                        Download Now
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== DOWNLOAD TAB ==================== -->
-    <div id="content-download" class="tab-content p-6">
+    <div id="content-download" class="tab-content hidden p-6">
         <!-- Update Status Overview -->
         <div class="mb-6">
             <div class="flex items-center justify-between mb-3">
@@ -1888,6 +2202,73 @@
     <!-- ==================== SETTINGS TAB ==================== -->
     <div id="content-settings" class="tab-content p-6 hidden">
         <div class="max-w-3xl">
+            <!-- Hospital Settings Section (Global) -->
+            <div class="border border-blue-200 rounded-lg p-6 mb-6 bg-blue-50/30">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                    Hospital Settings
+                </h3>
+                <p class="text-sm text-gray-600 mb-4">ตั้งค่ารหัสหน่วยบริการสำหรับใช้งานทั้งระบบ (SMT และการคำนวณ KPI ต่อเตียง)</p>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            รหัสหน่วยบริการ (Hospital Code)
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <div class="flex gap-2">
+                            <input type="text" id="settings-hospital-code"
+                                   placeholder="เช่น 10670"
+                                   maxlength="5"
+                                   class="w-48 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                            <button type="button" onclick="saveSettingsHospitalCode()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium">
+                                Save
+                            </button>
+                            <button type="button" onclick="lookupHospitalInfo()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-md font-medium">
+                                Lookup
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">รหัส 5 หลักจากระบบ สปสช. (เช่น 10670)</p>
+                    </div>
+
+                    <!-- Hospital Info Display -->
+                    <div id="settings-hospital-info" class="hidden p-4 bg-white rounded-lg border border-gray-200">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h4 id="settings-hospital-name" class="font-semibold text-gray-800">-</h4>
+                                <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
+                                    <div class="flex items-center gap-1 text-gray-600">
+                                        <span class="font-medium">ระดับ:</span>
+                                        <span id="settings-hospital-level">-</span>
+                                    </div>
+                                    <div class="flex items-center gap-1 text-gray-600">
+                                        <span class="font-medium">เตียง:</span>
+                                        <span id="settings-hospital-beds">-</span>
+                                    </div>
+                                    <div class="flex items-center gap-1 text-gray-600">
+                                        <span class="font-medium">จังหวัด:</span>
+                                        <span id="settings-hospital-province">-</span>
+                                    </div>
+                                    <div class="flex items-center gap-1 text-gray-600">
+                                        <span class="font-medium">เขต:</span>
+                                        <span id="settings-hospital-region">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="settings-hospital-status" class="hidden mt-4 p-3 rounded-lg"></div>
+            </div>
+
             <!-- Multiple Credentials Section -->
             <div class="border border-gray-200 rounded-lg p-6 mb-6">
                 <div class="flex items-center justify-between mb-4">
@@ -1965,19 +2346,18 @@
                     </svg>
                     Smart Money Transfer Settings
                 </h3>
-                <p class="text-sm text-gray-600 mb-4">ตั้งค่ารหัสโรงพยาบาลสำหรับดึงข้อมูล Smart Money Transfer จาก สปสช.</p>
+                <p class="text-sm text-gray-600 mb-4">ตั้งค่าการดึงข้อมูล Smart Money Transfer จาก สปสช. (ใช้รหัสหน่วยบริการจาก Hospital Settings ด้านบน)</p>
 
                 <form id="smt-settings-form" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
-                            Vendor ID (รหัสโรงพยาบาล)
-                            <span class="text-red-500">*</span>
-                        </label>
-                        <input type="text" id="smt-vendor-id" name="smt_vendor_id"
-                               value="{{ settings.smt_vendor_id | default('') }}"
-                               placeholder="เช่น 10670 หรือ 0000010670"
-                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-green-500">
-                        <p class="text-xs text-gray-500 mt-1">รหัสหน่วยบริการ 5 หลัก หรือ 10 หลัก (Vendor ID ที่ใช้ใน SMT)</p>
+                    <!-- Hospital Code Info (Read-only) -->
+                    <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-gray-600">รหัสหน่วยบริการที่ใช้:</span>
+                                <span id="smt-hospital-code-display" class="font-medium text-gray-800">-</span>
+                            </div>
+                            <a href="#" onclick="document.getElementById('settings-hospital-code').focus(); return false;" class="text-xs text-blue-600 hover:text-blue-800">เปลี่ยนแปลง</a>
+                        </div>
                     </div>
 
                     <div class="flex items-center">
@@ -3078,6 +3458,7 @@ var tabGroups = {
 
 // Tab labels for indicator
 var tabLabels = {
+    'dashboard': 'Dashboard',
     'download': 'Download',
     'rep': 'REP Files',
     'statement': 'Statement',
@@ -3178,21 +3559,32 @@ function switchTab(tab) {
     // Show selected tab content
     document.getElementById('content-' + tab).classList.remove('hidden');
 
-    // Update standalone tab button styles (Download)
+    // Update standalone tab button styles (Dashboard and Download)
+    var dashboardBtn = document.getElementById('tab-dashboard');
     var downloadBtn = document.getElementById('tab-download');
-    if (tab === 'download') {
+
+    // Reset both standalone buttons
+    dashboardBtn.classList.remove('border-blue-600', 'text-blue-600');
+    dashboardBtn.classList.add('border-transparent', 'text-gray-500');
+    downloadBtn.classList.remove('border-blue-600', 'text-blue-600');
+    downloadBtn.classList.add('border-transparent', 'text-gray-500');
+
+    // Highlight active standalone tab
+    if (tab === 'dashboard') {
+        dashboardBtn.classList.remove('border-transparent', 'text-gray-500');
+        dashboardBtn.classList.add('border-blue-600', 'text-blue-600');
+    } else if (tab === 'download') {
         downloadBtn.classList.remove('border-transparent', 'text-gray-500');
         downloadBtn.classList.add('border-blue-600', 'text-blue-600');
-    } else {
-        downloadBtn.classList.remove('border-blue-600', 'text-blue-600');
-        downloadBtn.classList.add('border-transparent', 'text-gray-500');
     }
 
     // Update dropdown group highlight
     updateGroupHighlight(tab);
 
     // Load data for specific tabs
-    if (tab === 'download' && typeof loadFailedDownloads === 'function') {
+    if (tab === 'dashboard' && typeof loadDashboardStatus === 'function') {
+        loadDashboardStatus();
+    } else if (tab === 'download' && typeof loadFailedDownloads === 'function') {
         loadFailedDownloads();
     } else if (tab === 'rep') {
         loadFileTypeStats();
@@ -3911,7 +4303,7 @@ async function clearStmDatabase() {
 // Initialize from URL params
 function initFromUrl() {
     var params = new URLSearchParams(window.location.search);
-    var tab = params.get('tab') || 'download';
+    var tab = params.get('tab') || 'dashboard';
     switchTab(tab);
 
     // Restore status filter from URL
@@ -4723,22 +5115,125 @@ async function fetchSmtData() {
     }
 }
 
-// SMT Settings
-async function saveSmtSettings(event) {
-    event.preventDefault();
+// Hospital Settings
+async function loadSettingsHospitalCode() {
+    try {
+        var response = await fetch('/api/settings/hospital-code');
+        var result = await response.json();
 
-    var vendorId = document.getElementById('smt-vendor-id').value.trim();
-    var autoSave = document.getElementById('smt-auto-save').checked;
-    var statusDiv = document.getElementById('smt-settings-status');
+        if (result.success && result.hospital_code) {
+            document.getElementById('settings-hospital-code').value = result.hospital_code;
+            // Also update SMT display
+            var smtDisplay = document.getElementById('smt-hospital-code-display');
+            if (smtDisplay) {
+                smtDisplay.textContent = result.hospital_code;
+            }
+            // Load hospital info
+            loadSettingsHospitalInfo();
+        }
+    } catch (error) {
+        console.error('Failed to load hospital code:', error);
+    }
+}
 
-    if (!vendorId) {
+async function loadSettingsHospitalInfo() {
+    try {
+        var response = await fetch('/api/settings/hospital-info');
+        var result = await response.json();
+        var infoDiv = document.getElementById('settings-hospital-info');
+
+        if (result.success && result.data) {
+            var data = result.data;
+            document.getElementById('settings-hospital-name').textContent = data.name || '-';
+            document.getElementById('settings-hospital-level').textContent = data.hospital_level || '-';
+            document.getElementById('settings-hospital-beds').textContent = (data.actual_beds || 0).toLocaleString() + ' เตียง';
+            document.getElementById('settings-hospital-province').textContent = data.province || '-';
+            document.getElementById('settings-hospital-region').textContent = data.health_region ? 'เขต ' + data.health_region : '-';
+            infoDiv.classList.remove('hidden');
+        } else {
+            infoDiv.classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Failed to load hospital info:', error);
+        document.getElementById('settings-hospital-info').classList.add('hidden');
+    }
+}
+
+async function saveSettingsHospitalCode() {
+    var hospitalCode = document.getElementById('settings-hospital-code').value.trim();
+    var statusDiv = document.getElementById('settings-hospital-status');
+
+    if (!hospitalCode) {
         statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-700';
-        statusDiv.textContent = 'Vendor ID is required';
+        statusDiv.textContent = 'กรุณาระบุรหัสหน่วยบริการ';
+        statusDiv.classList.remove('hidden');
+        return;
+    }
+
+    if (!/^\d{5}$/.test(hospitalCode)) {
+        statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-700';
+        statusDiv.textContent = 'รหัสหน่วยบริการต้องเป็นตัวเลข 5 หลัก';
         statusDiv.classList.remove('hidden');
         return;
     }
 
     try {
+        var response = await fetch('/api/settings/hospital-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hospital_code: hospitalCode })
+        });
+        var result = await response.json();
+
+        if (result.success) {
+            statusDiv.className = 'mt-4 p-3 rounded-lg bg-green-100 text-green-700';
+            statusDiv.textContent = 'บันทึกรหัสหน่วยบริการสำเร็จ!';
+            statusDiv.classList.remove('hidden');
+            showToast('บันทึกรหัสหน่วยบริการสำเร็จ!', 'success');
+            // Update SMT display
+            var smtDisplay = document.getElementById('smt-hospital-code-display');
+            if (smtDisplay) {
+                smtDisplay.textContent = hospitalCode;
+            }
+            // Load hospital info
+            loadSettingsHospitalInfo();
+        } else {
+            statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-700';
+            statusDiv.textContent = result.error || 'Failed to save';
+            statusDiv.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Hospital code save error:', error);
+        statusDiv.className = 'mt-4 p-3 rounded-lg bg-red-100 text-red-700';
+        statusDiv.textContent = 'Error: ' + error.message;
+        statusDiv.classList.remove('hidden');
+    }
+}
+
+async function lookupHospitalInfo() {
+    var hospitalCode = document.getElementById('settings-hospital-code').value.trim();
+    if (!hospitalCode) {
+        showToast('กรุณาระบุรหัสหน่วยบริการก่อน', 'warning');
+        return;
+    }
+
+    // Save first, then load info
+    await saveSettingsHospitalCode();
+}
+
+// SMT Settings
+async function saveSmtSettings(event) {
+    event.preventDefault();
+
+    var autoSave = document.getElementById('smt-auto-save').checked;
+    var statusDiv = document.getElementById('smt-settings-status');
+
+    try {
+        // Get hospital code for SMT
+        var hospitalCodeResponse = await fetch('/api/settings/hospital-code');
+        var hospitalCodeResult = await hospitalCodeResponse.json();
+        var vendorId = hospitalCodeResult.success ? hospitalCodeResult.hospital_code : '';
+
         var response = await fetch('/api/smt/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -4770,27 +5265,31 @@ async function saveSmtSettings(event) {
 
 async function loadSmtSettings() {
     try {
+        // Load hospital code first
+        await loadSettingsHospitalCode();
+
+        // Then load SMT-specific settings
         var response = await fetch('/api/smt/settings');
         var result = await response.json();
 
         if (result.success && result.settings) {
-            // Settings tab fields
-            var vendorInput = document.getElementById('smt-vendor-id');
             var autoSaveInput = document.getElementById('smt-auto-save');
             // Download tab SMT vendor field
             var dlVendorInput = document.getElementById('dl-vendor-id');
             // Schedule SMT vendor field
             var scheduleSmtVendorInput = document.getElementById('schedule-smt-vendor-id');
 
-            if (vendorInput && result.settings.smt_vendor_id) {
-                vendorInput.value = result.settings.smt_vendor_id;
+            // Get hospital_code for vendor fields
+            var hospitalCodeResponse = await fetch('/api/settings/hospital-code');
+            var hospitalCodeResult = await hospitalCodeResponse.json();
+            var vendorId = hospitalCodeResult.success ? hospitalCodeResult.hospital_code : '';
+
+            if (dlVendorInput && vendorId) {
+                dlVendorInput.value = vendorId;
             }
-            if (dlVendorInput && result.settings.smt_vendor_id) {
-                dlVendorInput.value = result.settings.smt_vendor_id;
-            }
-            if (scheduleSmtVendorInput && result.settings.smt_vendor_id && !scheduleSmtVendorInput.value) {
+            if (scheduleSmtVendorInput && vendorId && !scheduleSmtVendorInput.value) {
                 // Only set if not already set (don't overwrite user input)
-                scheduleSmtVendorInput.value = result.settings.smt_vendor_id;
+                scheduleSmtVendorInput.value = vendorId;
             }
             if (autoSaveInput) {
                 autoSaveInput.checked = result.settings.smt_auto_save_db !== false;
@@ -5825,6 +6324,71 @@ function formatJobResults(results) {
     }
 
     return parts.length > 0 ? parts.join(' | ') : JSON.stringify(results).substring(0, 50);
+}
+
+// ==================== Dashboard Tab Functions ====================
+
+function dmFormatNumber(num) {
+    if (num === null || num === undefined) return '-';
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function dmFormatMoney(num) {
+    if (num === null || num === undefined) return '-';
+    if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + ' M';
+    } else if (num >= 1000) {
+        return (num / 1000).toFixed(1) + ' K';
+    }
+    return dmFormatNumber(num);
+}
+
+async function loadDashboardStatus() {
+    try {
+        var response = await fetch('/api/dashboard/reconciliation-status');
+        var data = await response.json();
+
+        if (data.success) {
+            var d = data.data;
+
+            // REP Import Status
+            var repTotal = d.rep_status.total || 0;
+            var repImported = d.rep_status.imported || 0;
+            document.getElementById('dm-rep-total').textContent = dmFormatNumber(repTotal);
+            document.getElementById('dm-rep-imported').textContent = dmFormatNumber(repImported);
+            document.getElementById('dm-rep-failed').textContent = dmFormatNumber(d.rep_status.failed || 0);
+            var repPercent = repTotal > 0 ? Math.round((repImported / repTotal) * 100) : 0;
+            document.getElementById('dm-rep-progress-bar').style.width = repPercent + '%';
+            document.getElementById('dm-rep-progress-text').textContent = repPercent + '%';
+
+            // STM Import Status
+            var stmTotal = d.stm_status.total || 0;
+            var stmImported = d.stm_status.imported || 0;
+            document.getElementById('dm-stm-total').textContent = dmFormatNumber(stmTotal);
+            document.getElementById('dm-stm-imported').textContent = dmFormatNumber(stmImported);
+            document.getElementById('dm-stm-failed').textContent = dmFormatNumber(d.stm_status.failed || 0);
+            var stmPercent = stmTotal > 0 ? Math.round((stmImported / stmTotal) * 100) : 0;
+            document.getElementById('dm-stm-progress-bar').style.width = stmPercent + '%';
+            document.getElementById('dm-stm-progress-text').textContent = stmPercent + '%';
+
+            // STM-REP Reconciliation
+            var reconTotal = d.reconciliation.total || 0;
+            var reconMatched = d.reconciliation.matched || 0;
+            document.getElementById('dm-recon-total').textContent = dmFormatNumber(reconTotal);
+            document.getElementById('dm-recon-matched').textContent = dmFormatNumber(reconMatched);
+            document.getElementById('dm-recon-unmatched').textContent = dmFormatNumber(d.reconciliation.unmatched || 0);
+            var reconPercent = reconTotal > 0 ? Math.round((reconMatched / reconTotal) * 100) : 0;
+            document.getElementById('dm-recon-progress-bar').style.width = reconPercent + '%';
+            document.getElementById('dm-recon-progress-text').textContent = reconPercent + '%';
+
+            // SMT Budget Overview
+            document.getElementById('dm-smt-total-amount').textContent = dmFormatMoney(d.smt_status.total_amount || 0);
+            document.getElementById('dm-smt-total-records').textContent = dmFormatNumber(d.smt_status.total_records || 0);
+            document.getElementById('dm-smt-last-sync').textContent = d.smt_status.last_sync ? d.smt_status.last_sync.substring(0, 10) : 'ยังไม่ sync';
+        }
+    } catch (error) {
+        console.error('Error loading dashboard status:', error);
+    }
 }
 
 // ==================== System Health Functions ====================

@@ -88,130 +88,202 @@
     </div>
 </div>
 
-<!-- Quick Actions and Status -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-    <!-- Quick Actions -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+<!-- Claims Efficiency Performance -->
+<div class="bg-white rounded-xl shadow-md p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-gray-800 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
             </svg>
-            Quick Actions
+            Claims Performance
         </h3>
-        <div class="space-y-3">
-            <a href="{{ url_for('analytics') }}" class="flex items-center p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+        <span class="text-xs text-gray-500" id="efficiency-filter-info"></span>
+    </div>
+
+    <!-- Key Performance Indicators -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <!-- First-Pass Rate -->
+        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4 border border-indigo-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-indigo-600">อัตราผ่านรอบแรก</span>
+                <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
-                <span class="font-medium text-gray-700">View Full Analytics</span>
-            </a>
-            <a href="{{ url_for('reconciliation') }}" class="flex items-center p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+            </div>
+            <p class="text-2xl font-bold text-indigo-700" id="eff-first-pass-rate">-</p>
+            <p class="text-xs text-indigo-500 mt-0.5">First-Pass Rate</p>
+        </div>
+
+        <!-- Denial Rate -->
+        <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 border border-red-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-red-600">อัตราปฏิเสธ</span>
+                <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
-                <span class="font-medium text-gray-700">Reconciliation Report</span>
-            </a>
-            <a href="{{ url_for('data_management') }}" class="flex items-center p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-purple-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </div>
+            <p class="text-2xl font-bold text-red-700" id="eff-denial-rate">-</p>
+            <p class="text-xs text-red-500 mt-0.5">Denial Rate</p>
+        </div>
+
+        <!-- Passed Claims -->
+        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-green-600">เคลมผ่าน</span>
+                <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                 </svg>
-                <span class="font-medium text-gray-700">Download New Data</span>
-            </a>
+            </div>
+            <p class="text-2xl font-bold text-green-700" id="eff-passed-claims">-</p>
+            <p class="text-xs text-green-500 mt-0.5">Passed Claims</p>
+        </div>
+
+        <!-- Denied Claims -->
+        <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-orange-600">เคลมปฏิเสธ</span>
+                <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-orange-700" id="eff-denied-claims">-</p>
+            <p class="text-xs text-orange-500 mt-0.5">Denied Claims</p>
         </div>
     </div>
 
-    <!-- Auto Download Status -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            Auto Download
-        </h3>
-
-        {% if schedule_settings.schedule_enabled %}
-        <div class="flex items-center mb-3">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                <span class="w-2 h-2 bg-green-600 rounded-full mr-1.5 animate-pulse"></span>
-                Active
-            </span>
-            {% if schedule_settings.schedule_auto_import %}
-            <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                Auto-import ON
-            </span>
-            {% endif %}
-        </div>
-
-        <div class="space-y-2">
-            {% for time in schedule_settings.schedule_times %}
-            <div class="flex items-center text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded">
-                <svg class="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span class="font-medium">{{ "%02d"|format(time.hour) }}:{{ "%02d"|format(time.minute) }}</span>
-                <span class="text-gray-500 ml-1">น.</span>
+    <!-- OP vs IP Comparison -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <!-- OPD Performance -->
+        <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="text-sm font-bold text-blue-800">ผู้ป่วยนอก (OPD)</h4>
+                <span class="px-2 py-0.5 bg-blue-200 text-blue-800 text-xs font-medium rounded">OP</span>
             </div>
-            {% endfor %}
-        </div>
-
-        {% if schedule_jobs and schedule_jobs|length > 0 %}
-        <div class="mt-3 p-2 bg-blue-50 rounded text-sm">
-            <span class="text-blue-600 font-medium">Next:</span>
-            {% set next_job = schedule_jobs[0] %}
-            {% if next_job.next_run_time %}
-            <span class="text-blue-800">{{ next_job.next_run_time[:16]|replace('T', ' ') }}</span>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        {% else %}
-        <div class="text-center py-4">
-            <p class="text-gray-500 text-sm mb-3">Auto download is disabled</p>
-            <a href="{{ url_for('data_management') }}?tab=download" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                Enable Schedule
-            </a>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Recent Data Update -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            Data Status
-        </h3>
-
-        <div class="space-y-3">
-            <div class="flex justify-between items-center">
-                <span class="text-gray-600">Total Files</span>
-                <span class="font-bold text-gray-800">{{ stats.total_files }}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="text-gray-600">Last Download</span>
-                <span class="font-medium text-gray-800">{{ stats.last_run }}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="text-gray-600">File Types</span>
-                <div class="text-right">
-                    {% for type, count in stats.file_types.items() %}
-                    <span class="inline-block px-2 py-0.5 bg-gray-100 rounded text-xs font-medium mr-1">{{ type }}: {{ count }}</span>
-                    {% endfor %}
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div>
+                    <p class="text-lg font-bold text-blue-700" id="eff-op-first-pass">-</p>
+                    <p class="text-xs text-blue-600">First-Pass</p>
+                </div>
+                <div>
+                    <p class="text-lg font-bold text-blue-700" id="eff-op-reimb-rate">-</p>
+                    <p class="text-xs text-blue-600">Reimb Rate</p>
+                </div>
+                <div>
+                    <p class="text-lg font-bold text-blue-700" id="eff-op-claims">-</p>
+                    <p class="text-xs text-blue-600">Claims</p>
                 </div>
             </div>
         </div>
 
-        {% if downloader_running %}
-        <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div class="flex items-center">
-                <svg class="w-5 h-5 text-yellow-600 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                </svg>
-                <span class="text-yellow-800 font-medium">Downloading...</span>
+        <!-- IPD Performance -->
+        <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="text-sm font-bold text-purple-800">ผู้ป่วยใน (IPD)</h4>
+                <span class="px-2 py-0.5 bg-purple-200 text-purple-800 text-xs font-medium rounded">IP</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div>
+                    <p class="text-lg font-bold text-purple-700" id="eff-ip-first-pass">-</p>
+                    <p class="text-xs text-purple-600">First-Pass</p>
+                </div>
+                <div>
+                    <p class="text-lg font-bold text-purple-700" id="eff-ip-reimb-rate">-</p>
+                    <p class="text-xs text-purple-600">Reimb Rate</p>
+                </div>
+                <div>
+                    <p class="text-lg font-bold text-purple-700" id="eff-ip-claims">-</p>
+                    <p class="text-xs text-purple-600">Claims</p>
+                </div>
             </div>
         </div>
-        {% endif %}
+    </div>
+
+    <!-- Efficiency by Fund -->
+    <div>
+        <h4 class="text-sm font-bold text-gray-700 mb-3 flex items-center">
+            <svg class="w-4 h-4 mr-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            ประสิทธิภาพตามสิทธิ (Top 5)
+        </h4>
+        <div id="eff-by-fund-container" class="space-y-2">
+            <p class="text-gray-400 text-sm">Loading...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Per-Bed Performance Section -->
+<div id="per-bed-section" class="bg-white rounded-xl shadow-md p-6 mb-8 hidden">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-gray-800 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            ประสิทธิภาพต่อเตียง (Per-Bed Performance)
+        </h3>
+        <div id="hospital-badge" class="flex items-center gap-2">
+            <span id="hospital-name-badge" class="text-sm text-gray-600"></span>
+            <span id="hospital-beds-badge" class="px-2 py-0.5 bg-cyan-100 text-cyan-700 text-xs font-medium rounded-full"></span>
+        </div>
+    </div>
+
+    <!-- Per-Bed KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- Revenue per Bed per Month -->
+        <div class="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg p-4 border border-cyan-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-cyan-600">รายได้/เตียง/เดือน</span>
+                <svg class="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-cyan-700" id="kpi-reimb-per-bed">-</p>
+            <p class="text-xs text-cyan-500 mt-0.5">Reimb/Bed/Month</p>
+        </div>
+
+        <!-- Loss per Bed per Month -->
+        <div class="bg-gradient-to-br from-rose-50 to-rose-100 rounded-lg p-4 border border-rose-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-rose-600">ส่วนต่าง/เตียง/เดือน</span>
+                <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-rose-700" id="kpi-loss-per-bed">-</p>
+            <p class="text-xs text-rose-500 mt-0.5">Loss/Bed/Month</p>
+        </div>
+
+        <!-- Claims per Bed -->
+        <div class="bg-gradient-to-br from-violet-50 to-violet-100 rounded-lg p-4 border border-violet-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-violet-600">เคลม/เตียง</span>
+                <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-violet-700" id="kpi-claims-per-bed">-</p>
+            <p class="text-xs text-violet-500 mt-0.5">Claims/Bed</p>
+        </div>
+
+        <!-- Average per Claim -->
+        <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4 border border-amber-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-amber-600">เฉลี่ย/เคลม</span>
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-amber-700" id="kpi-avg-per-claim">-</p>
+            <p class="text-xs text-amber-500 mt-0.5">Avg Reimb/Claim</p>
+        </div>
+    </div>
+
+    <!-- Hospital Info Note -->
+    <div class="mt-3 p-2 bg-gray-50 rounded-lg text-xs text-gray-500 flex items-center gap-2">
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span id="per-bed-note">ข้อมูลจากระยะเวลาที่เลือก หารด้วยจำนวนเตียงจริง</span>
     </div>
 </div>
 
@@ -281,182 +353,6 @@
     </div>
 </div>
 
-<!-- Phase 3: Data Reconciliation Status -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-    <!-- REP Import Status -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            REP Import Status
-        </h3>
-        <div id="rep-status" class="space-y-3">
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Total Files</span>
-                <span class="font-bold text-gray-800" id="rep-total">-</span>
-            </div>
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Imported</span>
-                <span class="font-bold text-green-600" id="rep-imported">-</span>
-            </div>
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Failed</span>
-                <span class="font-bold text-red-600" id="rep-failed">-</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                <div id="rep-progress-bar" class="bg-green-600 h-2 rounded-full transition-all" style="width: 0%"></div>
-            </div>
-            <div class="text-xs text-gray-500 text-right" id="rep-progress-text">0%</div>
-        </div>
-    </div>
-
-    <!-- STM Import Status -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-            </svg>
-            STM Import Status
-        </h3>
-        <div id="stm-status" class="space-y-3">
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Total Files</span>
-                <span class="font-bold text-gray-800" id="stm-total">-</span>
-            </div>
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Imported</span>
-                <span class="font-bold text-green-600" id="stm-imported">-</span>
-            </div>
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Failed</span>
-                <span class="font-bold text-red-600" id="stm-failed">-</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                <div id="stm-progress-bar" class="bg-purple-600 h-2 rounded-full transition-all" style="width: 0%"></div>
-            </div>
-            <div class="text-xs text-gray-500 text-right" id="stm-progress-text">0%</div>
-        </div>
-    </div>
-
-    <!-- STM-REP Reconciliation -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            STM-REP Reconciliation
-        </h3>
-        <div id="reconciliation-status" class="space-y-3">
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Total Records</span>
-                <span class="font-bold text-gray-800" id="recon-total">-</span>
-            </div>
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Matched</span>
-                <span class="font-bold text-green-600" id="recon-matched">-</span>
-            </div>
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-600">Unmatched</span>
-                <span class="font-bold text-orange-600" id="recon-unmatched">-</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                <div id="recon-progress-bar" class="bg-teal-600 h-2 rounded-full transition-all" style="width: 0%"></div>
-            </div>
-            <div class="text-xs text-gray-500 text-right" id="recon-progress-text">0%</div>
-        </div>
-    </div>
-</div>
-
-<!-- SMT Budget Overview -->
-<div class="bg-white rounded-lg shadow-md p-6 mb-8">
-    <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-bold text-gray-800 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            SMT Budget Overview
-        </h3>
-        <a href="{{ url_for('smt_budget') }}" class="text-blue-600 hover:text-blue-700 text-sm font-medium">
-            View Details
-        </a>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-gray-50 rounded-lg p-4">
-            <div class="text-sm text-gray-600 mb-1">Total Budget Received</div>
-            <div class="text-2xl font-bold text-green-600" id="smt-total-amount">-</div>
-        </div>
-        <div class="bg-gray-50 rounded-lg p-4">
-            <div class="text-sm text-gray-600 mb-1">Budget Records</div>
-            <div class="text-2xl font-bold text-gray-800" id="smt-total-records">-</div>
-        </div>
-        <div class="bg-gray-50 rounded-lg p-4">
-            <div class="text-sm text-gray-600 mb-1">Last Sync</div>
-            <div class="text-lg font-medium text-gray-600" id="smt-last-sync">-</div>
-        </div>
-    </div>
-</div>
-
-<!-- Latest Files Section -->
-<div class="bg-white rounded-lg shadow-md overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-        <h3 class="text-lg font-bold text-gray-800">Latest Files</h3>
-        <a href="{{ url_for('data_management') }}?tab=files" class="text-blue-600 hover:text-blue-700 font-medium text-sm">
-            View All
-        </a>
-    </div>
-
-    {% if latest_files %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filename</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for file in latest_files %}
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center">
-                            {% if '_OP_' in file.filename %}
-                            <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                            {% elif '_IP_' in file.filename %}
-                            <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
-                            {% elif '_ORF_' in file.filename %}
-                            <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                            {% else %}
-                            <span class="w-2 h-2 bg-gray-500 rounded-full mr-2"></span>
-                            {% endif %}
-                            <span class="text-sm text-gray-900 font-medium">{{ file.filename }}</span>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ file.date_formatted }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ file.size_formatted }}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <div class="px-6 py-12 text-center">
-        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-        </svg>
-        <p class="text-gray-500 mb-4">No files downloaded yet</p>
-        <a href="{{ url_for('data_management') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg">
-            Download Now
-        </a>
-    </div>
-    {% endif %}
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 // Load KPI data - Phase 1 Financial Dashboard
@@ -485,6 +381,34 @@ async function loadKPIData() {
 
             // 5. จำนวนรายการ (Total Claims Count)
             document.getElementById('kpi-total-claims').textContent = formatNumber(d.total_claims);
+
+            // Per-Bed KPIs
+            var perBedSection = document.getElementById('per-bed-section');
+            if (d.hospital && d.per_bed && d.per_bed.beds > 0) {
+                perBedSection.classList.remove('hidden');
+
+                // Hospital info
+                document.getElementById('hospital-name-badge').textContent = d.hospital.hospital_name || '-';
+                document.getElementById('hospital-beds-badge').textContent = d.per_bed.beds.toLocaleString() + ' เตียง';
+
+                // Per-bed metrics
+                document.getElementById('kpi-reimb-per-bed').textContent = formatMoney(d.per_bed.reimb_per_bed_month);
+                document.getElementById('kpi-loss-per-bed').textContent = d.per_bed.loss_per_bed_month > 0 ?
+                    '-' + formatMoney(d.per_bed.loss_per_bed_month) :
+                    formatMoney(d.per_bed.loss_per_bed_month);
+                document.getElementById('kpi-claims-per-bed').textContent = d.per_bed.claims_per_bed.toFixed(1);
+                document.getElementById('kpi-avg-per-claim').textContent = formatMoney(d.per_bed.avg_per_claim);
+
+                // Note with filter info
+                var noteText = 'ข้อมูล ' + (d.active_months || 1) + ' เดือน หารด้วย ' + d.per_bed.beds + ' เตียง';
+                if (d.filter && d.filter.description) {
+                    noteText += ' (' + d.filter.description + ')';
+                }
+                document.getElementById('per-bed-note').textContent = noteText;
+            } else {
+                // Hide section if no hospital configured or no beds
+                perBedSection.classList.add('hidden');
+            }
         }
     } catch (error) {
         console.error('Error loading KPI data:', error);
@@ -755,55 +679,6 @@ function formatMoney(num) {
     return formatNumber(num);
 }
 
-// Phase 3: Load Reconciliation Status
-async function loadReconciliationStatus() {
-    try {
-        var response = await fetch('/api/dashboard/reconciliation-status');
-        var data = await response.json();
-
-        if (data.success) {
-            var d = data.data;
-
-            // REP Import Status
-            var repTotal = d.rep_status.total || 0;
-            var repImported = d.rep_status.imported || 0;
-            document.getElementById('rep-total').textContent = formatNumber(repTotal);
-            document.getElementById('rep-imported').textContent = formatNumber(repImported);
-            document.getElementById('rep-failed').textContent = formatNumber(d.rep_status.failed || 0);
-            var repPercent = repTotal > 0 ? Math.round((repImported / repTotal) * 100) : 0;
-            document.getElementById('rep-progress-bar').style.width = repPercent + '%';
-            document.getElementById('rep-progress-text').textContent = repPercent + '%';
-
-            // STM Import Status
-            var stmTotal = d.stm_status.total || 0;
-            var stmImported = d.stm_status.imported || 0;
-            document.getElementById('stm-total').textContent = formatNumber(stmTotal);
-            document.getElementById('stm-imported').textContent = formatNumber(stmImported);
-            document.getElementById('stm-failed').textContent = formatNumber(d.stm_status.failed || 0);
-            var stmPercent = stmTotal > 0 ? Math.round((stmImported / stmTotal) * 100) : 0;
-            document.getElementById('stm-progress-bar').style.width = stmPercent + '%';
-            document.getElementById('stm-progress-text').textContent = stmPercent + '%';
-
-            // STM-REP Reconciliation
-            var reconTotal = d.reconciliation.total || 0;
-            var reconMatched = d.reconciliation.matched || 0;
-            document.getElementById('recon-total').textContent = formatNumber(reconTotal);
-            document.getElementById('recon-matched').textContent = formatNumber(reconMatched);
-            document.getElementById('recon-unmatched').textContent = formatNumber(d.reconciliation.unmatched || 0);
-            var reconPercent = reconTotal > 0 ? Math.round((reconMatched / reconTotal) * 100) : 0;
-            document.getElementById('recon-progress-bar').style.width = reconPercent + '%';
-            document.getElementById('recon-progress-text').textContent = reconPercent + '%';
-
-            // SMT Budget Overview
-            document.getElementById('smt-total-amount').textContent = formatMoney(d.smt_status.total_amount || 0);
-            document.getElementById('smt-total-records').textContent = formatNumber(d.smt_status.total_records || 0);
-            document.getElementById('smt-last-sync').textContent = d.smt_status.last_sync ? d.smt_status.last_sync.substring(0, 10) : 'ยังไม่ sync';
-        }
-    } catch (error) {
-        console.error('Error loading reconciliation status:', error);
-    }
-}
-
 // Create alert icon using DOM methods
 function createAlertIcon(severity) {
     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -823,6 +698,95 @@ function createAlertIcon(severity) {
 
     svg.appendChild(path);
     return svg;
+}
+
+// Load Claims Efficiency Metrics
+async function loadEfficiencyMetrics() {
+    try {
+        var response = await fetch('/api/analytics/efficiency');
+        var data = await response.json();
+
+        if (data.success) {
+            var d = data.data;
+            var overall = d.overall;
+
+            // Update filter info
+            if (d.filter) {
+                var filterInfo = document.getElementById('efficiency-filter-info');
+                if (filterInfo && d.filter.description) {
+                    filterInfo.textContent = d.filter.description;
+                }
+            }
+
+            // Update KPI cards
+            document.getElementById('eff-first-pass-rate').textContent = overall.first_pass_rate + '%';
+            document.getElementById('eff-denial-rate').textContent = overall.denial_rate + '%';
+            document.getElementById('eff-passed-claims').textContent = formatNumber(overall.passed_claims);
+            document.getElementById('eff-denied-claims').textContent = formatNumber(overall.denied_claims);
+
+            // Update OP/IP comparison
+            var opData = d.by_service.find(function(s) { return s.type === 'OP'; }) || {};
+            var ipData = d.by_service.find(function(s) { return s.type === 'IP'; }) || {};
+
+            document.getElementById('eff-op-first-pass').textContent = (opData.first_pass_rate || 0) + '%';
+            document.getElementById('eff-op-reimb-rate').textContent = (opData.reimb_rate || 0) + '%';
+            document.getElementById('eff-op-claims').textContent = formatNumber(opData.claims || 0);
+
+            document.getElementById('eff-ip-first-pass').textContent = (ipData.first_pass_rate || 0) + '%';
+            document.getElementById('eff-ip-reimb-rate').textContent = (ipData.reimb_rate || 0) + '%';
+            document.getElementById('eff-ip-claims').textContent = formatNumber(ipData.claims || 0);
+
+            // Update efficiency by fund
+            var fundContainer = document.getElementById('eff-by-fund-container');
+            fundContainer.textContent = '';
+
+            var topFunds = d.by_fund.slice(0, 5);
+            topFunds.forEach(function(fund) {
+                var row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-gray-50 rounded-lg p-2 border border-gray-100';
+
+                // Fund name
+                var nameDiv = document.createElement('div');
+                nameDiv.className = 'flex-1 min-w-0';
+                var nameText = document.createElement('span');
+                nameText.className = 'text-sm text-gray-700 truncate block';
+                nameText.textContent = fund.fund;
+                nameDiv.appendChild(nameText);
+
+                // Stats
+                var statsDiv = document.createElement('div');
+                statsDiv.className = 'flex items-center gap-3 ml-2';
+
+                // First-pass rate with color coding
+                var fpRate = fund.first_pass_rate;
+                var fpColor = fpRate >= 90 ? 'text-green-600' : (fpRate >= 80 ? 'text-yellow-600' : 'text-red-600');
+                var fpSpan = document.createElement('span');
+                fpSpan.className = 'text-xs font-medium ' + fpColor;
+                fpSpan.textContent = 'FP: ' + fpRate + '%';
+                statsDiv.appendChild(fpSpan);
+
+                // Reimb rate with color coding
+                var reimbRate = fund.reimb_rate;
+                var reimbColor = reimbRate >= 90 ? 'text-green-600' : (reimbRate >= 80 ? 'text-yellow-600' : 'text-red-600');
+                var reimbSpan = document.createElement('span');
+                reimbSpan.className = 'text-xs font-medium ' + reimbColor;
+                reimbSpan.textContent = 'RR: ' + reimbRate + '%';
+                statsDiv.appendChild(reimbSpan);
+
+                // Claims count
+                var claimsSpan = document.createElement('span');
+                claimsSpan.className = 'text-xs text-gray-500 w-16 text-right';
+                claimsSpan.textContent = formatNumber(fund.claims) + ' รายการ';
+                statsDiv.appendChild(claimsSpan);
+
+                row.appendChild(nameDiv);
+                row.appendChild(statsDiv);
+                fundContainer.appendChild(row);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading efficiency metrics:', error);
+    }
 }
 
 // Load system alerts
@@ -904,11 +868,11 @@ async function loadAlerts() {
 // Initialize Dashboard - Phase 3
 document.addEventListener('DOMContentLoaded', function() {
     loadKPIData();
+    loadEfficiencyMetrics();
     loadMonthlyTrendChart();
     loadFundComparisonChart();
     loadServiceTypeData();
     loadErrorCodesChart();
-    loadReconciliationStatus();
     loadAlerts();
 });
 </script>

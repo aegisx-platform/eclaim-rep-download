@@ -4382,6 +4382,112 @@ def test_eclaim_connection():
         }), 500
 
 
+@app.route('/api/settings/hospital-code', methods=['GET', 'POST'])
+def api_hospital_code():
+    """Get or update the global hospital code"""
+    if request.method == 'GET':
+        hospital_code = settings_manager.get_hospital_code()
+        return jsonify({
+            'success': True,
+            'hospital_code': hospital_code
+        })
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            hospital_code = data.get('hospital_code', '').strip()
+
+            if not hospital_code:
+                return jsonify({'success': False, 'error': 'Hospital code is required'}), 400
+
+            # Validate format (5 digits)
+            if not hospital_code.isdigit() or len(hospital_code) != 5:
+                return jsonify({'success': False, 'error': 'Hospital code must be 5 digits'}), 400
+
+            success = settings_manager.set_hospital_code(hospital_code)
+            if success:
+                return jsonify({
+                    'success': True,
+                    'message': 'Hospital code saved successfully',
+                    'hospital_code': hospital_code
+                })
+            else:
+                return jsonify({'success': False, 'error': 'Failed to save hospital code'}), 500
+
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/settings/hospital-info')
+def api_hospital_info():
+    """Get hospital information from health_offices table using hospital_code setting"""
+    try:
+        hospital_code = settings_manager.get_hospital_code()
+
+        if not hospital_code:
+            return jsonify({
+                'success': False,
+                'error': 'Hospital code not configured',
+                'data': None
+            })
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Query health_offices table for hospital info
+        query = """
+            SELECT
+                h9_code,
+                h5_code,
+                name,
+                hospital_level,
+                actual_beds,
+                province,
+                health_region,
+                hospital_type,
+                is_active
+            FROM health_offices
+            WHERE h5_code = %s OR h9_code LIKE %s
+            LIMIT 1
+        """
+        cursor.execute(query, (hospital_code, f'%{hospital_code}'))
+        row = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        if row:
+            data = {
+                'h9_code': row[0],
+                'h5_code': row[1],
+                'name': row[2],
+                'hospital_level': row[3],
+                'actual_beds': row[4] or 0,
+                'province': row[5],
+                'health_region': row[6],
+                'hospital_type': row[7],
+                'is_active': row[8]
+            }
+            return jsonify({
+                'success': True,
+                'hospital_code': hospital_code,
+                'data': data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Hospital not found for code: {hospital_code}',
+                'hospital_code': hospital_code,
+                'data': None
+            })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.template_filter('naturalsize')
 def naturalsize_filter(value):
     """Template filter for human-readable file sizes"""
@@ -5483,12 +5589,11 @@ def api_schedule():
 
             # Validate SMT vendor ID if SMT is selected
             if enabled and type_smt:
-                # If no vendor ID provided, try to get from SMT settings
+                # If no vendor ID provided, try to get from global hospital_code setting
                 if not smt_vendor_id:
-                    smt_settings = settings_manager.get_smt_settings()
-                    smt_vendor_id = smt_settings.get('smt_vendor_id', '')
+                    smt_vendor_id = settings_manager.get_hospital_code()
                 if not smt_vendor_id:
-                    return jsonify({'success': False, 'error': 'กรุณาระบุ Vendor ID สำหรับ SMT Budget'}), 400
+                    return jsonify({'success': False, 'error': 'กรุณาระบุ Hospital Code ในหน้า Settings'}), 400
 
             # Validate times format
             for time_config in times:
@@ -5771,12 +5876,11 @@ def smt_fetch():
         export_format = data.get('export_format')  # 'json' or 'csv' or None
 
         if not vendor_id:
-            # Try to get from settings
-            smt_settings = settings_manager.get_smt_settings()
-            vendor_id = smt_settings.get('smt_vendor_id')
+            # Try to get from global hospital_code setting (falls back to legacy smt_vendor_id)
+            vendor_id = settings_manager.get_hospital_code()
 
         if not vendor_id:
-            return jsonify({'success': False, 'error': 'Vendor ID is required'}), 400
+            return jsonify({'success': False, 'error': 'Vendor ID is required. Please configure Hospital Code in Settings.'}), 400
 
         # Start job tracking
         try:
@@ -6366,9 +6470,8 @@ def api_smt_download():
 
         # Vendor ID is optional - empty means all in region
         if not vendor_id:
-            # Try to get from settings if user hasn't explicitly cleared it
-            smt_settings = settings_manager.get_smt_settings()
-            default_vendor = smt_settings.get('smt_vendor_id')
+            # Try to get from global hospital_code setting (falls back to legacy smt_vendor_id)
+            default_vendor = settings_manager.get_hospital_code()
             # Only use default if vendor_id is not explicitly provided as empty string
             if vendor_id is None and default_vendor:
                 vendor_id = default_vendor
@@ -6855,8 +6958,9 @@ def init_smt_scheduler():
         # Clear existing SMT jobs
         download_scheduler.remove_smt_jobs()
 
-        if smt_settings['smt_schedule_enabled'] and smt_settings['smt_vendor_id']:
-            vendor_id = smt_settings['smt_vendor_id']
+        # Get vendor ID from settings or global hospital_code
+        vendor_id = smt_settings.get('smt_vendor_id') or settings_manager.get_hospital_code()
+        if smt_settings['smt_schedule_enabled'] and vendor_id:
             auto_save_db = smt_settings['smt_auto_save_db']
 
             for time_config in smt_settings['smt_schedule_times']:
@@ -7303,6 +7407,59 @@ def api_analytics_overview():
         overview['total_denied_amount'] = total_denied_amount
         overview['total_loss'] = total_loss
         overview['denial_rate'] = denial_rate
+
+        # Per-Bed KPIs: Get hospital info from health_offices table
+        hospital_code = settings_manager.get_hospital_code()
+        active_months = overview['active_months'] or 1  # Avoid division by zero
+
+        hospital_info = {
+            'hospital_code': hospital_code,
+            'hospital_name': None,
+            'hospital_level': None,
+            'actual_beds': 0,
+            'province': None,
+            'health_region': None
+        }
+
+        if hospital_code:
+            try:
+                # Query health_offices table
+                hospital_query = """
+                    SELECT name, hospital_level, actual_beds, province, health_region
+                    FROM health_offices
+                    WHERE h5_code = %s OR h9_code LIKE %s
+                    LIMIT 1
+                """
+                cursor.execute(hospital_query, (hospital_code, f'%{hospital_code}'))
+                hospital_row = cursor.fetchone()
+
+                if hospital_row:
+                    hospital_info['hospital_name'] = hospital_row[0]
+                    hospital_info['hospital_level'] = hospital_row[1]
+                    hospital_info['actual_beds'] = hospital_row[2] or 0
+                    hospital_info['province'] = hospital_row[3]
+                    hospital_info['health_region'] = hospital_row[4]
+            except Exception as e:
+                app.logger.warning(f"Could not fetch hospital info: {e}")
+
+        overview['hospital'] = hospital_info
+
+        # Calculate per-bed metrics
+        beds = hospital_info['actual_beds'] or 0
+        per_bed = {
+            'beds': beds,
+            'reimb_per_bed_month': 0,
+            'loss_per_bed_month': 0,
+            'claims_per_bed': 0,
+            'avg_per_claim': round(total_reimb / total_claims, 2) if total_claims > 0 else 0
+        }
+
+        if beds > 0:
+            per_bed['reimb_per_bed_month'] = round(total_reimb / beds / active_months, 2)
+            per_bed['loss_per_bed_month'] = round(total_loss / beds / active_months, 2)
+            per_bed['claims_per_bed'] = round(total_claims / beds, 2)
+
+        overview['per_bed'] = per_bed
 
         # Drug summary with date filter (parameterized query)
         # Show both reimb_amount (ยอดชดเชย) and claim_amount (ยอดเรียกเก็บ)

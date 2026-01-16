@@ -192,7 +192,7 @@
                         <svg class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <p class="text-xs text-blue-800">SMT Budget data is fetched from NHSO API using your Vendor ID. Configure Vendor ID in the Settings section below if needed.</p>
+                        <p class="text-xs text-blue-800">SMT Budget ดึงข้อมูลจาก API สปสช. โดยใช้รหัสหน่วยบริการ (Hospital Code) ที่ตั้งค่าไว้ในส่วน Configuration ด้านบน</p>
                     </div>
                 </div>
             </div>
@@ -216,14 +216,27 @@
         </div>
         <div class="p-6">
             <div class="grid md:grid-cols-2 gap-6">
-                <!-- SMT Vendor ID -->
+                <!-- Hospital Code (Global) -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">SMT Vendor ID</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">รหัสหน่วยบริการ (Hospital Code)</label>
                     <div class="flex gap-2">
-                        <input type="text" id="smt-vendor-id" placeholder="e.g. 10670" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <button onclick="saveVendorId()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">Save</button>
+                        <input type="text" id="hospital-code-input" placeholder="เช่น 10670" maxlength="5" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <button onclick="saveHospitalCode()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">Save</button>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">5-digit hospital code for SMT API</p>
+                    <p class="text-xs text-gray-500 mt-1">รหัส 5 หลัก ใช้สำหรับดึงข้อมูล SMT และคำนวณ KPI ต่อเตียง</p>
+                    <!-- Hospital Info Display -->
+                    <div id="hospital-info-display" class="hidden mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div class="flex items-center gap-2 text-green-700 mb-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span id="hospital-name-display" class="font-medium text-sm"></span>
+                        </div>
+                        <div class="text-xs text-green-600 grid grid-cols-2 gap-1">
+                            <span>ระดับ: <span id="hospital-level-display">-</span></span>
+                            <span>เตียง: <span id="hospital-beds-display">-</span></span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Quick Actions -->
@@ -587,14 +600,14 @@
             const statusIconEl = document.getElementById('smt-status-icon');
             const dataCardEl = document.getElementById('smt-data-card');
 
-            // Get vendor settings
-            const settingsResponse = await fetch('/api/smt/settings');
+            // Get hospital code from global settings
+            const settingsResponse = await fetch('/api/settings/hospital-code');
             const settingsData = await settingsResponse.json();
             let vendorId = null;
 
-            if (settingsData.success && settingsData.settings && settingsData.settings.smt_vendor_id) {
-                vendorId = settingsData.settings.smt_vendor_id;
-                document.getElementById('smt-vendor-id').value = vendorId;
+            if (settingsData.success && settingsData.hospital_code) {
+                vendorId = settingsData.hospital_code;
+                document.getElementById('hospital-code-input').value = vendorId;
             }
 
             // Get SMT files status from smt/files endpoint
@@ -643,19 +656,19 @@
                 statusIconEl.appendChild(svg);
 
                 if (vendorId) {
-                    vendorInfoEl.textContent = 'Vendor ID: ' + vendorId + (lastFile ? ' | Latest: ' + lastFile.modified : '');
+                    vendorInfoEl.textContent = 'รหัสหน่วยบริการ: ' + vendorId + (lastFile ? ' | ล่าสุด: ' + lastFile.modified : '');
                 }
             } else {
                 summaryEl.textContent = 'No data';
                 recordCountEl.textContent = 'No files yet';
-                statusBadgeEl.textContent = vendorId ? 'Needs Fetch' : 'No Vendor ID';
+                statusBadgeEl.textContent = vendorId ? 'Needs Fetch' : 'No Hospital Code';
                 statusBadgeEl.className = 'text-xs px-2 py-1 rounded-full bg-amber-200 text-amber-800';
                 dataCardEl.className = 'p-4 rounded-lg border border-amber-200 bg-amber-50';
 
                 if (vendorId) {
-                    vendorInfoEl.textContent = 'Vendor ID: ' + vendorId + ' | Click "Fetch from API" to download data';
+                    vendorInfoEl.textContent = 'รหัสหน่วยบริการ: ' + vendorId + ' | คลิก "Fetch from API" เพื่อดึงข้อมูล';
                 } else {
-                    vendorInfoEl.textContent = 'Please configure Vendor ID in Settings section below';
+                    vendorInfoEl.textContent = 'กรุณาตั้งค่ารหัสหน่วยบริการ (Hospital Code) ในส่วนด้านบน';
                 }
             }
         } catch (error) {
@@ -664,9 +677,9 @@
     }
 
     async function fetchSMTData() {
-        const vendorId = document.getElementById('smt-vendor-id').value.trim();
+        const vendorId = document.getElementById('hospital-code-input').value.trim();
         if (!vendorId) {
-            alert('Please enter Vendor ID first');
+            alert('กรุณาระบุรหัสหน่วยบริการก่อน');
             return;
         }
 
@@ -1004,33 +1017,61 @@
     // === Settings Functions ===
     async function loadSettings() {
         try {
-            const response = await fetch('/api/smt/settings');
+            // Load hospital code
+            const response = await fetch('/api/settings/hospital-code');
             const data = await response.json();
-            if (data.success && data.settings && data.settings.smt_vendor_id) {
-                document.getElementById('smt-vendor-id').value = data.settings.smt_vendor_id;
+            if (data.success && data.hospital_code) {
+                document.getElementById('hospital-code-input').value = data.hospital_code;
+                // Also load hospital info
+                loadHospitalInfo();
             }
         } catch (error) {
             console.error('Error loading settings:', error);
         }
     }
 
-    async function saveVendorId() {
-        const vendorId = document.getElementById('smt-vendor-id').value.trim();
-        if (!vendorId) {
-            alert('Please enter a Vendor ID');
+    async function loadHospitalInfo() {
+        try {
+            const response = await fetch('/api/settings/hospital-info');
+            const data = await response.json();
+            if (data.success && data.data) {
+                const info = data.data;
+                document.getElementById('hospital-info-display').classList.remove('hidden');
+                document.getElementById('hospital-name-display').textContent = info.name || '-';
+                document.getElementById('hospital-level-display').textContent = info.hospital_level || '-';
+                document.getElementById('hospital-beds-display').textContent = (info.actual_beds || 0).toLocaleString() + ' เตียง';
+            } else {
+                document.getElementById('hospital-info-display').classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Error loading hospital info:', error);
+            document.getElementById('hospital-info-display').classList.add('hidden');
+        }
+    }
+
+    async function saveHospitalCode() {
+        const hospitalCode = document.getElementById('hospital-code-input').value.trim();
+        if (!hospitalCode) {
+            alert('กรุณาระบุรหัสหน่วยบริการ');
+            return;
+        }
+
+        if (!/^\d{5}$/.test(hospitalCode)) {
+            alert('รหัสหน่วยบริการต้องเป็นตัวเลข 5 หลัก');
             return;
         }
 
         try {
-            const response = await fetch('/api/smt/settings', {
+            const response = await fetch('/api/settings/hospital-code', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ smt_vendor_id: vendorId })
+                body: JSON.stringify({ hospital_code: hospitalCode })
             });
             const data = await response.json();
 
             if (data.success) {
-                alert('Vendor ID saved successfully');
+                alert('บันทึกรหัสหน่วยบริการสำเร็จ');
+                loadHospitalInfo();
                 loadSMTStatus();
             } else {
                 alert('Error: ' + (data.error || 'Failed to save'));
