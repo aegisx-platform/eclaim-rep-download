@@ -9,54 +9,66 @@
     <p class="text-gray-600">ภาพรวมรายได้จากการเบิกจ่าย สปสช.</p>
 </div>
 
-<!-- Revenue KPI Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <!-- Total Claims -->
-    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+<!-- Revenue KPI Cards - Phase 1 Financial Dashboard -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+    <!-- 1. ยอดเคลม (Claimed Amount) -->
+    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-5 text-white">
         <div class="flex items-center justify-between mb-2">
-            <h3 class="text-sm font-medium opacity-90">Total Claims</h3>
-            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <h3 class="text-xs font-medium opacity-90">ยอดเคลม</h3>
+            <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
         </div>
-        <p class="text-4xl font-bold" id="kpi-total-claims">-</p>
-        <p class="text-sm opacity-80 mt-1">รายการเคลมทั้งหมด</p>
+        <p class="text-2xl font-bold" id="kpi-total-claimed">-</p>
+        <p class="text-xs opacity-80 mt-1">Claimed Amount</p>
     </div>
 
-    <!-- Total Reimbursement -->
-    <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
+    <!-- 2. ยอดชดเชย (Reimbursed Amount) -->
+    <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-5 text-white">
         <div class="flex items-center justify-between mb-2">
-            <h3 class="text-sm font-medium opacity-90">Total Reimbursement</h3>
-            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <h3 class="text-xs font-medium opacity-90">ยอดชดเชย</h3>
+            <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
         </div>
-        <p class="text-3xl font-bold" id="kpi-total-reimburse">-</p>
-        <p class="text-sm opacity-80 mt-1">ยอดชดเชยรวม</p>
+        <p class="text-2xl font-bold" id="kpi-total-reimburse">-</p>
+        <p class="text-xs opacity-80 mt-1">Reimbursed</p>
     </div>
 
-    <!-- Denial Rate -->
-    <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 text-white">
+    <!-- 3. ส่วนต่าง (Loss/Gap) -->
+    <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-5 text-white">
         <div class="flex items-center justify-between mb-2">
-            <h3 class="text-sm font-medium opacity-90">Denial Rate</h3>
-            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            <h3 class="text-xs font-medium opacity-90">ส่วนต่าง</h3>
+            <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
             </svg>
         </div>
-        <p class="text-4xl font-bold" id="kpi-denial-rate">-</p>
-        <p class="text-sm opacity-80 mt-1">อัตราการปฏิเสธ</p>
+        <p class="text-2xl font-bold" id="kpi-total-loss">-</p>
+        <p class="text-xs opacity-80 mt-1">Loss (Gap)</p>
     </div>
 
-    <!-- Data Status -->
-    <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+    <!-- 4. อัตราคืน (Reimbursement Rate) -->
+    <div class="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl shadow-lg p-5 text-white">
         <div class="flex items-center justify-between mb-2">
-            <h3 class="text-sm font-medium opacity-90">Data Files</h3>
-            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+            <h3 class="text-xs font-medium opacity-90">อัตราคืน</h3>
+            <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
             </svg>
         </div>
-        <p class="text-4xl font-bold">{{ stats.total_files }}</p>
-        <p class="text-sm opacity-80 mt-1">{{ stats.total_size }} ข้อมูล</p>
+        <p class="text-2xl font-bold" id="kpi-reimb-rate">-</p>
+        <p class="text-xs opacity-80 mt-1">Reimb Rate</p>
+    </div>
+
+    <!-- 5. จำนวนรายการ (Total Claims Count) -->
+    <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-5 text-white">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-medium opacity-90">จำนวนรายการ</h3>
+            <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+            </svg>
+        </div>
+        <p class="text-2xl font-bold" id="kpi-total-claims">-</p>
+        <p class="text-xs opacity-80 mt-1">Total Claims</p>
     </div>
 </div>
 
@@ -284,22 +296,32 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Load KPI data
+// Load KPI data - Phase 1 Financial Dashboard
 async function loadKPIData() {
     try {
         var response = await fetch('/api/analytics/overview');
         var data = await response.json();
 
         if (data.success) {
-            document.getElementById('kpi-total-claims').textContent = formatNumber(data.data.total_claims);
-            document.getElementById('kpi-total-reimburse').textContent = formatMoney(data.data.total_reimb);
+            var d = data.data;
 
-            // Calculate denial rate
-            var denialRate = 0;
-            if (data.data.total_claims > 0 && data.data.total_denials) {
-                denialRate = (data.data.total_denials / data.data.total_claims) * 100;
-            }
-            document.getElementById('kpi-denial-rate').textContent = denialRate.toFixed(1) + '%';
+            // 1. ยอดเคลม (Claimed Amount)
+            document.getElementById('kpi-total-claimed').textContent = formatMoney(d.total_claim_drg);
+
+            // 2. ยอดชดเชย (Reimbursed Amount)
+            document.getElementById('kpi-total-reimburse').textContent = formatMoney(d.total_reimb);
+
+            // 3. ส่วนต่าง (Loss/Gap) - show as negative
+            var loss = d.total_loss || (d.total_claim_drg - d.total_reimb);
+            var lossText = loss > 0 ? '-' + formatMoney(loss) : formatMoney(loss);
+            document.getElementById('kpi-total-loss').textContent = lossText;
+
+            // 4. อัตราคืน (Reimbursement Rate %)
+            var reimbRate = d.reimb_rate || 0;
+            document.getElementById('kpi-reimb-rate').textContent = reimbRate.toFixed(1) + '%';
+
+            // 5. จำนวนรายการ (Total Claims Count)
+            document.getElementById('kpi-total-claims').textContent = formatNumber(d.total_claims);
         }
     } catch (error) {
         console.error('Error loading KPI data:', error);

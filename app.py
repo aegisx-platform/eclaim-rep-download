@@ -7222,6 +7222,21 @@ def api_analytics_overview():
             'success_rate': round(ipd_pass_claims / ipd_total_claims * 100, 2) if ipd_total_claims > 0 else 0
         }
 
+        # Phase 1 KPIs: Total denied amount and loss calculation (for dashboard)
+        # จำนวนรายการที่ถูกปฏิเสธ (OPD + IPD)
+        total_denied_claims = opd_fail_claims + ipd_fail_claims
+        # ยอดเงินที่ถูกปฏิเสธ (ยอดเรียกเก็บที่ไม่ผ่าน)
+        total_denied_amount = opd_fail_claim + ipd_fail_claim
+        # ส่วนต่าง (Loss) = ยอดเรียกเก็บรวม - ยอดชดเชยรวม
+        total_loss = total_claim_drg - total_reimb
+        # อัตราการปฏิเสธ % = (จำนวนไม่ผ่าน / จำนวนทั้งหมด) x 100
+        denial_rate = round(total_denied_claims / total_claims * 100, 2) if total_claims > 0 else 0
+
+        overview['total_denied_claims'] = total_denied_claims
+        overview['total_denied_amount'] = total_denied_amount
+        overview['total_loss'] = total_loss
+        overview['denial_rate'] = denial_rate
+
         # Drug summary with date filter (parameterized query)
         # Show both reimb_amount (ยอดชดเชย) and claim_amount (ยอดเรียกเก็บ)
         # Include count of distinct cases and calculate rates
@@ -11905,38 +11920,68 @@ def list_files_by_type():
         db_type = os.environ.get('DB_TYPE', 'postgresql')
 
         # Get files from download_history with import status
-        # Note: download_history has its own imported column, but we also check eclaim_imported_files
-        if db_type == 'mysql':
-            query = """
-                SELECT dh.filename, dh.downloaded_at, dh.file_size,
-                       COALESCE(dh.imported, 0) as imported,
-                       ef.status as import_status,
-                       ef.total_records
-                FROM download_history dh
-                LEFT JOIN eclaim_imported_files ef ON dh.filename = ef.filename
-                WHERE dh.download_type = %s
-                ORDER BY dh.downloaded_at DESC
-                LIMIT %s
-            """
+        # Use different import tracking tables based on file type:
+        # - REP files: eclaim_imported_files
+        # - STM files: stm_imported_files
+        if file_type == 'stm':
+            # STM files use stm_imported_files table
+            if db_type == 'mysql':
+                query = """
+                    SELECT dh.filename, dh.downloaded_at, dh.file_size,
+                           COALESCE(dh.imported, 0) as imported,
+                           sf.status as import_status,
+                           sf.total_records
+                    FROM download_history dh
+                    LEFT JOIN stm_imported_files sf ON dh.filename = sf.filename
+                    WHERE dh.download_type = %s
+                    ORDER BY dh.downloaded_at DESC
+                    LIMIT %s
+                """
+            else:
+                query = """
+                    SELECT dh.filename, dh.downloaded_at, dh.file_size,
+                           COALESCE(dh.imported, false) as imported,
+                           sf.status as import_status,
+                           sf.total_records
+                    FROM download_history dh
+                    LEFT JOIN stm_imported_files sf ON dh.filename = sf.filename
+                    WHERE dh.download_type = %s
+                    ORDER BY dh.downloaded_at DESC
+                    LIMIT %s
+                """
         else:
-            query = """
-                SELECT dh.filename, dh.downloaded_at, dh.file_size,
-                       COALESCE(dh.imported, false) as imported,
-                       ef.status as import_status,
-                       ef.total_records
-                FROM download_history dh
-                LEFT JOIN eclaim_imported_files ef ON dh.filename = ef.filename
-                WHERE dh.download_type = %s
-                ORDER BY dh.downloaded_at DESC
-                LIMIT %s
-            """
+            # REP files use eclaim_imported_files table
+            if db_type == 'mysql':
+                query = """
+                    SELECT dh.filename, dh.downloaded_at, dh.file_size,
+                           COALESCE(dh.imported, 0) as imported,
+                           ef.status as import_status,
+                           ef.total_records
+                    FROM download_history dh
+                    LEFT JOIN eclaim_imported_files ef ON dh.filename = ef.filename
+                    WHERE dh.download_type = %s
+                    ORDER BY dh.downloaded_at DESC
+                    LIMIT %s
+                """
+            else:
+                query = """
+                    SELECT dh.filename, dh.downloaded_at, dh.file_size,
+                           COALESCE(dh.imported, false) as imported,
+                           ef.status as import_status,
+                           ef.total_records
+                    FROM download_history dh
+                    LEFT JOIN eclaim_imported_files ef ON dh.filename = ef.filename
+                    WHERE dh.download_type = %s
+                    ORDER BY dh.downloaded_at DESC
+                    LIMIT %s
+                """
 
         cursor.execute(query, (file_type, per_page))
         rows = cursor.fetchall()
 
         files = []
         for row in rows:
-            # Consider imported if either download_history.imported=true OR eclaim_imported_files has completed status
+            # Consider imported if either download_history.imported=true OR import table has completed status
             is_imported = bool(row[3]) or (row[4] == 'completed')
             files.append({
                 'filename': row[0],
