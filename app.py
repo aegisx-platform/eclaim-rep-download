@@ -62,6 +62,11 @@ def sql_format_year_month(column: str) -> str:
     return f"TO_CHAR({column}, 'YYYY-MM')"
 
 
+def sql_format_month(column: str) -> str:
+    """Generate SQL for formatting date as YYYY-MM (alias for sql_format_year_month)"""
+    return sql_format_year_month(column)
+
+
 def sql_cast_numeric(expr: str) -> str:
     """Generate SQL for casting to numeric type"""
     if DB_TYPE == 'mysql':
@@ -833,13 +838,43 @@ def data_management():
             if conn:
                 conn.close()
 
+    # Calculate file types count
+    file_types = {}
+    for f in filtered_files:
+        ftype = f.get('file_type', 'unknown').upper()
+        file_types[ftype] = file_types.get(ftype, 0) + 1
+
+    # Get last download time
+    last_run = 'Never'
+    if filtered_files:
+        try:
+            latest = max(filtered_files, key=lambda x: x.get('download_date', ''))
+            last_run = latest.get('download_date', 'Unknown')[:19]  # Truncate to datetime
+        except (ValueError, TypeError):
+            pass
+
     # Calculate stats (from filtered files to match filter selection)
     stats = {
         'total_files': len(filtered_files),
         'total_size': humanize.naturalsize(sum((f.get('file_size') or 0) for f in filtered_files)),
         'imported_count': filtered_imported_count,
-        'not_imported_count': filtered_not_imported_count
+        'not_imported_count': filtered_not_imported_count,
+        'file_types': file_types,
+        'last_run': last_run
     }
+
+    # Get schedule settings for display
+    schedule_settings = {
+        'schedule_enabled': current_settings.get('schedule_enabled', False),
+        'schedule_auto_import': current_settings.get('schedule_auto_import', False),
+        'schedule_times': current_settings.get('schedule_times', [])
+    }
+
+    # Get downloader status
+    downloader_status = downloader_runner.get_status()
+
+    # Get next scheduled jobs
+    schedule_jobs = download_scheduler.get_all_jobs() if download_scheduler else []
 
     return render_template(
         'data_management.html',
@@ -853,7 +888,10 @@ def data_management():
         filter_year=filter_year,
         available_dates=available_dates,
         settings=current_settings,
-        db_info=db_info
+        db_info=db_info,
+        schedule_settings=schedule_settings,
+        downloader_running=downloader_status.get('running', False),
+        schedule_jobs=schedule_jobs
     )
 
 
