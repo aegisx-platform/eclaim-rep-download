@@ -172,6 +172,24 @@
         </div>
     </nav>
 
+    <!-- Seed Initialization Banner -->
+    <div id="seed-init-banner" class="hidden bg-amber-50 border-b border-amber-200">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <span class="text-amber-800 font-medium">System setup incomplete.</span>
+                    <span class="text-amber-700 text-sm">Please initialize seed data before using the system.</span>
+                </div>
+                <a href="{{ url_for('setup') }}" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                    Go to Setup
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content -->
     <main class="container mx-auto px-4 py-8">
         {% block content %}{% endblock %}
@@ -200,5 +218,25 @@
 
     <!-- Scripts -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <!-- Seed Status Check Script -->
+    <script>
+        // Check seed status on page load and show banner if needed
+        document.addEventListener('DOMContentLoaded', function() {
+            // Skip check on setup page
+            if (window.location.pathname === '/setup') return;
+
+            fetch('/api/system/seed-status')
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success && data.needs_initialization) {
+                        document.getElementById('seed-init-banner').classList.remove('hidden');
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error checking seed status:', error);
+                });
+        });
+    </script>
 </body>
 </html>

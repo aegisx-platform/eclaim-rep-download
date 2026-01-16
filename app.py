@@ -314,8 +314,30 @@ def get_import_status_map():
 
 @app.route('/')
 def index():
-    """Redirect to dashboard"""
+    """Redirect to dashboard or setup if needed"""
+    # Check if setup is needed
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            # Quick check for essential seed data
+            cursor.execute("SELECT COUNT(*) FROM health_offices")
+            health_count = cursor.fetchone()[0]
+            cursor.close()
+            conn.close()
+
+            if health_count < 1000:
+                return redirect(url_for('setup'))
+    except:
+        pass
+
     return redirect(url_for('dashboard'))
+
+
+@app.route('/setup')
+def setup():
+    """System setup and initialization page"""
+    return render_template('setup.html')
 
 
 @app.route('/dashboard')
@@ -4912,6 +4934,211 @@ def check_health_and_alert():
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== Seed Data Initialization ====================
+
+# Global progress tracking for seed initialization
+seed_progress = {
+    'running': False,
+    'current_task': None,
+    'tasks': [],
+    'completed': 0,
+    'total': 0,
+    'error': None
+}
+
+
+@app.route('/api/system/seed-status')
+def get_seed_status():
+    """
+    Check if seed data initialization is needed.
+    Returns status of each seed data table.
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Check each seed table
+        seed_tables = {
+            'dim_date': {'name': 'Dimension Date', 'min_records': 100},
+            'health_offices': {'name': 'Health Offices', 'min_records': 1000},
+            'nhso_error_codes': {'name': 'NHSO Error Codes', 'min_records': 10},
+            'fund_types': {'name': 'Fund Types', 'min_records': 5},
+            'service_types': {'name': 'Service Types', 'min_records': 5}
+        }
+
+        results = {}
+        needs_init = False
+
+        for table, info in seed_tables.items():
+            try:
+                cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                count = cursor.fetchone()[0]
+                is_empty = count < info['min_records']
+                results[table] = {
+                    'name': info['name'],
+                    'count': count,
+                    'is_empty': is_empty,
+                    'min_required': info['min_records']
+                }
+                if is_empty:
+                    needs_init = True
+            except Exception as e:
+                results[table] = {
+                    'name': info['name'],
+                    'count': 0,
+                    'is_empty': True,
+                    'error': str(e)
+                }
+                needs_init = True
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'needs_initialization': needs_init,
+            'tables': results,
+            'seed_running': seed_progress['running'],
+            'seed_progress': seed_progress if seed_progress['running'] else None
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/system/seed-init', methods=['POST'])
+def run_seed_initialization():
+    """
+    Start seed data initialization process.
+    Runs in background and updates progress.
+    """
+    global seed_progress
+
+    if seed_progress['running']:
+        return jsonify({
+            'success': False,
+            'error': 'Seed initialization already running',
+            'progress': seed_progress
+        }), 400
+
+    # Start seed process in background thread
+    import threading
+
+    def run_seeds():
+        global seed_progress
+        seed_progress = {
+            'running': True,
+            'current_task': None,
+            'tasks': [
+                {'id': 'dim', 'name': 'Dimension Tables', 'status': 'pending', 'records': 0},
+                {'id': 'health', 'name': 'Health Offices', 'status': 'pending', 'records': 0},
+                {'id': 'errors', 'name': 'NHSO Error Codes', 'status': 'pending', 'records': 0}
+            ],
+            'completed': 0,
+            'total': 3,
+            'error': None,
+            'started_at': datetime.now(TZ_BANGKOK).isoformat()
+        }
+
+        try:
+            # Task 1: Dimension tables (migrate.py --seed)
+            seed_progress['current_task'] = 'dim'
+            seed_progress['tasks'][0]['status'] = 'running'
+
+            import subprocess
+            import os
+            cwd = os.environ.get('APP_ROOT', os.path.dirname(os.path.abspath(__file__)))
+            result = subprocess.run(
+                ['python', 'database/migrate.py', '--seed'],
+                capture_output=True,
+                text=True,
+                cwd=cwd
+            )
+            if result.returncode != 0:
+                raise Exception(f"Dimension seed failed: {result.stderr}")
+
+            seed_progress['tasks'][0]['status'] = 'completed'
+            seed_progress['tasks'][0]['records'] = 2600  # Approximate
+            seed_progress['completed'] = 1
+
+            # Task 2: Health Offices
+            seed_progress['current_task'] = 'health'
+            seed_progress['tasks'][1]['status'] = 'running'
+
+            result = subprocess.run(
+                ['python', 'database/seeds/health_offices_importer.py'],
+                capture_output=True,
+                text=True,
+                cwd=cwd
+            )
+            if result.returncode != 0:
+                raise Exception(f"Health offices seed failed: {result.stderr}")
+
+            # Parse record count from output
+            import re
+            match = re.search(r'Imported: (\d+)', result.stdout)
+            records = int(match.group(1)) if match else 43884
+
+            seed_progress['tasks'][1]['status'] = 'completed'
+            seed_progress['tasks'][1]['records'] = records
+            seed_progress['completed'] = 2
+
+            # Task 3: NHSO Error Codes
+            seed_progress['current_task'] = 'errors'
+            seed_progress['tasks'][2]['status'] = 'running'
+
+            # Pass the correct path to the error codes SQL file
+            sql_file = os.path.join(cwd, 'database/seeds/nhso_error_codes.sql')
+            result = subprocess.run(
+                ['python', 'database/seeds/nhso_error_codes_importer.py', sql_file],
+                capture_output=True,
+                text=True,
+                cwd=cwd
+            )
+            if result.returncode != 0:
+                raise Exception(f"Error codes seed failed: {result.stderr}")
+
+            seed_progress['tasks'][2]['status'] = 'completed'
+            seed_progress['tasks'][2]['records'] = 200  # Approximate
+            seed_progress['completed'] = 3
+
+            seed_progress['current_task'] = None
+            seed_progress['finished_at'] = datetime.now(TZ_BANGKOK).isoformat()
+
+        except Exception as e:
+            seed_progress['error'] = str(e)
+            # Mark current task as failed
+            for task in seed_progress['tasks']:
+                if task['status'] == 'running':
+                    task['status'] = 'failed'
+                    task['error'] = str(e)
+
+        finally:
+            seed_progress['running'] = False
+
+    thread = threading.Thread(target=run_seeds, daemon=True)
+    thread.start()
+
+    return jsonify({
+        'success': True,
+        'message': 'Seed initialization started',
+        'progress': seed_progress
+    })
+
+
+@app.route('/api/system/seed-progress')
+def get_seed_progress():
+    """Get current seed initialization progress"""
+    return jsonify({
+        'success': True,
+        'progress': seed_progress
+    })
 
 
 @app.route('/api/system/sync-status', methods=['POST'])
@@ -11642,6 +11869,91 @@ def get_files_update_status():
             },
             'by_type': status_by_type,
             'summary': summary
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/files')
+def list_files_by_type():
+    """
+    List files from download_history with import status.
+
+    Query parameters:
+        type: 'rep' or 'stm' (required)
+        per_page: number of files (default 100)
+
+    Returns:
+        {
+            "success": true,
+            "files": [
+                {"filename": "...", "imported": true/false, "download_date": "..."}
+            ]
+        }
+    """
+    try:
+        file_type = request.args.get('type', 'rep')
+        per_page = request.args.get('per_page', 100, type=int)
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        db_type = os.environ.get('DB_TYPE', 'postgresql')
+
+        # Get files from download_history with import status
+        # Note: download_history has its own imported column, but we also check eclaim_imported_files
+        if db_type == 'mysql':
+            query = """
+                SELECT dh.filename, dh.downloaded_at, dh.file_size,
+                       COALESCE(dh.imported, 0) as imported,
+                       ef.status as import_status,
+                       ef.total_records
+                FROM download_history dh
+                LEFT JOIN eclaim_imported_files ef ON dh.filename = ef.filename
+                WHERE dh.download_type = %s
+                ORDER BY dh.downloaded_at DESC
+                LIMIT %s
+            """
+        else:
+            query = """
+                SELECT dh.filename, dh.downloaded_at, dh.file_size,
+                       COALESCE(dh.imported, false) as imported,
+                       ef.status as import_status,
+                       ef.total_records
+                FROM download_history dh
+                LEFT JOIN eclaim_imported_files ef ON dh.filename = ef.filename
+                WHERE dh.download_type = %s
+                ORDER BY dh.downloaded_at DESC
+                LIMIT %s
+            """
+
+        cursor.execute(query, (file_type, per_page))
+        rows = cursor.fetchall()
+
+        files = []
+        for row in rows:
+            # Consider imported if either download_history.imported=true OR eclaim_imported_files has completed status
+            is_imported = bool(row[3]) or (row[4] == 'completed')
+            files.append({
+                'filename': row[0],
+                'download_date': row[1].isoformat() if row[1] else None,
+                'file_size': row[2],
+                'imported': is_imported,
+                'import_status': row[4],
+                'total_records': row[5]
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'files': files,
+            'total': len(files)
         })
 
     except Exception as e:
