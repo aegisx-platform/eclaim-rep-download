@@ -440,11 +440,11 @@ reimport-all:
 	@$(MAKE) db-status
 
 scan-files:
-	@echo "$(BOLD)$(GREEN)==> Scanning files and registering to history...$(RESET)"
+	@echo "$(BOLD)$(GREEN)==> Scanning files and registering to database...$(RESET)"
 	@if docker-compose ps | grep -q "web.*Up"; then \
-		docker-compose exec web curl -s -X POST http://localhost:5001/api/files/scan | python -m json.tool; \
+		docker-compose exec -T web curl -s -X POST http://localhost:5001/api/files/scan | python3 -m json.tool; \
 	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
-		docker-compose -f $(COMPOSE_MYSQL) exec web curl -s -X POST http://localhost:5001/api/files/scan | python -m json.tool; \
+		docker-compose -f $(COMPOSE_MYSQL) exec -T web curl -s -X POST http://localhost:5001/api/files/scan | python3 -m json.tool; \
 	else \
 		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
 		exit 1; \
