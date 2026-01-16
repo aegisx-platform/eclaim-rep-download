@@ -1,4 +1,4 @@
-.PHONY: help setup build pull up down restart logs shell db-shell clean test migrate seed release
+.PHONY: help setup build pull up down restart logs shell db-shell clean test migrate seed release import-rep import-stm import-smt reimport-all
 
 # Configuration
 COMPOSE_FILE ?= docker-compose.yml
@@ -58,9 +58,10 @@ help:
 	@echo "  make db-status      - Show database status & record counts"
 	@echo ""
 	@echo "$(CYAN)Import & Download:$(RESET)"
-	@echo "  make import         - Import all files from downloads/"
 	@echo "  make import-rep     - Import REP files from downloads/rep/"
 	@echo "  make import-stm     - Import STM files from downloads/stm/"
+	@echo "  make import-smt     - Fetch and import SMT budget from API"
+	@echo "  make reimport-all   - Re-import all data (REP + STM + SMT)"
 	@echo "  make import-file    - Import single file (FILE=path)"
 	@echo "  make scan-files     - Scan downloads/ and register files to history"
 	@echo "  make download       - Run manual download"
@@ -364,9 +365,9 @@ import:
 import-rep:
 	@echo "$(BOLD)$(GREEN)==> Importing REP files from downloads/rep/...$(RESET)"
 	@if docker-compose ps | grep -q "web.*Up"; then \
-		docker-compose exec web python eclaim_import.py --directory /app/downloads/rep/; \
+		docker-compose exec -T web bash -c 'for f in downloads/rep/eclaim_*.xls; do [ -f "$$f" ] && python eclaim_import.py "$$f" 2>&1 | grep -E "✓|✗|records"; done'; \
 	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
-		docker-compose -f $(COMPOSE_MYSQL) exec web python eclaim_import.py --directory /app/downloads/rep/; \
+		docker-compose -f $(COMPOSE_MYSQL) exec -T web bash -c 'for f in downloads/rep/eclaim_*.xls; do [ -f "$$f" ] && python eclaim_import.py "$$f" 2>&1 | grep -E "✓|✗|records"; done'; \
 	else \
 		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
 		exit 1; \
@@ -376,14 +377,41 @@ import-rep:
 import-stm:
 	@echo "$(BOLD)$(GREEN)==> Importing STM files from downloads/stm/...$(RESET)"
 	@if docker-compose ps | grep -q "web.*Up"; then \
-		docker-compose exec web python stm_import.py /app/downloads/stm/; \
+		docker-compose exec -T web python stm_import.py downloads/stm/; \
 	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
-		docker-compose -f $(COMPOSE_MYSQL) exec web python stm_import.py /app/downloads/stm/; \
+		docker-compose -f $(COMPOSE_MYSQL) exec -T web python stm_import.py downloads/stm/; \
 	else \
 		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
 		exit 1; \
 	fi
 	@echo "$(GREEN)✓$(RESET) STM import complete"
+
+import-smt:
+	@echo "$(BOLD)$(GREEN)==> Fetching and importing SMT budget data...$(RESET)"
+	@if docker-compose ps | grep -q "web.*Up"; then \
+		docker-compose exec -T web python smt_budget_fetcher.py --save-db; \
+	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
+		docker-compose -f $(COMPOSE_MYSQL) exec -T web python smt_budget_fetcher.py --save-db; \
+	else \
+		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓$(RESET) SMT import complete"
+
+reimport-all:
+	@echo "$(BOLD)$(GREEN)==> Re-importing all data (REP, STM, SMT)...$(RESET)"
+	@echo ""
+	@echo "$(CYAN)Step 1/3: Importing REP files...$(RESET)"
+	@$(MAKE) import-rep
+	@echo ""
+	@echo "$(CYAN)Step 2/3: Importing STM files...$(RESET)"
+	@$(MAKE) import-stm
+	@echo ""
+	@echo "$(CYAN)Step 3/3: Fetching SMT budget...$(RESET)"
+	@$(MAKE) import-smt
+	@echo ""
+	@echo "$(GREEN)✓$(RESET) All imports complete!"
+	@$(MAKE) db-status
 
 scan-files:
 	@echo "$(BOLD)$(GREEN)==> Scanning files and registering to history...$(RESET)"
