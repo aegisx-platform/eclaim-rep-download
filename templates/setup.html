@@ -750,14 +750,11 @@
         showProgressModal('Importing ' + type.toUpperCase() + ' Files', 'Importing ' + files.length + ' ' + type.toUpperCase() + ' files...');
 
         try {
-            const filenames = files.map(function(f) { return f.filename; });
-            const response = await fetch('/api/import/start', {
+            // Use correct endpoint based on type
+            const endpoint = type === 'stm' ? '/api/stm/import-all' : '/import/all';
+            const response = await fetch(endpoint, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    files: filenames,
-                    download_type: type
-                })
+                headers: { 'Content-Type': 'application/json' }
             });
             const data = await response.json();
 
@@ -796,25 +793,12 @@
         showProgressModal('Importing All Data', 'Starting import of ' + totalFiles + ' files...');
 
         try {
-            // Combine all files with their types
-            const allFiles = [];
-            repFiles.forEach(function(f) {
-                allFiles.push({ filename: f.filename, type: 'rep' });
-            });
-            stmFiles.forEach(function(f) {
-                allFiles.push({ filename: f.filename, type: 'stm' });
-            });
-
             // Start with REP files first
             if (repFiles.length > 0) {
-                document.getElementById('progress-message').textContent = 'Importing REP files...';
-                const repResponse = await fetch('/api/import/start', {
+                document.getElementById('progress-message').textContent = 'Importing REP files (' + repFiles.length + ')...';
+                const repResponse = await fetch('/import/all', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        files: repFiles.map(function(f) { return f.filename; }),
-                        download_type: 'rep'
-                    })
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 const repData = await repResponse.json();
 
@@ -826,14 +810,13 @@
 
             // Then import STM files
             if (stmFiles.length > 0) {
-                document.getElementById('progress-message').textContent = 'Importing STM files...';
-                const stmResponse = await fetch('/api/import/start', {
+                document.getElementById('progress-message').textContent = 'Importing STM files (' + stmFiles.length + ')...';
+                document.getElementById('progress-bar').style.width = '0%';
+                document.getElementById('progress-percent').textContent = '0%';
+
+                const stmResponse = await fetch('/api/stm/import-all', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        files: stmFiles.map(function(f) { return f.filename; }),
-                        download_type: 'stm'
-                    })
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 const stmData = await stmResponse.json();
 
@@ -844,7 +827,7 @@
                 }
             }
 
-            // If only REP was imported
+            // If only REP was imported (no STM files)
             updateProgressModal('Import Complete', 'All data imported successfully!', true);
             setTimeout(function() {
                 loadFileStatus();
@@ -874,6 +857,13 @@
                             document.getElementById('progress-bar').style.width = percent + '%';
                             document.getElementById('progress-percent').textContent = percent + '%';
                             document.getElementById('progress-counter').textContent = '[' + completedFiles + '/' + totalFiles + '] files';
+
+                            // Show current file if available
+                            const currentFile = progress.current_file || '';
+                            if (currentFile) {
+                                document.getElementById('progress-current-file').classList.remove('hidden');
+                                document.getElementById('progress-filename').textContent = currentFile;
+                            }
 
                             setTimeout(checkProgress, 500);
                         } else {
