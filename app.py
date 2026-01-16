@@ -14,6 +14,8 @@ import traceback
 from utils import FileManager, DownloaderRunner
 from utils.history_manager_db import HistoryManagerDB
 from utils.import_runner import ImportRunner
+from utils.stm_import_runner import STMImportRunner
+from utils.unified_import_runner import unified_import_runner
 from utils.log_stream import log_streamer
 from utils.settings_manager import SettingsManager
 from utils.scheduler import download_scheduler
@@ -157,6 +159,7 @@ stm_history_manager = HistoryManagerDB(download_type='stm')  # Statement files
 file_manager = FileManager()
 downloader_runner = DownloaderRunner()
 import_runner = ImportRunner()
+stm_import_runner = STMImportRunner()
 settings_manager = SettingsManager()
 
 
@@ -556,7 +559,7 @@ def download_file(filename):
 @app.route('/api/imports/rep/<filename>', methods=['POST'])
 @app.route('/import/file/<filename>', methods=['POST'])  # Legacy alias
 def import_file(filename):
-    """Import single file to database"""
+    """Import single REP file to database"""
     try:
         # Validate filename
         file_path = file_manager.get_file_path(filename)
@@ -564,17 +567,8 @@ def import_file(filename):
         if not file_path.exists():
             return jsonify({'success': False, 'error': 'File not found'}), 404
 
-        # Check if already imported
-        import_status_map = get_import_status_map()
-        if filename in import_status_map:
-            return jsonify({
-                'success': False,
-                'error': 'File already imported',
-                'file_id': import_status_map[filename]['file_id']
-            }), 409
-
-        # Start import process in background
-        result = import_runner.start_single_import(str(file_path))
+        # Start import process in background using unified runner
+        result = unified_import_runner.start_single_file_import('rep', str(file_path))
 
         if result['success']:
             return jsonify(result), 200
@@ -590,26 +584,8 @@ def import_file(filename):
 def import_all_files():
     """Import all REP files that haven't been imported yet"""
     try:
-        all_files = history_manager.get_all_downloads()
-        import_status_map = get_import_status_map()
-
-        # Filter out already imported files
-        not_imported = [
-            f for f in all_files
-            if f.get('filename', '') not in import_status_map
-        ]
-
-        if not not_imported:
-            return jsonify({
-                'success': True,
-                'message': 'All files already imported',
-                'total': 0,
-                'skipped': len(all_files)
-            }), 200
-
-        # Start bulk import process in background (REP files in downloads/rep)
-        downloads_dir = Path('downloads/rep')
-        result = import_runner.start_bulk_import(str(downloads_dir))
+        # Start bulk import process in background using unified runner
+        result = unified_import_runner.start_import('rep')
 
         if result['success']:
             return jsonify(result), 200
@@ -623,13 +599,23 @@ def import_all_files():
 @app.route('/api/imports/progress')
 @app.route('/import/progress')  # Legacy alias
 def import_progress():
-    """Get real-time import progress"""
+    """Get real-time import progress (unified for all types)"""
     try:
-        progress = import_runner.get_progress()
-        return jsonify(progress)
+        progress = unified_import_runner.get_progress()
+        return jsonify({'success': True, 'progress': progress})
 
     except Exception as e:
-        return jsonify({'running': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'running': False, 'error': str(e)}), 500
+
+
+@app.route('/api/imports/cancel', methods=['POST'])
+def cancel_import():
+    """Cancel currently running import"""
+    try:
+        result = unified_import_runner.stop()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/stats')
@@ -3482,18 +3468,13 @@ def import_stm_file_route(filename):
         if not filename.startswith('STM_'):
             return jsonify({'success': False, 'error': 'Not a valid STM file'}), 400
 
-        from config.database import get_db_config, DB_TYPE
-        from utils.stm.importer import STMImporter
+        # Start import process in background using unified runner
+        result = unified_import_runner.start_single_file_import('stm', str(file_path))
 
-        db_config = get_db_config()
-        importer = STMImporter(db_config, DB_TYPE)
-
-        try:
-            importer.connect()
-            result = importer.import_file(str(file_path))
-            return jsonify(result)
-        finally:
-            importer.disconnect()
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 409 if 'already running' in result.get('error', '').lower() else 500
 
     except Exception as e:
         app.logger.error(f"STM import error: {e}")
@@ -3503,77 +3484,32 @@ def import_stm_file_route(filename):
 @app.route('/api/imports/stm', methods=['POST'])
 @app.route('/api/stm/import-all', methods=['POST'])  # Legacy alias
 def import_all_stm_files():
-    """Import all pending Statement files"""
+    """Import all pending Statement files (background process)"""
     try:
-        download_dir = Path('downloads/stm')
-        from config.database import get_db_config, DB_TYPE
-        from utils.stm.importer import STMImporter
+        # Start bulk import in background using unified runner
+        result = unified_import_runner.start_import('stm')
 
-        db_config = get_db_config()
-        results = {
-            'total': 0,
-            'success': 0,
-            'failed': 0,
-            'skipped': 0,
-            'details': []
-        }
-
-        # Get list of already imported files
-        imported_files = set()
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT filename FROM stm_imported_files WHERE status = 'completed'"
-            )
-            imported_files = {row[0] for row in cursor.fetchall()}
-            cursor.close()
-            conn.close()
-        except Exception as e:
-            app.logger.warning(f"Could not check existing STM imports: {e}")
-
-        importer = STMImporter(db_config, DB_TYPE)
-        try:
-            importer.connect()
-
-            for f in sorted(download_dir.glob('STM_*.xls')):
-                results['total'] += 1
-
-                # Check if already imported
-                if f.name in imported_files:
-                    results['skipped'] += 1
-                    continue
-
-                # Import file
-                try:
-                    result = importer.import_file(str(f))
-                    if result.get('success'):
-                        results['success'] += 1
-                    else:
-                        results['failed'] += 1
-                    results['details'].append({
-                        'filename': f.name,
-                        'success': result.get('success', False),
-                        'records': result.get('claim_records', 0),
-                        'file_type': result.get('file_type'),
-                        'scheme': result.get('scheme'),
-                        'error': result.get('error')
-                    })
-                except Exception as e:
-                    results['failed'] += 1
-                    results['details'].append({
-                        'filename': f.name,
-                        'success': False,
-                        'error': str(e)
-                    })
-
-        finally:
-            importer.disconnect()
-
-        return jsonify({'success': True, **results})
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            status_code = 409 if 'already running' in result.get('error', '').lower() else 500
+            return jsonify(result), status_code
 
     except Exception as e:
         app.logger.error(f"STM import-all error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/imports/stm/progress')
+@app.route('/api/stm/import/progress')  # Legacy alias
+def stm_import_progress():
+    """Get real-time STM import progress (alias for unified progress)"""
+    try:
+        # Use unified progress endpoint
+        progress = unified_import_runner.get_progress()
+        return jsonify({'success': True, 'progress': progress})
+    except Exception as e:
+        app.logger.error(f"STM import progress error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -6566,34 +6502,13 @@ def api_smt_import_file(filename):
         if not file_path.exists():
             return jsonify({'success': False, 'error': 'File not found'}), 404
 
-        # Import CSV to database
-        from smt_budget_fetcher import SMTBudgetFetcher
-        import csv
+        # Start import process in background using unified runner
+        result = unified_import_runner.start_single_file_import('smt', str(file_path))
 
-        fetcher = SMTBudgetFetcher()
-        records = []
-
-        with open(file_path, 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                records.append(row)
-
-        if not records:
-            return jsonify({'success': False, 'error': 'No records in file'}), 400
-
-        saved_count = fetcher.save_to_database(records)
-
-        log_streamer.write_log(
-            f"✓ Imported {saved_count} records from {safe_filename}",
-            'success',
-            'smt'
-        )
-
-        return jsonify({
-            'success': True,
-            'message': f'Imported {saved_count} records',
-            'imported': saved_count
-        })
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 409 if 'already running' in result.get('error', '').lower() else 500
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -6602,52 +6517,36 @@ def api_smt_import_file(filename):
 @app.route('/api/imports/smt', methods=['POST'])
 @app.route('/api/smt/import-all', methods=['POST'])  # Legacy alias
 def api_smt_import_all():
-    """Import all SMT files to database"""
+    """Import all SMT files to database (background process)"""
     try:
         smt_dir = Path('downloads/smt')
         if not smt_dir.exists():
             return jsonify({'success': False, 'error': 'No SMT files directory'}), 400
 
-        from smt_budget_fetcher import SMTBudgetFetcher
-        import csv
+        # Start bulk import in background using unified runner
+        result = unified_import_runner.start_import('smt')
 
-        fetcher = SMTBudgetFetcher()
-        total_imported = 0
-        files_processed = 0
-
-        for f in smt_dir.glob('smt_budget_*.csv'):
-            try:
-                records = []
-                with open(f, 'r', encoding='utf-8-sig') as file:
-                    reader = csv.DictReader(file)
-                    for row in reader:
-                        records.append(row)
-
-                if records:
-                    saved = fetcher.save_to_database(records)
-                    total_imported += saved
-                    files_processed += 1
-            except Exception as e:
-                log_streamer.write_log(
-                    f"Error importing {f.name}: {str(e)}",
-                    'error',
-                    'smt'
-                )
-
-        log_streamer.write_log(
-            f"✓ Imported {total_imported} records from {files_processed} files",
-            'success',
-            'smt'
-        )
-
-        return jsonify({
-            'success': True,
-            'message': f'Imported {total_imported} records from {files_processed} files',
-            'imported': total_imported,
-            'files': files_processed
-        })
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            status_code = 409 if 'already running' in result.get('error', '').lower() else 500
+            return jsonify(result), status_code
 
     except Exception as e:
+        app.logger.error(f"SMT import-all error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/imports/smt/progress')
+@app.route('/api/smt/import/progress')  # Legacy alias
+def smt_import_progress():
+    """Get real-time SMT import progress (alias for unified progress)"""
+    try:
+        # Use unified progress endpoint
+        progress = unified_import_runner.get_progress()
+        return jsonify({'success': True, 'progress': progress})
+    except Exception as e:
+        app.logger.error(f"SMT import progress error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -8413,6 +8312,187 @@ def api_denial_root_cause():
 
     except Exception as e:
         app.logger.error(f"Error in denial root cause: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/efficiency')
+def api_analytics_efficiency():
+    """
+    Claims Efficiency Metrics - วัดประสิทธิภาพการส่งเคลม
+
+    Metrics:
+    - First-Pass Rate: % เคลมที่ผ่านรอบแรก (ไม่มี error_code)
+    - Denial Rate: % เคลมที่ถูกปฏิเสธ
+    - Reimbursement Rate: % ที่ได้คืนจากยอดเคลม
+    - Efficiency by Fund: ประสิทธิภาพตามสิทธิ
+    - OP vs IP Efficiency: เปรียบเทียบ OPD/IPD
+    - Monthly Trend: trend ประสิทธิภาพรายเดือน
+    """
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Get date filter
+        date_filter, filter_params, filter_info = get_analytics_date_filter()
+        base_where = "dateadm IS NOT NULL"
+        if date_filter:
+            base_where = base_where + " AND " + date_filter
+
+        # 1. Overall Efficiency Metrics
+        overall_query = """
+            SELECT
+                COUNT(*) as total_claims,
+                COUNT(CASE WHEN error_code IS NULL OR error_code = '' THEN 1 END) as passed_claims,
+                COUNT(CASE WHEN error_code IS NOT NULL AND error_code != '' THEN 1 END) as denied_claims,
+                COALESCE(SUM(claim_drg), 0) as total_claimed,
+                COALESCE(SUM(reimb_nhso), 0) as total_reimbursed,
+                COALESCE(SUM(CASE WHEN error_code IS NULL OR error_code = '' THEN claim_drg ELSE 0 END), 0) as passed_claimed,
+                COALESCE(SUM(CASE WHEN error_code IS NULL OR error_code = '' THEN reimb_nhso ELSE 0 END), 0) as passed_reimbursed
+            FROM claim_rep_opip_nhso_item
+            WHERE """ + base_where
+        cursor.execute(overall_query, filter_params)
+        row = cursor.fetchone()
+
+        total_claims = row[0] or 0
+        passed_claims = row[1] or 0
+        denied_claims = row[2] or 0
+        total_claimed = float(row[3] or 0)
+        total_reimbursed = float(row[4] or 0)
+
+        # Calculate rates
+        first_pass_rate = round(passed_claims / total_claims * 100, 1) if total_claims > 0 else 0
+        denial_rate = round(denied_claims / total_claims * 100, 1) if total_claims > 0 else 0
+        reimb_rate = round(total_reimbursed / total_claimed * 100, 1) if total_claimed > 0 else 0
+        loss_amount = total_claimed - total_reimbursed
+
+        overall = {
+            'total_claims': total_claims,
+            'passed_claims': passed_claims,
+            'denied_claims': denied_claims,
+            'total_claimed': total_claimed,
+            'total_reimbursed': total_reimbursed,
+            'loss_amount': loss_amount,
+            'first_pass_rate': first_pass_rate,
+            'denial_rate': denial_rate,
+            'reimb_rate': reimb_rate
+        }
+
+        # 2. Efficiency by Service Type (OP vs IP)
+        service_query = """
+            SELECT
+                CASE WHEN an IS NOT NULL AND an != '' THEN 'IP' ELSE 'OP' END as service_type,
+                COUNT(*) as claims,
+                COUNT(CASE WHEN error_code IS NULL OR error_code = '' THEN 1 END) as passed,
+                COALESCE(SUM(claim_drg), 0) as claimed,
+                COALESCE(SUM(reimb_nhso), 0) as reimbursed
+            FROM claim_rep_opip_nhso_item
+            WHERE """ + base_where + """
+            GROUP BY CASE WHEN an IS NOT NULL AND an != '' THEN 'IP' ELSE 'OP' END
+            ORDER BY service_type
+        """
+        cursor.execute(service_query, filter_params)
+        service_rows = cursor.fetchall()
+
+        by_service = []
+        for row in service_rows:
+            svc_type, claims, passed, claimed, reimbursed = row
+            claimed = float(claimed or 0)
+            reimbursed = float(reimbursed or 0)
+            by_service.append({
+                'type': svc_type,
+                'claims': claims,
+                'passed': passed,
+                'first_pass_rate': round(passed / claims * 100, 1) if claims > 0 else 0,
+                'claimed': claimed,
+                'reimbursed': reimbursed,
+                'reimb_rate': round(reimbursed / claimed * 100, 1) if claimed > 0 else 0,
+                'loss': claimed - reimbursed
+            })
+
+        # 3. Efficiency by Fund (สิทธิ)
+        fund_query = """
+            SELECT
+                COALESCE(main_fund, 'ไม่ระบุ') as fund,
+                COUNT(*) as claims,
+                COUNT(CASE WHEN error_code IS NULL OR error_code = '' THEN 1 END) as passed,
+                COALESCE(SUM(claim_drg), 0) as claimed,
+                COALESCE(SUM(reimb_nhso), 0) as reimbursed
+            FROM claim_rep_opip_nhso_item
+            WHERE """ + base_where + """
+            GROUP BY COALESCE(main_fund, 'ไม่ระบุ')
+            ORDER BY SUM(claim_drg) DESC
+            LIMIT 10
+        """
+        cursor.execute(fund_query, filter_params)
+        fund_rows = cursor.fetchall()
+
+        by_fund = []
+        for row in fund_rows:
+            fund, claims, passed, claimed, reimbursed = row
+            claimed = float(claimed or 0)
+            reimbursed = float(reimbursed or 0)
+            by_fund.append({
+                'fund': fund,
+                'claims': claims,
+                'passed': passed,
+                'first_pass_rate': round(passed / claims * 100, 1) if claims > 0 else 0,
+                'claimed': claimed,
+                'reimbursed': reimbursed,
+                'reimb_rate': round(reimbursed / claimed * 100, 1) if claimed > 0 else 0,
+                'loss': claimed - reimbursed
+            })
+
+        # 4. Monthly Efficiency Trend (last 6 months)
+        monthly_query = """
+            SELECT
+                """ + sql_format_month('dateadm') + """ as month,
+                COUNT(*) as claims,
+                COUNT(CASE WHEN error_code IS NULL OR error_code = '' THEN 1 END) as passed,
+                COALESCE(SUM(claim_drg), 0) as claimed,
+                COALESCE(SUM(reimb_nhso), 0) as reimbursed
+            FROM claim_rep_opip_nhso_item
+            WHERE dateadm IS NOT NULL
+            GROUP BY """ + sql_format_month('dateadm') + """
+            ORDER BY """ + sql_format_month('dateadm') + """ DESC
+            LIMIT 6
+        """
+        cursor.execute(monthly_query)
+        monthly_rows = cursor.fetchall()
+
+        monthly_trend = []
+        for row in monthly_rows:
+            month, claims, passed, claimed, reimbursed = row
+            claimed = float(claimed or 0)
+            reimbursed = float(reimbursed or 0)
+            monthly_trend.append({
+                'month': month,
+                'claims': claims,
+                'first_pass_rate': round(passed / claims * 100, 1) if claims > 0 else 0,
+                'reimb_rate': round(reimbursed / claimed * 100, 1) if claimed > 0 else 0
+            })
+
+        # Reverse to show oldest first
+        monthly_trend.reverse()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'overall': overall,
+                'by_service': by_service,
+                'by_fund': by_fund,
+                'monthly_trend': monthly_trend,
+                'filter': filter_info
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in efficiency metrics: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

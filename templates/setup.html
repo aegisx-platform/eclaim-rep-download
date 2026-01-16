@@ -841,10 +841,9 @@
                 const stmData = await stmResponse.json();
 
                 if (stmData.success) {
-                    // STM import is synchronous, just update UI
-                    document.getElementById('progress-bar').style.width = '100%';
-                    document.getElementById('progress-percent').textContent = '100%';
-                    importedTypes.push('STM (' + (stmData.success || stmFiles.length) + ')');
+                    // STM import now runs in background - use unified polling
+                    await waitForImportComplete();
+                    importedTypes.push('STM (' + stmFiles.length + ')');
                 }
             }
 
@@ -864,9 +863,9 @@
                 const smtData = await smtResponse.json();
 
                 if (smtData.success) {
-                    document.getElementById('progress-bar').style.width = '100%';
-                    document.getElementById('progress-percent').textContent = '100%';
-                    importedTypes.push('SMT (' + (smtData.imported || smtFiles.length) + ')');
+                    // SMT import now runs in background - use unified polling
+                    await waitForImportComplete();
+                    importedTypes.push('SMT (' + smtFiles.length + ')');
                 }
             }
 
@@ -887,6 +886,7 @@
         }
     }
 
+    // Unified progress polling function for all import types
     function waitForImportComplete() {
         return new Promise(function(resolve) {
             function checkProgress() {
@@ -913,8 +913,8 @@
                             document.getElementById('progress-filename').textContent = currentFile;
                         }
 
-                        // Update statistics
-                        const recordsImported = progress.total_records_imported || progress.records_imported || 0;
+                        // Update statistics - use standardized field names
+                        const recordsImported = progress.records_imported || progress.total_records_imported || 0;
                         const failedCount = (progress.failed_files && progress.failed_files.length) || 0;
                         if (recordsImported > 0 || completedFiles > 0) {
                             document.getElementById('progress-stats').classList.remove('hidden');
@@ -944,12 +944,12 @@
             const response = await fetch('/api/imports/progress');
             const data = await response.json();
 
-            // Handle both legacy format and new format
+            // Unified progress format
             const progress = data.progress || data;
             const totalFiles = progress.total_files || progress.total || 0;
             const completedFiles = progress.completed_files || progress.processed || 0;
             const percent = totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 0;
-            const isRunning = progress.running || progress.is_running || progress.status === 'running';
+            const isRunning = progress.running || progress.status === 'running';
 
             // Update progress bar and percentage
             document.getElementById('progress-bar').style.width = percent + '%';
@@ -971,13 +971,13 @@
                 document.getElementById('progress-message').textContent = 'Processing...';
             }
 
-            // Update statistics
-            const recordsImported = progress.records_imported || progress.total_records || 0;
-            const failedFiles = progress.failed_files || 0;
-            if (recordsImported > 0 || failedFiles > 0 || completedFiles > 0) {
+            // Update statistics - use standardized field names
+            const recordsImported = progress.records_imported || 0;
+            const failedCount = (progress.failed_files && progress.failed_files.length) || 0;
+            if (recordsImported > 0 || failedCount > 0 || completedFiles > 0) {
                 document.getElementById('progress-stats').classList.remove('hidden');
                 document.getElementById('progress-stat-imported').textContent = completedFiles.toLocaleString();
-                document.getElementById('progress-stat-failed').textContent = failedFiles.toLocaleString();
+                document.getElementById('progress-stat-failed').textContent = failedCount.toLocaleString();
                 document.getElementById('progress-stat-records').textContent = recordsImported.toLocaleString();
             }
 
@@ -985,8 +985,8 @@
                 setTimeout(pollImportProgress, 500);
             } else {
                 // Import completed
-                const message = failedFiles > 0
-                    ? 'Imported ' + completedFiles + ' files, ' + failedFiles + ' failed'
+                const message = failedCount > 0
+                    ? 'Imported ' + completedFiles + ' files, ' + failedCount + ' failed'
                     : 'Imported ' + completedFiles + ' files successfully';
                 updateProgressModal('Import Complete', message, true);
                 // Delay to ensure database commits are complete, then reload file status
