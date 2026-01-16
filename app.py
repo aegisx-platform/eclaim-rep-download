@@ -490,7 +490,8 @@ def files():
     )
 
 
-@app.route('/download/trigger', methods=['POST'])
+@app.route('/api/downloads/single', methods=['POST'])
+@app.route('/download/trigger', methods=['POST'])  # Legacy alias
 def trigger_download():
     """Trigger downloader as background process"""
     data = request.get_json() or {}
@@ -504,14 +505,16 @@ def trigger_download():
         return jsonify(result), 409 if 'already running' in result.get('error', '').lower() else 500
 
 
-@app.route('/download/status')
+@app.route('/api/downloads/status')
+@app.route('/download/status')  # Legacy alias
 def download_status():
     """Get downloader status"""
     status = downloader_runner.get_status()
     return jsonify(status)
 
 
-@app.route('/files/<filename>/delete', methods=['POST'])
+@app.route('/api/files/rep/<filename>', methods=['DELETE'])
+@app.route('/files/<filename>/delete', methods=['POST'])  # Legacy alias
 def delete_file(filename):
     """Delete file from disk and history"""
     try:
@@ -550,7 +553,8 @@ def download_file(filename):
         return jsonify({'error': f'Error: {str(e)}'}), 500
 
 
-@app.route('/import/file/<filename>', methods=['POST'])
+@app.route('/api/imports/rep/<filename>', methods=['POST'])
+@app.route('/import/file/<filename>', methods=['POST'])  # Legacy alias
 def import_file(filename):
     """Import single file to database"""
     try:
@@ -581,9 +585,10 @@ def import_file(filename):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/import/all', methods=['POST'])
+@app.route('/api/imports/rep', methods=['POST'])
+@app.route('/import/all', methods=['POST'])  # Legacy alias
 def import_all_files():
-    """Import all files that haven't been imported yet"""
+    """Import all REP files that haven't been imported yet"""
     try:
         all_files = history_manager.get_all_downloads()
         import_status_map = get_import_status_map()
@@ -615,7 +620,8 @@ def import_all_files():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/import/progress')
+@app.route('/api/imports/progress')
+@app.route('/import/progress')  # Legacy alias
 def import_progress():
     """Get real-time import progress"""
     try:
@@ -880,7 +886,8 @@ def data_analysis():
 # Data Analysis API Endpoints
 # ==============================================================================
 
-@app.route('/api/analysis/summary')
+@app.route('/api/analytics/summary')
+@app.route('/api/analysis/summary')  # Legacy alias
 def api_analysis_summary():
     """Get summary statistics for all data types with optional filters"""
     # Get filter parameters
@@ -1074,7 +1081,8 @@ def api_analysis_summary():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/analysis/reconciliation')
+@app.route('/api/analytics/reconciliation')
+@app.route('/api/analysis/reconciliation')  # Legacy alias
 def api_analysis_reconciliation():
     """
     Reconcile REP and Statement data by tran_id
@@ -1533,7 +1541,8 @@ def api_analysis_reconciliation():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/analysis/export')
+@app.route('/api/analytics/export')
+@app.route('/api/analysis/export')  # Legacy alias
 def api_analysis_export():
     """
     Export reconciliation data to CSV
@@ -1784,7 +1793,8 @@ def api_analysis_export():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/analysis/search')
+@app.route('/api/analytics/search')
+@app.route('/api/analysis/search')  # Legacy alias
 def api_analysis_search():
     """
     Search across all data sources by TRAN_ID, HN, AN, or PID
@@ -1880,7 +1890,8 @@ def api_analysis_search():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/analysis/files')
+@app.route('/api/analytics/files')
+@app.route('/api/analysis/files')  # Legacy alias
 def api_analysis_files():
     """
     Get list of imported files by data type
@@ -1956,7 +1967,8 @@ def api_analysis_files():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/analysis/file-items')
+@app.route('/api/analytics/file-items')
+@app.route('/api/analysis/file-items')  # Legacy alias
 def api_analysis_file_items():
     """
     Get items in a specific file
@@ -2063,7 +2075,8 @@ def api_analysis_file_items():
 # NEW: Enhanced Data Analysis APIs
 # =============================================================================
 
-@app.route('/api/analysis/claims')
+@app.route('/api/analytics/claims-detail')
+@app.route('/api/analysis/claims')  # Legacy alias
 def api_analysis_claims():
     """
     Get detailed claims data with filters
@@ -2176,7 +2189,8 @@ def api_analysis_claims():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/analysis/financial-breakdown')
+@app.route('/api/analytics/financial-breakdown')
+@app.route('/api/analysis/financial-breakdown')  # Legacy alias
 def api_analysis_financial_breakdown():
     """
     Get financial breakdown by service category
@@ -2286,7 +2300,8 @@ def api_analysis_financial_breakdown():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/analysis/errors')
+@app.route('/api/analytics/errors-detail')
+@app.route('/api/analysis/errors')  # Legacy alias
 def api_analysis_errors():
     """
     Get error and denial analytics
@@ -2389,7 +2404,8 @@ def api_analysis_errors():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/analysis/scheme-summary')
+@app.route('/api/analytics/scheme-summary')
+@app.route('/api/analysis/scheme-summary')  # Legacy alias
 def api_analysis_scheme_summary():
     """
     Get summary by insurance scheme
@@ -2474,7 +2490,8 @@ def api_analysis_scheme_summary():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/analysis/facilities')
+@app.route('/api/analytics/facilities')
+@app.route('/api/analysis/facilities')  # Legacy alias
 def api_analysis_facilities():
     """
     Get facility analysis - summary by treating facility (hcode)
@@ -2595,7 +2612,8 @@ def api_analysis_facilities():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/analysis/his-reconciliation')
+@app.route('/api/analytics/his-reconciliation')
+@app.route('/api/analysis/his-reconciliation')  # Legacy alias
 def api_analysis_his_reconciliation():
     """
     Get HIS reconciliation status summary
@@ -2762,7 +2780,8 @@ def api_analysis_his_reconciliation():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/download/trigger/single', methods=['POST'])
+@app.route('/api/downloads/month', methods=['POST'])
+@app.route('/download/trigger/single', methods=['POST'])  # Legacy alias
 def trigger_single_download():
     """Trigger download for specific month/year and schemes"""
     try:
@@ -2805,7 +2824,8 @@ def trigger_single_download():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/download/trigger/bulk', methods=['POST'])
+@app.route('/api/downloads/bulk', methods=['POST'])
+@app.route('/download/trigger/bulk', methods=['POST'])  # Legacy alias
 def trigger_bulk_download():
     """Trigger bulk download for date range and schemes"""
     try:
@@ -2863,7 +2883,8 @@ def trigger_bulk_download():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/download/bulk/progress')
+@app.route('/api/downloads/bulk/progress')
+@app.route('/download/bulk/progress')  # Legacy alias
 def bulk_progress():
     """Get real-time bulk download progress"""
     try:
@@ -2874,7 +2895,8 @@ def bulk_progress():
         return jsonify({'running': False, 'error': str(e)}), 500
 
 
-@app.route('/download/bulk/cancel', methods=['POST'])
+@app.route('/api/downloads/cancel', methods=['POST'])
+@app.route('/download/bulk/cancel', methods=['POST'])  # Legacy alias
 def cancel_bulk_download():
     """Cancel a running bulk download"""
     try:
@@ -2887,7 +2909,8 @@ def cancel_bulk_download():
 
 # ==================== Parallel Download Routes ====================
 
-@app.route('/api/download/parallel', methods=['POST'])
+@app.route('/api/downloads/parallel', methods=['POST'])
+@app.route('/api/download/parallel', methods=['POST'])  # Legacy alias
 def trigger_parallel_download():
     """Trigger parallel download with multiple browser sessions"""
     try:
@@ -3036,7 +3059,8 @@ def trigger_parallel_download():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/download/parallel/progress')
+@app.route('/api/downloads/parallel/progress')
+@app.route('/api/download/parallel/progress')  # Legacy alias
 def parallel_download_progress():
     """Get parallel download progress"""
     try:
@@ -3078,7 +3102,8 @@ def parallel_download_progress():
         return jsonify({'running': False, 'error': str(e)}), 500
 
 
-@app.route('/api/download/parallel/cancel', methods=['POST'])
+@app.route('/api/downloads/parallel/cancel', methods=['POST'])
+@app.route('/api/download/parallel/cancel', methods=['POST'])  # Legacy alias
 def cancel_parallel_download():
     """Cancel or force-clear parallel download progress"""
     try:
@@ -3444,7 +3469,8 @@ def get_stm_stats():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/stm/import/<filename>', methods=['POST'])
+@app.route('/api/imports/stm/<filename>', methods=['POST'])
+@app.route('/api/stm/import/<filename>', methods=['POST'])  # Legacy alias
 def import_stm_file_route(filename):
     """Import a single Statement file"""
     try:
@@ -3474,7 +3500,8 @@ def import_stm_file_route(filename):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/stm/import-all', methods=['POST'])
+@app.route('/api/imports/stm', methods=['POST'])
+@app.route('/api/stm/import-all', methods=['POST'])  # Legacy alias
 def import_all_stm_files():
     """Import all pending Statement files"""
     try:
@@ -3550,7 +3577,8 @@ def import_all_stm_files():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/stm/delete/<filename>', methods=['DELETE'])
+@app.route('/api/files/stm/<filename>', methods=['DELETE'])
+@app.route('/api/stm/delete/<filename>', methods=['DELETE'])  # Legacy alias
 def delete_stm_file(filename):
     """Delete a Statement file"""
     try:
@@ -6526,7 +6554,8 @@ def api_smt_download():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/smt/import/<path:filename>', methods=['POST'])
+@app.route('/api/imports/smt/<path:filename>', methods=['POST'])
+@app.route('/api/smt/import/<path:filename>', methods=['POST'])  # Legacy alias
 def api_smt_import_file(filename):
     """Import a specific SMT file to database"""
     try:
@@ -6570,7 +6599,8 @@ def api_smt_import_file(filename):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/smt/import-all', methods=['POST'])
+@app.route('/api/imports/smt', methods=['POST'])
+@app.route('/api/smt/import-all', methods=['POST'])  # Legacy alias
 def api_smt_import_all():
     """Import all SMT files to database"""
     try:
@@ -6621,7 +6651,8 @@ def api_smt_import_all():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/smt/delete/<path:filename>', methods=['DELETE'])
+@app.route('/api/files/smt/<path:filename>', methods=['DELETE'])
+@app.route('/api/smt/delete/<path:filename>', methods=['DELETE'])  # Legacy alias
 def api_smt_delete_file(filename):
     """Delete a specific SMT file"""
     try:
@@ -6684,7 +6715,8 @@ def api_smt_clear_files():
 
 # ==================== Download History API ====================
 
-@app.route('/api/download-history/clear', methods=['POST'])
+@app.route('/api/history/downloads/clear', methods=['POST'])
+@app.route('/api/download-history/clear', methods=['POST'])  # Legacy alias
 def clear_download_history():
     """Clear download history from database"""
     try:
@@ -6756,7 +6788,8 @@ def clear_download_history():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/download-history/stats')
+@app.route('/api/history/downloads/stats')
+@app.route('/api/download-history/stats')  # Legacy alias
 def get_download_history_stats():
     """Get download history statistics"""
     try:
@@ -6774,7 +6807,8 @@ def get_download_history_stats():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/download-history/failed')
+@app.route('/api/history/downloads/failed')
+@app.route('/api/download-history/failed')  # Legacy alias
 def get_failed_downloads():
     """Get list of failed downloads that can be retried"""
     try:
@@ -6803,7 +6837,8 @@ def get_failed_downloads():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/download-history/reset-failed', methods=['POST'])
+@app.route('/api/history/downloads/reset-failed', methods=['POST'])
+@app.route('/api/download-history/reset-failed', methods=['POST'])  # Legacy alias
 def reset_failed_downloads():
     """Reset all failed downloads for retry (changes status from 'failed' to 'pending')"""
     try:
@@ -6826,7 +6861,8 @@ def reset_failed_downloads():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/download-history/failed', methods=['DELETE'])
+@app.route('/api/history/downloads/failed', methods=['DELETE'])
+@app.route('/api/download-history/failed', methods=['DELETE'])  # Legacy alias
 def delete_failed_downloads():
     """Delete all failed download records"""
     try:
@@ -6849,7 +6885,8 @@ def delete_failed_downloads():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/download-history/reset/<download_type>/<filename>', methods=['POST'])
+@app.route('/api/history/downloads/reset/<download_type>/<filename>', methods=['POST'])
+@app.route('/api/download-history/reset/<download_type>/<filename>', methods=['POST'])  # Legacy alias
 def reset_single_failed_download(download_type, filename):
     """Reset a single failed download for retry"""
     try:

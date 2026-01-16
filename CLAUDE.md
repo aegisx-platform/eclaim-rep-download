@@ -141,6 +141,69 @@ docker-compose exec db psql -U eclaim -d eclaim_db -c "SELECT COUNT(*) FROM clai
    - Optional auto-import after download
    - Background execution with process isolation
 
+### API Route Structure
+
+The API follows a consistent RESTful naming convention with resources grouped by domain:
+
+```
+/api/
+├── downloads/              # Download operations
+│   ├── single              # POST - Trigger single download
+│   ├── month               # POST - Download specific month/year
+│   ├── bulk                # POST - Bulk download (date range)
+│   ├── bulk/progress       # GET - Bulk download progress
+│   ├── cancel              # POST - Cancel download
+│   ├── parallel            # POST - Parallel download
+│   └── parallel/progress   # GET - Parallel download progress
+│
+├── imports/                # Import operations (unified)
+│   ├── rep                 # POST - Import all REP files
+│   ├── rep/<filename>      # POST - Import single REP file
+│   ├── stm                 # POST - Import all STM files
+│   ├── stm/<filename>      # POST - Import single STM file
+│   ├── smt                 # POST - Import all SMT files
+│   ├── smt/<filename>      # POST - Import single SMT file
+│   └── progress            # GET - Import progress
+│
+├── files/                  # File operations
+│   ├── (GET)               # List files with type filter
+│   ├── status              # GET - File status summary
+│   ├── scan                # POST - Scan disk for files
+│   ├── rep/<filename>      # DELETE - Delete REP file
+│   ├── stm/<filename>      # DELETE - Delete STM file
+│   └── smt/<filename>      # DELETE - Delete SMT file
+│
+├── history/                # History tracking
+│   └── downloads/
+│       ├── stats           # GET - Download statistics
+│       ├── clear           # POST - Clear history
+│       ├── failed          # GET/DELETE - Failed downloads
+│       └── reset-failed    # POST - Reset failed for retry
+│
+├── analytics/              # Data analytics (unified)
+│   ├── summary             # Overview statistics
+│   ├── overview            # Dashboard overview
+│   ├── claims              # Claims analysis
+│   ├── claims-detail       # Detailed claims
+│   ├── denial              # Denial analysis
+│   ├── errors-detail       # Error analysis
+│   ├── reconciliation      # Reconciliation data
+│   ├── monthly-trend       # Monthly trends
+│   ├── forecast            # Revenue forecast
+│   └── export              # Export data
+│
+├── rep/                    # REP data source specific
+├── stm/                    # STM data source specific
+├── smt/                    # SMT data source specific
+├── settings/               # Configuration
+├── schedule/               # Scheduler management
+├── system/                 # System health/info
+├── alerts/                 # Notifications
+└── health-offices/         # Reference data
+```
+
+**Legacy Routes**: Old routes (e.g., `/download/trigger`, `/import/all`) are kept as aliases for backward compatibility but should be migrated to new routes.
+
 ### Data Flow
 
 ```

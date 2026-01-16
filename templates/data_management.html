@@ -5367,7 +5367,7 @@ async function importAllStatementFiles() {
 
     try {
         showToast('Importing all files...', 'info');
-        const response = await fetch('/api/stm/import-all', { method: 'POST' });
+        const response = await fetch('/api/imports/stm', { method: 'POST' });
         const result = await response.json();
 
         if (result.success) {

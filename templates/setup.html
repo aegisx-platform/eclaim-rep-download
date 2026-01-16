@@ -720,13 +720,11 @@
         showProgressModal('Importing File', 'Importing ' + filename + '...');
 
         try {
-            const response = await fetch('/api/import/start', {
+            // Use correct endpoint based on type
+            const endpoint = '/api/imports/' + type + '/' + encodeURIComponent(filename);
+            const response = await fetch(endpoint, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    files: [filename],
-                    download_type: type
-                })
+                headers: { 'Content-Type': 'application/json' }
             });
             const data = await response.json();
 
@@ -751,7 +749,7 @@
 
         try {
             // Use correct endpoint based on type
-            const endpoint = type === 'stm' ? '/api/stm/import-all' : '/import/all';
+            const endpoint = '/api/imports/' + type;
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -796,7 +794,7 @@
             // Start with REP files first
             if (repFiles.length > 0) {
                 document.getElementById('progress-message').textContent = 'Importing REP files (' + repFiles.length + ')...';
-                const repResponse = await fetch('/import/all', {
+                const repResponse = await fetch('/api/imports/rep', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
@@ -814,7 +812,7 @@
                 document.getElementById('progress-bar').style.width = '0%';
                 document.getElementById('progress-percent').textContent = '0%';
 
-                const stmResponse = await fetch('/api/stm/import-all', {
+                const stmResponse = await fetch('/api/imports/stm', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
@@ -842,7 +840,7 @@
     function waitForImportComplete() {
         return new Promise(function(resolve) {
             function checkProgress() {
-                fetch('/import/progress')
+                fetch('/api/imports/progress')
                     .then(function(response) { return response.json(); })
                     .then(function(data) {
                         const progress = data.progress || data;
@@ -880,7 +878,7 @@
 
     async function pollImportProgress() {
         try {
-            const response = await fetch('/import/progress');
+            const response = await fetch('/api/imports/progress');
             const data = await response.json();
 
             // Handle both legacy format and new format

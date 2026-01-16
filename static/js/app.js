@@ -18,7 +18,7 @@ async function triggerDownload() {
     buttonText.textContent = 'Starting...';
 
     try {
-        const response = await fetch('/download/trigger', {
+        const response = await fetch('/api/downloads/single', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -58,7 +58,7 @@ function startStatusPolling() {
     // Poll every 5 seconds
     pollingInterval = setInterval(async () => {
         try {
-            const response = await fetch('/download/status');
+            const response = await fetch('/api/downloads/status');
             const status = await response.json();
 
             updateStatusUI(status);
@@ -256,7 +256,7 @@ async function downloadSingleMonth() {
     const autoImport = document.getElementById('single-auto-import')?.checked || false;
 
     try {
-        const response = await fetch('/download/trigger/single', {
+        const response = await fetch('/api/downloads/month', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -667,7 +667,7 @@ async function downloadBulk() {
             }
         } else {
             // Sequential download
-            const response = await fetch('/download/trigger/bulk', {
+            const response = await fetch('/api/downloads/bulk', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -727,7 +727,7 @@ async function cancelBulkDownload() {
     }
 
     try {
-        const response = await fetch('/download/bulk/cancel', {
+        const response = await fetch('/api/downloads/cancel', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -960,7 +960,7 @@ function startBulkProgressPolling() {
     // Poll every 3 seconds
     pollingInterval = setInterval(async () => {
         try {
-            const response = await fetch('/download/bulk/progress');
+            const response = await fetch('/api/downloads/bulk/progress');
             const progress = await response.json();
 
             if (progress.running && progress.current_month) {
@@ -1106,7 +1106,7 @@ async function importAllFiles() {
         // Show import progress modal
         showImportModal();
 
-        const response = await fetch('/import/all', {
+        const response = await fetch('/api/imports/rep', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1177,7 +1177,7 @@ function startImportProgressPolling() {
     // Poll every 2 seconds
     importPollingInterval = setInterval(async () => {
         try {
-            const response = await fetch('/import/progress');
+            const response = await fetch('/api/imports/progress');
             const progress = await response.json();
 
             updateImportProgressUI(progress);
@@ -1533,7 +1533,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Check download status
-        const response = await fetch('/download/status');
+        const response = await fetch('/api/downloads/status');
         const status = await response.json();
 
         if (status.running) {
@@ -1542,7 +1542,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Check for bulk download in progress
-        const bulkResponse = await fetch('/download/bulk/progress');
+        const bulkResponse = await fetch('/api/downloads/bulk/progress');
         const bulkProgress = await bulkResponse.json();
 
         if (bulkProgress.running && bulkProgress.status === 'running') {
@@ -1586,7 +1586,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Check for import in progress
-        const importResponse = await fetch('/import/progress');
+        const importResponse = await fetch('/api/imports/progress');
         const importProgress = await importResponse.json();
 
         if (importProgress.running && importProgress.status === 'running') {
@@ -1658,7 +1658,7 @@ async function startDownload() {
     }
 
     try {
-        const response = await fetch('/download/trigger', {
+        const response = await fetch('/api/downloads/single', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
