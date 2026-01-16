@@ -695,5 +695,170 @@ GROUP BY f.file_type, f.status
 ORDER BY f.file_type, f.status;
 
 -- ============================================================================
+-- 10. MASTER DATA TABLES (for Analytics)
+-- ============================================================================
+
+-- ICD-10 Diagnosis Codes
+CREATE TABLE IF NOT EXISTS icd10_codes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(10) UNIQUE NOT NULL,
+    description_th VARCHAR(500),
+    description_en VARCHAR(500),
+    chapter VARCHAR(5),
+    chapter_name_th VARCHAR(200),
+    chapter_name_en VARCHAR(200),
+    block_code VARCHAR(10),
+    block_name VARCHAR(200),
+    category VARCHAR(5),
+    is_valid BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_icd10_code (code),
+    INDEX idx_icd10_chapter (chapter),
+    INDEX idx_icd10_block (block_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='ICD-10 International Classification of Diseases codes for diagnosis lookup';
+
+-- ICD-9-CM Procedure Codes
+CREATE TABLE IF NOT EXISTS icd9cm_procedures (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(10) UNIQUE NOT NULL,
+    description_th VARCHAR(500),
+    description_en VARCHAR(500),
+    chapter VARCHAR(5),
+    chapter_name VARCHAR(200),
+    is_valid BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_icd9_code (code),
+    INDEX idx_icd9_chapter (chapter)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='ICD-9-CM Procedure codes for medical procedure lookup';
+
+-- DRG (Diagnosis Related Groups) - NHSO Thai Version 6
+CREATE TABLE IF NOT EXISTS drg_codes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    drg_code VARCHAR(10) UNIQUE NOT NULL,
+    drg_name_th VARCHAR(300),
+    drg_name_en VARCHAR(300),
+    mdc VARCHAR(3),
+    mdc_name VARCHAR(200),
+    drg_type VARCHAR(20),
+    base_rw DECIMAL(10,4),
+    adjrw_min DECIMAL(10,4),
+    adjrw_max DECIMAL(10,4),
+    los_min INTEGER,
+    los_max INTEGER,
+    version VARCHAR(10) DEFAULT '6',
+    effective_date DATE,
+    is_valid BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_drg_code (drg_code),
+    INDEX idx_drg_mdc (mdc),
+    INDEX idx_drg_type (drg_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='DRG Thai Version 6 codes for grouping diagnoses';
+
+-- NHSO Error/Denial Codes
+CREATE TABLE IF NOT EXISTS nhso_error_codes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    error_code VARCHAR(20) UNIQUE NOT NULL,
+    error_description_th VARCHAR(500),
+    error_description_en VARCHAR(500),
+    error_category VARCHAR(50),
+    error_severity VARCHAR(20),
+    resolution_guide TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_error_code (error_code),
+    INDEX idx_error_category (error_category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='NHSO E-Claim error and denial codes with resolution guide';
+
+-- Fund/Insurance Scheme Types
+CREATE TABLE IF NOT EXISTS fund_types (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    fund_code VARCHAR(20) UNIQUE NOT NULL,
+    fund_name_th VARCHAR(200),
+    fund_name_en VARCHAR(200),
+    fund_category VARCHAR(50),
+    parent_fund_code VARCHAR(20),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_fund_code (fund_code),
+    INDEX idx_fund_category (fund_category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='NHSO fund types and insurance scheme categories';
+
+-- Service Types
+CREATE TABLE IF NOT EXISTS service_types (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    service_code VARCHAR(10) UNIQUE NOT NULL,
+    service_name_th VARCHAR(200),
+    service_name_en VARCHAR(200),
+    service_category VARCHAR(50),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_service_code (service_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Service type codes for classification';
+
+-- TMT Drug Codes (Thai Medicines Terminology)
+CREATE TABLE IF NOT EXISTS tmt_drugs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tmt_code VARCHAR(20) UNIQUE NOT NULL,
+    generic_name VARCHAR(500),
+    trade_name VARCHAR(300),
+    dosage_form VARCHAR(100),
+    strength VARCHAR(100),
+    manufacturer VARCHAR(200),
+    atc_code VARCHAR(10),
+    nhso_code VARCHAR(20),
+    unit_price DECIMAL(10,2),
+    ceiling_price DECIMAL(10,2),
+    is_ned BOOLEAN DEFAULT FALSE,
+    is_high_cost BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_tmt_code (tmt_code),
+    INDEX idx_tmt_generic (generic_name(191)),
+    INDEX idx_tmt_atc (atc_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Thai Medicines Terminology drug codes';
+
+-- Date Dimension Table (for BI/Analytics)
+CREATE TABLE IF NOT EXISTS dim_date (
+    date_id INTEGER PRIMARY KEY,
+    full_date DATE UNIQUE NOT NULL,
+    day_of_week INTEGER,
+    day_name VARCHAR(20),
+    day_of_month INTEGER,
+    day_of_year INTEGER,
+    week_of_year INTEGER,
+    month_number INTEGER,
+    month_name VARCHAR(20),
+    month_name_th VARCHAR(30),
+    quarter INTEGER,
+    year INTEGER,
+    fiscal_year INTEGER,
+    fiscal_quarter INTEGER,
+    is_weekend BOOLEAN,
+    is_holiday BOOLEAN DEFAULT FALSE,
+    holiday_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_dim_date_full (full_date),
+    INDEX idx_dim_date_year_month (year, month_number),
+    INDEX idx_dim_date_fiscal (fiscal_year, fiscal_quarter)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Date dimension table for BI analytics';
+
+-- ============================================================================
 -- END OF SCHEMA
 -- ============================================================================

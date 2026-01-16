@@ -972,7 +972,7 @@ FROM generate_series(
     CURRENT_DATE - INTERVAL '5 years',
     CURRENT_DATE + INTERVAL '2 years',
     INTERVAL '1 day'
-)::DATE as d
+) AS d
 ON CONFLICT (date_id) DO NOTHING;
 
 -- ============================================================================
@@ -1172,7 +1172,7 @@ SELECT
     ROUND(SUM(CASE WHEN c.error_code IS NOT NULL AND c.error_code != '-' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as denial_rate_pct
 FROM claim_rep_opip_nhso_item c
 JOIN dim_date d ON DATE(c.dateadm) = d.full_date
-LEFT JOIN health_offices h ON c.hcode = h.code
+LEFT JOIN health_offices h ON c.hcode = h.hcode5
 GROUP BY c.hcode, h.name, h.health_region, d.year, d.month_number
 ORDER BY d.year DESC, d.month_number DESC, total_reimb DESC;
 

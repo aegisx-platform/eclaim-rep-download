@@ -184,18 +184,26 @@ The project uses a migration system that automatically runs on container startup
 database/
 ├── migrations/
 │   ├── postgresql/
-│   │   ├── 001_initial_schema.sql    # Core tables
+│   │   ├── 001_initial_schema.sql    # Core tables (27 tables)
 │   │   ├── 002_stm_tables.sql        # Statement/reconciliation tables
 │   │   ├── 003_job_history.sql       # Job tracking
-│   │   └── 004_system_alerts.sql     # Alert system
+│   │   ├── 004_system_alerts.sql     # Alert system
+│   │   └── 005_download_history.sql  # Download tracking
 │   └── mysql/
-│       ├── 001_initial_schema.sql
+│       ├── 001_initial_schema.sql    # Core tables (27 tables)
 │       ├── 002_stm_tables.sql
 │       ├── 003_job_history.sql
-│       └── 004_system_alerts.sql
-├── seeds/                             # (Optional) Seed data
+│       ├── 004_system_alerts.sql
+│       └── 005_download_history.sql
+├── seeds/
 │   ├── postgresql/
+│   │   ├── 001_dim_date.sql          # Date dimension (7 years)
+│   │   ├── 002_fund_types.sql        # Fund/scheme types
+│   │   └── 003_service_types.sql     # Service types
 │   └── mysql/
+│       ├── 001_dim_date.sql
+│       ├── 002_fund_types.sql
+│       └── 003_service_types.sql
 └── migrate.py                         # Migration runner
 ```
 
@@ -216,8 +224,38 @@ docker-compose exec web python database/migrate.py
 # Force re-run all migrations
 docker-compose exec web python database/migrate.py --force
 
-# Run seed data
+# Run seed data (populates dim_date, fund_types, service_types)
 docker-compose exec web python database/migrate.py --seed
+```
+
+**Fresh Installation (Complete Setup):**
+```bash
+# PostgreSQL (default)
+docker-compose down -v                    # Remove old volumes
+docker-compose up -d                      # Start fresh
+docker-compose exec web python database/migrate.py --seed  # Load seed data
+
+# MySQL
+docker-compose -f docker-compose-mysql.yml down -v
+docker-compose -f docker-compose-mysql.yml up -d
+docker-compose -f docker-compose-mysql.yml exec web python database/migrate.py --seed
+
+# Verify installation
+docker-compose exec web python database/migrate.py --status
+# Should show: 5 migrations, 5 applied
+```
+
+**Switching Between Databases:**
+```bash
+# MySQL → PostgreSQL
+docker-compose -f docker-compose-mysql.yml down
+docker-compose up -d
+
+# PostgreSQL → MySQL
+docker-compose down
+docker-compose -f docker-compose-mysql.yml up -d
+
+# Note: Data does not transfer between databases
 ```
 
 **Adding New Migrations:**

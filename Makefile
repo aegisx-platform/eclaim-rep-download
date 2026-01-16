@@ -50,6 +50,8 @@ help:
 	@echo "  make migrate        - Run database migrations"
 	@echo "  make migrate-status - Check migration status"
 	@echo "  make seed           - Import health offices seed data"
+	@echo "  make seed-error-codes - Import NHSO error codes"
+	@echo "  make seed-all       - Import all seed data"
 	@echo "  make db-backup      - Backup database to backups/"
 	@echo "  make db-restore     - Restore from backup.sql"
 	@echo "  make db-reset       - Reset database (WARNING: deletes data)"
@@ -274,6 +276,22 @@ seed:
 		exit 1; \
 	fi
 	@echo "$(GREEN)✓$(RESET) Seed data import complete"
+
+seed-error-codes:
+	@echo "$(BOLD)$(GREEN)==> Importing NHSO error codes...$(RESET)"
+	@if docker-compose ps | grep -q "web.*Up"; then \
+		docker-compose exec web python database/seeds/nhso_error_codes_importer.py; \
+	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
+		docker-compose -f $(COMPOSE_MYSQL) exec web python database/seeds/nhso_error_codes_importer.py; \
+	else \
+		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓$(RESET) Error codes import complete"
+
+seed-all:
+	@$(MAKE) seed
+	@$(MAKE) seed-error-codes
 
 db-backup:
 	@echo "$(BOLD)$(GREEN)==> Backing up database...$(RESET)"
