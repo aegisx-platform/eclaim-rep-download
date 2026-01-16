@@ -9457,8 +9457,8 @@ def api_benchmark_my_hospital():
             FROM hospital_totals
         """, (start_date, end_date, total_amount))
         rank_row = cursor.fetchone()
-        total_hospitals = rank_row[0] if rank_row else 0
-        hospitals_above = rank_row[1] if rank_row else 0
+        total_hospitals = int(rank_row[0]) if rank_row and rank_row[0] else 0
+        hospitals_above = int(rank_row[1]) if rank_row and rank_row[1] else 0
         national_rank = hospitals_above + 1
 
         ranking = {
