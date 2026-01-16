@@ -145,16 +145,22 @@ class MigrationRunner:
 
         for stmt in statements:
             stmt = stmt.strip()
-            if stmt and not stmt.startswith('--'):
-                try:
-                    self.cursor.execute(stmt)
-                except Exception as e:
-                    # Some statements might fail if objects already exist
-                    # Log but continue for IF NOT EXISTS type statements
-                    if 'already exists' in str(e).lower() or 'duplicate' in str(e).lower():
-                        print(f"[migrate] Note: {e}")
-                    else:
-                        raise
+            if not stmt:
+                continue
+            # Check if there's actual SQL (not just comments)
+            # A statement starting with -- may still have SQL below the comments
+            lines_without_comments = [l for l in stmt.split('\n') if l.strip() and not l.strip().startswith('--')]
+            if not lines_without_comments:
+                continue
+            try:
+                self.cursor.execute(stmt)
+            except Exception as e:
+                # Some statements might fail if objects already exist
+                # Log but continue for IF NOT EXISTS type statements
+                if 'already exists' in str(e).lower() or 'duplicate' in str(e).lower():
+                    print(f"[migrate] Note: {e}")
+                else:
+                    raise
 
         self.conn.commit()
 
@@ -191,10 +197,21 @@ class MigrationRunner:
 
             current.append(line)
 
+            # Skip comment lines for parenthesis tracking
+            # Comments can contain parentheses that shouldn't be counted
+            line_for_parsing = line.strip()
+            if line_for_parsing.startswith('--'):
+                continue  # Skip comment-only lines for paren tracking
+
+            # Remove inline comments before parsing (e.g., "column INT, -- comment")
+            comment_pos = line_for_parsing.find('--')
+            if comment_pos > 0:
+                line_for_parsing = line_for_parsing[:comment_pos]
+
             # Track parenthesis depth for proper statement splitting
-            for i, char in enumerate(line):
+            for i, char in enumerate(line_for_parsing):
                 # Track string literals
-                if char in ('"', "'") and (i == 0 or line[i-1] != '\\'):
+                if char in ('"', "'") and (i == 0 or line_for_parsing[i-1] != '\\'):
                     if not in_string:
                         in_string = True
                         string_char = char
