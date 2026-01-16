@@ -242,46 +242,48 @@ On `docker-compose up`, the entrypoint automatically runs:
 # Step 1: Start containers (PostgreSQL default)
 docker-compose up -d
 
-# Step 2: Wait for startup to complete
-docker-compose logs -f web  # Wait until "Starting Flask application..."
+# Step 2: Wait for startup to complete (Ctrl+C to exit logs)
+docker-compose logs -f web
+# Wait until you see: "[entrypoint] Starting Flask application..."
 
 # Step 3: Import ALL seed data (REQUIRED for full functionality)
+# Using docker-compose exec (standard method):
+docker-compose exec web python database/migrate.py --seed
+docker-compose exec web python database/seeds/health_offices_importer.py
+docker-compose exec web python database/seeds/nhso_error_codes_importer.py
+
+# Or using make (if available):
 make seed-all
-# This runs:
-#   - seed-dim: dim_date (7 years), fund_types, service_types
-#   - seed: health_offices master data (43,884 records)
-#   - seed-error-codes: NHSO error codes
 
 # Step 4: Configure SMT Vendor ID
 # Go to http://localhost:5001/data-management?tab=settings
 # Enter your hospital's 5-digit vendor code (e.g., 10670)
 
-# Step 5 (Optional): Import existing data files
-make reimport-all    # Import REP + STM files and fetch SMT from API
+# Step 5 (Optional): Re-import existing data files
+docker-compose exec web bash -c 'for f in downloads/rep/*.xls; do python eclaim_import.py "$f"; done'
+docker-compose exec web python stm_import.py downloads/stm/
+docker-compose exec web python smt_budget_fetcher.py --vendor-id YOUR_VENDOR_ID --save-db
 ```
 
 **MySQL Installation:**
 ```bash
 docker-compose -f docker-compose-mysql.yml up -d
-# Wait for startup, then:
-make seed-all
+# Wait for startup, then run seed commands above
 ```
 
-**Seed Data Commands:**
-| Command | Description | Records |
-|---------|-------------|---------|
-| `make seed-dim` | Dimension tables (dim_date, fund_types, service_types) | ~2,600 |
-| `make seed` | Health offices master data | 43,884 |
-| `make seed-error-codes` | NHSO error codes | ~200 |
-| `make seed-all` | Run ALL seed imports above | - |
+**Commands Reference (docker-compose exec vs make):**
 
-**Data Import Commands:**
-| Command | Description | Source |
-|---------|-------------|--------|
-| `make import-rep` | Import REP (E-Claim) files | `downloads/rep/` |
-| `make import-stm` | Import STM (Statement) files | `downloads/stm/` |
-| `make import-smt` | Fetch & import SMT budget | API (requires vendor_id) |
-| `make reimport-all` | Run all imports above | - |
+| Task | docker-compose exec | make |
+|------|---------------------|------|
+| **Seed dimension tables** | `docker-compose exec web python database/migrate.py --seed` | `make seed-dim` |
+| **Seed health offices** | `docker-compose exec web python database/seeds/health_offices_importer.py` | `make seed` |
+| **Seed error codes** | `docker-compose exec web python database/seeds/nhso_error_codes_importer.py` | `make seed-error-codes` |
+| **All seeds** | (run 3 commands above) | `make seed-all` |
+| **Import REP files** | `docker-compose exec web bash -c 'for f in downloads/rep/*.xls; do python eclaim_import.py "$f"; done'` | `make import-rep` |
+| **Import STM files** | `docker-compose exec web python stm_import.py downloads/stm/` | `make import-stm` |
+| **Fetch SMT budget** | `docker-compose exec web python smt_budget_fetcher.py --vendor-id ID --save-db` | `make import-smt` |
+| **Check migrations** | `docker-compose exec web python database/migrate.py --status` | `make migrate-status` |
+| **Scan files** | `docker-compose exec web curl -X POST http://localhost:5001/api/files/scan` | `make scan-files` |
 
 **Data Types:**
 | Type | Directory | Description |
@@ -292,8 +294,16 @@ make seed-all
 
 **Verify Installation:**
 ```bash
-make migrate-status   # Should show: 6 migrations, 6 applied
-make db-status        # Shows record counts for all tables
+# Check migration status
+docker-compose exec web python database/migrate.py --status
+# Expected: 6 migrations applied
+
+# Check database record counts
+docker-compose exec db psql -U eclaim -d eclaim_db -c "
+  SELECT 'health_offices' as table_name, COUNT(*) FROM health_offices
+  UNION ALL SELECT 'dim_date', COUNT(*) FROM dim_date
+  UNION ALL SELECT 'download_history', COUNT(*) FROM download_history;
+"
 ```
 
 **Switching Between Databases:**
