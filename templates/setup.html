@@ -323,7 +323,7 @@
 <script>
     // State
     let seedStatus = {};
-    let fileStatus = { rep: [], stm: [] };
+    let fileStatus = { rep: [], stm: [], smt: [] };
     let currentTab = 'rep';
 
     // Initialize on page load
@@ -601,6 +601,16 @@
             const smtResponse = await fetch('/api/smt/files');
             const smtData = await smtResponse.json();
 
+            // Store SMT files in fileStatus for import all
+            if (smtData.success && smtData.files) {
+                fileStatus.smt = smtData.files.map(function(f) {
+                    return {
+                        filename: f.filename,
+                        imported: f.imported || false
+                    };
+                });
+            }
+
             // API returns files array with stats
             if (smtData.success && smtData.total > 0) {
                 const totalFiles = smtData.total;
@@ -767,11 +777,12 @@
     }
 
     async function importAllData() {
-        // Collect all unimported files from REP and STM
+        // Collect all unimported files from REP, STM, and SMT
         const repFiles = fileStatus.rep.filter(function(f) { return !f.imported; });
         const stmFiles = fileStatus.stm.filter(function(f) { return !f.imported; });
+        const smtFiles = fileStatus.smt.filter(function(f) { return !f.imported; });
 
-        const totalFiles = repFiles.length + stmFiles.length;
+        const totalFiles = repFiles.length + stmFiles.length + smtFiles.length;
 
         if (totalFiles === 0) {
             alert('All files are already imported!');
@@ -781,19 +792,27 @@
         // Confirm with user
         const confirmMsg = 'Import all data?\n\n' +
             '• REP Files: ' + repFiles.length + ' files\n' +
-            '• STM Files: ' + stmFiles.length + ' files\n\n' +
+            '• STM Files: ' + stmFiles.length + ' files\n' +
+            '• SMT Files: ' + smtFiles.length + ' files\n\n' +
             'Total: ' + totalFiles + ' files';
 
         if (!confirm(confirmMsg)) {
             return;
         }
 
-        showProgressModal('Importing All Data', 'Starting import of ' + totalFiles + ' files...');
+        showProgressModal('Importing All Data', 'Starting import...');
+
+        let importedTypes = [];
 
         try {
-            // Start with REP files first
+            // 1. Import REP files first
             if (repFiles.length > 0) {
-                document.getElementById('progress-message').textContent = 'Importing REP files (' + repFiles.length + ')...';
+                document.getElementById('progress-title').textContent = 'Importing REP Files';
+                document.getElementById('progress-message').textContent = 'Processing ' + repFiles.length + ' REP files...';
+                document.getElementById('progress-bar').style.width = '0%';
+                document.getElementById('progress-percent').textContent = '0%';
+                document.getElementById('progress-counter').textContent = '';
+
                 const repResponse = await fetch('/api/imports/rep', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
@@ -801,16 +820,19 @@
                 const repData = await repResponse.json();
 
                 if (repData.success) {
-                    // Wait for REP import to complete
                     await waitForImportComplete();
+                    importedTypes.push('REP (' + repFiles.length + ')');
                 }
             }
 
-            // Then import STM files
+            // 2. Import STM files
             if (stmFiles.length > 0) {
-                document.getElementById('progress-message').textContent = 'Importing STM files (' + stmFiles.length + ')...';
+                document.getElementById('progress-title').textContent = 'Importing STM Files';
+                document.getElementById('progress-message').textContent = 'Processing ' + stmFiles.length + ' STM files...';
                 document.getElementById('progress-bar').style.width = '0%';
                 document.getElementById('progress-percent').textContent = '0%';
+                document.getElementById('progress-counter').textContent = '';
+                document.getElementById('progress-stats').classList.add('hidden');
 
                 const stmResponse = await fetch('/api/imports/stm', {
                     method: 'POST',
@@ -819,14 +841,42 @@
                 const stmData = await stmResponse.json();
 
                 if (stmData.success) {
-                    // Poll for STM import progress
-                    pollImportProgress();
-                    return;
+                    // STM import is synchronous, just update UI
+                    document.getElementById('progress-bar').style.width = '100%';
+                    document.getElementById('progress-percent').textContent = '100%';
+                    importedTypes.push('STM (' + (stmData.success || stmFiles.length) + ')');
                 }
             }
 
-            // If only REP was imported (no STM files)
-            updateProgressModal('Import Complete', 'All data imported successfully!', true);
+            // 3. Import SMT files
+            if (smtFiles.length > 0) {
+                document.getElementById('progress-title').textContent = 'Importing SMT Files';
+                document.getElementById('progress-message').textContent = 'Processing ' + smtFiles.length + ' SMT files...';
+                document.getElementById('progress-bar').style.width = '0%';
+                document.getElementById('progress-percent').textContent = '0%';
+                document.getElementById('progress-counter').textContent = '';
+                document.getElementById('progress-stats').classList.add('hidden');
+
+                const smtResponse = await fetch('/api/imports/smt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const smtData = await smtResponse.json();
+
+                if (smtData.success) {
+                    document.getElementById('progress-bar').style.width = '100%';
+                    document.getElementById('progress-percent').textContent = '100%';
+                    importedTypes.push('SMT (' + (smtData.imported || smtFiles.length) + ')');
+                }
+            }
+
+            // All imports complete - show close button
+            const summary = importedTypes.length > 0
+                ? 'Imported: ' + importedTypes.join(', ')
+                : 'No files imported';
+            updateProgressModal('Import Complete', summary, true);
+
+            // Refresh file status
             setTimeout(function() {
                 loadFileStatus();
                 updateOverallProgress();
@@ -845,26 +895,39 @@
                     .then(function(data) {
                         const progress = data.progress || data;
                         const isRunning = progress.running || progress.is_running || progress.status === 'running';
+                        const totalFiles = progress.total_files || progress.total || 0;
+                        const completedFiles = progress.completed_files || progress.processed || 0;
+                        const percent = totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 0;
+
+                        // Always update progress display
+                        document.getElementById('progress-bar').style.width = percent + '%';
+                        document.getElementById('progress-percent').textContent = percent + '%';
+                        if (totalFiles > 0) {
+                            document.getElementById('progress-counter').textContent = '[' + completedFiles + '/' + totalFiles + '] files';
+                        }
+
+                        // Show current file if available
+                        const currentFile = progress.current_file || '';
+                        if (currentFile) {
+                            document.getElementById('progress-current-file').classList.remove('hidden');
+                            document.getElementById('progress-filename').textContent = currentFile;
+                        }
+
+                        // Update statistics
+                        const recordsImported = progress.total_records_imported || progress.records_imported || 0;
+                        const failedCount = (progress.failed_files && progress.failed_files.length) || 0;
+                        if (recordsImported > 0 || completedFiles > 0) {
+                            document.getElementById('progress-stats').classList.remove('hidden');
+                            document.getElementById('progress-stat-imported').textContent = completedFiles.toLocaleString();
+                            document.getElementById('progress-stat-failed').textContent = failedCount.toLocaleString();
+                            document.getElementById('progress-stat-records').textContent = recordsImported.toLocaleString();
+                        }
 
                         if (isRunning) {
-                            // Update progress display
-                            const totalFiles = progress.total_files || progress.total || 0;
-                            const completedFiles = progress.completed_files || progress.processed || 0;
-                            const percent = totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 0;
-
-                            document.getElementById('progress-bar').style.width = percent + '%';
-                            document.getElementById('progress-percent').textContent = percent + '%';
-                            document.getElementById('progress-counter').textContent = '[' + completedFiles + '/' + totalFiles + '] files';
-
-                            // Show current file if available
-                            const currentFile = progress.current_file || '';
-                            if (currentFile) {
-                                document.getElementById('progress-current-file').classList.remove('hidden');
-                                document.getElementById('progress-filename').textContent = currentFile;
-                            }
-
                             setTimeout(checkProgress, 500);
                         } else {
+                            // Hide current file indicator when done
+                            document.getElementById('progress-current-file').classList.add('hidden');
                             resolve();
                         }
                     })
