@@ -1,7 +1,10 @@
 -- NHSO Error Codes Master Data
 -- Reference table for error codes from NHSO e-claim system
+-- NOTE: Drop and recreate to ensure correct structure for seed data importer
 
-CREATE TABLE IF NOT EXISTS nhso_error_codes (
+DROP TABLE IF EXISTS nhso_error_codes;
+
+CREATE TABLE nhso_error_codes (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     code VARCHAR(20) NOT NULL,
     type VARCHAR(30) NOT NULL DEFAULT '',
