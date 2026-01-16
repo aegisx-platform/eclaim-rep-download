@@ -240,10 +240,33 @@ On `docker-compose up`, the entrypoint automatically runs:
 ```bash
 # Load seed data (dim_date, fund_types, service_types) - run once
 docker-compose exec web python database/migrate.py --seed
-
-# Import downloaded files to database (if files exist)
-docker-compose exec web bash -c 'for f in downloads/rep/*.xls; do python eclaim_import.py "$f"; done'
 ```
+
+**Re-import existing files (if you have downloaded files):**
+```bash
+# Using make commands (recommended)
+make import-rep      # Import REP files from downloads/rep/
+make import-stm      # Import STM files from downloads/stm/
+make import-smt      # Fetch and import SMT budget from API
+make reimport-all    # Import all data (REP + STM + SMT)
+
+# Or manually with docker-compose
+# REP files (E-Claim reimbursement)
+docker-compose exec -T web bash -c 'for f in downloads/rep/eclaim_*.xls; do python eclaim_import.py "$f"; done'
+
+# STM files (Statement)
+docker-compose exec -T web python stm_import.py downloads/stm/
+
+# SMT budget (fetch from API)
+docker-compose exec -T web python smt_budget_fetcher.py --save-db
+```
+
+**Data Types:**
+| Type | Directory | Description | Import Command |
+|------|-----------|-------------|----------------|
+| REP | `downloads/rep/` | E-Claim reimbursement (OP/IP) | `make import-rep` |
+| STM | `downloads/stm/` | Statement reconciliation | `make import-stm` |
+| SMT | API fetch | Smart Money Transfer budget | `make import-smt` |
 
 **Fresh Installation (Complete Setup):**
 ```bash
