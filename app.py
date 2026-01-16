@@ -11602,6 +11602,34 @@ def get_files_update_status():
                 'last_download': row[2].isoformat() if row[2] else None
             }
 
+        # Add SMT data from smt_budget_transfers table
+        try:
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total_records,
+                    MAX(created_at) as last_update
+                FROM smt_budget_transfers
+            """)
+            smt_row = cursor.fetchone()
+            if smt_row and smt_row[0] > 0:
+                status_by_type['smt'] = {
+                    'total_files': smt_row[0],
+                    'last_update': smt_row[1].isoformat() if smt_row[1] else None,
+                    'schemes': {
+                        'budget': {
+                            'file_count': smt_row[0],
+                            'last_download': smt_row[1].isoformat() if smt_row[1] else None,
+                            'is_current_month': True  # SMT data is always current
+                        }
+                    }
+                }
+                summary['smt'] = {
+                    'total_files': smt_row[0],
+                    'last_download': smt_row[1].isoformat() if smt_row[1] else None
+                }
+        except Exception as smt_err:
+            app.logger.warning(f"Could not get SMT status: {smt_err}")
+
         cursor.close()
         conn.close()
 
