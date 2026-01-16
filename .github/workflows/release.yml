@@ -18,85 +18,75 @@ jobs:
         with:
           fetch-depth: 0  # Fetch all history for changelog
 
-      - name: Get version from tag
+      - name: Get version info
         id: version
         env:
-          GITHUB_REF_VALUE: ${{ github.ref }}
-        run: echo "VERSION=${GITHUB_REF_VALUE#refs/tags/}" >> $GITHUB_OUTPUT
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION="${REF_NAME#v}"
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "TAG=${REF_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          PREV_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+          echo "PREV_TAG=${PREV_TAG}" >> $GITHUB_OUTPUT
 
       - name: Generate changelog
         id: changelog
         env:
-          REPO_NAME: ${{ github.repository }}
-          VERSION_TAG: ${{ steps.version.outputs.VERSION }}
+          PREV_TAG: ${{ steps.prev_tag.outputs.PREV_TAG }}
+          CURRENT_TAG: ${{ steps.version.outputs.TAG }}
+          REPO: ${{ github.repository }}
         run: |
-          # Get previous tag (safely)
-          PREVIOUS_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+          echo "## What's Changed" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
 
-          # Create changelog file
-          cat > CHANGELOG.md << 'CHANGELOG_MARKER'
-          ## What's Changed
+          if [ -n "${PREV_TAG}" ]; then
+            # Get commits since previous tag
+            echo "### Commits" >> CHANGELOG.md
+            git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "**Full Changelog**: https://github.com/${REPO}/compare/${PREV_TAG}...${CURRENT_TAG}" >> CHANGELOG.md
+          else
+            echo "Initial release" >> CHANGELOG.md
+          fi
 
-          See the full list of changes in the commits since the previous release.
-
-          ## Docker Image
-
-          Pull the Docker image:
-          ```bash
-          CHANGELOG_MARKER
-
-          echo "docker pull ghcr.io/${REPO_NAME}:${VERSION_TAG}" >> CHANGELOG.md
-
-          cat >> CHANGELOG.md << 'CHANGELOG_MARKER'
-          ```
-
-          Or use the latest tag:
-          ```bash
-          CHANGELOG_MARKER
-
-          echo "docker pull ghcr.io/${REPO_NAME}:latest" >> CHANGELOG.md
-
-          cat >> CHANGELOG.md << 'CHANGELOG_MARKER'
-          ```
-
-          ## Installation
-
-          See [README.md] for installation instructions.
-
-          ## Quick Start
-
-          ```bash
-          # Clone and setup
-          git clone https://github.com/${REPO_NAME}.git
-          cd eclaim-req-download
-          make setup
-
-          # Edit .env with your credentials
-          nano .env
-
-          # Start services
-          make up
-          ```
-
-          ## Features
-
-          - E-Claim file downloader with Web UI
-          - Database import system (PostgreSQL)
-          - Docker support with PostgreSQL and pgAdmin
-          - Date range selection for bulk downloads
-          - Real-time progress tracking
-          - HIS reconciliation support
-
-          **Full Changelog**: See commits below
-          CHANGELOG_MARKER
+          echo "" >> CHANGELOG.md
+          echo "---" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "## Docker Image" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo '```bash' >> CHANGELOG.md
+          echo "# Pull specific version" >> CHANGELOG.md
+          echo "docker pull ghcr.io/${REPO}:${CURRENT_TAG}" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "# Or use latest" >> CHANGELOG.md
+          echo "docker pull ghcr.io/${REPO}:latest" >> CHANGELOG.md
+          echo '```' >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "## Quick Start" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo '```bash' >> CHANGELOG.md
+          echo "# Using install script" >> CHANGELOG.md
+          echo "curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | bash" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "# Or manual setup" >> CHANGELOG.md
+          echo "git clone https://github.com/${REPO}.git" >> CHANGELOG.md
+          echo "cd eclaim-rep-download" >> CHANGELOG.md
+          echo "cp .env.example .env" >> CHANGELOG.md
+          echo "docker-compose up -d" >> CHANGELOG.md
+          echo '```' >> CHANGELOG.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Release ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.version.outputs.TAG }}
           body_path: CHANGELOG.md
           draft: false
-          prerelease: false
-          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
