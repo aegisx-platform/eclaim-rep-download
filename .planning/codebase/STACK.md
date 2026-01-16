@@ -79,7 +79,6 @@
 - Docker container deployment
 - Container registry: `ghcr.io/aegisx-platform/eclaim-rep-download`
 - PostgreSQL 15 (or MySQL) database
-- Optional: Metabase for analytics (profile: analytics)
 
 ---
 

@@ -62,11 +62,6 @@
 **Error Tracking:**
 - None (application logs only)
 
-**Analytics:**
-- Metabase (optional, profile: analytics)
-- Port: 3000
-- Connected to PostgreSQL database
-
 **Logs:**
 - Application logs to `logs/` directory
 - Real-time streaming via SSE (`utils/log_stream.py`)
@@ -133,7 +128,6 @@ PostgreSQL / MySQL Database
     └── claim_rep_orf_nhso_item (claim data)
     ↓ (Real-time monitoring)
 Web UI (Flask + SSE)
-    └── Analytics & Reporting (Metabase - optional)
 ```
 
 ## Network Configuration
