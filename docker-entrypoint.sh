@@ -80,6 +80,30 @@ run_migrations() {
     fi
 }
 
+# Function to scan and register existing files
+scan_files() {
+    echo "[entrypoint] Scanning and registering download files..."
+
+    python -c "
+from utils.history_manager import HistoryManager
+import os
+
+hm = HistoryManager()
+
+# Scan REP files
+if os.path.exists('downloads/rep'):
+    result = hm.scan_and_register_files('downloads/rep')
+    print(f'[entrypoint] REP files: added={result[\"added\"]}, skipped={result[\"skipped\"]}')
+
+# Scan STM files
+if os.path.exists('downloads/stm'):
+    result = hm.scan_and_register_files('downloads/stm')
+    print(f'[entrypoint] STM files: added={result[\"added\"]}, skipped={result[\"skipped\"]}')
+
+print('[entrypoint] File scanning completed!')
+" 2>/dev/null || echo "[entrypoint] WARNING: File scanning failed, but continuing..."
+}
+
 # Main startup sequence
 main() {
     # Step 1: Wait for database
@@ -91,7 +115,10 @@ main() {
     # Step 2: Run migrations
     run_migrations
 
-    # Step 3: Start the application
+    # Step 3: Scan and register existing files
+    scan_files
+
+    # Step 4: Start the application
     echo "[entrypoint] Starting Flask application..."
     exec "$@"
 }
