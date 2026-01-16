@@ -228,11 +228,28 @@ docker-compose exec web python database/migrate.py --force
 docker-compose exec web python database/migrate.py --seed
 ```
 
+**Initialization Flow (What happens on container startup):**
+
+On `docker-compose up`, the entrypoint automatically runs:
+1. **Wait for database** - Retries connection up to 30 times
+2. **Run migrations** - Applies pending database migrations
+3. **Scan files** - Registers existing files in `downloads/rep/` and `downloads/stm/` to download_history.json
+4. **Start Flask** - Launches the web application
+
+**Manual steps required after first startup:**
+```bash
+# Load seed data (dim_date, fund_types, service_types) - run once
+docker-compose exec web python database/migrate.py --seed
+
+# Import downloaded files to database (if files exist)
+docker-compose exec web bash -c 'for f in downloads/rep/*.xls; do python eclaim_import.py "$f"; done'
+```
+
 **Fresh Installation (Complete Setup):**
 ```bash
 # PostgreSQL (default)
 docker-compose down -v                    # Remove old volumes
-docker-compose up -d                      # Start fresh
+docker-compose up -d                      # Start fresh (migrations + file scan automatic)
 docker-compose exec web python database/migrate.py --seed  # Load seed data
 
 # MySQL
@@ -242,7 +259,7 @@ docker-compose -f docker-compose-mysql.yml exec web python database/migrate.py -
 
 # Verify installation
 docker-compose exec web python database/migrate.py --status
-# Should show: 5 migrations, 5 applied
+# Should show: 6 migrations, 6 applied
 ```
 
 **Switching Between Databases:**
