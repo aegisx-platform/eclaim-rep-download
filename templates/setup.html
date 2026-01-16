@@ -589,27 +589,30 @@
                 document.getElementById('smt-vendor-id').value = vendorId;
             }
 
-            // Get SMT data status
-            const smtResponse = await fetch('/api/files/update-status');
+            // Get SMT files status from smt/files endpoint
+            const smtResponse = await fetch('/api/smt/files');
             const smtData = await smtResponse.json();
 
-            // API returns data in by_type, not status
-            const smtInfo = smtData.by_type && smtData.by_type.smt;
-            if (smtData.success && smtInfo && smtInfo.total_files > 0) {
-                const records = smtInfo.total_files;
-                const lastUpdate = smtInfo.last_update;
+            // API returns files array with stats
+            if (smtData.success && smtData.total > 0) {
+                const totalFiles = smtData.total;
+                const importedFiles = smtData.stats ? smtData.stats.imported : 0;
+                const lastFile = smtData.files && smtData.files[0];
 
-                summaryEl.textContent = records.toLocaleString() + ' records';
-                recordCountEl.textContent = records.toLocaleString() + ' budget transfer records';
-                statusBadgeEl.textContent = 'Ready';
-                statusBadgeEl.className = 'text-xs px-2 py-1 rounded-full bg-green-200 text-green-800';
-                dataCardEl.className = 'p-4 rounded-lg border border-green-200 bg-green-50';
+                summaryEl.textContent = totalFiles + ' files (' + importedFiles + ' imported)';
+                recordCountEl.textContent = totalFiles + ' SMT budget files';
+                statusBadgeEl.textContent = importedFiles > 0 ? 'Ready' : 'Needs Import';
+                statusBadgeEl.className = 'text-xs px-2 py-1 rounded-full ' +
+                    (importedFiles > 0 ? 'bg-green-200 text-green-800' : 'bg-amber-200 text-amber-800');
+                dataCardEl.className = 'p-4 rounded-lg border ' +
+                    (importedFiles > 0 ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50');
 
-                // Update icon to green checkmark
-                statusIconEl.className = 'w-10 h-10 rounded-full bg-green-100 flex items-center justify-center';
+                // Update icon based on import status
+                statusIconEl.className = 'w-10 h-10 rounded-full flex items-center justify-center ' +
+                    (importedFiles > 0 ? 'bg-green-100' : 'bg-amber-100');
                 while (statusIconEl.firstChild) statusIconEl.removeChild(statusIconEl.firstChild);
                 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.setAttribute('class', 'w-5 h-5 text-green-500');
+                svg.setAttribute('class', 'w-5 h-5 ' + (importedFiles > 0 ? 'text-green-500' : 'text-amber-500'));
                 svg.setAttribute('fill', 'none');
                 svg.setAttribute('stroke', 'currentColor');
                 svg.setAttribute('viewBox', '0 0 24 24');
@@ -617,22 +620,22 @@
                 path.setAttribute('stroke-linecap', 'round');
                 path.setAttribute('stroke-linejoin', 'round');
                 path.setAttribute('stroke-width', '2');
-                path.setAttribute('d', 'M5 13l4 4L19 7');
+                path.setAttribute('d', importedFiles > 0 ? 'M5 13l4 4L19 7' : 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z');
                 svg.appendChild(path);
                 statusIconEl.appendChild(svg);
 
                 if (vendorId) {
-                    vendorInfoEl.textContent = 'Vendor ID: ' + vendorId + (lastUpdate ? ' | Last updated: ' + new Date(lastUpdate).toLocaleString('th-TH') : '');
+                    vendorInfoEl.textContent = 'Vendor ID: ' + vendorId + (lastFile ? ' | Latest: ' + lastFile.modified : '');
                 }
             } else {
                 summaryEl.textContent = 'No data';
-                recordCountEl.textContent = 'No records loaded yet';
+                recordCountEl.textContent = 'No files yet';
                 statusBadgeEl.textContent = vendorId ? 'Needs Fetch' : 'No Vendor ID';
                 statusBadgeEl.className = 'text-xs px-2 py-1 rounded-full bg-amber-200 text-amber-800';
                 dataCardEl.className = 'p-4 rounded-lg border border-amber-200 bg-amber-50';
 
                 if (vendorId) {
-                    vendorInfoEl.textContent = 'Vendor ID: ' + vendorId + ' | Click "Fetch from API" to load data';
+                    vendorInfoEl.textContent = 'Vendor ID: ' + vendorId + ' | Click "Fetch from API" to download data';
                 } else {
                     vendorInfoEl.textContent = 'Please configure Vendor ID in Settings section below';
                 }
