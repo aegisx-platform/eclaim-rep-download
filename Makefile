@@ -1,4 +1,4 @@
-.PHONY: help setup build pull up down restart logs shell db-shell clean test migrate seed release import-rep import-stm import-smt reimport-all
+.PHONY: help setup build pull up down restart logs shell db-shell clean test migrate seed seed-dim seed-all seed-error-codes release import-rep import-stm import-smt reimport-all
 
 # Configuration
 COMPOSE_FILE ?= docker-compose.yml
@@ -49,9 +49,10 @@ help:
 	@echo "$(CYAN)Database Operations:$(RESET)"
 	@echo "  make migrate        - Run database migrations"
 	@echo "  make migrate-status - Check migration status"
-	@echo "  make seed           - Import health offices seed data"
+	@echo "  make seed-dim       - Import dimension tables (dim_date, fund_types, service_types)"
+	@echo "  make seed           - Import health offices master data"
 	@echo "  make seed-error-codes - Import NHSO error codes"
-	@echo "  make seed-all       - Import all seed data"
+	@echo "  make seed-all       - Import ALL seed data (dim + health_offices + error_codes)"
 	@echo "  make db-backup      - Backup database to backups/"
 	@echo "  make db-restore     - Restore from backup.sql"
 	@echo "  make db-reset       - Reset database (WARNING: deletes data)"
@@ -290,9 +291,24 @@ seed-error-codes:
 	fi
 	@echo "$(GREEN)✓$(RESET) Error codes import complete"
 
+seed-dim:
+	@echo "$(BOLD)$(GREEN)==> Importing dimension seed data (dim_date, fund_types, service_types)...$(RESET)"
+	@if docker-compose ps | grep -q "web.*Up"; then \
+		docker-compose exec web python database/migrate.py --seed; \
+	elif docker-compose -f $(COMPOSE_MYSQL) ps | grep -q "web.*Up"; then \
+		docker-compose -f $(COMPOSE_MYSQL) exec web python database/migrate.py --seed; \
+	else \
+		echo "$(YELLOW)No web container running. Start with: make up$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓$(RESET) Dimension seed data import complete"
+
 seed-all:
+	@echo "$(BOLD)$(BLUE)==> Running all seed imports...$(RESET)"
+	@$(MAKE) seed-dim
 	@$(MAKE) seed
 	@$(MAKE) seed-error-codes
+	@echo "$(GREEN)✓$(RESET) All seed data import complete"
 
 db-backup:
 	@echo "$(BOLD)$(GREEN)==> Backing up database...$(RESET)"
