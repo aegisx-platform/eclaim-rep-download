@@ -675,6 +675,23 @@ async function loadDefaultHospital() {
 
         if (result.success && result.settings && result.settings.smt_vendor_id) {
             currentVendorId = result.settings.smt_vendor_id;
+
+            // Fetch hospital name to display in search box
+            try {
+                var hospResponse = await fetch('/api/health-offices?search=' + encodeURIComponent(currentVendorId) + '&per_page=1');
+                var hospResult = await hospResponse.json();
+                if (hospResult.success && hospResult.data && hospResult.data.length > 0) {
+                    var hospital = hospResult.data[0];
+                    document.getElementById('search-hospital').value = hospital.name;
+                    // Save to localStorage for future visits
+                    localStorage.setItem('my_hospital_vendor', currentVendorId);
+                    localStorage.setItem('my_hospital_name', hospital.name);
+                }
+            } catch (hospErr) {
+                console.log('Could not fetch hospital name:', hospErr);
+                // Still continue - vendor_id is set
+            }
+
             await loadHospitalYears();
         } else {
             showNoDataState();
@@ -1644,8 +1661,24 @@ function selectHospital(h) {
 
 // Fetch SMT Data for all years (from no-data state)
 async function fetchSMTData() {
-    if (!currentVendorId) {
-        showToast('กรุณาเลือกโรงพยาบาลก่อน', 'warning');
+    var vendorId = currentVendorId;
+
+    // If no vendor selected, try to get from settings
+    if (!vendorId) {
+        try {
+            var settingsRes = await fetch('/api/smt/settings');
+            var settingsData = await settingsRes.json();
+            if (settingsData.success && settingsData.settings && settingsData.settings.smt_vendor_id) {
+                vendorId = settingsData.settings.smt_vendor_id;
+                currentVendorId = vendorId; // Set it for future use
+            }
+        } catch (e) {
+            console.log('Could not get vendor from settings:', e);
+        }
+    }
+
+    if (!vendorId) {
+        showToast('กรุณาตั้งค่า Vendor ID ในหน้า Data Management ก่อน', 'warning');
         return;
     }
 
@@ -1653,14 +1686,14 @@ async function fetchSMTData() {
     var today = new Date();
     var fiscalYear = today.getMonth() >= 9 ? today.getFullYear() + 544 : today.getFullYear() + 543;
 
-    showToast('กำลังดึงข้อมูล SMT ปี ' + fiscalYear + '...', 'info');
+    showToast('กำลังดึงข้อมูล SMT ปี ' + fiscalYear + ' (Vendor: ' + vendorId + ')...', 'info');
 
     try {
         var response = await fetch('/api/smt/fetch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                vendor_id: currentVendorId,
+                vendor_id: vendorId,
                 budget_year: fiscalYear,
                 save_db: true
             })
@@ -1669,7 +1702,8 @@ async function fetchSMTData() {
 
         if (result.success) {
             showToast('ดึงข้อมูลสำเร็จ! ' + (result.records || 0) + ' records', 'success');
-            await loadHospitalYears();
+            // Reload page to show data
+            await loadDefaultHospital();
         } else {
             showToast(result.error || 'Failed to fetch data', 'error');
         }
