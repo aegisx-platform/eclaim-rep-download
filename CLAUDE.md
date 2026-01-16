@@ -537,3 +537,98 @@ docker-compose exec web python -c "import socket; print(socket.gethostbyname('ec
 1. Use host network mode (not recommended for production)
 2. Add to `/etc/hosts`: `122.155.147.231 eclaim.nhso.go.th`
 3. Use different DNS servers (e.g., `1.0.0.1`, `208.67.222.222`)
+
+## Versioning and Release
+
+### Semantic Versioning
+
+This project uses [Semantic Versioning](https://semver.org/):
+
+```
+v{MAJOR}.{MINOR}.{PATCH}
+  │       │       └── PATCH: Bug fixes (backward compatible)
+  │       └────────── MINOR: New features (backward compatible)
+  └────────────────── MAJOR: Breaking changes
+```
+
+### Branch Strategy
+
+| Branch | Purpose | Docker Tag |
+|--------|---------|------------|
+| `main` | Production releases | `latest`, `main`, `vX.Y.Z` |
+| `develop` | Development/staging | `develop` |
+
+### Release Workflow (Automatic)
+
+```
+develop (bump VERSION) → PR → merge to main → Auto Tag + Release + Docker Image
+```
+
+**How it works:**
+1. Update `VERSION` file on `develop` branch
+2. Create PR to `main`
+3. When merged, GitHub Actions automatically:
+   - Creates git tag (vX.Y.Z)
+   - Creates GitHub Release with changelog
+   - Builds and pushes Docker images
+
+**Quick Release Commands:**
+```bash
+# Patch release (bug fix): 3.2.0 → 3.2.1
+make release-patch
+
+# Minor release (new feature): 3.2.0 → 3.3.0
+make release-minor
+
+# Major release (breaking change): 3.2.0 → 4.0.0
+make release-major
+
+# Specific version
+make release V=3.5.0
+```
+
+**Manual Release Process:**
+```bash
+# 1. Update VERSION file
+echo "3.2.1" > VERSION
+
+# 2. Commit and tag
+git add VERSION
+git commit -m "chore: bump version to 3.2.1"
+git tag -a v3.2.1 -m "Release v3.2.1"
+
+# 3. Push to trigger CI/CD
+git push origin develop
+git push origin v3.2.1
+```
+
+### Docker Image Tags
+
+When CI/CD runs, these Docker tags are created:
+
+| Trigger | Tags Created |
+|---------|--------------|
+| Push to `main` | `latest`, `main`, `sha-abc1234` |
+| Push to `develop` | `develop`, `sha-abc1234` |
+| Tag `v3.2.1` | `3.2.1`, `3.2`, `3`, `sha-abc1234` |
+
+**Pull specific versions:**
+```bash
+# Latest stable
+docker pull ghcr.io/aegisx-platform/eclaim-rep-download:latest
+
+# Development
+docker pull ghcr.io/aegisx-platform/eclaim-rep-download:develop
+
+# Specific version
+docker pull ghcr.io/aegisx-platform/eclaim-rep-download:3.2.1
+```
+
+### Pre-release Tags
+
+For pre-releases, use suffix:
+- `-alpha`: Early testing (`v3.3.0-alpha`)
+- `-beta`: Feature complete testing (`v3.3.0-beta`)
+- `-rc`: Release candidate (`v3.3.0-rc.1`)
+
+Pre-releases are marked as `prerelease` on GitHub and not tagged as `latest`.

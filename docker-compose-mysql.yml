@@ -12,9 +12,8 @@ services:
       TZ: ${TZ:-Asia/Bangkok}
     volumes:
       - mysql_data:/var/lib/mysql
-      # Initial schema runs only on first volume creation
-      # Subsequent updates handled by migrations
-      - ./database/migrations/mysql/001_initial_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      # Note: Schema is created by migrations on app startup
+      # Don't use init script to avoid conflicts with migration system
     ports:
       - "3306:3306"
     networks:

@@ -28,9 +28,9 @@ CREATE TABLE IF NOT EXISTS eclaim_imported_files (
     CONSTRAINT chk_status CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'partial'))
 );
 
-CREATE INDEX idx_imported_files_type ON eclaim_imported_files(file_type);
-CREATE INDEX idx_imported_files_status ON eclaim_imported_files(status);
-CREATE INDEX idx_imported_files_date ON eclaim_imported_files(file_date);
+CREATE INDEX IF NOT EXISTS idx_imported_files_type ON eclaim_imported_files(file_type);
+CREATE INDEX IF NOT EXISTS idx_imported_files_status ON eclaim_imported_files(status);
+CREATE INDEX IF NOT EXISTS idx_imported_files_date ON eclaim_imported_files(file_date);
 
 -- Trigger for updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -187,16 +187,16 @@ CREATE TABLE claim_rep_opip_nhso_item (
   CONSTRAINT fk_opip_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_opip_file_id ON claim_rep_opip_nhso_item(file_id);
-CREATE INDEX idx_opip_rep_no ON claim_rep_opip_nhso_item(rep_no, tran_id);
-CREATE INDEX idx_opip_hn ON claim_rep_opip_nhso_item(hn);
-CREATE INDEX idx_opip_pid ON claim_rep_opip_nhso_item(pid);
-CREATE INDEX idx_opip_dateadm ON claim_rep_opip_nhso_item(dateadm);
-CREATE INDEX idx_opip_an ON claim_rep_opip_nhso_item(an);
-CREATE INDEX idx_opip_tran_id ON claim_rep_opip_nhso_item(tran_id);
-CREATE INDEX idx_opip_error_code ON claim_rep_opip_nhso_item(error_code);
-CREATE INDEX idx_opip_scheme ON claim_rep_opip_nhso_item(scheme);
-CREATE INDEX idx_opip_reconcile ON claim_rep_opip_nhso_item(his_matched, reconcile_status);
+CREATE INDEX IF NOT EXISTS idx_opip_file_id ON claim_rep_opip_nhso_item(file_id);
+CREATE INDEX IF NOT EXISTS idx_opip_rep_no ON claim_rep_opip_nhso_item(rep_no, tran_id);
+CREATE INDEX IF NOT EXISTS idx_opip_hn ON claim_rep_opip_nhso_item(hn);
+CREATE INDEX IF NOT EXISTS idx_opip_pid ON claim_rep_opip_nhso_item(pid);
+CREATE INDEX IF NOT EXISTS idx_opip_dateadm ON claim_rep_opip_nhso_item(dateadm);
+CREATE INDEX IF NOT EXISTS idx_opip_an ON claim_rep_opip_nhso_item(an);
+CREATE INDEX IF NOT EXISTS idx_opip_tran_id ON claim_rep_opip_nhso_item(tran_id);
+CREATE INDEX IF NOT EXISTS idx_opip_error_code ON claim_rep_opip_nhso_item(error_code);
+CREATE INDEX IF NOT EXISTS idx_opip_scheme ON claim_rep_opip_nhso_item(scheme);
+CREATE INDEX IF NOT EXISTS idx_opip_reconcile ON claim_rep_opip_nhso_item(his_matched, reconcile_status);
 
 -- Trigger for updated_at
 CREATE TRIGGER tr_opip_updated
@@ -334,13 +334,13 @@ CREATE TABLE claim_rep_orf_nhso_item (
   CONSTRAINT fk_orf_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_orf_file_id ON claim_rep_orf_nhso_item(file_id);
-CREATE INDEX idx_orf_rep_no ON claim_rep_orf_nhso_item(rep_no, tran_id);
-CREATE INDEX idx_orf_hn ON claim_rep_orf_nhso_item(hn);
-CREATE INDEX idx_orf_pid ON claim_rep_orf_nhso_item(pid);
-CREATE INDEX idx_orf_service_date ON claim_rep_orf_nhso_item(service_date);
-CREATE INDEX idx_orf_scheme ON claim_rep_orf_nhso_item(scheme);
-CREATE INDEX idx_orf_reconcile ON claim_rep_orf_nhso_item(his_matched, reconcile_status);
+CREATE INDEX IF NOT EXISTS idx_orf_file_id ON claim_rep_orf_nhso_item(file_id);
+CREATE INDEX IF NOT EXISTS idx_orf_rep_no ON claim_rep_orf_nhso_item(rep_no, tran_id);
+CREATE INDEX IF NOT EXISTS idx_orf_hn ON claim_rep_orf_nhso_item(hn);
+CREATE INDEX IF NOT EXISTS idx_orf_pid ON claim_rep_orf_nhso_item(pid);
+CREATE INDEX IF NOT EXISTS idx_orf_service_date ON claim_rep_orf_nhso_item(service_date);
+CREATE INDEX IF NOT EXISTS idx_orf_scheme ON claim_rep_orf_nhso_item(scheme);
+CREATE INDEX IF NOT EXISTS idx_orf_reconcile ON claim_rep_orf_nhso_item(his_matched, reconcile_status);
 
 -- Trigger for updated_at
 CREATE TRIGGER tr_orf_updated
@@ -457,9 +457,9 @@ CREATE TABLE IF NOT EXISTS eclaim_summary (
     CONSTRAINT fk_summary_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_summary_file_id ON eclaim_summary(file_id);
-CREATE INDEX idx_summary_rep_period ON eclaim_summary(rep_period);
-CREATE INDEX idx_summary_hcode ON eclaim_summary(hcode);
+CREATE INDEX IF NOT EXISTS idx_summary_file_id ON eclaim_summary(file_id);
+CREATE INDEX IF NOT EXISTS idx_summary_rep_period ON eclaim_summary(rep_period);
+CREATE INDEX IF NOT EXISTS idx_summary_hcode ON eclaim_summary(hcode);
 
 -- ============================================================================
 -- 6. DRUG ITEMS TABLE (from Data Drug sheet)
@@ -501,11 +501,11 @@ CREATE TABLE IF NOT EXISTS eclaim_drug (
     CONSTRAINT fk_drug_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_drug_file_id ON eclaim_drug(file_id);
-CREATE INDEX idx_drug_tran_id ON eclaim_drug(tran_id);
-CREATE INDEX idx_drug_hn ON eclaim_drug(hn);
-CREATE INDEX idx_drug_tmt ON eclaim_drug(tmt_code);
-CREATE INDEX idx_drug_dateadm ON eclaim_drug(dateadm);
+CREATE INDEX IF NOT EXISTS idx_drug_file_id ON eclaim_drug(file_id);
+CREATE INDEX IF NOT EXISTS idx_drug_tran_id ON eclaim_drug(tran_id);
+CREATE INDEX IF NOT EXISTS idx_drug_hn ON eclaim_drug(hn);
+CREATE INDEX IF NOT EXISTS idx_drug_tmt ON eclaim_drug(tmt_code);
+CREATE INDEX IF NOT EXISTS idx_drug_dateadm ON eclaim_drug(dateadm);
 
 -- ============================================================================
 -- 7. INSTRUMENT ITEMS TABLE (from Data Instrument sheet - IP only)
@@ -543,11 +543,11 @@ CREATE TABLE IF NOT EXISTS eclaim_instrument (
     CONSTRAINT fk_instrument_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_instrument_file_id ON eclaim_instrument(file_id);
-CREATE INDEX idx_instrument_tran_id ON eclaim_instrument(tran_id);
-CREATE INDEX idx_instrument_hn ON eclaim_instrument(hn);
-CREATE INDEX idx_instrument_code ON eclaim_instrument(inst_code);
-CREATE INDEX idx_instrument_dateadm ON eclaim_instrument(dateadm);
+CREATE INDEX IF NOT EXISTS idx_instrument_file_id ON eclaim_instrument(file_id);
+CREATE INDEX IF NOT EXISTS idx_instrument_tran_id ON eclaim_instrument(tran_id);
+CREATE INDEX IF NOT EXISTS idx_instrument_hn ON eclaim_instrument(hn);
+CREATE INDEX IF NOT EXISTS idx_instrument_code ON eclaim_instrument(inst_code);
+CREATE INDEX IF NOT EXISTS idx_instrument_dateadm ON eclaim_instrument(dateadm);
 
 -- ============================================================================
 -- 8. DENY ITEMS TABLE (from Data DENY sheet - IP only)
@@ -578,12 +578,12 @@ CREATE TABLE IF NOT EXISTS eclaim_deny (
     CONSTRAINT fk_deny_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_deny_file_id ON eclaim_deny(file_id);
-CREATE INDEX idx_deny_tran_id ON eclaim_deny(tran_id);
-CREATE INDEX idx_deny_hn ON eclaim_deny(hn);
-CREATE INDEX idx_deny_code ON eclaim_deny(deny_code);
-CREATE INDEX idx_deny_fund ON eclaim_deny(fund_code);
-CREATE INDEX idx_deny_dateadm ON eclaim_deny(dateadm);
+CREATE INDEX IF NOT EXISTS idx_deny_file_id ON eclaim_deny(file_id);
+CREATE INDEX IF NOT EXISTS idx_deny_tran_id ON eclaim_deny(tran_id);
+CREATE INDEX IF NOT EXISTS idx_deny_hn ON eclaim_deny(hn);
+CREATE INDEX IF NOT EXISTS idx_deny_code ON eclaim_deny(deny_code);
+CREATE INDEX IF NOT EXISTS idx_deny_fund ON eclaim_deny(fund_code);
+CREATE INDEX IF NOT EXISTS idx_deny_dateadm ON eclaim_deny(dateadm);
 
 -- ============================================================================
 -- 9. ZERO PAID ITEMS TABLE (from Data sheet 0)
@@ -620,11 +620,11 @@ CREATE TABLE IF NOT EXISTS eclaim_zero_paid (
     CONSTRAINT fk_zero_paid_file FOREIGN KEY (file_id) REFERENCES eclaim_imported_files(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_zero_paid_file_id ON eclaim_zero_paid(file_id);
-CREATE INDEX idx_zero_paid_tran_id ON eclaim_zero_paid(tran_id);
-CREATE INDEX idx_zero_paid_hn ON eclaim_zero_paid(hn);
-CREATE INDEX idx_zero_paid_fund ON eclaim_zero_paid(fund_code);
-CREATE INDEX idx_zero_paid_dateadm ON eclaim_zero_paid(dateadm);
+CREATE INDEX IF NOT EXISTS idx_zero_paid_file_id ON eclaim_zero_paid(file_id);
+CREATE INDEX IF NOT EXISTS idx_zero_paid_tran_id ON eclaim_zero_paid(tran_id);
+CREATE INDEX IF NOT EXISTS idx_zero_paid_hn ON eclaim_zero_paid(hn);
+CREATE INDEX IF NOT EXISTS idx_zero_paid_fund ON eclaim_zero_paid(fund_code);
+CREATE INDEX IF NOT EXISTS idx_zero_paid_dateadm ON eclaim_zero_paid(dateadm);
 
 -- ============================================================================
 -- 10. ADDITIONAL VIEWS FOR NEW TABLES

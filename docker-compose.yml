@@ -11,9 +11,8 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Initial schema runs only on first volume creation
-      # Subsequent updates handled by migrations
-      - ./database/migrations/postgresql/001_initial_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      # Note: Schema is created by migrations on app startup
+      # Don't use init script to avoid conflicts with migration system
     ports:
       - "5432:5432"
     networks:

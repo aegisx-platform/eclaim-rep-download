@@ -1,4 +1,4 @@
-.PHONY: help setup build pull up down restart logs shell db-shell clean test migrate seed
+.PHONY: help setup build pull up down restart logs shell db-shell clean test migrate seed release
 
 # Configuration
 COMPOSE_FILE ?= docker-compose.yml
@@ -72,6 +72,12 @@ help:
 	@echo "  make version        - Show current version"
 	@echo "  make update         - Update to newer version"
 	@echo "  make update-latest  - Update to latest version"
+	@echo ""
+	@echo "$(CYAN)Release (Dev only):$(RESET)"
+	@echo "  make release-patch  - Release patch version (x.y.Z)"
+	@echo "  make release-minor  - Release minor version (x.Y.0)"
+	@echo "  make release-major  - Release major version (X.0.0)"
+	@echo "  make release V=x.y.z - Release specific version"
 	@echo ""
 	@echo "$(CYAN)Maintenance:$(RESET)"
 	@echo "  make clean          - Remove containers and networks"
@@ -443,6 +449,58 @@ update:
 
 update-latest:
 	@$(MAKE) update VERSION=latest
+
+# ==================== Release (Dev only) ====================
+
+# Get current version from VERSION file
+CURRENT_VERSION := $(shell cat VERSION 2>/dev/null || echo "0.0.0")
+MAJOR := $(shell echo $(CURRENT_VERSION) | cut -d. -f1)
+MINOR := $(shell echo $(CURRENT_VERSION) | cut -d. -f2)
+PATCH := $(shell echo $(CURRENT_VERSION) | cut -d. -f3)
+
+release-patch:
+	@NEW_PATCH=$$(($(PATCH) + 1)); \
+	$(MAKE) release V=$(MAJOR).$(MINOR).$$NEW_PATCH
+
+release-minor:
+	@NEW_MINOR=$$(($(MINOR) + 1)); \
+	$(MAKE) release V=$(MAJOR).$$NEW_MINOR.0
+
+release-major:
+	@NEW_MAJOR=$$(($(MAJOR) + 1)); \
+	$(MAKE) release V=$$NEW_MAJOR.0.0
+
+release:
+	@if [ -z "$(V)" ]; then \
+		echo "$(YELLOW)Error: Please specify version V=x.y.z$(RESET)"; \
+		echo "Example: make release V=3.2.0"; \
+		echo "Or use: make release-patch / release-minor / release-major"; \
+		exit 1; \
+	fi
+	@echo "$(BOLD)$(GREEN)==> Releasing v$(V)...$(RESET)"
+	@echo ""
+	@echo "$(CYAN)Current version:$(RESET) $(CURRENT_VERSION)"
+	@echo "$(CYAN)New version:$(RESET)     $(V)"
+	@echo ""
+	@read -p "Continue? (y/n): " confirm; \
+	if [ "$$confirm" != "y" ]; then \
+		echo "Cancelled"; \
+		exit 1; \
+	fi
+	@echo "$(V)" > VERSION
+	@git add VERSION
+	@git commit -m "chore: bump version to $(V)"
+	@git tag -a "v$(V)" -m "Release v$(V)"
+	@echo ""
+	@echo "$(GREEN)✓$(RESET) Version $(V) tagged!"
+	@echo ""
+	@echo "$(BOLD)Next steps:$(RESET)"
+	@echo "  1. Push to origin:     git push origin develop"
+	@echo "  2. Create PR to main"
+	@echo "  3. After merge, push tag: git push origin v$(V)"
+	@echo ""
+	@echo "$(YELLOW)Or push tag now to trigger release:$(RESET)"
+	@echo "  git push origin v$(V)"
 
 # ==================== Maintenance ====================
 
