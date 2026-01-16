@@ -244,24 +244,73 @@
 
 <!-- Progress Modal -->
 <div id="progress-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6">
         <div class="flex items-center gap-3 mb-4">
             <svg id="progress-spinner" class="w-6 h-6 text-blue-600 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <h3 id="progress-title" class="text-lg font-semibold text-gray-800">Processing...</h3>
+            <div>
+                <h3 id="progress-title" class="text-lg font-semibold text-gray-800">Processing...</h3>
+                <p id="progress-counter" class="text-sm text-gray-500"></p>
+            </div>
         </div>
-        <p id="progress-message" class="text-gray-600 mb-4">Please wait...</p>
-        <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
-            <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+
+        <!-- Current file being processed -->
+        <div id="progress-current-file" class="hidden mb-4 p-3 bg-blue-50 rounded-lg">
+            <div class="flex items-center gap-2 text-blue-800">
+                <svg class="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <span id="progress-filename" class="text-sm font-medium truncate"></span>
+            </div>
         </div>
-        <div id="progress-details" class="text-sm text-gray-500"></div>
+
+        <!-- Progress bar with percentage -->
+        <div class="mb-4">
+            <div class="flex justify-between text-sm text-gray-600 mb-1">
+                <span id="progress-message">Please wait...</span>
+                <span id="progress-percent">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3">
+                <div id="progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-300 relative" style="width: 0%">
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div id="progress-stats" class="hidden grid grid-cols-3 gap-3 mb-4 p-3 bg-gray-50 rounded-lg text-center">
+            <div>
+                <div id="progress-stat-imported" class="text-lg font-bold text-green-600">0</div>
+                <div class="text-xs text-gray-500">Imported</div>
+            </div>
+            <div>
+                <div id="progress-stat-failed" class="text-lg font-bold text-red-600">0</div>
+                <div class="text-xs text-gray-500">Failed</div>
+            </div>
+            <div>
+                <div id="progress-stat-records" class="text-lg font-bold text-blue-600">0</div>
+                <div class="text-xs text-gray-500">Records</div>
+            </div>
+        </div>
+
+        <div id="progress-details" class="text-sm text-gray-500 whitespace-pre-line"></div>
         <button id="progress-close-btn" onclick="closeProgressModal()" class="hidden mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors">
             Close
         </button>
     </div>
 </div>
+
+<style>
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+.animate-shimmer {
+    animation: shimmer 1.5s infinite;
+}
+</style>
 
 <script>
     // State
@@ -713,25 +762,58 @@
 
     async function pollImportProgress() {
         try {
-            const response = await fetch('/api/import/progress');
+            const response = await fetch('/import/progress');
             const data = await response.json();
 
-            if (data.success) {
-                const progress = data.progress;
-                const percent = progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
+            // Handle both legacy format and new format
+            const progress = data.progress || data;
+            const totalFiles = progress.total_files || progress.total || 0;
+            const completedFiles = progress.completed_files || progress.processed || 0;
+            const percent = totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 0;
+            const isRunning = progress.running || progress.is_running || progress.status === 'running';
 
-                document.getElementById('progress-bar').style.width = percent + '%';
-                document.getElementById('progress-message').textContent = progress.current_file ?
-                    'Importing: ' + progress.current_file : 'Processing...';
+            // Update progress bar and percentage
+            document.getElementById('progress-bar').style.width = percent + '%';
+            document.getElementById('progress-percent').textContent = percent + '%';
 
-                if (progress.is_running) {
-                    setTimeout(pollImportProgress, 500);
-                } else {
-                    updateProgressModal('Complete', 'Import completed! ' + progress.processed + ' files processed.', true);
-                    loadFileStatus();
-                }
+            // Update counter [current/total]
+            if (totalFiles > 0) {
+                document.getElementById('progress-counter').textContent = '[' + completedFiles + '/' + totalFiles + '] files';
+            }
+
+            // Update current file
+            const currentFile = progress.current_file || '';
+            if (currentFile) {
+                document.getElementById('progress-current-file').classList.remove('hidden');
+                document.getElementById('progress-filename').textContent = currentFile;
+                document.getElementById('progress-message').textContent = 'Importing...';
+            } else {
+                document.getElementById('progress-current-file').classList.add('hidden');
+                document.getElementById('progress-message').textContent = 'Processing...';
+            }
+
+            // Update statistics
+            const recordsImported = progress.records_imported || progress.total_records || 0;
+            const failedFiles = progress.failed_files || 0;
+            if (recordsImported > 0 || failedFiles > 0 || completedFiles > 0) {
+                document.getElementById('progress-stats').classList.remove('hidden');
+                document.getElementById('progress-stat-imported').textContent = completedFiles.toLocaleString();
+                document.getElementById('progress-stat-failed').textContent = failedFiles.toLocaleString();
+                document.getElementById('progress-stat-records').textContent = recordsImported.toLocaleString();
+            }
+
+            if (isRunning) {
+                setTimeout(pollImportProgress, 500);
+            } else {
+                // Import completed
+                const message = failedFiles > 0
+                    ? 'Imported ' + completedFiles + ' files, ' + failedFiles + ' failed'
+                    : 'Imported ' + completedFiles + ' files successfully';
+                updateProgressModal('Import Complete', message, true);
+                loadFileStatus();
             }
         } catch (error) {
+            console.error('Error polling import progress:', error);
             setTimeout(pollImportProgress, 1000);
         }
     }
@@ -780,7 +862,14 @@
         document.getElementById('progress-title').textContent = title;
         document.getElementById('progress-message').textContent = message;
         document.getElementById('progress-bar').style.width = '0%';
+        document.getElementById('progress-percent').textContent = '0%';
+        document.getElementById('progress-counter').textContent = '';
         document.getElementById('progress-details').textContent = '';
+        document.getElementById('progress-current-file').classList.add('hidden');
+        document.getElementById('progress-stats').classList.add('hidden');
+        document.getElementById('progress-stat-imported').textContent = '0';
+        document.getElementById('progress-stat-failed').textContent = '0';
+        document.getElementById('progress-stat-records').textContent = '0';
         document.getElementById('progress-close-btn').classList.add('hidden');
         document.getElementById('progress-spinner').classList.remove('hidden');
         document.getElementById('progress-modal').classList.remove('hidden');
@@ -792,7 +881,9 @@
         if (showClose) {
             document.getElementById('progress-close-btn').classList.remove('hidden');
             document.getElementById('progress-spinner').classList.add('hidden');
+            document.getElementById('progress-current-file').classList.add('hidden');
             document.getElementById('progress-bar').style.width = '100%';
+            document.getElementById('progress-percent').textContent = '100%';
         }
     }
 
