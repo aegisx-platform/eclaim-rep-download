@@ -813,7 +813,11 @@
                     ? 'Imported ' + completedFiles + ' files, ' + failedFiles + ' failed'
                     : 'Imported ' + completedFiles + ' files successfully';
                 updateProgressModal('Import Complete', message, true);
-                loadFileStatus();
+                // Delay to ensure database commits are complete, then reload file status
+                setTimeout(function() {
+                    loadFileStatus();
+                    updateOverallProgress();
+                }, 500);
             }
         } catch (error) {
             console.error('Error polling import progress:', error);
