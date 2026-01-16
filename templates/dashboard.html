@@ -281,6 +281,122 @@
     </div>
 </div>
 
+<!-- Phase 3: Data Reconciliation Status -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- REP Import Status -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            REP Import Status
+        </h3>
+        <div id="rep-status" class="space-y-3">
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Total Files</span>
+                <span class="font-bold text-gray-800" id="rep-total">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Imported</span>
+                <span class="font-bold text-green-600" id="rep-imported">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Failed</span>
+                <span class="font-bold text-red-600" id="rep-failed">-</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div id="rep-progress-bar" class="bg-green-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+            </div>
+            <div class="text-xs text-gray-500 text-right" id="rep-progress-text">0%</div>
+        </div>
+    </div>
+
+    <!-- STM Import Status -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+            </svg>
+            STM Import Status
+        </h3>
+        <div id="stm-status" class="space-y-3">
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Total Files</span>
+                <span class="font-bold text-gray-800" id="stm-total">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Imported</span>
+                <span class="font-bold text-green-600" id="stm-imported">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Failed</span>
+                <span class="font-bold text-red-600" id="stm-failed">-</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div id="stm-progress-bar" class="bg-purple-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+            </div>
+            <div class="text-xs text-gray-500 text-right" id="stm-progress-text">0%</div>
+        </div>
+    </div>
+
+    <!-- STM-REP Reconciliation -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            STM-REP Reconciliation
+        </h3>
+        <div id="reconciliation-status" class="space-y-3">
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Total Records</span>
+                <span class="font-bold text-gray-800" id="recon-total">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Matched</span>
+                <span class="font-bold text-green-600" id="recon-matched">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Unmatched</span>
+                <span class="font-bold text-orange-600" id="recon-unmatched">-</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div id="recon-progress-bar" class="bg-teal-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+            </div>
+            <div class="text-xs text-gray-500 text-right" id="recon-progress-text">0%</div>
+        </div>
+    </div>
+</div>
+
+<!-- SMT Budget Overview -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-gray-800 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            SMT Budget Overview
+        </h3>
+        <a href="{{ url_for('smt_budget') }}" class="text-blue-600 hover:text-blue-700 text-sm font-medium">
+            View Details
+        </a>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="text-sm text-gray-600 mb-1">Total Budget Received</div>
+            <div class="text-2xl font-bold text-green-600" id="smt-total-amount">-</div>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="text-sm text-gray-600 mb-1">Budget Records</div>
+            <div class="text-2xl font-bold text-gray-800" id="smt-total-records">-</div>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="text-sm text-gray-600 mb-1">Last Sync</div>
+            <div class="text-lg font-medium text-gray-600" id="smt-last-sync">-</div>
+        </div>
+    </div>
+</div>
+
 <!-- Latest Files Section -->
 <div class="bg-white rounded-lg shadow-md overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
@@ -639,6 +755,55 @@ function formatMoney(num) {
     return formatNumber(num);
 }
 
+// Phase 3: Load Reconciliation Status
+async function loadReconciliationStatus() {
+    try {
+        var response = await fetch('/api/dashboard/reconciliation-status');
+        var data = await response.json();
+
+        if (data.success) {
+            var d = data.data;
+
+            // REP Import Status
+            var repTotal = d.rep_status.total || 0;
+            var repImported = d.rep_status.imported || 0;
+            document.getElementById('rep-total').textContent = formatNumber(repTotal);
+            document.getElementById('rep-imported').textContent = formatNumber(repImported);
+            document.getElementById('rep-failed').textContent = formatNumber(d.rep_status.failed || 0);
+            var repPercent = repTotal > 0 ? Math.round((repImported / repTotal) * 100) : 0;
+            document.getElementById('rep-progress-bar').style.width = repPercent + '%';
+            document.getElementById('rep-progress-text').textContent = repPercent + '%';
+
+            // STM Import Status
+            var stmTotal = d.stm_status.total || 0;
+            var stmImported = d.stm_status.imported || 0;
+            document.getElementById('stm-total').textContent = formatNumber(stmTotal);
+            document.getElementById('stm-imported').textContent = formatNumber(stmImported);
+            document.getElementById('stm-failed').textContent = formatNumber(d.stm_status.failed || 0);
+            var stmPercent = stmTotal > 0 ? Math.round((stmImported / stmTotal) * 100) : 0;
+            document.getElementById('stm-progress-bar').style.width = stmPercent + '%';
+            document.getElementById('stm-progress-text').textContent = stmPercent + '%';
+
+            // STM-REP Reconciliation
+            var reconTotal = d.reconciliation.total || 0;
+            var reconMatched = d.reconciliation.matched || 0;
+            document.getElementById('recon-total').textContent = formatNumber(reconTotal);
+            document.getElementById('recon-matched').textContent = formatNumber(reconMatched);
+            document.getElementById('recon-unmatched').textContent = formatNumber(d.reconciliation.unmatched || 0);
+            var reconPercent = reconTotal > 0 ? Math.round((reconMatched / reconTotal) * 100) : 0;
+            document.getElementById('recon-progress-bar').style.width = reconPercent + '%';
+            document.getElementById('recon-progress-text').textContent = reconPercent + '%';
+
+            // SMT Budget Overview
+            document.getElementById('smt-total-amount').textContent = formatMoney(d.smt_status.total_amount || 0);
+            document.getElementById('smt-total-records').textContent = formatNumber(d.smt_status.total_records || 0);
+            document.getElementById('smt-last-sync').textContent = d.smt_status.last_sync ? d.smt_status.last_sync.substring(0, 10) : 'ยังไม่ sync';
+        }
+    } catch (error) {
+        console.error('Error loading reconciliation status:', error);
+    }
+}
+
 // Create alert icon using DOM methods
 function createAlertIcon(severity) {
     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -736,13 +901,14 @@ async function loadAlerts() {
     }
 }
 
-// Initialize Dashboard - Phase 2
+// Initialize Dashboard - Phase 3
 document.addEventListener('DOMContentLoaded', function() {
     loadKPIData();
     loadMonthlyTrendChart();
     loadFundComparisonChart();
     loadServiceTypeData();
     loadErrorCodesChart();
+    loadReconciliationStatus();
     loadAlerts();
 });
 </script>

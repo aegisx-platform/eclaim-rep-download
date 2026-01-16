@@ -7099,6 +7099,99 @@ def api_analytics_filter_options():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/dashboard/reconciliation-status')
+def api_dashboard_reconciliation_status():
+    """Phase 3: Get reconciliation status for dashboard"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        result = {
+            'rep_status': {'total': 0, 'imported': 0, 'failed': 0, 'pending': 0},
+            'stm_status': {'total': 0, 'imported': 0, 'failed': 0, 'pending': 0},
+            'smt_status': {'total_records': 0, 'total_amount': 0, 'last_sync': None},
+            'reconciliation': {'matched': 0, 'unmatched': 0, 'total': 0}
+        }
+
+        # REP Import Status
+        try:
+            cursor.execute("""
+                SELECT status, COUNT(*) as count
+                FROM eclaim_imported_files
+                GROUP BY status
+            """)
+            for row in cursor.fetchall():
+                status, count = row[0], row[1]
+                result['rep_status']['total'] += count
+                if status == 'completed':
+                    result['rep_status']['imported'] += count
+                elif status == 'failed':
+                    result['rep_status']['failed'] += count
+                else:
+                    result['rep_status']['pending'] += count
+        except Exception:
+            pass
+
+        # STM Import Status
+        try:
+            cursor.execute("""
+                SELECT status, COUNT(*) as count
+                FROM stm_imported_files
+                GROUP BY status
+            """)
+            for row in cursor.fetchall():
+                status, count = row[0], row[1]
+                result['stm_status']['total'] += count
+                if status == 'completed':
+                    result['stm_status']['imported'] += count
+                elif status == 'failed':
+                    result['stm_status']['failed'] += count
+                else:
+                    result['stm_status']['pending'] += count
+        except Exception:
+            pass
+
+        # SMT Budget Status
+        try:
+            cursor.execute("""
+                SELECT COUNT(*), COALESCE(SUM(total_amount), 0), MAX(created_at)
+                FROM smt_budget_transfers
+            """)
+            row = cursor.fetchone()
+            if row:
+                result['smt_status']['total_records'] = row[0] or 0
+                result['smt_status']['total_amount'] = float(row[1] or 0)
+                result['smt_status']['last_sync'] = str(row[2]) if row[2] else None
+        except Exception:
+            pass
+
+        # STM-REP Reconciliation Status (using stm_claim_item)
+        try:
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN rep_matched = TRUE OR rep_matched = 1 THEN 1 ELSE 0 END) as matched
+                FROM stm_claim_item
+            """)
+            row = cursor.fetchone()
+            if row:
+                result['reconciliation']['total'] = row[0] or 0
+                result['reconciliation']['matched'] = row[1] or 0
+                result['reconciliation']['unmatched'] = (row[0] or 0) - (row[1] or 0)
+        except Exception:
+            pass
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': result})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/analytics/overview')
 def api_analytics_overview():
     """Get overview statistics for analytics dashboard"""
