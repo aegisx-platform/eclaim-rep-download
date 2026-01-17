@@ -24,6 +24,7 @@ from utils.alert_manager import alert_manager
 from utils.logging_config import setup_logger, safe_format_exception
 from utils.auth import auth_manager, User, require_role, require_admin
 from utils.audit_logger import audit_logger
+from utils.rate_limiter import rate_limiter, limit_login, limit_api, limit_download, limit_export
 from config.database import get_db_config, DB_TYPE
 from config.db_pool import init_pool, close_pool, get_connection as get_pooled_connection, return_connection, get_pool_status
 
@@ -416,6 +417,7 @@ def get_import_status_map():
 # =============================================================================
 
 @app.route('/login', methods=['GET', 'POST'])
+@limit_login  # Rate limit: 5 requests per 5 minutes per IP (brute force protection)
 def login():
     """User login page."""
     # If already logged in, redirect to dashboard
