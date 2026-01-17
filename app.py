@@ -543,7 +543,13 @@ def index():
             cursor.close()
             conn.close()
 
-            if health_count < 1000:
+            # Check hospital code setting
+            hospital_code = settings_manager.get_hospital_code()
+
+            # Redirect to setup if:
+            # 1. Seed data not complete (health_offices < 1000 records)
+            # 2. Hospital code not configured
+            if health_count < 1000 or not hospital_code:
                 return redirect(url_for('setup'))
     except:
         pass
