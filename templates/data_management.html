@@ -56,84 +56,37 @@
             Download
         </button>
 
-        <!-- Files Dropdown -->
-        <div class="relative tab-dropdown" id="dropdown-files">
-            <button onclick="toggleTabDropdown('files')" class="tab-group-btn px-5 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                Files
-                <svg class="w-4 h-4 ml-1 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-            </button>
-            <div class="dropdown-menu hidden absolute left-0 top-full mt-0 w-48 bg-white rounded-b-lg shadow-lg border border-t-0 z-50">
-                <button onclick="switchTab('rep'); closeAllDropdowns();" id="tab-rep" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-blue-500 mr-3"></span>
-                    REP Files
-                </button>
-                <button onclick="switchTab('statement'); closeAllDropdowns();" id="tab-statement" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-green-500 mr-3"></span>
-                    Statement
-                </button>
-                <button onclick="switchTab('smt'); closeAllDropdowns();" id="tab-smt" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-purple-500 mr-3"></span>
-                    Smart Money Transfer
-                </button>
-            </div>
-        </div>
+        <!-- REP Files Tab -->
+        <button onclick="switchTab('rep')" id="tab-rep" class="tab-btn px-5 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            REP Files
+        </button>
 
-        <!-- Admin Dropdown -->
-        <div class="relative tab-dropdown" id="dropdown-admin">
-            <button onclick="toggleTabDropdown('admin')" class="tab-group-btn px-5 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-                Admin
-                <svg class="w-4 h-4 ml-1 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-            </button>
-            <div class="dropdown-menu hidden absolute left-0 top-full mt-0 w-48 bg-white rounded-b-lg shadow-lg border border-t-0 z-50">
-                <button onclick="switchTab('settings'); closeAllDropdowns();" id="tab-settings" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-gray-500 mr-3"></span>
-                    Settings
-                </button>
-                <button onclick="switchTab('offices'); closeAllDropdowns();" id="tab-offices" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-teal-500 mr-3"></span>
-                    Health Offices
-                </button>
-            </div>
-        </div>
+        <!-- Statement Tab -->
+        <button onclick="switchTab('statement')" id="tab-statement" class="tab-btn px-5 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+            </svg>
+            Statement
+        </button>
 
-        <!-- Monitor Dropdown -->
-        <div class="relative tab-dropdown" id="dropdown-monitor">
-            <button onclick="toggleTabDropdown('monitor')" class="tab-group-btn px-5 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                </svg>
-                Monitor
-                <svg class="w-4 h-4 ml-1 dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-            </button>
-            <div class="dropdown-menu hidden absolute left-0 top-full mt-0 w-48 bg-white rounded-b-lg shadow-lg border border-t-0 z-50">
-                <button onclick="switchTab('jobs'); closeAllDropdowns();" id="tab-jobs" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-amber-500 mr-3"></span>
-                    Job History
-                </button>
-                <button onclick="switchTab('health'); closeAllDropdowns();" id="tab-health" class="tab-btn w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 mr-3"></span>
-                    System Health
-                </button>
-            </div>
-        </div>
+        <!-- SMT Tab -->
+        <button onclick="switchTab('smt')" id="tab-smt" class="tab-btn px-5 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            SMT
+        </button>
 
-        <!-- Current Tab Indicator (shows which sub-tab is active) -->
-        <div id="current-tab-indicator" class="ml-auto px-4 py-2 text-xs text-gray-400 hidden">
-            <span id="current-tab-label"></span>
-        </div>
+        <!-- Job History Tab -->
+        <button onclick="switchTab('jobs')" id="tab-jobs" class="tab-btn px-5 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Job History
+        </button>
     </nav>
 </div>
 
@@ -284,35 +237,6 @@
                         <div id="dm-recon-progress-bar" class="bg-teal-600 h-2 rounded-full transition-all" style="width: 0%"></div>
                     </div>
                     <div class="text-xs text-gray-500 text-right" id="dm-recon-progress-text">0%</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SMT Budget Overview -->
-        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-8">
-            <div class="flex items-center justify-between mb-4">
-                <h4 class="text-sm font-bold text-gray-800 flex items-center">
-                    <svg class="w-4 h-4 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    SMT Budget Overview
-                </h4>
-                <a href="{{ url_for('smt_budget') }}" class="text-blue-600 hover:text-blue-700 text-xs font-medium">
-                    View Details
-                </a>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="bg-white rounded-lg p-3 border border-gray-100">
-                    <div class="text-xs text-gray-600 mb-1">Total Budget Received</div>
-                    <div class="text-xl font-bold text-green-600" id="dm-smt-total-amount">-</div>
-                </div>
-                <div class="bg-white rounded-lg p-3 border border-gray-100">
-                    <div class="text-xs text-gray-600 mb-1">Budget Records</div>
-                    <div class="text-xl font-bold text-gray-800" id="dm-smt-total-records">-</div>
-                </div>
-                <div class="bg-white rounded-lg p-3 border border-gray-100">
-                    <div class="text-xs text-gray-600 mb-1">Last Sync</div>
-                    <div class="text-lg font-medium text-gray-600" id="dm-smt-last-sync">-</div>
                 </div>
             </div>
         </div>
@@ -1967,6 +1891,35 @@
 
         <!-- ===== SMT Database Sub-tab ===== -->
         <div id="smt-subtab-database" class="hidden">
+        <!-- SMT Budget Overview -->
+        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h4 class="text-sm font-bold text-gray-800 flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    SMT Budget Overview
+                </h4>
+                <a href="{{ url_for('smt_budget') }}" class="text-blue-600 hover:text-blue-700 text-xs font-medium">
+                    View Details
+                </a>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white rounded-lg p-3 border border-gray-100">
+                    <div class="text-xs text-gray-600 mb-1">Total Budget Received</div>
+                    <div class="text-xl font-bold text-green-600" id="dm-smt-total-amount">-</div>
+                </div>
+                <div class="bg-white rounded-lg p-3 border border-gray-100">
+                    <div class="text-xs text-gray-600 mb-1">Budget Records</div>
+                    <div class="text-xl font-bold text-gray-800" id="dm-smt-total-records">-</div>
+                </div>
+                <div class="bg-white rounded-lg p-3 border border-gray-100">
+                    <div class="text-xs text-gray-600 mb-1">Last Sync</div>
+                    <div class="text-lg font-medium text-gray-600" id="dm-smt-last-sync">-</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Database Records Section -->
         <div>
             <div class="flex items-center justify-between mb-4">
@@ -2071,400 +2024,7 @@
         <!-- End SMT Database Sub-tab -->
     </div>
 
-    <!-- ==================== SETTINGS TAB ==================== -->
-    <div id="content-settings" class="tab-content p-6 hidden">
-        <div class="max-w-3xl">
-            <!-- Hospital Settings Section (Global) -->
-            <div class="border border-blue-200 rounded-lg p-6 mb-6 bg-blue-50/30">
-                <h3 class="text-lg font-semibold mb-4 flex items-center">
-                    <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                    </svg>
-                    Hospital Settings
-                </h3>
-                <p class="text-sm text-gray-600 mb-4">ตั้งค่ารหัสหน่วยบริการสำหรับใช้งานทั้งระบบ (SMT และการคำนวณ KPI ต่อเตียง)</p>
 
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
-                            รหัสหน่วยบริการ (Hospital Code)
-                            <span class="text-red-500">*</span>
-                        </label>
-                        <div class="flex gap-2">
-                            <input type="text" id="settings-hospital-code"
-                                   placeholder="เช่น 10670"
-                                   maxlength="5"
-                                   class="w-48 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                            <button type="button" onclick="saveSettingsHospitalCode()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium">
-                                Save
-                            </button>
-                            <button type="button" onclick="lookupHospitalInfo()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-md font-medium">
-                                Lookup
-                            </button>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">รหัส 5 หลักจากระบบ สปสช. (เช่น 10670)</p>
-                    </div>
-
-                    <!-- Hospital Info Display -->
-                    <div id="settings-hospital-info" class="hidden p-4 bg-white rounded-lg border border-gray-200">
-                        <div class="flex items-start gap-3">
-                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                </svg>
-                            </div>
-                            <div class="flex-1">
-                                <h4 id="settings-hospital-name" class="font-semibold text-gray-800">-</h4>
-                                <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
-                                    <div class="flex items-center gap-1 text-gray-600">
-                                        <span class="font-medium">ระดับ:</span>
-                                        <span id="settings-hospital-level">-</span>
-                                    </div>
-                                    <div class="flex items-center gap-1 text-gray-600">
-                                        <span class="font-medium">เตียง:</span>
-                                        <span id="settings-hospital-beds">-</span>
-                                    </div>
-                                    <div class="flex items-center gap-1 text-gray-600">
-                                        <span class="font-medium">จังหวัด:</span>
-                                        <span id="settings-hospital-province">-</span>
-                                    </div>
-                                    <div class="flex items-center gap-1 text-gray-600">
-                                        <span class="font-medium">เขต:</span>
-                                        <span id="settings-hospital-region">-</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="settings-hospital-status" class="hidden mt-4 p-3 rounded-lg"></div>
-            </div>
-
-            <!-- Multiple Credentials Section -->
-            <div class="border border-gray-200 rounded-lg p-6 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold flex items-center">
-                        <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
-                        </svg>
-                        E-Claim Credentials
-                    </h3>
-                    <span id="credentials-count" class="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full"></span>
-                </div>
-
-                <p class="text-sm text-gray-600 mb-4">
-                    เพิ่มบัญชีได้หลายบัญชี ระบบจะสุ่มเลือกใช้อัตโนมัติเพื่อป้องกัน สปสช. block
-                </p>
-
-                <!-- Credentials List -->
-                <div id="credentials-list" class="space-y-3 mb-4">
-                    <!-- Credentials will be loaded here dynamically -->
-                </div>
-
-                <!-- Add New Credential Form -->
-                <div class="border-t border-gray-200 pt-4 mt-4">
-                    <h4 class="text-sm font-semibold text-gray-700 mb-3">เพิ่มบัญชีใหม่</h4>
-                    <div class="grid grid-cols-12 gap-3">
-                        <div class="col-span-4">
-                            <input type="text" id="new-cred-username" placeholder="Username (เลขบัตรประชาชน)"
-                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div class="col-span-3">
-                            <div class="relative">
-                                <input type="password" id="new-cred-password" placeholder="Password"
-                                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm pr-8 focus:ring-2 focus:ring-blue-500">
-                                <button type="button" onclick="togglePasswordVisibility('new-cred-password')" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="col-span-3">
-                            <input type="text" id="new-cred-note" placeholder="หมายเหตุ (ไม่บังคับ)"
-                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div class="col-span-2">
-                            <button type="button" onclick="addCredential()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md text-sm font-medium">
-                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                เพิ่ม
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Test Connection -->
-                <div class="border-t border-gray-200 pt-4 mt-4">
-                    <button type="button" onclick="testConnection()" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">
-                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                        </svg>
-                        Test Connection (Random Account)
-                    </button>
-                </div>
-
-                <div id="connection-status" class="hidden mt-4 p-3 rounded-lg"></div>
-            </div>
-
-            <!-- SMT Settings Section -->
-            <div class="border border-gray-200 rounded-lg p-6 mb-6">
-                <h3 class="text-lg font-semibold mb-4 flex items-center">
-                    <svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    Smart Money Transfer Settings
-                </h3>
-                <p class="text-sm text-gray-600 mb-4">ตั้งค่าการดึงข้อมูล Smart Money Transfer จาก สปสช. (ใช้รหัสหน่วยบริการจาก Hospital Settings ด้านบน)</p>
-
-                <form id="smt-settings-form" class="space-y-4">
-                    <!-- Hospital Code Info (Read-only) -->
-                    <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <span class="text-sm text-gray-600">รหัสหน่วยบริการที่ใช้:</span>
-                                <span id="smt-hospital-code-display" class="font-medium text-gray-800">-</span>
-                            </div>
-                            <a href="#" onclick="document.getElementById('settings-hospital-code').focus(); return false;" class="text-xs text-blue-600 hover:text-blue-800">เปลี่ยนแปลง</a>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center">
-                        <input type="checkbox" id="smt-auto-save" name="smt_auto_save_db"
-                               {% if settings.smt_auto_save_db | default(true) %}checked{% endif %}
-                               class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
-                        <label for="smt-auto-save" class="ml-2 text-sm text-gray-700">
-                            บันทึกข้อมูลลง Database อัตโนมัติ
-                        </label>
-                    </div>
-
-                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium">
-                        Save SMT Settings
-                    </button>
-                </form>
-
-                <div id="smt-settings-status" class="hidden mt-4 p-3 rounded-lg"></div>
-            </div>
-
-            <!-- Database Info -->
-            <div class="border border-gray-200 rounded-lg p-6">
-                <h3 class="text-lg font-semibold mb-4 flex items-center">
-                    <svg class="w-6 h-6 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
-                    </svg>
-                    Database Status
-                </h3>
-
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                    <div class="bg-gray-50 rounded p-3">
-                        <p class="text-gray-500">Type</p>
-                        <p class="font-medium">{{ db_info.type | default('PostgreSQL') }}</p>
-                    </div>
-                    <div class="bg-gray-50 rounded p-3">
-                        <p class="text-gray-500">Status</p>
-                        <p class="font-medium text-green-600">Connected</p>
-                    </div>
-                    <div class="bg-gray-50 rounded p-3">
-                        <p class="text-gray-500">Claims Records</p>
-                        <p class="font-medium">{{ db_info.claims_count | default(0) | number_format }}</p>
-                    </div>
-                    <div class="bg-gray-50 rounded p-3">
-                        <p class="text-gray-500">Budget Records</p>
-                        <p class="font-medium">{{ db_info.budget_count | default(0) | number_format }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ==================== HEALTH OFFICES TAB ==================== -->
-    <div id="content-offices" class="tab-content p-6 hidden">
-        <!-- Header and Source -->
-        <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p class="text-sm text-blue-800">
-                <span class="font-medium">Data Source:</span>
-                <a href="https://hcode.moph.go.th/code/" target="_blank" class="underline hover:text-blue-600">
-                    https://hcode.moph.go.th
-                </a>
-                - ระบบรหัสมาตรฐานสถานพยาบาล กระทรวงสาธารณสุข
-            </p>
-        </div>
-
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-4 gap-4 mb-6">
-            <div class="bg-gray-50 rounded-lg p-4 text-center">
-                <p id="ho-stat-total" class="text-2xl font-bold text-gray-700">-</p>
-                <p class="text-sm text-gray-600">Total Records</p>
-            </div>
-            <div class="bg-blue-50 rounded-lg p-4 text-center">
-                <p id="ho-stat-active" class="text-2xl font-bold text-blue-700">-</p>
-                <p class="text-sm text-blue-600">Active</p>
-            </div>
-            <div class="bg-green-50 rounded-lg p-4 text-center">
-                <p id="ho-stat-provinces" class="text-2xl font-bold text-green-700">-</p>
-                <p class="text-sm text-green-600">Provinces</p>
-            </div>
-            <div class="bg-purple-50 rounded-lg p-4 text-center">
-                <p id="ho-stat-hospitals" class="text-2xl font-bold text-purple-700">-</p>
-                <p class="text-sm text-purple-600">Hospitals</p>
-            </div>
-        </div>
-
-        <!-- Import Section -->
-        <div class="border border-gray-200 rounded-lg p-6 mb-6">
-            <h3 class="text-lg font-semibold mb-4 flex items-center text-green-700">
-                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                </svg>
-                Import Health Offices Data
-            </h3>
-
-            <div class="grid grid-cols-2 gap-6">
-                <!-- Upload Area -->
-                <div class="border border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <input type="file" id="ho-import-file" accept=".xlsx,.xls" class="hidden" onchange="hoHandleFileSelect(this)">
-                    <div id="ho-upload-area" onclick="document.getElementById('ho-import-file').click()" class="cursor-pointer">
-                        <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                        </svg>
-                        <p class="text-gray-600">Click to upload Excel file</p>
-                        <p class="text-sm text-gray-400 mt-1">.xlsx from hcode.moph.go.th</p>
-                    </div>
-                    <div id="ho-file-selected" class="hidden">
-                        <div class="flex items-center justify-center gap-2 text-green-600">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span id="ho-file-name">file.xlsx</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Import Options -->
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Import Mode</label>
-                        <div class="space-y-2">
-                            <label class="flex items-center cursor-pointer">
-                                <input type="radio" name="ho-import-mode" value="upsert" checked class="w-4 h-4 text-blue-600">
-                                <span class="ml-2">
-                                    <span class="font-medium">Update/Insert</span>
-                                    <span class="text-sm text-gray-500">- อัพเดทข้อมูลที่มีอยู่</span>
-                                </span>
-                            </label>
-                            <label class="flex items-center cursor-pointer">
-                                <input type="radio" name="ho-import-mode" value="replace" class="w-4 h-4 text-red-600">
-                                <span class="ml-2">
-                                    <span class="font-medium text-red-600">Clear & Replace</span>
-                                    <span class="text-sm text-gray-500">- ลบข้อมูลเก่าทั้งหมด</span>
-                                </span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="flex gap-3">
-                        <button onclick="hoImportData()" id="ho-btn-import" disabled
-                                class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 px-4 rounded-md font-medium">
-                            Import Data
-                        </button>
-                        <button onclick="hoClearAllData()"
-                                class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md font-medium">
-                            Clear All
-                        </button>
-                    </div>
-
-                    <div id="ho-import-progress" class="hidden">
-                        <div class="flex justify-between text-sm mb-1">
-                            <span>Importing...</span>
-                            <span id="ho-import-percent">0%</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div id="ho-import-bar" class="bg-green-600 h-2 rounded-full" style="width: 0%"></div>
-                        </div>
-                    </div>
-
-                    <div id="ho-import-result" class="hidden p-3 rounded-lg"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Search and Data Table -->
-        <div class="border border-gray-200 rounded-lg">
-            <div class="p-4 border-b border-gray-200">
-                <div class="grid grid-cols-5 gap-4">
-                    <div class="col-span-2">
-                        <input type="text" id="ho-search-input" placeholder="ค้นหา: ชื่อ, รหัส 5 หลัก..."
-                               onkeyup="hoDebounceSearch()"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <select id="ho-filter-province" onchange="hoLoadData()" class="px-3 py-2 border border-gray-300 rounded-md">
-                        <option value="">All Provinces</option>
-                    </select>
-                    <select id="ho-filter-level" onchange="hoLoadData()" class="px-3 py-2 border border-gray-300 rounded-md">
-                        <option value="">All Levels</option>
-                    </select>
-                    <select id="ho-per-page" onchange="hoLoadData()" class="px-3 py-2 border border-gray-300 rounded-md">
-                        <option value="50">50 per page</option>
-                        <option value="100">100 per page</option>
-                    </select>
-                </div>
-            </div>
-
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">รหัส 5 หลัก</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ชื่อ</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ระดับ</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">จังหวัด</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">สถานะ</th>
-                    </tr>
-                </thead>
-                <tbody id="ho-data-tbody" class="bg-white divide-y divide-gray-200">
-                    <tr>
-                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">Loading...</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <div class="px-4 py-3 border-t border-gray-200 flex justify-between items-center">
-                <div class="text-sm text-gray-500">
-                    <span id="ho-showing-count">0</span> of <span id="ho-total-count">0</span>
-                </div>
-                <div id="ho-pagination" class="flex gap-2"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Import Progress Modal -->
-<div id="import-progress-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Importing Files to Database</h3>
-        <div class="mb-4">
-            <div class="flex justify-between text-sm text-gray-600 mb-2">
-                <span id="import-progress-text">Preparing...</span>
-                <span id="import-progress-percentage">0%</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-4">
-                <div id="import-progress-bar" class="bg-blue-600 h-4 rounded-full transition-all" style="width: 0%"></div>
-            </div>
-            <div class="mt-2 text-sm text-gray-600">
-                <span id="import-file-count">0 / 0 files</span> |
-                <span id="import-record-count">0 records</span>
-            </div>
-        </div>
-        <div class="bg-gray-50 rounded p-3 mb-4">
-            <div class="text-xs text-gray-500">Current File:</div>
-            <div id="import-current-file" class="text-sm font-mono truncate">-</div>
-        </div>
-        <button onclick="closeImportModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
-            Run in Background
-        </button>
-    </div>
 </div>
 
     <!-- ==================== JOB HISTORY TAB ==================== -->
@@ -2553,147 +2113,6 @@
         </div>
     </div>
 
-    <!-- ==================== SYSTEM HEALTH TAB ==================== -->
-    <div id="content-health" class="tab-content p-6 hidden">
-        <div class="flex justify-between items-center mb-6">
-            <div>
-                <h2 class="text-2xl font-bold text-gray-800">System Health</h2>
-                <p class="text-gray-600">สถานะระบบและทรัพยากร</p>
-            </div>
-            <div class="flex items-center gap-4">
-                <label class="flex items-center gap-2 text-sm text-gray-600">
-                    <input type="checkbox" id="health-auto-refresh" class="rounded" checked>
-                    Auto-refresh (30s)
-                </label>
-                <button onclick="loadSystemHealth()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                    Refresh
-                </button>
-            </div>
-        </div>
-
-        <!-- Overall Status Banner -->
-        <div id="health-overall-banner" class="mb-6 p-4 rounded-lg border-2 bg-gray-50 border-gray-200">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <span id="health-overall-icon" class="text-3xl">⏳</span>
-                    <div>
-                        <p id="health-overall-status" class="text-lg font-semibold text-gray-700">Checking...</p>
-                        <p id="health-overall-time" class="text-sm text-gray-500">-</p>
-                    </div>
-                </div>
-                <div id="health-issues-badge" class="hidden px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700">
-                    0 issues
-                </div>
-            </div>
-        </div>
-
-        <!-- Health Cards Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <!-- Database -->
-            <div id="health-card-database" class="bg-white border rounded-lg p-4 shadow-sm">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-600 font-medium">Database</span>
-                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-2xl">🗄️</span>
-                    <span class="health-message text-sm text-gray-700">Checking...</span>
-                </div>
-            </div>
-
-            <!-- Disk -->
-            <div id="health-card-disk" class="bg-white border rounded-lg p-4 shadow-sm">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-600 font-medium">Disk Space</span>
-                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-2xl">💾</span>
-                    <span class="health-message text-sm text-gray-700">Checking...</span>
-                </div>
-                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
-                    <div class="health-progress-bar bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <!-- Memory -->
-            <div id="health-card-memory" class="bg-white border rounded-lg p-4 shadow-sm">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-600 font-medium">Memory</span>
-                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-2xl">🧠</span>
-                    <span class="health-message text-sm text-gray-700">Checking...</span>
-                </div>
-                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
-                    <div class="health-progress-bar bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <!-- Processes -->
-            <div id="health-card-processes" class="bg-white border rounded-lg p-4 shadow-sm">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-600 font-medium">Processes</span>
-                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-2xl">⚙️</span>
-                    <span class="health-message text-sm text-gray-700">Checking...</span>
-                </div>
-            </div>
-
-            <!-- Jobs -->
-            <div id="health-card-jobs" class="bg-white border rounded-lg p-4 shadow-sm">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-600 font-medium">Jobs (24h)</span>
-                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-2xl">📋</span>
-                    <span class="health-message text-sm text-gray-700">Checking...</span>
-                </div>
-            </div>
-
-            <!-- Files -->
-            <div id="health-card-files" class="bg-white border rounded-lg p-4 shadow-sm">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-gray-600 font-medium">Downloaded Files</span>
-                    <span class="health-status-badge px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">-</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-2xl">📁</span>
-                    <span class="health-message text-sm text-gray-700">Checking...</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Running Processes Details -->
-        <div id="health-processes-detail" class="bg-white border rounded-lg p-4 shadow-sm hidden">
-            <h3 class="text-lg font-semibold text-gray-800 mb-3">Running Processes</h3>
-            <div id="health-processes-list" class="space-y-2">
-                <!-- Processes will be listed here -->
-            </div>
-        </div>
-
-        <!-- Stale PIDs Warning -->
-        <div id="health-stale-pids" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4 hidden">
-            <div class="flex items-start gap-3">
-                <span class="text-xl">⚠️</span>
-                <div>
-                    <p class="font-medium text-yellow-800">Stale PID Files Detected</p>
-                    <p class="text-sm text-yellow-700">These processes may have crashed. Consider running System Sync to clean up.</p>
-                    <p id="health-stale-list" class="text-sm font-mono text-yellow-600 mt-1"></p>
-                    <button onclick="runSystemSync()" class="mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-sm">
-                        Clean Up Stale PIDs
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
 
 <style>
 /* Spin animation for sync icon */
@@ -2938,15 +2357,9 @@ function updateStatusCards(data) {
             fileCount.textContent = typeData.total_files.toLocaleString() + ' ไฟล์';
         }
 
-        // Update last update time
+        // Update last update time (with timeago format)
         if (lastUpdate && typeData.last_update) {
-            const date = new Date(typeData.last_update);
-            const day = date.getDate();
-            const month = thaiMonths[date.getMonth() + 1];
-            const year = date.getFullYear() + 543;
-            const hours = date.getHours().toString().padStart(2, '0');
-            const mins = date.getMinutes().toString().padStart(2, '0');
-            lastUpdate.textContent = day + ' ' + month + ' ' + year + ' ' + hours + ':' + mins;
+            lastUpdate.textContent = timeAgo(typeData.last_update);
         } else if (lastUpdate) {
             lastUpdate.textContent = '-';
         }
@@ -3322,11 +2735,7 @@ function initFilters() {
 // ==================== Tab Dropdown Functions ====================
 
 // Tab group mapping - which tabs belong to which group
-var tabGroups = {
-    'files': ['rep', 'statement', 'smt'],
-    'admin': ['settings', 'offices'],
-    'monitor': ['jobs', 'health']
-};
+var tabGroups = {};
 
 // Tab labels for indicator
 var tabLabels = {
@@ -3335,10 +2744,7 @@ var tabLabels = {
     'rep': 'REP Files',
     'statement': 'Statement',
     'smt': 'Smart Money Transfer',
-    'settings': 'Settings',
-    'offices': 'Health Offices',
-    'jobs': 'Job History',
-    'health': 'System Health'
+    'jobs': 'Job History'
 };
 
 /**
@@ -3468,9 +2874,6 @@ function switchTab(tab) {
         initJobDateFilters();
         // Don't call loadJobStats() here - loadJobHistory() will update stats based on filters
         loadJobHistory();
-    } else if (tab === 'health') {
-        loadSystemHealth();
-        startHealthAutoRefresh();
     }
 
     // Update URL without reload
@@ -3498,8 +2901,13 @@ function switchSmtSubtab(subtab) {
     activeBtn.classList.add('bg-green-600', 'text-white');
 
     // Load data if switching to database tab
-    if (subtab === 'database' && typeof loadSmtDbRecords === 'function') {
-        loadSmtDbRecords(1);
+    if (subtab === 'database') {
+        if (typeof loadSmtBudgetOverview === 'function') {
+            loadSmtBudgetOverview();
+        }
+        if (typeof loadSmtDbRecords === 'function') {
+            loadSmtDbRecords(1);
+        }
     }
 }
 
@@ -6260,6 +5668,23 @@ async function loadDashboardStatus() {
         }
     } catch (error) {
         console.error('Error loading dashboard status:', error);
+    }
+}
+
+// Load SMT Budget Overview
+async function loadSmtBudgetOverview() {
+    try {
+        var response = await fetch('/api/dashboard/reconciliation-status');
+        var data = await response.json();
+
+        if (data.success && data.data && data.data.smt_status) {
+            var smt = data.data.smt_status;
+            document.getElementById('dm-smt-total-amount').textContent = dmFormatMoney(smt.total_amount || 0);
+            document.getElementById('dm-smt-total-records').textContent = dmFormatNumber(smt.total_records || 0);
+            document.getElementById('dm-smt-last-sync').textContent = smt.last_sync ? smt.last_sync.substring(0, 10) : 'ยังไม่ sync';
+        }
+    } catch (error) {
+        console.error('Error loading SMT budget overview:', error);
     }
 }
 

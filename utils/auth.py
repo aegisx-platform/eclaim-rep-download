@@ -557,6 +557,312 @@ class AuthManager:
             if conn:
                 return_connection(conn)
 
+    def get_all_users(self) -> list:
+        """
+        Get all active users.
+
+        Returns:
+            List of user dicts
+        """
+        conn = None
+        cursor = None
+
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            query = """
+                SELECT id, username, email, full_name, role, hospital_code,
+                       is_active, must_change_password, created_at, updated_at,
+                       created_by, updated_by, last_login_at
+                FROM users
+                WHERE deleted_at IS NULL
+                ORDER BY created_at DESC
+            """
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+            users = []
+            for row in rows:
+                users.append({
+                    'id': row[0],
+                    'username': row[1],
+                    'email': row[2],
+                    'full_name': row[3],
+                    'role': row[4],
+                    'hospital_code': row[5],
+                    'is_active': row[6],
+                    'must_change_password': row[7],
+                    'created_at': row[8],
+                    'updated_at': row[9],
+                    'created_by': row[10],
+                    'updated_by': row[11],
+                    'last_login_at': row[12]
+                })
+
+            return users
+
+        except Exception as e:
+            print(f"Error getting all users: {e}")
+            return []
+
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                return_connection(conn)
+
+    def update_user(
+        self,
+        user_id: int,
+        email: Optional[str] = None,
+        full_name: Optional[str] = None,
+        role: Optional[str] = None,
+        hospital_code: Optional[str] = None,
+        updated_by: Optional[str] = None
+    ) -> bool:
+        """
+        Update user information.
+
+        Args:
+            user_id: User ID
+            email: New email
+            full_name: New full name
+            role: New role
+            hospital_code: New hospital code
+            updated_by: Username of updater
+
+        Returns:
+            True if successful
+        """
+        conn = None
+        cursor = None
+
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            # Build update query dynamically
+            updates = []
+            params = []
+
+            if email is not None:
+                updates.append("email = %s")
+                params.append(email)
+
+            if full_name is not None:
+                updates.append("full_name = %s")
+                params.append(full_name)
+
+            if role is not None:
+                updates.append("role = %s")
+                params.append(role)
+
+            if hospital_code is not None:
+                updates.append("hospital_code = %s")
+                params.append(hospital_code)
+
+            if not updates:
+                return True  # Nothing to update
+
+            updates.append("updated_by = %s")
+            params.append(updated_by)
+            params.append(user_id)
+
+            query = f"""
+                UPDATE users
+                SET {', '.join(updates)}
+                WHERE id = %s
+            """
+
+            cursor.execute(query, tuple(params))
+            conn.commit()
+
+            # Log user update
+            audit_logger.log(
+                action='UPDATE',
+                resource_type='users',
+                resource_id=str(user_id),
+                user_id=updated_by or 'system',
+                changes_summary=f"Updated: {', '.join([u.split('=')[0].strip() for u in updates[:-1]])}"
+            )
+
+            return True
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            print(f"Error updating user: {e}")
+            return False
+
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                return_connection(conn)
+
+    def toggle_user_status(self, user_id: int, updated_by: Optional[str] = None) -> bool:
+        """
+        Toggle user active/inactive status.
+
+        Args:
+            user_id: User ID
+            updated_by: Username of updater
+
+        Returns:
+            True if successful
+        """
+        conn = None
+        cursor = None
+
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            query = """
+                UPDATE users
+                SET is_active = NOT is_active,
+                    updated_by = %s
+                WHERE id = %s
+            """
+            cursor.execute(query, (updated_by, user_id))
+            conn.commit()
+
+            # Log status change
+            audit_logger.log(
+                action='UPDATE',
+                resource_type='users',
+                resource_id=str(user_id),
+                user_id=updated_by or 'system',
+                changes_summary='Status toggled'
+            )
+
+            return True
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            print(f"Error toggling user status: {e}")
+            return False
+
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                return_connection(conn)
+
+    def delete_user(self, user_id: int, deleted_by: Optional[str] = None) -> bool:
+        """
+        Soft delete user.
+
+        Args:
+            user_id: User ID
+            deleted_by: Username of deleter
+
+        Returns:
+            True if successful
+        """
+        conn = None
+        cursor = None
+
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            query = """
+                UPDATE users
+                SET deleted_at = NOW(),
+                    is_active = FALSE,
+                    updated_by = %s
+                WHERE id = %s
+            """
+            cursor.execute(query, (deleted_by, user_id))
+            conn.commit()
+
+            # Log user deletion
+            audit_logger.log(
+                action='DELETE',
+                resource_type='users',
+                resource_id=str(user_id),
+                user_id=deleted_by or 'system',
+                changes_summary='User deleted (soft)'
+            )
+
+            return True
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            print(f"Error deleting user: {e}")
+            return False
+
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                return_connection(conn)
+
+    def reset_user_password(
+        self,
+        user_id: int,
+        new_password: str,
+        require_change: bool = True,
+        reset_by: Optional[str] = None
+    ) -> bool:
+        """
+        Reset user password (admin function).
+
+        Args:
+            user_id: User ID
+            new_password: New plain text password
+            require_change: Require password change on next login
+            reset_by: Username of admin who reset it
+
+        Returns:
+            True if successful
+        """
+        conn = None
+        cursor = None
+
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            password_hash = self.hash_password(new_password)
+
+            query = """
+                UPDATE users
+                SET password_hash = %s,
+                    must_change_password = %s,
+                    updated_by = %s
+                WHERE id = %s
+            """
+            cursor.execute(query, (password_hash, require_change, reset_by, user_id))
+            conn.commit()
+
+            # Log password reset
+            audit_logger.log(
+                action='UPDATE',
+                resource_type='users',
+                resource_id=str(user_id),
+                user_id=reset_by or 'admin',
+                changes_summary='Password reset by admin'
+            )
+
+            return True
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            print(f"Error resetting password: {e}")
+            return False
+
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                return_connection(conn)
+
 
 # Global instance
 auth_manager = AuthManager()

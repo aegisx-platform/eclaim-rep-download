@@ -7,6 +7,7 @@ Handles all settings-related routes:
 - Hospital configuration
 - Schedule management
 - Credentials management
+- User management (Admin only)
 """
 
 from flask import Blueprint, render_template, jsonify, request
@@ -666,3 +667,246 @@ def api_smt_settings():
         except Exception as e:
             logger.error(f"Error updating SMT settings: {e}")
             return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ===== User Management API =====
+
+@settings_api_bp.route('/api/users', methods=['POST'])
+@login_required
+@require_admin
+def create_user():
+    """Create new user (Admin only)"""
+    try:
+        from utils.auth import auth_manager
+        from flask_login import current_user
+
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '').strip()
+        full_name = data.get('full_name', '').strip()
+        role = data.get('role', 'user')
+
+        # Validate required fields
+        if not username or not email or not password:
+            return jsonify({
+                'success': False,
+                'error': 'กรุณากรอก Username, Email และ Password'
+            }), 400
+
+        if len(password) < 6:
+            return jsonify({
+                'success': False,
+                'error': 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'
+            }), 400
+
+        # Create user
+        user_id = auth_manager.create_user(
+            username=username,
+            email=email,
+            password=password,
+            full_name=full_name or None,
+            role=role,
+            created_by=current_user.username
+        )
+
+        if user_id:
+            logger.info(f"User created: {username} by {current_user.username}")
+            return jsonify({
+                'success': True,
+                'message': 'สร้างผู้ใช้สำเร็จ',
+                'user_id': user_id
+            }), 201
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'ไม่สามารถสร้างผู้ใช้ได้ (Username หรือ Email อาจซ้ำ)'
+            }), 400
+
+    except Exception as e:
+        logger.error(f"Error creating user: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการสร้างผู้ใช้'
+        }), 500
+
+
+@settings_api_bp.route('/api/users/<int:user_id>', methods=['PUT'])
+@login_required
+@require_admin
+def update_user(user_id):
+    """Update user information (Admin only)"""
+    try:
+        from utils.auth import auth_manager
+        from flask_login import current_user
+
+        data = request.get_json()
+        email = data.get('email', '').strip() or None
+        full_name = data.get('full_name', '').strip() or None
+        role = data.get('role')
+
+        # Update user
+        success = auth_manager.update_user(
+            user_id=user_id,
+            email=email,
+            full_name=full_name,
+            role=role,
+            updated_by=current_user.username
+        )
+
+        if success:
+            logger.info(f"User {user_id} updated by {current_user.username}")
+            return jsonify({
+                'success': True,
+                'message': 'อัปเดตข้อมูลผู้ใช้สำเร็จ'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'ไม่สามารถอัปเดตข้อมูลได้'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error updating user: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการอัปเดตข้อมูล'
+        }), 500
+
+
+@settings_api_bp.route('/api/users/<int:user_id>', methods=['DELETE'])
+@login_required
+@require_admin
+def delete_user(user_id):
+    """Delete user (Admin only)"""
+    try:
+        from utils.auth import auth_manager
+        from flask_login import current_user
+
+        # Prevent self-deletion
+        if user_id == current_user.id:
+            return jsonify({
+                'success': False,
+                'error': 'ไม่สามารถลบผู้ใช้ตัวเองได้'
+            }), 400
+
+        # Delete user
+        success = auth_manager.delete_user(
+            user_id=user_id,
+            deleted_by=current_user.username
+        )
+
+        if success:
+            logger.info(f"User {user_id} deleted by {current_user.username}")
+            return jsonify({
+                'success': True,
+                'message': 'ลบผู้ใช้สำเร็จ'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'ไม่สามารถลบผู้ใช้ได้'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error deleting user: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการลบผู้ใช้'
+        }), 500
+
+
+@settings_api_bp.route('/api/users/<int:user_id>/toggle-status', methods=['POST'])
+@login_required
+@require_admin
+def toggle_user_status(user_id):
+    """Toggle user active/inactive status (Admin only)"""
+    try:
+        from utils.auth import auth_manager
+        from flask_login import current_user
+
+        # Prevent self-deactivation
+        if user_id == current_user.id:
+            return jsonify({
+                'success': False,
+                'error': 'ไม่สามารถเปลี่ยนสถานะตัวเองได้'
+            }), 400
+
+        # Toggle status
+        success = auth_manager.toggle_user_status(
+            user_id=user_id,
+            updated_by=current_user.username
+        )
+
+        if success:
+            logger.info(f"User {user_id} status toggled by {current_user.username}")
+            return jsonify({
+                'success': True,
+                'message': 'เปลี่ยนสถานะผู้ใช้สำเร็จ'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'ไม่สามารถเปลี่ยนสถานะได้'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error toggling user status: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะ'
+        }), 500
+
+
+@settings_api_bp.route('/api/users/<int:user_id>/reset-password', methods=['POST'])
+@login_required
+@require_admin
+def reset_user_password(user_id):
+    """Reset user password (Admin only)"""
+    try:
+        from utils.auth import auth_manager
+        from flask_login import current_user
+
+        data = request.get_json()
+        new_password = data.get('new_password', '').strip()
+        require_change = data.get('require_change', True)
+
+        # Validate password
+        if not new_password:
+            return jsonify({
+                'success': False,
+                'error': 'กรุณากรอกรหัสผ่านใหม่'
+            }), 400
+
+        if len(new_password) < 6:
+            return jsonify({
+                'success': False,
+                'error': 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'
+            }), 400
+
+        # Reset password
+        success = auth_manager.reset_user_password(
+            user_id=user_id,
+            new_password=new_password,
+            require_change=require_change,
+            reset_by=current_user.username
+        )
+
+        if success:
+            logger.info(f"Password reset for user {user_id} by {current_user.username}")
+            return jsonify({
+                'success': True,
+                'message': 'รีเซ็ตรหัสผ่านสำเร็จ'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'ไม่สามารถรีเซ็ตรหัสผ่านได้'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error resetting password: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการรีเซ็ตรหัสผ่าน'
+        }), 500

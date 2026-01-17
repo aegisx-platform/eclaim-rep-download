@@ -6,8 +6,13 @@ Routes:
 - /settings/                → Main settings page (overview/navigation)
 - /settings/credentials     → Credentials management
 - /settings/license         → License management
-- /settings/schedule        → Download scheduler configuration
 - /settings/hospital        → Hospital information
+- /settings/system-health   → System health monitoring
+- /settings/profile         → User profile and password management
+- /settings/users           → User management (Admin only)
+- /settings/api-keys        → API Keys management (Admin only)
+
+Note: Schedule route disabled - use Data Management page instead
 """
 
 from flask import Blueprint, render_template, redirect, url_for
@@ -47,12 +52,13 @@ def license():
     return render_template('settings/license.html')
 
 
-@settings_pages_bp.route('/schedule')
-@login_required
-def schedule():
-    """Download scheduler configuration page"""
-    current_settings = settings_manager.load_settings()
-    return render_template('settings/schedule.html', settings=current_settings)
+# Schedule route disabled - use Data Management page instead
+# @settings_pages_bp.route('/schedule')
+# @login_required
+# def schedule():
+#     """Download scheduler configuration page"""
+#     current_settings = settings_manager.load_settings()
+#     return render_template('settings/schedule.html', settings=current_settings)
 
 
 @settings_pages_bp.route('/hospital')
@@ -68,3 +74,28 @@ def hospital():
 def system_health():
     """System health monitoring page"""
     return render_template('settings/system_health.html')
+
+
+@settings_pages_bp.route('/profile')
+@login_required
+def profile():
+    """User profile and password management page"""
+    return render_template('settings/profile.html')
+
+
+@settings_pages_bp.route('/users')
+@login_required
+@require_admin
+def users():
+    """User management page - Admin only"""
+    from utils.auth import auth_manager
+    all_users = auth_manager.get_all_users()
+    return render_template('settings/users.html', users=all_users)
+
+
+@settings_pages_bp.route('/api-keys')
+@login_required
+@require_admin
+def api_keys():
+    """API Keys management page - Admin only"""
+    return render_template('settings/api_keys.html')

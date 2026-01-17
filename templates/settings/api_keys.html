@@ -1,0 +1,447 @@
+{% extends "settings/layout.html" %}
+
+{% block title %}API Keys - NHSO Revenue Intelligence{% endblock %}
+
+{% block settings_content %}
+<!-- API Keys Management Section -->
+<div class="bg-white rounded-xl shadow-sm border">
+    <div class="px-6 py-4 border-b flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+            </svg>
+            <div>
+                <h3 class="text-xl font-bold text-gray-800">API Keys</h3>
+                <p class="text-sm text-gray-600">จัดการ API Keys สำหรับให้ HIS ของโรงพยาบาลเชื่อมต่อ</p>
+            </div>
+        </div>
+        <button onclick="showCreateApiKeyModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            สร้าง API Key
+        </button>
+    </div>
+
+    <!-- API Keys List -->
+    <div class="p-6">
+        <div id="api-keys-list" class="space-y-3">
+            <div class="text-center py-8">
+                <div class="animate-spin w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-3"></div>
+                <p class="text-gray-500">Loading API keys...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- API Documentation Link -->
+<div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <div class="flex items-start gap-3">
+        <svg class="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <div>
+            <h4 class="text-sm font-semibold text-blue-800 mb-1">API Documentation</h4>
+            <p class="text-sm text-blue-700 mb-2">คู่มือการเชื่อมต่อ External API สำหรับระบบ HIS</p>
+            <div class="flex gap-3">
+                <a href="/docs/EXTERNAL_API_SPEC.md" target="_blank" class="text-sm text-blue-600 hover:text-blue-800 font-medium underline">
+                    View API Spec
+                </a>
+                <span class="text-blue-300">•</span>
+                <span class="text-sm text-blue-700">Base URL: <code class="bg-blue-100 px-2 py-0.5 rounded">{{ request.url_root }}api/v1</code></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create API Key Modal -->
+<div id="create-api-key-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b flex items-center justify-between">
+            <h3 class="text-lg font-bold text-gray-800">สร้าง API Key ใหม่</h3>
+            <button onclick="hideCreateApiKeyModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <form id="create-api-key-form" class="p-6 space-y-4">
+            <!-- Key Name -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    ชื่อ API Key <span class="text-red-500">*</span>
+                </label>
+                <input type="text" id="key-name" placeholder="เช่น Hospital 10670 - HIS Integration" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    คำอธิบาย
+                </label>
+                <textarea id="description" rows="3" placeholder="เช่น API key สำหรับเชื่อมต่อกับระบบ HIS"
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
+            </div>
+
+            <!-- Rate Limit -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Rate Limit (requests/minute)
+                </label>
+                <input type="number" id="rate-limit" value="100" min="1" max="1000"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                <p class="text-xs text-gray-500 mt-1">จำนวน requests สูงสุดต่อนาที (แนะนำ: 100)</p>
+            </div>
+
+            <!-- Expiration -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    หมดอายุ
+                </label>
+                <select id="expires-in-days" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                    <option value="">ไม่หมดอายุ</option>
+                    <option value="30">30 วัน</option>
+                    <option value="90">90 วัน</option>
+                    <option value="180">180 วัน</option>
+                    <option value="365">1 ปี</option>
+                </select>
+            </div>
+
+            <!-- Allowed IPs -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    IP Addresses ที่อนุญาต (เว้นว่างสำหรับอนุญาตทั้งหมด)
+                </label>
+                <textarea id="allowed-ips" rows="2" placeholder="192.168.1.100&#10;10.0.0.50"
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
+                <p class="text-xs text-gray-500 mt-1">ใส่ IP address ทีละบรรทัด หรือเว้นว่างเพื่ออนุญาตทุก IP</p>
+            </div>
+
+            <div class="flex gap-3 pt-4">
+                <button type="submit" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg font-medium">
+                    สร้าง API Key
+                </button>
+                <button type="button" onclick="hideCreateApiKeyModal()" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+                    ยกเลิก
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- API Key Created Modal -->
+<div id="api-key-created-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+        <div class="px-6 py-4 border-b bg-green-50">
+            <div class="flex items-center gap-3">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 class="text-lg font-bold text-gray-800">API Key สร้างสำเร็จ!</h3>
+            </div>
+        </div>
+
+        <div class="p-6">
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-semibold text-yellow-800 mb-1">คำเตือน: บันทึก API Key นี้ไว้ในที่ปลอดภัย</p>
+                        <p class="text-sm text-yellow-700">คุณจะไม่สามารถดู API Key นี้อีกครั้งหลังจากปิดหน้าต่างนี้</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Your API Key:</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="created-api-key" readonly
+                           class="flex-1 px-4 py-3 bg-white border border-gray-300 rounded-lg font-mono text-sm">
+                    <button onclick="copyApiKey()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <button onclick="hideApiKeyCreatedModal()" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg font-medium">
+                    ปิด
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let apiKeys = [];
+
+// Load API keys on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadApiKeys();
+});
+
+async function loadApiKeys() {
+    try {
+        const response = await fetch('/api/settings/api-keys');
+        const data = await response.json();
+
+        if (data.success) {
+            apiKeys = data.keys;
+            renderApiKeysList();
+        } else {
+            showErrorState();
+        }
+    } catch (error) {
+        console.error('Error loading API keys:', error);
+        showErrorState();
+    }
+}
+
+function renderApiKeysList() {
+    const listContainer = document.getElementById('api-keys-list');
+    listContainer.textContent = '';
+
+    if (apiKeys.length === 0) {
+        showEmptyState(listContainer);
+        return;
+    }
+
+    apiKeys.forEach((key) => {
+        const item = createApiKeyItem(key);
+        listContainer.appendChild(item);
+    });
+}
+
+function showEmptyState(container) {
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'text-center py-8 text-gray-500';
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'w-16 h-16 mx-auto mb-3 text-gray-300');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('d', 'M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z');
+    svg.appendChild(path);
+
+    const p1 = document.createElement('p');
+    p1.className = 'font-medium';
+    p1.textContent = 'ยังไม่มี API Keys';
+
+    const p2 = document.createElement('p');
+    p2.className = 'text-sm';
+    p2.textContent = 'คลิก "สร้าง API Key" เพื่อเริ่มต้น';
+
+    emptyDiv.appendChild(svg);
+    emptyDiv.appendChild(p1);
+    emptyDiv.appendChild(p2);
+
+    container.appendChild(emptyDiv);
+}
+
+function createApiKeyItem(key) {
+    const item = document.createElement('div');
+    item.className = 'flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:border-purple-300 transition-colors';
+
+    // Status indicator
+    const statusDiv = document.createElement('div');
+    statusDiv.className = `w-3 h-3 rounded-full ${key.is_active ? 'bg-green-500' : 'bg-red-500'}`;
+
+    // Key info
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'flex-1';
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'font-semibold text-gray-800 mb-1';
+    nameDiv.textContent = key.key_name;
+
+    const keyDiv = document.createElement('div');
+    keyDiv.className = 'font-mono text-sm text-gray-600 mb-1';
+    keyDiv.textContent = key.api_key_masked || '••••••••';
+
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'text-xs text-gray-500 space-y-0.5';
+
+    if (key.hospital_code) {
+        const hcodeDiv = document.createElement('div');
+        hcodeDiv.textContent = `Hospital: ${key.hospital_code}`;
+        detailsDiv.appendChild(hcodeDiv);
+    }
+    if (key.description) {
+        const descDiv = document.createElement('div');
+        descDiv.textContent = key.description;
+        detailsDiv.appendChild(descDiv);
+    }
+
+    const createdDiv = document.createElement('div');
+    createdDiv.textContent = `Created: ${new Date(key.created_at).toLocaleDateString()}`;
+    detailsDiv.appendChild(createdDiv);
+
+    if (key.last_used_at) {
+        const lastUsedDiv = document.createElement('div');
+        lastUsedDiv.textContent = `Last used: ${new Date(key.last_used_at).toLocaleString()}`;
+        detailsDiv.appendChild(lastUsedDiv);
+    }
+
+    infoDiv.appendChild(nameDiv);
+    infoDiv.appendChild(keyDiv);
+    infoDiv.appendChild(detailsDiv);
+
+    // Delete button
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'flex gap-2';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'text-red-600 hover:text-red-800 p-2';
+    deleteBtn.onclick = () => deleteApiKey(key.id, key.key_name);
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'w-5 h-5');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('d', 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16');
+    svg.appendChild(path);
+    deleteBtn.appendChild(svg);
+
+    actionsDiv.appendChild(deleteBtn);
+
+    item.appendChild(statusDiv);
+    item.appendChild(infoDiv);
+    item.appendChild(actionsDiv);
+
+    return item;
+}
+
+function showErrorState() {
+    const listContainer = document.getElementById('api-keys-list');
+    listContainer.textContent = '';
+
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'text-center py-8 text-red-500';
+
+    const p = document.createElement('p');
+    p.className = 'font-medium';
+    p.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+
+    const btn = document.createElement('button');
+    btn.className = 'mt-2 text-sm text-purple-600 hover:text-purple-800';
+    btn.textContent = 'ลองอีกครั้ง';
+    btn.onclick = loadApiKeys;
+
+    errorDiv.appendChild(p);
+    errorDiv.appendChild(btn);
+    listContainer.appendChild(errorDiv);
+}
+
+// Modal functions
+function showCreateApiKeyModal() {
+    document.getElementById('create-api-key-modal').classList.remove('hidden');
+}
+
+function hideCreateApiKeyModal() {
+    document.getElementById('create-api-key-modal').classList.add('hidden');
+    document.getElementById('create-api-key-form').reset();
+}
+
+function showApiKeyCreatedModal(apiKey) {
+    document.getElementById('created-api-key').value = apiKey;
+    document.getElementById('api-key-created-modal').classList.remove('hidden');
+}
+
+function hideApiKeyCreatedModal() {
+    document.getElementById('api-key-created-modal').classList.add('hidden');
+    loadApiKeys(); // Reload list
+}
+
+// Create API key
+document.getElementById('create-api-key-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const keyName = document.getElementById('key-name').value.trim();
+    const description = document.getElementById('description').value.trim();
+    const rateLimit = parseInt(document.getElementById('rate-limit').value);
+    const expiresInDays = document.getElementById('expires-in-days').value;
+    const allowedIpsText = document.getElementById('allowed-ips').value.trim();
+
+    // Parse allowed IPs
+    const allowedIps = allowedIpsText
+        ? allowedIpsText.split('\n').map(ip => ip.trim()).filter(ip => ip)
+        : [];
+
+    try {
+        const response = await fetch('/api/settings/api-keys', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                key_name: keyName,
+                description: description || null,
+                rate_limit: rateLimit,
+                expires_in_days: expiresInDays || null,
+                allowed_ips: allowedIps.length > 0 ? allowedIps : null
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            hideCreateApiKeyModal();
+            showApiKeyCreatedModal(result.api_key);
+            showToast('สร้าง API Key สำเร็จ', 'success');
+        } else {
+            showToast(result.error || 'สร้าง API Key ไม่สำเร็จ', 'error');
+        }
+    } catch (error) {
+        console.error('Error creating API key:', error);
+        showToast('เกิดข้อผิดพลาด', 'error');
+    }
+});
+
+// Copy API key
+function copyApiKey() {
+    const input = document.getElementById('created-api-key');
+    input.select();
+    document.execCommand('copy');
+    showToast('คัดลอกแล้ว', 'success');
+}
+
+// Delete API key
+async function deleteApiKey(keyId, keyName) {
+    if (!confirm(`ต้องการลบ API Key "${keyName}" ใช่หรือไม่?\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/settings/api-keys/${keyId}`, {
+            method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('ลบ API Key สำเร็จ', 'success');
+            loadApiKeys();
+        } else {
+            showToast(result.error || 'ลบ API Key ไม่สำเร็จ', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting API key:', error);
+        showToast('เกิดข้อผิดพลาด', 'error');
+    }
+}
+</script>
+{% endblock %}

@@ -32,6 +32,8 @@ from config.db_pool import init_pool, close_pool, get_connection as get_pooled_c
 # Import blueprints
 from routes.settings import settings_api_bp
 from routes.settings_pages import settings_pages_bp
+from routes.external_api import external_api_bp
+from routes.api_keys_management import api_keys_mgmt_bp
 
 # Flask-Login
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -256,6 +258,12 @@ logger.info("✓ Settings API blueprint registered")
 
 app.register_blueprint(settings_pages_bp)  # Page routes
 logger.info("✓ Settings Pages blueprint registered")
+
+app.register_blueprint(external_api_bp)  # External API v1 routes
+logger.info("✓ External API blueprint registered at /api/v1")
+
+app.register_blueprint(api_keys_mgmt_bp)  # API Keys management routes
+logger.info("✓ API Keys Management blueprint registered")
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -811,6 +819,69 @@ def files():
         schedule_settings=schedule_settings,
         schedule_jobs=schedule_jobs
     )
+
+
+@app.route('/api/user/change-password', methods=['POST'])
+@login_required
+def api_change_password():
+    """API endpoint for changing password"""
+    try:
+        data = request.get_json() or {}
+        current_password = data.get('current_password', '')
+        new_password = data.get('new_password', '')
+
+        # Validate inputs
+        if not current_password or not new_password:
+            return jsonify({
+                'success': False,
+                'error': 'กรุณากรอกรหัสผ่านปัจจุบันและรหัสผ่านใหม่'
+            }), 400
+
+        if len(new_password) < 6:
+            return jsonify({
+                'success': False,
+                'error': 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร'
+            }), 400
+
+        # Verify current password
+        user_data = auth_manager.get_user_by_username(current_user.username)
+        if not user_data or not auth_manager.verify_password(current_password, user_data['password_hash']):
+            return jsonify({
+                'success': False,
+                'error': 'รหัสผ่านปัจจุบันไม่ถูกต้อง'
+            }), 401
+
+        # Change password
+        success = auth_manager.change_password(
+            user_id=current_user.id,
+            new_password=new_password,
+            changed_by=current_user.username
+        )
+
+        if success:
+            # Log password change
+            audit_logger.log_password_change(
+                user_id=current_user.id,
+                username=current_user.username,
+                changed_by=current_user.username
+            )
+
+            return jsonify({
+                'success': True,
+                'message': 'เปลี่ยนรหัสผ่านสำเร็จ'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'ไม่สามารถเปลี่ยนรหัสผ่านได้'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error changing password: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน'
+        }), 500
 
 
 @app.route('/api/downloads/single', methods=['POST'])
@@ -5966,6 +6037,16 @@ def api_smt_clear():
 def api_smt_files():
     """List SMT files in downloads/smt directory with pagination and filtering"""
     try:
+        # Get hospital code from settings (required for SMT)
+        hospital_code = settings_manager.get_hospital_code()
+        if not hospital_code:
+            return jsonify({
+                'success': False,
+                'error': 'กรุณาตั้งค่า Hospital Code ก่อนใช้งาน SMT',
+                'error_code': 'NO_HOSPITAL_CODE',
+                'redirect_url': '/settings/hospital'
+            }), 400
+
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
 
@@ -5974,6 +6055,8 @@ def api_smt_files():
         start_month = request.args.get('start_month', type=int)
         end_month = request.args.get('end_month', type=int)
         filter_status = request.args.get('status', '').strip().lower()
+        # Default to filtering by hospital's vendor_id (can be overridden by query param)
+        filter_vendor = request.args.get('vendor_id', hospital_code).strip()
 
         smt_dir = Path('downloads/smt')
         if not smt_dir.exists():
@@ -6039,6 +6122,11 @@ def api_smt_files():
             # Extract vendor_id and date from filename: smt_budget_0000010670_20260113_050850.csv
             parts = f.name.replace('.csv', '').split('_')
             vendor_id = parts[2] if len(parts) >= 3 else None
+
+            # Filter by vendor_id (default to hospital's vendor_id)
+            if filter_vendor and vendor_id and vendor_id.lstrip('0') != filter_vendor.lstrip('0'):
+                continue  # Skip files not matching the vendor filter
+
             is_imported = vendor_id in imported_vendors if vendor_id else False
 
             # Extract download date (CE format: 20260113)

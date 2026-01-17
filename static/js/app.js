@@ -601,6 +601,57 @@ function toThaiDateFormat(dateStr) {
 }
 
 /**
+ * Convert datetime to time ago format in Thai
+ * Returns: "X วัน Y ชั่วโมง ที่แล้ว" or "เมื่อสักครู่"
+ */
+function timeAgo(dateStr) {
+    if (!dateStr) return '-';
+
+    const now = new Date();
+    const past = new Date(dateStr);
+    const diffMs = now - past;
+
+    // If invalid date
+    if (isNaN(diffMs)) return '-';
+
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    // Less than 1 minute
+    if (diffMin < 1) return 'เมื่อสักครู่';
+
+    // Less than 1 hour
+    if (diffHour < 1) return `${diffMin} นาที ที่แล้ว`;
+
+    // Less than 1 day
+    if (diffDay < 1) return `${diffHour} ชั่วโมง ที่แล้ว`;
+
+    // Less than 7 days
+    if (diffDay < 7) {
+        const remainHours = diffHour % 24;
+        if (remainHours > 0) {
+            return `${diffDay} วัน ${remainHours} ชั่วโมง ที่แล้ว`;
+        }
+        return `${diffDay} วัน ที่แล้ว`;
+    }
+
+    // Less than 30 days
+    if (diffDay < 30) {
+        const weeks = Math.floor(diffDay / 7);
+        const remainDays = diffDay % 7;
+        if (remainDays > 0) {
+            return `${weeks} สัปดาห์ ${remainDays} วัน ที่แล้ว`;
+        }
+        return `${weeks} สัปดาห์ ที่แล้ว`;
+    }
+
+    // More than 30 days - show actual date instead
+    return toThaiDateFormat(dateStr);
+}
+
+/**
  * Download SMT Budget with progress indicator
  */
 async function downloadSmtBudget() {
@@ -1954,11 +2005,72 @@ async function loadSmtFilesPage(page = 1, filterParams = null) {
                 paginationEl.classList.add('hidden');
             }
         } else {
-            showToast('Error loading SMT files: ' + data.error, 'error');
+            // Handle special error: No hospital code configured
+            if (data.error_code === 'NO_HOSPITAL_CODE') {
+                showSmtNoHospitalCodeWarning(data.error, data.redirect_url);
+            } else {
+                showToast('Error loading SMT files: ' + data.error, 'error');
+            }
         }
     } catch (error) {
         console.error('Error loading SMT files:', error);
-        showToast('Error loading SMT files', 'error');
+        // Check if error response has error_code
+        if (error.response) {
+            error.response.json().then(data => {
+                if (data.error_code === 'NO_HOSPITAL_CODE') {
+                    showSmtNoHospitalCodeWarning(data.error, data.redirect_url);
+                } else {
+                    showToast('Error loading SMT files', 'error');
+                }
+            }).catch(() => {
+                showToast('Error loading SMT files', 'error');
+            });
+        } else {
+            showToast('Error loading SMT files', 'error');
+        }
+    }
+}
+
+/**
+ * Show warning when hospital code is not configured
+ */
+function showSmtNoHospitalCodeWarning(message, redirectUrl) {
+    const tableContainer = document.getElementById('smt-files-table');
+    if (!tableContainer) return;
+
+    tableContainer.innerHTML = '';
+
+    const warningDiv = document.createElement('div');
+    warningDiv.className = 'text-center py-12';
+
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'text-6xl mb-4';
+    iconDiv.textContent = '⚠️';
+
+    const title = document.createElement('h3');
+    title.className = 'text-xl font-semibold text-gray-800 mb-2';
+    title.textContent = 'กรุณาตั้งค่า Hospital Code';
+
+    const desc = document.createElement('p');
+    desc.className = 'text-gray-600 mb-6';
+    desc.textContent = message || 'ต้องตั้งค่า Hospital Code ก่อนใช้งาน SMT Budget';
+
+    const link = document.createElement('a');
+    link.href = redirectUrl || '/settings/hospital';
+    link.className = 'inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors';
+    link.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> ไปตั้งค่า Hospital Code';
+
+    warningDiv.appendChild(iconDiv);
+    warningDiv.appendChild(title);
+    warningDiv.appendChild(desc);
+    warningDiv.appendChild(link);
+
+    tableContainer.appendChild(warningDiv);
+
+    // Also hide stats section
+    const statsSection = document.getElementById('smt-stats');
+    if (statsSection) {
+        statsSection.classList.add('hidden');
     }
 }
 
