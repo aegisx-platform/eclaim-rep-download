@@ -39,8 +39,8 @@ If you find this project helpful, consider buying me a coffee!
 
 **NHSO Revenue Intelligence** (เดิมชื่อ E-Claim Downloader) เป็นระบบวิเคราะห์รายได้จากการเบิกจ่าย สปสช. สำหรับโรงพยาบาล ครอบคลุมตั้งแต่การ download ข้อมูล E-Claim, import เข้าฐานข้อมูล, วิเคราะห์รายได้, จนถึงกระทบยอดกับข้อมูล SMT Budget
 
-**Version:** v3.1.0
-**Last Updated:** 2026-01-15
+**Version:** v3.2.0
+**Last Updated:** 2026-01-17
 
 ### Data Sources
 
@@ -63,7 +63,9 @@ If you find this project helpful, consider buying me a coffee!
 ## Key Features
 
 ### Revenue Dashboard
-- **KPI Cards**: Total Claims, Total Reimbursement, Denial Rate
+- **KPI Cards**: Total Claims, Total Reimbursement, Denial Rate, Loss Rate
+- **Per-Bed KPIs**: รายได้/เตียง/เดือน, ส่วนต่าง/เตียง/เดือน, เคลม/เตียง, เฉลี่ย/เคลม
+- **Hospital Settings**: ตั้งค่ารหัสโรงพยาบาล (Hospital Code) สำหรับ SMT และ Per-Bed metrics
 - **Service Type Distribution**: OP, IP, Refer, Emergency
 - **Top Funds by Revenue**: แยกตามกองทุน
 - **Quick Actions**: เข้าถึง Analytics, Reconciliation, Download
@@ -120,9 +122,32 @@ If you find this project helpful, consider buying me a coffee!
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
 ```
 
-Script จะแสดงสรุปการติดตั้ง (โฟลเดอร์, database, version) และถามยืนยันก่อนเริ่มติดตั้ง
+**What happens:**
+1. ✅ ติดตั้ง Docker containers (PostgreSQL + Web UI)
+2. ✅ รัน migrations อัตโนมัติ (7 migrations)
+3. ✅ Import seed data อัตโนมัติ (9,247 hospitals + 312 error codes)
+4. ✅ แสดงขั้นตอนต่อไป (Hospital Code setup)
 
-📚 **ดูคู่มือเต็ม:** [docs/INSTALLATION.md](docs/INSTALLATION.md)
+**Next Steps หลังติดตั้ง:**
+- 🏥 **[ตั้งค่ารหัสโรงพยาบาล](http://localhost:5001/setup)** - จำเป็นสำหรับ SMT Budget และ Per-Bed KPIs
+- 🔑 **ตั้งค่า NHSO Credentials** (ถ้าต้องการดาวน์โหลดไฟล์)
+
+📚 **ดูคู่มือเต็ม:** [docs/INSTALLATION_GUIDE.md](docs/INSTALLATION_GUIDE.md)
+
+**Installation Flow:**
+```
+[1/7] Check Docker ✓
+[2/7] Create directory ✓
+[3/7] Download config ✓
+[4/7] Configure credentials ✓
+[5/7] Start services (docker-compose up) ✓
+[6/7] Wait for migrations (auto) ✓
+[7/7] Import seed data (auto) ✓
+  • dim_date, fund_types, service_types
+  • health_offices (9,247 hospitals)
+  • nhso_error_codes (312 codes)
+→ Ready! Go to /setup to configure Hospital Code
+```
 
 **Options:**
 ```bash
@@ -134,9 +159,6 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 
 # Custom directory
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --dir my-nhso
-
-# ติดตั้งด้วย sudo (ถ้าต้องการ permission)
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh)"
 ```
 
 ### Manual Docker Deployment
@@ -150,20 +172,41 @@ cd eclaim-rep-download
 cp .env.example .env
 nano .env  # Set ECLAIM_USERNAME and ECLAIM_PASSWORD
 
-# 3. Start services
+# 3. Start services (auto-runs migrations)
 docker-compose up -d
+
+# 4. Wait for startup (until you see "Starting Flask application")
+docker-compose logs -f web
+# Press Ctrl+C when ready
+
+# 5. Import seed data (REQUIRED - 3 commands)
+docker-compose exec web python database/migrate.py --seed
+docker-compose exec web python database/seeds/health_offices_importer.py
+docker-compose exec web python database/seeds/nhso_error_codes_importer.py
+
+# Or use make:
+make seed-all
+
+# 6. Set Hospital Code
+# Go to http://localhost:5001/setup and enter your 5-digit hospital code
 
 # Other options:
 # - MySQL: docker-compose -f docker-compose-mysql.yml up -d
 # - Download-only: docker-compose -f docker-compose-no-db.yml up -d
 ```
 
+**Why Seed Data is Required:**
+- `dim_date`, `fund_types`, `service_types` - Dimension tables for analytics
+- `health_offices` - 9,247 hospitals for Hospital Code lookup
+- `nhso_error_codes` - 312 error codes for denial analysis
+
 ### Access Points
 
 | Service | URL | Description |
 |---------|-----|-------------|
 | Web UI | http://localhost:5001 | Main application |
-| Dashboard | http://localhost:5001/dashboard | Revenue KPIs |
+| **Setup** | **http://localhost:5001/setup** | **Hospital Code setup (ตั้งค่าครั้งแรก)** |
+| Dashboard | http://localhost:5001/dashboard | Revenue KPIs + Per-Bed metrics |
 | Analytics | http://localhost:5001/analytics | Detailed analytics |
 | Reconciliation | http://localhost:5001/reconciliation | REP vs SMT |
 | Data Management | http://localhost:5001/data-management | Download, Files, Settings |
@@ -174,14 +217,15 @@ docker-compose up -d
 
 ```
 NHSO Revenue Intelligence
-├── Dashboard          - Revenue KPIs & Overview
+├── Setup              - 🏥 Hospital Code + Database + Configuration
+├── Dashboard          - Revenue KPIs + Per-Bed Performance
 ├── Analytics          - Detailed Charts & Analysis
 ├── Reconciliation     - REP vs SMT Comparison
 └── Data Management    - Download, Files, SMT, Settings
     ├── Download       - Single/Bulk download + Scheduler
     ├── Files          - File list + Import status
     ├── SMT Sync       - Budget data sync
-    └── Settings       - Credentials + Database info
+    └── Settings       - Hospital Settings + Credentials + Database info
 ```
 
 ---
@@ -189,7 +233,8 @@ NHSO Revenue Intelligence
 ## Documentation
 
 ### Getting Started
-- **[Installation Guide](docs/INSTALLATION.md)** - Docker & Manual setup
+- **[Installation Guide](docs/INSTALLATION_GUIDE.md)** - Complete installation & verification (PostgreSQL & MySQL)
+- **[Testing Checklist](docs/TESTING_CHECKLIST.md)** - Step-by-step testing guide
 - **[Configuration Guide](docs/CONFIGURATION.md)** - System configuration
 - **[Usage Guide](docs/USAGE.md)** - How to use features
 
@@ -286,24 +331,31 @@ eclaim-rep-download/
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed version history.
 
-### Latest: v3.1.0 (2026-01-15)
+### Latest: v3.2.0 (2026-01-17)
 
 **New Features:**
-- TRAN_ID search field
-- Job History tracking
-- Benchmark page
-- My Hospital Analytics
-- Master data import (ICD-10, TMT, etc.)
+- **🏥 Hospital Settings & Per-Bed KPIs**
+  - Global Hospital Code setting (ใช้ทั้ง SMT และ Per-Bed KPIs)
+  - Per-bed performance metrics: รายได้/เตียง/เดือน, ส่วนต่าง/เตียง/เดือน, เคลม/เตียง
+  - Auto-fetch hospital info from health_offices (9,247 hospitals)
+- **📦 Auto-Seed Data in install.sh**
+  - Automatic seed data import on installation
+  - Post-install guidance for Hospital Code setup
+- **📚 Complete Documentation**
+  - Installation Guide (15KB)
+  - Testing Checklist (12KB)
 
-**Bug Fixes:**
-- Header row skip in additional sheets import
-- Connection pool issues
-- DNS resolution in Docker
+**Improvements:**
+- Setup page with Hospital Code configuration
+- Dashboard shows hospital name and bed count
+- SMT uses global hospital_code instead of vendor_id
+- Analytics API includes hospital and per_bed objects
 
 ### Previous Releases
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v3.1.0 | 2026-01-15 | TRAN_ID search, Job History, Benchmark, Master data |
 | v3.0.0 | 2026-01-11 | Revenue Intelligence, Dashboard, Reconciliation |
 | v2.0.0 | 2026-01-08 | Hospital Schema, Complete Field Mapping |
 | v1.1.0 | 2026-01-05 | Bulk Download, Auto Scheduler |
@@ -372,4 +424,4 @@ This software is **legal** when used correctly with authorized credentials and f
 
 **Made with love by [aegisx platform](https://github.com/aegisx-platform)**
 
-**Last Updated:** 2026-01-15 | **Version:** v3.1.0
+**Last Updated:** 2026-01-17 | **Version:** v3.2.0
