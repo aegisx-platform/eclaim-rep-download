@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>429 - คำขอมากเกินไป</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+        .error-code {
+            font-size: 100px;
+            font-weight: 900;
+            color: #667eea;
+            margin-bottom: 20px;
+            line-height: 1;
+        }
+        h1 {
+            font-size: 32px;
+            color: #2d3748;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 18px;
+            color: #4a5568;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .info-box {
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            text-align: left;
+            margin-bottom: 30px;
+            border-radius: 8px;
+        }
+        .info-box h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        .info-box ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .info-box li {
+            color: #4a5568;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+        .info-box li:before {
+            content: "•";
+            color: #667eea;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        .timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-code">429</div>
+        <h1>คำขอมากเกินไป</h1>
+        <p>คุณส่งคำขอมากเกินกว่าที่กำหนด กรุณารอสักครู่และลองใหม่อีกครั้ง</p>
+
+        <div class="info-box">
+            <h3>ข้อจำกัดการใช้งาน:</h3>
+            <ul>
+                <li><strong>หน้า Login:</strong> สูงสุด 5 ครั้ง/นาที (ป้องกัน Brute Force)</li>
+                <li><strong>API Endpoints:</strong> สูงสุด 30 ครั้ง/นาที</li>
+                <li><strong>หน้าทั่วไป:</strong> สูงสุด 100 ครั้ง/นาที</li>
+            </ul>
+        </div>
+
+        <div class="timer">
+            กรุณารอ <span id="countdown">60</span> วินาที
+        </div>
+
+        <a href="/" class="btn">กลับหน้าหลัก</a>
+    </div>
+
+    <script>
+        // Countdown timer
+        let seconds = 60;
+        const countdownEl = document.getElementById('countdown');
+
+        const timer = setInterval(() => {
+            seconds--;
+            countdownEl.textContent = seconds;
+
+            if (seconds <= 0) {
+                clearInterval(timer);
+                countdownEl.textContent = '0';
+            }
+        }, 1000);
+
+        // Auto-redirect after 60 seconds
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 60000);
+    </script>
+</body>
+</html>

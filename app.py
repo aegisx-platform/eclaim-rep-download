@@ -174,7 +174,23 @@ app.config['SECRET_KEY'] = secret_key
 # CSRF Protection Configuration
 app.config['WTF_CSRF_ENABLED'] = True
 app.config['WTF_CSRF_TIME_LIMIT'] = None  # No time limit (rely on session expiry)
-app.config['WTF_CSRF_SSL_STRICT'] = False  # Set to True when using HTTPS
+
+# HTTPS-specific security settings
+# Automatically detect HTTPS mode from environment variable
+is_https = os.environ.get('WTF_CSRF_SSL_STRICT', 'false').lower() == 'true'
+app.config['WTF_CSRF_SSL_STRICT'] = is_https  # Enforce HTTPS for CSRF cookies when True
+
+# Session cookie security (HTTPS mode)
+if is_https:
+    app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS-only session cookies
+    app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
+    logger.info("HTTPS mode enabled - Secure cookies configured")
+else:
+    # Development mode - allow HTTP
+    app.config['SESSION_COOKIE_SECURE'] = False
+    logger.warning("HTTP mode - Cookies not secured (development only)")
+
 app.config['WTF_CSRF_CHECK_DEFAULT'] = True  # Enable CSRF protection by default
 
 # Initialize CSRF Protection
