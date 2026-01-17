@@ -624,6 +624,14 @@ def setup():
     return render_template('setup.html')
 
 
+@app.route('/license')
+@login_required
+@require_admin
+def license_page():
+    """License management page"""
+    return render_template('license.html')
+
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
