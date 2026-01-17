@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-eclaim}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?ERROR - DB_PASSWORD must be set in .env file. Generate with: openssl rand -base64 32}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?ERROR - DB_PASSWORD must be set in .env file}
       POSTGRES_DB: ${DB_NAME:-eclaim_db}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
@@ -44,7 +44,7 @@ services:
       FLASK_APP: app.py
       FLASK_ENV: ${FLASK_ENV:-production}
       TZ: ${TZ:-Asia/Bangkok}
-      SECRET_KEY: ${SECRET_KEY:?ERROR - SECRET_KEY must be set in .env file. Generate with: python -c "import secrets; print(secrets.token_hex(32))"}
+      SECRET_KEY: ${SECRET_KEY:?ERROR - SECRET_KEY must be set in .env file}
 
       # E-Claim credentials (REQUIRED - no defaults for security)
       ECLAIM_USERNAME: ${ECLAIM_USERNAME:?ERROR - ECLAIM_USERNAME must be set in .env file with your NHSO username}

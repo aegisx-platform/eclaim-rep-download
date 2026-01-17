@@ -49,7 +49,7 @@
             </div>
         </div>
         {% if current_user.is_authenticated and current_user.role == 'admin' %}
-        <a href="{{ url_for('license_page') }}" class="text-sm font-medium {% if license.status == 'invalid' or not license.is_valid %}text-amber-700 hover:text-amber-800{% elif license.status == 'grace_period' %}text-orange-700 hover:text-orange-800{% elif license.status == 'expiring_soon' %}text-yellow-700 hover:text-yellow-800{% else %}text-green-700 hover:text-green-800{% endif %} flex items-center gap-1">
+        <a href="{{ url_for('settings.license') }}" class="text-sm font-medium {% if license.status == 'invalid' or not license.is_valid %}text-amber-700 hover:text-amber-800{% elif license.status == 'grace_period' %}text-orange-700 hover:text-orange-800{% elif license.status == 'expiring_soon' %}text-yellow-700 hover:text-yellow-800{% else %}text-green-700 hover:text-green-800{% endif %} flex items-center gap-1">
             {% if not license.is_valid or license.tier == 'trial' %}
                 ติดตั้ง License
             {% else %}
