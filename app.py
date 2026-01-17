@@ -557,7 +557,7 @@ def change_password():
 @app.route('/')
 def index():
     """Redirect to dashboard or setup if needed"""
-    # Check if setup is needed (seed data incomplete)
+    # Check if setup is needed
     try:
         conn = get_db_connection()
         if conn:
@@ -568,9 +568,13 @@ def index():
             cursor.close()
             conn.close()
 
-            # Redirect to setup only if seed data incomplete
-            # Don't force hospital_code setup - let users configure when ready
-            if health_count < 1000:
+            # Check hospital code setting
+            hospital_code = settings_manager.get_hospital_code()
+
+            # Redirect to setup if:
+            # 1. Seed data not complete (health_offices < 1000 records)
+            # 2. Hospital code not configured
+            if health_count < 1000 or not hospital_code:
                 return redirect(url_for('setup'))
     except:
         pass
