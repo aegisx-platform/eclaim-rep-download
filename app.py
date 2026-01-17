@@ -3545,23 +3545,24 @@ def trigger_stm_download():
 
 @app.route('/api/stm/history')
 def get_stm_history():
-    """Get STM download history"""
+    """Get STM download history from database"""
     try:
-        history_file = Path('stm_download_history.json')
-        if history_file.exists():
-            with open(history_file, 'r', encoding='utf-8') as f:
-                history = json.load(f)
-                return jsonify({
-                    'success': True,
-                    'last_run': history.get('last_run'),
-                    'downloads': history.get('downloads', [])[-50:],  # Last 50
-                    'total': len(history.get('downloads', []))
-                })
+        from utils.download_history_db import DownloadHistoryDB
+
+        db = DownloadHistoryDB()
+        db.connect()
+
+        # Get recent downloads (last 50)
+        downloads = db.get_recent_downloads('stm', limit=50)
+        stats = db.get_statistics('stm')
+
+        db.disconnect()
+
         return jsonify({
             'success': True,
-            'last_run': None,
-            'downloads': [],
-            'total': 0
+            'downloads': downloads,
+            'total': stats.get('total_downloads', 0),
+            'last_download': downloads[0]['downloaded_at'] if downloads else None
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -7034,23 +7035,6 @@ def clear_download_history():
                 )
                 deleted_count = db.cursor.rowcount
                 db.conn.commit()
-
-        # Also clear JSON files for backward compatibility
-        json_files = {
-            'rep': 'download_history.json',
-            'stm': 'stm_download_history.json',
-            'smt': 'smt_download_history.json',
-        }
-
-        if download_type == 'all':
-            for jf in json_files.values():
-                json_path = Path(jf)
-                if json_path.exists():
-                    json_path.unlink()
-        else:
-            json_path = Path(json_files.get(download_type, ''))
-            if json_path.exists():
-                json_path.unlink()
 
         log_streamer.write_log(
             f"Cleared {deleted_count} download history records (type: {download_type})",

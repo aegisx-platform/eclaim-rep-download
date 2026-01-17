@@ -62,7 +62,7 @@ class STMDownloader:
         'all': {'code': '', 'name': 'ทั้งหมด'}
     }
 
-    def __init__(self, year=None, month=None, person_type='all', use_db_history=True):
+    def __init__(self, year=None, month=None, person_type='all'):
         """
         Initialize STM Downloader (UCS Statement only)
 
@@ -70,13 +70,12 @@ class STMDownloader:
             year (int, optional): Fiscal year in Buddhist Era. Defaults to current fiscal year.
             month (int, optional): Month (1-12). None = all months.
             person_type (str): Patient type (ip, op, all). Defaults to 'all'.
-            use_db_history (bool): Use database for download history (default: True).
+
+        Note: Download history is now always stored in database (no longer uses JSON files).
         """
         self.username, self.password = self._load_credentials()
         self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads')) / 'stm'
-        self.tracking_file = Path('stm_download_history.json')
         self.person_type = person_type.lower()
-        self.use_db_history = use_db_history
         self._history_db = None
 
         # Set year and month
@@ -105,8 +104,8 @@ class STMDownloader:
         # Create download directory
         self.download_dir.mkdir(parents=True, exist_ok=True)
 
-        # Load download history
-        self.download_history = self._load_history()
+        # Initialize database history (always use database)
+        self._init_history_db()
 
     def _load_credentials(self):
         """Load credentials from settings file (with random selection) or environment variables"""
@@ -145,52 +144,35 @@ class STMDownloader:
 
         return username, password
 
-    def _load_history(self):
-        """Load download history from JSON file"""
-        if self.tracking_file.exists():
-            with open(self.tracking_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return {
-            'last_run': None,
-            'downloads': []
-        }
-
-    def _save_history(self):
-        """Save download history to JSON file"""
-        with open(self.tracking_file, 'w', encoding='utf-8') as f:
-            json.dump(self.download_history, f, ensure_ascii=False, indent=2)
+    def _init_history_db(self):
+        """Initialize database history manager (always required)"""
+        try:
+            from utils.download_history_db import DownloadHistoryDB
+            self._history_db = DownloadHistoryDB()
+            self._history_db.connect()
+            stream_log("✓ Connected to download history database", 'info')
+        except Exception as e:
+            stream_log(f"✗ Failed to connect to history database: {e}", 'error')
+            raise Exception(
+                "Download history database unavailable!\n"
+                "Database is required for download tracking.\n"
+                f"Error: {e}"
+            )
 
     def _get_history_db(self):
-        """Get or create database history connection"""
+        """Get database history manager instance"""
         if self._history_db is None:
-            try:
-                from utils.download_history_db import DownloadHistoryDB
-                self._history_db = DownloadHistoryDB()
-                self._history_db.connect()
-            except Exception as e:
-                stream_log(f"Warning: Could not connect to download history DB: {e}", 'warning')
-                self._history_db = None
+            self._init_history_db()
         return self._history_db
 
     def _is_already_downloaded(self, filename):
-        """Check if file was already downloaded"""
-        # Try database first if enabled
-        if self.use_db_history:
-            try:
-                db = self._get_history_db()
-                if db:
-                    return db.is_downloaded('stm', filename, check_file_exists=True)
-            except Exception as e:
-                stream_log(f"Warning: DB check failed, falling back to JSON: {e}", 'warning')
-
-        # Fallback to JSON history
-        for d in self.download_history['downloads']:
-            if d['filename'] == filename and d.get('scheme', 'ucs') == 'ucs':
-                # Also check if file exists
-                file_path = self.download_dir / filename
-                if file_path.exists():
-                    return True
-        return False
+        """Check if file was already downloaded (database only)"""
+        try:
+            db = self._get_history_db()
+            return db.is_downloaded('stm', filename, check_file_exists=True)
+        except Exception as e:
+            stream_log(f"Warning: Could not check download history: {e}", 'warning')
+            return False
 
     def login(self):
         """Login to e-claim system"""
@@ -370,7 +352,7 @@ class STMDownloader:
             with open(file_path, 'wb') as f:
                 f.write(response.content)
 
-            # Record download
+            # Record download to database
             download_record = {
                 'filename': filename,
                 'document_no': document_no,
@@ -386,28 +368,11 @@ class STMDownloader:
                 },
             }
 
-            # Save to database if enabled
-            if self.use_db_history:
-                try:
-                    db = self._get_history_db()
-                    if db:
-                        db.record_download('stm', download_record)
-                except Exception as e:
-                    stream_log(f"Warning: Could not save to DB: {e}", 'warning')
-
-            # Also save to JSON for backward compatibility
-            self.download_history['downloads'].append({
-                'filename': filename,
-                'document_no': document_no,
-                'scheme': 'ucs',
-                'year': self.year,
-                'month': self.month,
-                'stmt_type': stmt_info.get('type', ''),
-                'service_month': stmt_info.get('service_month', ''),
-                'downloaded_at': datetime.now().isoformat(),
-                'size': len(response.content)
-            })
-            self._save_history()
+            try:
+                db = self._get_history_db()
+                db.record_download('stm', download_record)
+            except Exception as e:
+                stream_log(f"Warning: Could not save to DB: {e}", 'warning')
 
             stream_log(f"  ✓ Downloaded: {filename} ({len(response.content)} bytes)", 'success')
             return str(file_path)
@@ -417,27 +382,25 @@ class STMDownloader:
             stream_log(f"  ✗ Download error: {error_msg}", 'error')
 
             # Record failed download for retry later
-            if self.use_db_history:
-                try:
-                    db = self._get_history_db()
-                    if db:
-                        failed_record = {
-                            'filename': filename,
-                            'document_no': download_params.get('document_no'),
-                            'scheme': 'ucs',
-                            'fiscal_year': self.year,
-                            'service_month': self.month,
-                            'patient_type': 'ip' if 'IP' in filename else ('op' if 'OP' in filename else None),
-                            'download_params': {
-                                'stmt_type': stmt_info.get('type', ''),
-                                'service_month_name': stmt_info.get('service_month', ''),
-                                'download_params': download_params,  # Store original params for retry
-                            },
-                        }
-                        db.record_failed_download('stm', failed_record, error_msg)
-                        stream_log(f"  📝 Recorded for retry later", 'info')
-                except Exception as db_error:
-                    stream_log(f"  ⚠ Could not record failure: {db_error}", 'warning')
+            try:
+                db = self._get_history_db()
+                failed_record = {
+                    'filename': filename,
+                    'document_no': download_params.get('document_no'),
+                    'scheme': 'ucs',
+                    'fiscal_year': self.year,
+                    'service_month': self.month,
+                    'patient_type': 'ip' if 'IP' in filename else ('op' if 'OP' in filename else None),
+                    'download_params': {
+                        'stmt_type': stmt_info.get('type', ''),
+                        'service_month_name': stmt_info.get('service_month', ''),
+                        'download_params': download_params,  # Store original params for retry
+                    },
+                }
+                db.record_failed_download('stm', failed_record, error_msg)
+                stream_log(f"  📝 Recorded for retry later", 'info')
+            except Exception as db_error:
+                stream_log(f"  ⚠ Could not record failure: {db_error}", 'warning')
 
             return False  # Return False to indicate failure (different from None for skip)
 
@@ -482,10 +445,6 @@ class STMDownloader:
                 errors += 1
 
             time.sleep(0.5)  # Rate limiting
-
-        # Update last run
-        self.download_history['last_run'] = datetime.now().isoformat()
-        self._save_history()
 
         stream_log("\n" + "=" * 60)
         stream_log(f"Download Complete!")
