@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # NHSO Revenue Intelligence - Quick Install Script
-# Version: 3.1.0
+# Version: 3.2.0
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
@@ -164,15 +164,54 @@ fi
 echo -e "${GREEN}✓ Created .env${NC}"
 
 # Start services
-echo -e "${YELLOW}[5/5] Starting services...${NC}"
+echo -e "${YELLOW}[5/7] Starting services...${NC}"
 echo ""
 
 if docker compose version &> /dev/null 2>&1; then
-    docker compose pull
-    docker compose up -d
+    DOCKER_COMPOSE="docker compose"
 else
-    docker-compose pull
-    docker-compose up -d
+    DOCKER_COMPOSE="docker-compose"
+fi
+
+$DOCKER_COMPOSE pull
+$DOCKER_COMPOSE up -d
+
+# Wait for database initialization (skip if --no-db mode)
+if [ "$DB_TYPE" != "none" ]; then
+    echo ""
+    echo -e "${YELLOW}[6/7] Waiting for database initialization...${NC}"
+    echo -e "${BLUE}   Checking migrations...${NC}"
+
+    # Wait for migrations to complete (max 60 seconds)
+    for i in {1..60}; do
+        if $DOCKER_COMPOSE logs web 2>/dev/null | grep -q "Starting Flask application"; then
+            echo -e "${GREEN}✓ Database initialized${NC}"
+            break
+        fi
+        echo -n "."
+        sleep 1
+    done
+    echo ""
+
+    # Run seed data
+    echo -e "${YELLOW}[7/7] Importing seed data...${NC}"
+    echo -e "${BLUE}   This may take 30-60 seconds...${NC}"
+    echo ""
+
+    # Seed dimension tables
+    echo -e "   • Seeding dimension tables..."
+    $DOCKER_COMPOSE exec -T web python database/migrate.py --seed 2>&1 | grep -E "Seeded|✓" || true
+
+    # Seed health offices
+    echo -e "   • Seeding health offices (9,000+ records)..."
+    $DOCKER_COMPOSE exec -T web python database/seeds/health_offices_importer.py 2>&1 | grep -E "Imported|✓" || true
+
+    # Seed error codes
+    echo -e "   • Seeding NHSO error codes..."
+    $DOCKER_COMPOSE exec -T web python database/seeds/nhso_error_codes_importer.py 2>&1 | grep -E "Imported|✓" || true
+
+    echo ""
+    echo -e "${GREEN}✓ Seed data imported${NC}"
 fi
 
 echo ""
@@ -182,6 +221,19 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo -e "🌐 เข้าใช้งาน: ${BLUE}http://localhost:5001${NC}"
 echo ""
+
+# Show next steps (only if using database)
+if [ "$DB_TYPE" != "none" ]; then
+    echo -e "${YELLOW}Next Steps:${NC}"
+    echo -e "  ${GREEN}1.${NC} ตั้งค่ารหัสโรงพยาบาล (Hospital Code):"
+    echo -e "     ${BLUE}http://localhost:5001/setup${NC}"
+    echo -e "     • จำเป็นสำหรับ SMT Budget และ Per-Bed KPIs"
+    echo ""
+    echo -e "  ${GREEN}2.${NC} ตั้งค่า NHSO Credentials (ถ้าต้องการดาวน์โหลดไฟล์):"
+    echo -e "     ${BLUE}http://localhost:5001/data-management?tab=settings${NC}"
+    echo ""
+fi
+
 echo -e "Commands:"
 echo -e "  ${YELLOW}cd $(pwd)${NC}"
 echo -e "  ${YELLOW}docker compose logs -f web${NC}    # ดู logs"
