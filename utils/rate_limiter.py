@@ -286,10 +286,11 @@ class RateLimiter:
                 else:
                     actual_response = response
 
-                # Add headers
-                actual_response.headers['X-RateLimit-Limit'] = str(requests)
-                actual_response.headers['X-RateLimit-Remaining'] = str(remaining)
-                actual_response.headers['X-RateLimit-Reset'] = str(int(time.time() + reset_time))
+                # Add headers only if response object has headers attribute
+                if hasattr(actual_response, 'headers'):
+                    actual_response.headers['X-RateLimit-Limit'] = str(requests)
+                    actual_response.headers['X-RateLimit-Remaining'] = str(remaining)
+                    actual_response.headers['X-RateLimit-Reset'] = str(int(time.time() + reset_time))
 
                 return response
 

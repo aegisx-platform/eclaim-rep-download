@@ -150,7 +150,8 @@ def test_file_size_validation():
 
     validator = FileUploadValidator(
         allowed_extensions=['.xls'],
-        max_size_mb=0.001  # 1 KB for testing
+        max_size_mb=0.001,  # 1 KB for testing
+        check_magic_numbers=False  # Disable for size testing
     )
 
     # Small file (should pass)

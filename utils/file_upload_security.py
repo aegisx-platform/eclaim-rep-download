@@ -200,14 +200,25 @@ class FileUploadValidator:
             >>> sanitize_filename("file<script>.xls")
             'file_script_.xls'
         """
-        # Use Werkzeug's secure_filename
+        # Remove path traversal patterns first (before checking for hidden files)
+        filename = filename.replace('..', '')
+
+        # Check if hidden file (starts with '.')
+        is_hidden = filename.startswith('.')
+        if is_hidden:
+            filename = filename[1:]  # Remove dot temporarily
+
+        # Replace ALL dangerous characters and patterns
+        dangerous_chars = ['<', '>', ':', '"', '|', '?', '*']
+        for char in dangerous_chars:
+            filename = filename.replace(char, '_')
+
+        # Use Werkzeug's secure_filename (handles path separators and Unicode)
         safe_name = secure_filename(filename)
 
-        # Additional sanitization
-        # Remove any remaining dangerous characters
-        dangerous_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
-        for char in dangerous_chars:
-            safe_name = safe_name.replace(char, '_')
+        # Restore underscore prefix if was hidden file
+        if is_hidden:
+            safe_name = '_' + safe_name
 
         # Limit filename length (prevents filesystem issues)
         name, ext = os.path.splitext(safe_name)
@@ -215,10 +226,6 @@ class FileUploadValidator:
             name = name[:200]
 
         safe_name = name + ext
-
-        # Prevent hidden files
-        if safe_name.startswith('.'):
-            safe_name = '_' + safe_name[1:]
 
         return safe_name
 

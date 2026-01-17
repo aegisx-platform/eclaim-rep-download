@@ -283,16 +283,20 @@ def setup_security_headers(app: Flask, mode: str = 'strict'):
             )
 
         # Cross-Origin-Embedder-Policy (COEP)
-        # require-corp: Only load resources that explicitly allow it
-        response.headers['Cross-Origin-Embedder-Policy'] = 'require-corp'
+        # Only enable in strict mode to avoid blocking CDN resources
+        if mode == 'strict':
+            # credentialless: Allow cross-origin resources without credentials
+            # This is less strict than 'require-corp' but still secure
+            response.headers['Cross-Origin-Embedder-Policy'] = 'credentialless'
 
         # Cross-Origin-Opener-Policy (COOP)
-        # same-origin: Isolate browsing context
-        response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+        # Only enable in strict mode
+        if mode == 'strict':
+            response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
 
         # Cross-Origin-Resource-Policy (CORP)
-        # same-origin: Only allow same-origin requests
-        response.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
+        # cross-origin: Allow cross-origin requests (needed for CDN)
+        response.headers['Cross-Origin-Resource-Policy'] = 'cross-origin'
 
         return response
 
