@@ -13,3 +13,4 @@ logs/*.log
 exports/
 *.xlsx
 .DS_Store
+security-reports/
