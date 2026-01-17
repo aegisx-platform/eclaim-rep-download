@@ -910,3 +910,237 @@ def reset_user_password(user_id):
             'success': False,
             'error': 'เกิดข้อผิดพลาดในการรีเซ็ตรหัสผ่าน'
         }), 500
+
+
+# ===== Audit Log API =====
+
+@settings_api_bp.route('/api/audit/logs', methods=['GET'])
+@login_required
+@require_admin
+def get_audit_logs():
+    """Get audit logs with filters"""
+    try:
+        from config.database import get_db_connection
+        from flask_login import current_user
+
+        # Get query parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        user_filter = request.args.get('user', '')
+        action_filter = request.args.get('action', '')
+        resource_filter = request.args.get('resource', '')
+        status_filter = request.args.get('status', '')
+        date_from = request.args.get('date_from', '')
+        date_to = request.args.get('date_to', '')
+
+        # Limit per_page to prevent performance issues
+        per_page = min(per_page, 200)
+        offset = (page - 1) * per_page
+
+        from config.database import DB_TYPE
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Build query with filters
+        where_clauses = []
+        params = []
+
+        # Use ILIKE for PostgreSQL, LIKE for MySQL
+        like_operator = "ILIKE" if DB_TYPE == "postgresql" else "LIKE"
+
+        if user_filter:
+            where_clauses.append(f"user_id {like_operator} %s")
+            params.append(f"%{user_filter}%")
+
+        if action_filter:
+            where_clauses.append("action = %s")
+            params.append(action_filter)
+
+        if resource_filter:
+            where_clauses.append(f"resource_type {like_operator} %s")
+            params.append(f"%{resource_filter}%")
+
+        if status_filter:
+            where_clauses.append("status = %s")
+            params.append(status_filter)
+
+        if date_from:
+            where_clauses.append("timestamp >= %s")
+            params.append(date_from)
+
+        if date_to:
+            where_clauses.append("timestamp <= %s")
+            params.append(date_to)
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+        # Get total count
+        count_query = f"SELECT COUNT(*) FROM audit_log WHERE {where_sql}"
+        cursor.execute(count_query, params)
+        total_count = cursor.fetchone()[0]
+
+        # Get paginated results
+        query = f"""
+            SELECT
+                id,
+                user_id,
+                user_email,
+                session_id,
+                action,
+                resource_type,
+                resource_id,
+                changes_summary,
+                ip_address,
+                user_agent,
+                request_method,
+                request_path,
+                status,
+                error_message,
+                timestamp,
+                duration_ms
+            FROM audit_log
+            WHERE {where_sql}
+            ORDER BY timestamp DESC
+            LIMIT %s OFFSET %s
+        """
+
+        cursor.execute(query, params + [per_page, offset])
+        rows = cursor.fetchall()
+
+        logs = []
+        for row in rows:
+            logs.append({
+                'id': row[0],
+                'user_id': row[1],
+                'user_email': row[2],
+                'session_id': row[3],
+                'action': row[4],
+                'resource_type': row[5],
+                'resource_id': row[6],
+                'changes_summary': row[7],
+                'ip_address': row[8],
+                'user_agent': row[9],
+                'request_method': row[10],
+                'request_path': row[11],
+                'status': row[12],
+                'error_message': row[13],
+                'timestamp': row[14].isoformat() if row[14] else None,
+                'duration_ms': row[15]
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'logs': logs,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total_count,
+                'pages': (total_count + per_page - 1) // per_page
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting audit logs: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการดึงข้อมูล audit log'
+        }), 500
+
+
+@settings_api_bp.route('/api/audit/stats', methods=['GET'])
+@login_required
+@require_admin
+def get_audit_stats():
+    """Get audit log statistics"""
+    try:
+        from config.database import get_db_connection, DB_TYPE
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get statistics for last 7 days
+        # Different syntax for PostgreSQL and MySQL
+        if DB_TYPE == 'mysql':
+            query = """
+                SELECT
+                    COUNT(*) as total_events,
+                    COUNT(DISTINCT user_id) as unique_users,
+                    COUNT(CASE WHEN status != 'success' THEN 1 END) as failed_events,
+                    COUNT(CASE WHEN action IN ('LOGIN', 'LOGIN_FAILED') THEN 1 END) as login_attempts,
+                    COUNT(CASE WHEN action = 'LOGIN_FAILED' THEN 1 END) as failed_logins,
+                    COUNT(CASE WHEN timestamp >= NOW() - INTERVAL 24 HOUR THEN 1 END) as events_last_24h,
+                    COUNT(CASE WHEN timestamp >= NOW() - INTERVAL 7 DAY THEN 1 END) as events_last_7d
+                FROM audit_log
+            """
+            action_query = """
+                SELECT action, COUNT(*) as count
+                FROM audit_log
+                WHERE timestamp >= NOW() - INTERVAL 7 DAY
+                GROUP BY action
+                ORDER BY count DESC
+                LIMIT 10
+            """
+        else:  # PostgreSQL
+            query = """
+                SELECT
+                    COUNT(*) as total_events,
+                    COUNT(DISTINCT user_id) as unique_users,
+                    COUNT(CASE WHEN status != 'success' THEN 1 END) as failed_events,
+                    COUNT(CASE WHEN action IN ('LOGIN', 'LOGIN_FAILED') THEN 1 END) as login_attempts,
+                    COUNT(CASE WHEN action = 'LOGIN_FAILED' THEN 1 END) as failed_logins,
+                    COUNT(CASE WHEN timestamp >= NOW() - INTERVAL '24 hours' THEN 1 END) as events_last_24h,
+                    COUNT(CASE WHEN timestamp >= NOW() - INTERVAL '7 days' THEN 1 END) as events_last_7d
+                FROM audit_log
+            """
+            action_query = """
+                SELECT action, COUNT(*) as count
+                FROM audit_log
+                WHERE timestamp >= NOW() - INTERVAL '7 days'
+                GROUP BY action
+                ORDER BY count DESC
+                LIMIT 10
+            """
+
+        cursor.execute(query)
+        row = cursor.fetchone()
+
+        stats = {
+            'total_events': row[0] or 0,
+            'unique_users': row[1] or 0,
+            'failed_events': row[2] or 0,
+            'login_attempts': row[3] or 0,
+            'failed_logins': row[4] or 0,
+            'events_last_24h': row[5] or 0,
+            'events_last_7d': row[6] or 0
+        }
+
+        # Get action distribution
+        cursor.execute(action_query)
+
+        action_dist = []
+        for row in cursor.fetchall():
+            action_dist.append({
+                'action': row[0],
+                'count': row[1]
+            })
+
+        stats['action_distribution'] = action_dist
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting audit stats: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการดึงสถิติ'
+        }), 500

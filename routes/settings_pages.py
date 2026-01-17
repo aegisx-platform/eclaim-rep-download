@@ -11,14 +11,16 @@ Routes:
 - /settings/profile         → User profile and password management
 - /settings/users           → User management (Admin only)
 - /settings/api-keys        → API Keys management (Admin only)
+- /settings/audit           → Audit log viewer (Admin only)
 
 Note: Schedule route disabled - use Data Management page instead
 """
 
-from flask import Blueprint, render_template, redirect, url_for
+from flask import Blueprint, render_template, redirect, url_for, send_file
 from flask_login import login_required
 from utils.auth import require_admin
 from utils.settings_manager import SettingsManager
+import os
 
 # Create blueprint with url_prefix
 # Note: Use 'settings' as blueprint name (API blueprint uses different name)
@@ -98,4 +100,14 @@ def users():
 @require_admin
 def api_keys():
     """API Keys management page - Admin only"""
-    return render_template('settings/api_keys.html')
+    import os
+    server_url = os.getenv('SERVER_URL', 'http://localhost:5001')
+    return render_template('settings/api_keys.html', server_url=server_url)
+
+
+@settings_pages_bp.route('/audit')
+@login_required
+@require_admin
+def audit():
+    """Audit log viewer page - Admin only"""
+    return render_template('settings/audit_log.html')

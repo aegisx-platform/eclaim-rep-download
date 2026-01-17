@@ -88,3 +88,31 @@ def get_connection_string(db_type: str = None) -> str:
                 f"?charset={config['charset']}")
 
     raise ValueError(f"Unsupported DB_TYPE: {db_type}")
+
+
+def get_db_connection(db_type: str = None):
+    """
+    Get raw database connection (psycopg2 or pymysql)
+
+    Args:
+        db_type: 'postgresql' or 'mysql', defaults to DB_TYPE env var
+
+    Returns:
+        Database connection object
+    """
+    if db_type is None:
+        db_type = DB_TYPE
+
+    config = get_db_config(db_type)
+
+    if db_type == 'postgresql':
+        import psycopg2
+        import psycopg2.extras
+        conn = psycopg2.connect(**config)
+        return conn
+    elif db_type == 'mysql':
+        import pymysql
+        conn = pymysql.connect(**config)
+        return conn
+    else:
+        raise ValueError(f"Unsupported DB_TYPE: {db_type}")
