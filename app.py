@@ -22,8 +22,14 @@ from utils.scheduler import download_scheduler
 from utils.job_history_manager import job_history_manager
 from utils.alert_manager import alert_manager
 from utils.logging_config import setup_logger, safe_format_exception
+from utils.auth import auth_manager, User, require_role, require_admin
+from utils.audit_logger import audit_logger
 from config.database import get_db_config, DB_TYPE
 from config.db_pool import init_pool, close_pool, get_connection as get_pooled_connection, return_connection, get_pool_status
+
+# Flask-Login
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_bcrypt import Bcrypt
 
 
 # Database-specific SQL helpers for PostgreSQL/MySQL compatibility
@@ -161,6 +167,27 @@ if not secret_key:
     # Development fallback (not for production use)
     secret_key = 'dev-only-secret-key-do-not-use-in-production'
 app.config['SECRET_KEY'] = secret_key
+
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'กรุณาเข้าสู่ระบบก่อนใช้งาน'
+login_manager.login_message_category = 'info'
+
+# Initialize Bcrypt
+bcrypt = Bcrypt(app)
+
+@login_manager.user_loader
+def load_user(user_id):
+    """Load user for Flask-Login."""
+    return auth_manager.get_user_by_id(int(user_id))
+
+# Inject current_user into all templates
+@app.context_processor
+def inject_user():
+    """Inject user info into all templates."""
+    return dict(current_user=current_user)
 
 # Initialize managers - now using database-backed history
 history_manager = HistoryManagerDB(download_type='rep')  # REP files
@@ -324,6 +351,140 @@ def get_import_status_map():
     return status_map
 
 
+# =============================================================================
+# AUTHENTICATION ROUTES
+# =============================================================================
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """User login page."""
+    # If already logged in, redirect to dashboard
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        remember = request.form.get('remember') == 'on'
+
+        if not username or not password:
+            return render_template('login.html', error='กรุณากรอกชื่อผู้ใช้และรหัสผ่าน')
+
+        # Authenticate user
+        user = auth_manager.authenticate(
+            username=username,
+            password=password,
+            ip_address=request.remote_addr
+        )
+
+        if user:
+            # Login successful
+            login_user(user, remember=remember)
+
+            # Store user info in Flask's g object for audit logging
+            g.user_id = user.username
+            g.user_email = user.email
+
+            # Check if must change password
+            if user.must_change_password:
+                return redirect(url_for('change_password'))
+
+            # Redirect to next page or dashboard
+            next_page = request.args.get('next')
+            if next_page:
+                return redirect(next_page)
+            return redirect(url_for('dashboard'))
+        else:
+            # Login failed (error already logged in authenticate())
+            return render_template('login.html', error='ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง')
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    """User logout."""
+    # Log logout
+    audit_logger.log_logout(
+        user_id=current_user.username,
+        ip_address=request.remote_addr
+    )
+
+    logout_user()
+    return redirect(url_for('login'))
+
+
+@app.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    """Change password page."""
+    if request.method == 'POST':
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+
+        # Validate inputs
+        if not new_password or not confirm_password:
+            return render_template(
+                'change_password.html',
+                error='กรุณากรอกรหัสผ่านใหม่และยืนยันรหัสผ่าน',
+                must_change=current_user.must_change_password
+            )
+
+        if new_password != confirm_password:
+            return render_template(
+                'change_password.html',
+                error='รหัสผ่านใหม่ไม่ตรงกัน',
+                must_change=current_user.must_change_password
+            )
+
+        if len(new_password) < 8:
+            return render_template(
+                'change_password.html',
+                error='รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร',
+                must_change=current_user.must_change_password
+            )
+
+        # If not must_change, verify current password
+        if not current_user.must_change_password:
+            user_data = auth_manager.get_user_by_username(current_user.username)
+            if not user_data or not auth_manager.verify_password(current_password, user_data['password_hash']):
+                return render_template(
+                    'change_password.html',
+                    error='รหัสผ่านปัจจุบันไม่ถูกต้อง',
+                    must_change=False
+                )
+
+        # Change password
+        success = auth_manager.change_password(
+            user_id=current_user.id,
+            new_password=new_password,
+            changed_by=current_user.username
+        )
+
+        if success:
+            # Update current user's must_change_password flag
+            current_user.must_change_password = False
+
+            return render_template(
+                'change_password.html',
+                success='เปลี่ยนรหัสผ่านสำเร็จ กรุณาเข้าสู่ระบบใหม่',
+                must_change=False
+            )
+        else:
+            return render_template(
+                'change_password.html',
+                error='ไม่สามารถเปลี่ยนรหัสผ่านได้ กรุณาลองใหม่อีกครั้ง',
+                must_change=current_user.must_change_password
+            )
+
+    return render_template(
+        'change_password.html',
+        must_change=current_user.must_change_password
+    )
+
+
 @app.route('/')
 def index():
     """Redirect to dashboard or setup if needed"""
@@ -353,6 +514,7 @@ def setup():
 
 
 @app.route('/dashboard')
+@login_required
 def dashboard():
     """Main dashboard view with statistics"""
     stats = history_manager.get_statistics()

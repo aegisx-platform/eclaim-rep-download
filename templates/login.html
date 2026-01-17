@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เข้าสู่ระบบ - E-Claim System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-md">
+        <!-- Login Card -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-center">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full mb-4">
+                    <i class="fas fa-hospital text-4xl text-blue-600"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-white mb-2">E-Claim System</h1>
+                <p class="text-blue-100">ระบบจัดการข้อมูล E-Claim</p>
+            </div>
+
+            <!-- Login Form -->
+            <div class="p-8">
+                {% if error %}
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle text-red-500 mr-3"></i>
+                        <p class="text-red-700">{{ error }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if message %}
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r">
+                    <div class="flex items-center">
+                        <i class="fas fa-info-circle text-blue-500 mr-3"></i>
+                        <p class="text-blue-700">{{ message }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <form method="POST" action="{{ url_for('login') }}" class="space-y-6">
+                    <!-- Username -->
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-user mr-2 text-gray-400"></i>ชื่อผู้ใช้
+                        </label>
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            required
+                            autofocus
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                            placeholder="กรอกชื่อผู้ใช้"
+                        >
+                    </div>
+
+                    <!-- Password -->
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-lock mr-2 text-gray-400"></i>รหัสผ่าน
+                        </label>
+                        <div class="relative">
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition pr-12"
+                                placeholder="กรอกรหัสผ่าน"
+                            >
+                            <button
+                                type="button"
+                                onclick="togglePassword()"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                                <i id="toggleIcon" class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Remember Me -->
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center">
+                            <input
+                                type="checkbox"
+                                name="remember"
+                                class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            >
+                            <span class="ml-2 text-sm text-gray-700">จดจำการเข้าสู่ระบบ</span>
+                        </label>
+                        <!-- Future: Add forgot password link -->
+                        <!--
+                        <a href="#" class="text-sm text-blue-600 hover:text-blue-800">
+                            ลืมรหัสผ่าน?
+                        </a>
+                        -->
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button
+                        type="submit"
+                        class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        <i class="fas fa-sign-in-alt mr-2"></i>เข้าสู่ระบบ
+                    </button>
+                </form>
+
+                <!-- Security Notice -->
+                <div class="mt-6 pt-6 border-t border-gray-200">
+                    <div class="text-xs text-gray-500 space-y-1">
+                        <p class="flex items-center">
+                            <i class="fas fa-shield-alt text-green-500 mr-2"></i>
+                            ระบบมีการเข้ารหัสและบันทึก Audit Log ตาม PDPA
+                        </p>
+                        <p class="flex items-center">
+                            <i class="fas fa-lock text-green-500 mr-2"></i>
+                            บัญชีจะถูกล็อคหลังพยายามเข้าสู่ระบบผิด 5 ครั้ง
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 px-8 py-4 text-center text-xs text-gray-500">
+                <p>E-Claim REP Download System v3.2.0</p>
+                <p class="mt-1">© 2026 AegisX Platform. All rights reserved.</p>
+            </div>
+        </div>
+
+        <!-- Default Credentials Info (Development Only) -->
+        {% if config.get('FLASK_ENV') == 'development' %}
+        <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <h3 class="font-semibold text-yellow-800 mb-2">
+                <i class="fas fa-exclamation-triangle mr-2"></i>Development Mode
+            </h3>
+            <p class="text-sm text-yellow-700 mb-2">Default credentials:</p>
+            <ul class="text-sm text-yellow-600 space-y-1">
+                <li><strong>Username:</strong> admin</li>
+                <li><strong>Password:</strong> admin</li>
+                <li class="text-red-600 font-semibold mt-2">⚠️ You will be forced to change password on first login</li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggleIcon');
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+
+        // Auto-focus username field
+        document.getElementById('username').focus();
+    </script>
+</body>
+</html>
