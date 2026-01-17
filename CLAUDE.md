@@ -318,9 +318,13 @@ docker-compose exec web python database/seeds/nhso_error_codes_importer.py
 # Or using make (if available):
 make seed-all
 
-# Step 4: Configure SMT Vendor ID
-# Go to http://localhost:5001/data-management?tab=settings
-# Enter your hospital's 5-digit vendor code (e.g., 10670)
+# Step 4: Configure Hospital Settings
+# Go to http://localhost:5001/setup
+# Enter your hospital's 5-digit code (e.g., 10670)
+# This code is used for:
+#   - SMT Budget fetching from NHSO API
+#   - Per-bed KPIs calculation (revenue/bed, loss/bed, claims/bed)
+#   - Hospital-specific analytics
 
 # Step 5 (Optional): Re-import existing data files
 docker-compose exec web bash -c 'for f in downloads/rep/*.xls; do python eclaim_import.py "$f"; done'
