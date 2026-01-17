@@ -593,3 +593,94 @@ class SettingsManager:
         settings = self.load_settings()
         settings['schedule_schemes'] = schemes
         return self.save_settings(settings)
+
+    # ===== License Settings =====
+
+    def get_license_info(self) -> Dict:
+        """
+        Get license information from license checker
+
+        Returns:
+            Dict with license status, tier, features, expiration, etc.
+        """
+        try:
+            from utils.license_checker import get_license_checker
+            checker = get_license_checker()
+            return checker.get_license_info()
+        except Exception as e:
+            return {
+                'is_valid': False,
+                'status': 'error',
+                'error': str(e),
+                'tier': 'trial',
+                'features': {}
+            }
+
+    def install_license(self, license_key: str, license_token: str, public_key: str) -> Tuple[bool, str]:
+        """
+        Install a new license
+
+        Args:
+            license_key: License key
+            license_token: JWT license token
+            public_key: RSA public key (PEM format)
+
+        Returns:
+            (success, message)
+        """
+        try:
+            from utils.license_checker import get_license_checker
+            checker = get_license_checker()
+
+            # Save license
+            if not checker.save_license(license_key, license_token, public_key):
+                return False, "Failed to save license file"
+
+            # Verify it works
+            is_valid, payload, error = checker.verify_license()
+            if not is_valid:
+                # Remove invalid license
+                checker.remove_license()
+                return False, f"License verification failed: {error}"
+
+            return True, "License installed successfully"
+
+        except Exception as e:
+            return False, f"Error installing license: {str(e)}"
+
+    def remove_license(self) -> Tuple[bool, str]:
+        """
+        Remove installed license
+
+        Returns:
+            (success, message)
+        """
+        try:
+            from utils.license_checker import get_license_checker
+            checker = get_license_checker()
+
+            if checker.remove_license():
+                return True, "License removed successfully"
+            else:
+                return False, "Failed to remove license"
+
+        except Exception as e:
+            return False, f"Error removing license: {str(e)}"
+
+    def check_feature_access(self, feature: str) -> bool:
+        """
+        Check if current license allows access to a feature
+
+        Args:
+            feature: Feature name
+
+        Returns:
+            True if feature is accessible
+        """
+        try:
+            from utils.license_checker import get_license_checker
+            checker = get_license_checker()
+            return checker.check_feature_access(feature)
+        except Exception:
+            # Default to trial mode on error
+            return False

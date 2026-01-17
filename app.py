@@ -251,11 +251,15 @@ def load_user(user_id):
     """Load user for Flask-Login."""
     return auth_manager.get_user_by_id(int(user_id))
 
-# Inject current_user into all templates
+# Inject current_user and license info into all templates
 @app.context_processor
 def inject_user():
-    """Inject user info into all templates."""
-    return dict(current_user=current_user)
+    """Inject user info and license info into all templates."""
+    license_info = settings_manager.get_license_info()
+    return dict(
+        current_user=current_user,
+        license=license_info
+    )
 
 # Initialize managers - now using database-backed history
 history_manager = HistoryManagerDB(download_type='rep')  # REP files
@@ -265,6 +269,38 @@ downloader_runner = DownloaderRunner()
 import_runner = ImportRunner()
 stm_import_runner = STMImportRunner()
 settings_manager = SettingsManager()
+
+
+def check_license_status():
+    """Check and log license status on application startup"""
+    try:
+        license_info = settings_manager.get_license_info()
+
+        if not license_info['is_valid']:
+            logger.warning("╔══════════════════════════════════════════════════════════╗")
+            logger.warning("║  NO VALID LICENSE - RUNNING IN TRIAL MODE                ║")
+            logger.warning("║  Limited to 1,000 records per import                     ║")
+            logger.warning("║  Advanced features disabled                              ║")
+            logger.warning("║  Contact: https://github.com/aegisx-platform            ║")
+            logger.warning("╚══════════════════════════════════════════════════════════╝")
+        else:
+            tier = license_info.get('tier', 'unknown')
+            expires_at = license_info.get('expires_at')
+            days_left = license_info.get('days_until_expiry')
+
+            if license_info.get('grace_period'):
+                logger.warning("╔══════════════════════════════════════════════════════════╗")
+                logger.warning(f"║  LICENSE EXPIRED - GRACE PERIOD                          ║")
+                logger.warning(f"║  {license_info.get('grace_days_left', 0)} days remaining before restrictions     ║")
+                logger.warning("║  Please renew your license                               ║")
+                logger.warning("╚══════════════════════════════════════════════════════════╝")
+            elif days_left is not None and days_left <= 30:
+                logger.warning(f"License expires in {days_left} days - Tier: {tier}")
+            else:
+                logger.info(f"✓ Valid license - Tier: {tier} - Expires: {expires_at}")
+
+    except Exception as e:
+        logger.error(f"Error checking license status: {e}")
 
 
 def init_scheduler():
@@ -4727,6 +4763,112 @@ def api_hospital_info():
             })
 
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ===== License Management API =====
+
+@app.route('/api/settings/license', methods=['GET'])
+@login_required
+@require_admin
+def api_get_license():
+    """Get current license information"""
+    try:
+        license_info = settings_manager.get_license_info()
+        return jsonify({
+            'success': True,
+            'license': license_info
+        })
+    except Exception as e:
+        logger.error(f"Error getting license info: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/settings/license', methods=['POST'])
+@login_required
+@require_admin
+def api_install_license():
+    """Install a new license"""
+    try:
+        data = request.get_json()
+        license_key = data.get('license_key', '').strip()
+        license_token = data.get('license_token', '').strip()
+        public_key = data.get('public_key', '').strip()
+
+        if not license_key or not license_token or not public_key:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required fields: license_key, license_token, public_key'
+            }), 400
+
+        # Install license
+        success, message = settings_manager.install_license(
+            license_key,
+            license_token,
+            public_key
+        )
+
+        if success:
+            # Log audit
+            audit_logger.log(
+                action='ADMIN_ACTION',
+                resource_type='license',
+                user_id=current_user.username,
+                ip_address=request.remote_addr,
+                status='success',
+                details=f'License installed: {license_key}'
+            )
+
+            # Get full license info
+            license_info = settings_manager.get_license_info()
+
+            return jsonify({
+                'success': True,
+                'message': message,
+                'license': license_info
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': message
+            }), 400
+
+    except Exception as e:
+        logger.error(f"Error installing license: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/settings/license', methods=['DELETE'])
+@login_required
+@require_admin
+def api_remove_license():
+    """Remove installed license"""
+    try:
+        success, message = settings_manager.remove_license()
+
+        if success:
+            # Log audit
+            audit_logger.log(
+                action='ADMIN_ACTION',
+                resource_type='license',
+                user_id=current_user.username,
+                ip_address=request.remote_addr,
+                status='success',
+                details='License removed'
+            )
+
+            return jsonify({
+                'success': True,
+                'message': message
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': message
+            }), 400
+
+    except Exception as e:
+        logger.error(f"Error removing license: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -12763,6 +12905,9 @@ if __name__ == '__main__':
 
     # Register cleanup on shutdown
     atexit.register(close_pool)
+
+    # Check license status on startup
+    check_license_status()
 
     # Auto-recovery: clean up stale downloads from previous crashes
     recover_stale_downloads()
