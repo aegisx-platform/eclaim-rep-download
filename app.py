@@ -31,6 +31,9 @@ from config.db_pool import init_pool, close_pool, get_connection as get_pooled_c
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
 
+# Flask-WTF CSRF Protection
+from flask_wtf.csrf import CSRFProtect, CSRFError
+
 
 # Database-specific SQL helpers for PostgreSQL/MySQL compatibility
 # Note: MySQL % in DATE_FORMAT must be escaped as %% when used with cursor.execute()
@@ -167,6 +170,47 @@ if not secret_key:
     # Development fallback (not for production use)
     secret_key = 'dev-only-secret-key-do-not-use-in-production'
 app.config['SECRET_KEY'] = secret_key
+
+# CSRF Protection Configuration
+app.config['WTF_CSRF_ENABLED'] = True
+app.config['WTF_CSRF_TIME_LIMIT'] = None  # No time limit (rely on session expiry)
+app.config['WTF_CSRF_SSL_STRICT'] = False  # Set to True when using HTTPS
+app.config['WTF_CSRF_CHECK_DEFAULT'] = True  # Enable CSRF protection by default
+
+# Initialize CSRF Protection
+csrf = CSRFProtect(app)
+
+# CSRF Error Handler
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    """Handle CSRF validation errors."""
+    logger.warning(f"CSRF validation failed: {e.description} - IP: {request.remote_addr}")
+
+    # Log security event
+    audit_logger.log(
+        action='DATA_ACCESS',
+        resource_type='csrf_validation',
+        user_id=current_user.username if current_user.is_authenticated else 'anonymous',
+        ip_address=request.remote_addr,
+        status='denied',
+        error_message=f'CSRF validation failed: {e.description}'
+    )
+
+    # Return JSON for AJAX requests
+    if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': False,
+            'error': 'CSRF validation failed. Please refresh the page and try again.',
+            'csrf_error': True
+        }), 400
+
+    # Return error page for regular requests
+    return render_template(
+        'error.html',
+        error_title='Security Validation Failed',
+        error_message='CSRF validation failed. This usually happens when your session has expired or the page has been open for too long.',
+        suggestion='Please refresh the page and try again.'
+    ), 400
 
 # Initialize Flask-Login
 login_manager = LoginManager()
