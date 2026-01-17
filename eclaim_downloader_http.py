@@ -14,9 +14,13 @@ from urllib.parse import urljoin, urlparse, parse_qs
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from utils.logging_config import setup_logger, safe_format_exception
 
 # Load environment variables
 load_dotenv()
+
+# Set up secure logging with credential masking
+logger = setup_logger('eclaim_downloader', enable_masking=True)
 
 # Job history tracking (optional - may not be available in all environments)
 job_history_manager = None
@@ -596,8 +600,7 @@ class EClaimDownloader:
 
         except Exception as e:
             stream_log(f"✗ Error: {str(e)}", 'error')
-            import traceback
-            traceback.print_exc()
+            logger.error(safe_format_exception())
 
             # Mark job as failed
             if job_history_manager and job_id:

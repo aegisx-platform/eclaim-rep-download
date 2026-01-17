@@ -21,6 +21,7 @@ from utils.settings_manager import SettingsManager
 from utils.scheduler import download_scheduler
 from utils.job_history_manager import job_history_manager
 from utils.alert_manager import alert_manager
+from utils.logging_config import setup_logger, safe_format_exception
 from config.database import get_db_config, DB_TYPE
 from config.db_pool import init_pool, close_pool, get_connection as get_pooled_connection, return_connection, get_pool_status
 
@@ -147,6 +148,9 @@ def sql_ilike(column: str, pattern: str) -> str:
 TZ_BANGKOK = ZoneInfo('Asia/Bangkok')
 
 app = Flask(__name__)
+
+# Set up secure logging with credential masking
+logger = setup_logger('eclaim_app', enable_masking=True)
 
 # Load SECRET_KEY from environment variable
 # CRITICAL: Must be set in production for session security
@@ -5116,7 +5120,7 @@ def get_seed_status():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -9524,8 +9528,7 @@ def api_benchmark():
 
     except Exception as e:
         app.logger.error(f"Error in benchmark comparison: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -9613,7 +9616,7 @@ def api_benchmark_hospitals():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -9740,7 +9743,7 @@ def api_benchmark_timeseries():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -9851,7 +9854,7 @@ def api_benchmark_hospital_years():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -10154,7 +10157,7 @@ def api_benchmark_my_hospital():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -10305,7 +10308,7 @@ def api_benchmark_region_average():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -10336,7 +10339,7 @@ def api_benchmark_delete_hospital(vendor_no):
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -10377,7 +10380,7 @@ def api_benchmark_available_years():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -11680,7 +11683,7 @@ def api_health_offices_list():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -11764,7 +11767,7 @@ def api_health_offices_stats():
         return jsonify({'success': True, 'stats': stats})
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -12040,7 +12043,7 @@ def api_health_offices_import():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -12069,7 +12072,7 @@ def api_health_offices_clear():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -12119,7 +12122,7 @@ def api_health_offices_lookup(code):
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -12314,7 +12317,7 @@ def get_files_update_status():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -12429,7 +12432,7 @@ def list_files_by_type():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -12482,7 +12485,7 @@ def scan_files_to_history():
         })
 
     except Exception as e:
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
