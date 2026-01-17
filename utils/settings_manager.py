@@ -354,7 +354,8 @@ class SettingsManager:
     def update_schedule_settings(self, enabled: bool, times: list, auto_import: bool,
                                    type_rep: bool = True, type_stm: bool = False,
                                    type_smt: bool = False, smt_vendor_id: str = '',
-                                   parallel_download: bool = False, parallel_workers: int = 3) -> bool:
+                                   parallel_download: bool = False, parallel_workers: int = 3,
+                                   rep_schemes: list = None) -> bool:
         """
         Update unified schedule settings
 
@@ -368,6 +369,7 @@ class SettingsManager:
             smt_vendor_id: Vendor ID for SMT schedule
             parallel_download: Whether to use parallel download for REP files
             parallel_workers: Number of parallel workers (2-5)
+            rep_schemes: List of REP schemes to download (e.g., ['ucs', 'ofc', 'sss', 'lgo'])
 
         Returns:
             True if successful
@@ -382,6 +384,11 @@ class SettingsManager:
         settings['schedule_smt_vendor_id'] = smt_vendor_id
         settings['schedule_parallel_download'] = parallel_download
         settings['schedule_parallel_workers'] = min(max(int(parallel_workers), 2), 5)  # Clamp 2-5
+
+        # Update rep_schemes if provided
+        if rep_schemes is not None:
+            settings['schedule_schemes'] = rep_schemes
+
         return self.save_settings(settings)
 
     def get_smt_settings(self) -> Dict:
@@ -613,7 +620,18 @@ class SettingsManager:
                 'status': 'error',
                 'error': str(e),
                 'tier': 'trial',
-                'features': {}
+                'features': {},
+                'days_until_expiry': None,
+                'grace_period': False,
+                'grace_days_left': 0,
+                'max_users': None,
+                'expires_at': None,
+                'issued_at': None,
+                'license_key': None,
+                'license_type': 'trial',
+                'hospital_code': None,
+                'hospital_name': None,
+                'custom_limits': {}
             }
 
     def install_license(self, license_key: str, license_token: str, public_key: str) -> Tuple[bool, str]:
