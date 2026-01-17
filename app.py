@@ -4440,8 +4440,8 @@ def api_hospital_info():
         # Query health_offices table for hospital info
         query = """
             SELECT
-                h9_code,
-                h5_code,
+                hcode9,
+                hcode5,
                 name,
                 hospital_level,
                 actual_beds,
@@ -4450,7 +4450,7 @@ def api_hospital_info():
                 hospital_type,
                 is_active
             FROM health_offices
-            WHERE h5_code = %s OR h9_code LIKE %s
+            WHERE hcode5 = %s OR hcode9 LIKE %s
             LIMIT 1
         """
         cursor.execute(query, (hospital_code, f'%{hospital_code}'))
@@ -4461,8 +4461,8 @@ def api_hospital_info():
 
         if row:
             data = {
-                'h9_code': row[0],
-                'h5_code': row[1],
+                'hcode9': row[0],
+                'hcode5': row[1],
                 'name': row[2],
                 'hospital_level': row[3],
                 'actual_beds': row[4] or 0,
@@ -7273,6 +7273,8 @@ def api_dashboard_reconciliation_status():
 @app.route('/api/analytics/overview')
 def api_analytics_overview():
     """Get overview statistics for analytics dashboard"""
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         if not conn:
@@ -7427,7 +7429,7 @@ def api_analytics_overview():
                 hospital_query = """
                     SELECT name, hospital_level, actual_beds, province, health_region
                     FROM health_offices
-                    WHERE h5_code = %s OR h9_code LIKE %s
+                    WHERE hcode5 = %s OR hcode9 LIKE %s
                     LIMIT 1
                 """
                 cursor.execute(hospital_query, (hospital_code, f'%{hospital_code}'))
@@ -7510,18 +7512,23 @@ def api_analytics_overview():
         cursor.execute(deny_query, filter_params)
         overview['total_denials'] = cursor.fetchone()[0] or 0
 
-        cursor.close()
-        conn.close()
-
         return jsonify({'success': True, 'data': overview})
 
     except Exception as e:
+        app.logger.error(f"Error in analytics overview: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 @app.route('/api/analytics/monthly-trend')
 def api_analytics_monthly_trend():
     """Get monthly trend data"""
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         if not conn:
@@ -7566,18 +7573,23 @@ def api_analytics_monthly_trend():
             for row in reversed(rows)
         ]
 
-        cursor.close()
-        conn.close()
-
         return jsonify({'success': True, 'data': monthly_data, 'filter': filter_info})
 
     except Exception as e:
+        app.logger.error(f"Error in monthly trend: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 @app.route('/api/analytics/service-type')
 def api_analytics_service_type():
     """Get claims by service type"""
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         if not conn:
@@ -7627,18 +7639,23 @@ def api_analytics_service_type():
             for row in rows
         ]
 
-        cursor.close()
-        conn.close()
-
         return jsonify({'success': True, 'data': service_data})
 
     except Exception as e:
+        app.logger.error(f"Error in service type analytics: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 @app.route('/api/analytics/fund')
 def api_analytics_fund():
     """Get claims by fund type"""
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         if not conn:
@@ -7681,13 +7698,16 @@ def api_analytics_fund():
             for row in rows
         ]
 
-        cursor.close()
-        conn.close()
-
         return jsonify({'success': True, 'data': fund_data})
 
     except Exception as e:
+        app.logger.error(f"Error in fund analytics: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 @app.route('/api/analytics/drg')
