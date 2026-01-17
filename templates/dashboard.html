@@ -732,19 +732,37 @@ async function loadErrorCodesChart() {
         var container = document.getElementById('error-codes-chart');
         container.textContent = '';
 
-        if (data.success && data.data && data.data.by_error_code && data.data.by_error_code.length > 0) {
+        if (data.success && data.data && data.data.denials && data.data.denials.length > 0) {
             var canvas = document.createElement('canvas');
             container.appendChild(canvas);
 
-            var topErrors = data.data.by_error_code.slice(0, 5);
+            var topErrors = data.data.denials.slice(0, 5);
+
+            // Error code descriptions mapping
+            var errorDescriptions = {
+                'A13': 'ข้อมูลไม่สมบูรณ์',
+                'A03': 'ข้อมูลไม่ถูกต้อง',
+                'I04': 'รหัส ICD ไม่ถูกต้อง',
+                'I03': 'รหัส ICD ไม่สมบูรณ์',
+                'H16': 'รหัสหัตถการไม่ถูกต้อง',
+                'H15': 'หัตถการไม่สมบูรณ์',
+                'A01': 'ไม่มีสิทธิ',
+                'A02': 'หมดสิทธิ',
+                'D01': 'ข้อมูลยาไม่ถูกต้อง',
+                'D02': 'ยาไม่อยู่ในบัญชี'
+            };
 
             new Chart(canvas, {
                 type: 'bar',
                 data: {
-                    labels: topErrors.map(function(d) { return d.error_code || 'ไม่ระบุ'; }),
+                    labels: topErrors.map(function(d) {
+                        var code = d.reason || 'ไม่ระบุ';
+                        var desc = errorDescriptions[code] || code;
+                        return desc + ' (' + code + ')';
+                    }),
                     datasets: [{
                         label: 'ยอดปฏิเสธ (บาท)',
-                        data: topErrors.map(function(d) { return d.denied_amount || 0; }),
+                        data: topErrors.map(function(d) { return d.total_amount || 0; }),
                         backgroundColor: '#EF4444'
                     }]
                 },
