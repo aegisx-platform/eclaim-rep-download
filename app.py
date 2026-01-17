@@ -29,6 +29,10 @@ from utils.security_headers import setup_security_headers
 from config.database import get_db_config, DB_TYPE
 from config.db_pool import init_pool, close_pool, get_connection as get_pooled_connection, return_connection, get_pool_status
 
+# Import blueprints
+from routes.settings import settings_api_bp
+from routes.settings_pages import settings_pages_bp
+
 # Flask-Login
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
@@ -245,6 +249,13 @@ bcrypt = Bcrypt(app)
 security_mode = 'strict' if is_https else 'permissive'
 setup_security_headers(app, mode=security_mode)
 logger.info(f"Security headers configured ({security_mode} mode)")
+
+# Register blueprints
+app.register_blueprint(settings_api_bp)  # API routes
+logger.info("✓ Settings API blueprint registered")
+
+app.register_blueprint(settings_pages_bp)  # Page routes
+logger.info("✓ Settings Pages blueprint registered")
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -624,12 +635,31 @@ def setup():
     return render_template('setup.html')
 
 
-@app.route('/license')
+@app.route('/settings/hospital')
 @login_required
-@require_admin
-def license_page():
-    """License management page"""
-    return render_template('license.html')
+def hospital_settings():
+    """Hospital settings page for managing hospital code and information"""
+    current_hospital_code = settings_manager.get_hospital_code()
+    return render_template('settings/hospital.html', hospital_code=current_hospital_code)
+
+
+@app.route('/master-data')
+@login_required
+def master_data_management():
+    """Master data management page with tabs"""
+    tab = request.args.get('tab', 'offices')  # Default to health offices tab
+
+    # Map tabs to templates
+    tab_templates = {
+        'offices': 'master_data/health_offices.html',
+        'error-codes': 'master_data/error_codes.html',
+        'fund-types': 'master_data/fund_types.html',
+        'service-types': 'master_data/service_types.html',
+        'dim-date': 'master_data/dim_date.html'
+    }
+
+    template = tab_templates.get(tab, 'master_data/health_offices.html')
+    return render_template(template, active_tab=tab, settings=settings_manager.load_settings())
 
 
 @app.route('/dashboard')
@@ -4397,505 +4427,8 @@ def clear_rep_files():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/settings')
-def settings():
-    """Settings page"""
-    current_settings = settings_manager.load_settings()
-    return render_template('settings.html', settings=current_settings)
+# ===== Settings & License routes moved to routes/settings_pages.py and routes/settings.py =====
 
-
-@app.route('/api/settings', methods=['GET', 'POST'])
-def api_settings():
-    """Get or update settings"""
-    if request.method == 'GET':
-        settings = settings_manager.load_settings()
-        # Don't send password to frontend
-        settings['eclaim_password'] = '********' if settings.get('eclaim_password') else ''
-        return jsonify(settings)
-
-    elif request.method == 'POST':
-        data = request.get_json()
-
-        # Validate required fields
-        username = data.get('eclaim_username', '').strip()
-        password = data.get('eclaim_password', '').strip()
-
-        if not username:
-            return jsonify({'success': False, 'error': 'Username is required'}), 400
-
-        # Don't update password if it's the placeholder
-        current_settings = settings_manager.load_settings()
-        if password == '********':
-            password = current_settings.get('eclaim_password', '')
-        elif not password:
-            return jsonify({'success': False, 'error': 'Password is required'}), 400
-
-        # Update settings
-        success = settings_manager.update_credentials(username, password)
-
-        if success:
-            return jsonify({'success': True, 'message': 'Settings updated successfully'}), 200
-        else:
-            return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
-
-
-# ===== Multiple Credentials Management =====
-
-@app.route('/api/settings/credentials', methods=['GET', 'POST'])
-def manage_credentials():
-    """Manage multiple E-Claim credentials"""
-    if request.method == 'GET':
-        # Get all credentials (mask passwords)
-        credentials = settings_manager.get_all_credentials()
-        masked_creds = []
-        for cred in credentials:
-            masked_creds.append({
-                'username': cred.get('username', ''),
-                'password': '********',
-                'note': cred.get('note', ''),
-                'enabled': cred.get('enabled', True)
-            })
-        return jsonify({
-            'success': True,
-            'credentials': masked_creds,
-            'count': settings_manager.get_credentials_count()
-        })
-
-    elif request.method == 'POST':
-        # Add new credential
-        data = request.get_json()
-        username = data.get('username', '').strip()
-        password = data.get('password', '').strip()
-        note = data.get('note', '').strip()
-        enabled = data.get('enabled', True)
-
-        if not username:
-            return jsonify({'success': False, 'error': 'Username is required'}), 400
-        if not password:
-            return jsonify({'success': False, 'error': 'Password is required'}), 400
-
-        success = settings_manager.add_credential(username, password, note, enabled)
-        if success:
-            return jsonify({'success': True, 'message': 'Credential added successfully'})
-        else:
-            return jsonify({'success': False, 'error': 'Failed to add credential'}), 500
-
-
-@app.route('/api/settings/credentials/<username>', methods=['PUT', 'DELETE'])
-def manage_credential(username):
-    """Update or delete a specific credential"""
-    if request.method == 'PUT':
-        data = request.get_json()
-        password = data.get('password')
-        note = data.get('note')
-        enabled = data.get('enabled')
-
-        # Don't update password if it's the placeholder
-        if password == '********':
-            password = None
-
-        success = settings_manager.update_credential(username, password, note, enabled)
-        if success:
-            return jsonify({'success': True, 'message': 'Credential updated successfully'})
-        else:
-            return jsonify({'success': False, 'error': 'Credential not found'}), 404
-
-    elif request.method == 'DELETE':
-        success = settings_manager.remove_credential(username)
-        if success:
-            return jsonify({'success': True, 'message': 'Credential removed successfully'})
-        else:
-            return jsonify({'success': False, 'error': 'Failed to remove credential'}), 500
-
-
-@app.route('/api/settings/credentials/bulk', methods=['POST'])
-def bulk_update_credentials():
-    """Bulk update all credentials"""
-    data = request.get_json()
-    credentials = data.get('credentials', [])
-
-    # Preserve existing passwords for masked entries
-    existing_creds = {c['username']: c for c in settings_manager.get_all_credentials()}
-
-    for cred in credentials:
-        if cred.get('password') == '********':
-            existing = existing_creds.get(cred.get('username'))
-            if existing:
-                cred['password'] = existing.get('password', '')
-
-    success = settings_manager.set_all_credentials(credentials)
-    if success:
-        return jsonify({'success': True, 'message': 'Credentials updated successfully'})
-    else:
-        return jsonify({'success': False, 'error': 'Failed to update credentials'}), 500
-
-
-@app.route('/api/settings/test-connection', methods=['POST'])
-def test_eclaim_connection():
-    """Test E-Claim login credentials (randomly selected)"""
-    import requests
-
-    try:
-        # Get credentials from settings (random selection)
-        username, password = settings_manager.get_eclaim_credentials(random_select=True)
-
-        if not username or not password:
-            return jsonify({
-                'success': False,
-                'error': 'Credentials not configured. Please add at least one account.'
-            }), 400
-
-        # Mask username for log
-        masked_user = f"{username[:4]}***{username[-4:]}" if len(username) > 8 else "***"
-        log_streamer.write_log(
-            f"Testing E-Claim connection for user: {masked_user}",
-            'info',
-            'system'
-        )
-
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'th,en;q=0.9',
-        })
-
-        # First, check if NHSO service is alive
-        health_check_url = "https://eclaim.nhso.go.th/webComponent/"
-        try:
-            health_response = session.get(health_check_url, timeout=15)
-            health_response.raise_for_status()
-            log_streamer.write_log(
-                f"NHSO service is reachable",
-                'info',
-                'system'
-            )
-        except requests.exceptions.RequestException as e:
-            log_streamer.write_log(
-                f"NHSO service is not reachable: {str(e)}",
-                'error',
-                'system'
-            )
-            return jsonify({
-                'success': False,
-                'error': 'NHSO E-Claim service is not available. Please try again later.'
-            }), 503
-
-        # Test login
-        login_url = "https://eclaim.nhso.go.th/webComponent/main/MainWebAction.do"
-
-        # Get the login page
-        response = session.get(login_url, timeout=30)
-        response.raise_for_status()
-
-        # Post login
-        login_data = {
-            'user': username,
-            'pass': password
-        }
-        response = session.post(login_url, data=login_data, timeout=30, allow_redirects=True)
-        response.raise_for_status()
-
-        # Check login result
-        if 'login' in response.url.lower() and 'error' in response.text.lower():
-            log_streamer.write_log(
-                f"E-Claim login failed: Invalid credentials",
-                'error',
-                'system'
-            )
-            return jsonify({
-                'success': False,
-                'error': 'Login failed - invalid username or password'
-            })
-
-        # Check if we got redirected to a valid page
-        if 'logout' in response.text.lower() or 'menu' in response.text.lower():
-            log_streamer.write_log(
-                f"E-Claim connection test successful",
-                'success',
-                'system'
-            )
-            return jsonify({
-                'success': True,
-                'message': 'Connection successful! Credentials are valid.'
-            })
-
-        # Uncertain result
-        log_streamer.write_log(
-            f"E-Claim connection test: uncertain result",
-            'warning',
-            'system'
-        )
-        return jsonify({
-            'success': True,
-            'message': 'Connection established. Please verify by downloading.'
-        })
-
-    except requests.exceptions.Timeout:
-        log_streamer.write_log(
-            f"E-Claim connection timeout",
-            'error',
-            'system'
-        )
-        return jsonify({
-            'success': False,
-            'error': 'Connection timeout - NHSO server is not responding'
-        }), 504
-
-    except requests.exceptions.HTTPError as e:
-        status_code = e.response.status_code if e.response else 'Unknown'
-        log_streamer.write_log(
-            f"E-Claim server error: HTTP {status_code}",
-            'error',
-            'system'
-        )
-        return jsonify({
-            'success': False,
-            'error': f'NHSO server error (HTTP {status_code}). Server may be down or under maintenance.'
-        }), 502
-
-    except requests.exceptions.ConnectionError:
-        log_streamer.write_log(
-            f"E-Claim connection failed: Network error",
-            'error',
-            'system'
-        )
-        return jsonify({
-            'success': False,
-            'error': 'Cannot connect to NHSO server. Check your internet connection.'
-        }), 503
-
-    except Exception as e:
-        log_streamer.write_log(
-            f"E-Claim connection test failed: {str(e)}",
-            'error',
-            'system'
-        )
-        return jsonify({
-            'success': False,
-            'error': f'Connection test failed: {str(e)}'
-        }), 500
-
-
-@app.route('/api/settings/hospital-code', methods=['GET', 'POST'])
-def api_hospital_code():
-    """Get or update the global hospital code"""
-    if request.method == 'GET':
-        hospital_code = settings_manager.get_hospital_code()
-        return jsonify({
-            'success': True,
-            'hospital_code': hospital_code
-        })
-
-    elif request.method == 'POST':
-        try:
-            data = request.get_json()
-            hospital_code = data.get('hospital_code', '').strip()
-
-            if not hospital_code:
-                return jsonify({'success': False, 'error': 'Hospital code is required'}), 400
-
-            # Validate format (5 digits)
-            if not hospital_code.isdigit() or len(hospital_code) != 5:
-                return jsonify({'success': False, 'error': 'Hospital code must be 5 digits'}), 400
-
-            success = settings_manager.set_hospital_code(hospital_code)
-            if success:
-                return jsonify({
-                    'success': True,
-                    'message': 'Hospital code saved successfully',
-                    'hospital_code': hospital_code
-                })
-            else:
-                return jsonify({'success': False, 'error': 'Failed to save hospital code'}), 500
-
-        except Exception as e:
-            return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/settings/hospital-info')
-def api_hospital_info():
-    """Get hospital information from health_offices table using hospital_code setting"""
-    try:
-        hospital_code = settings_manager.get_hospital_code()
-
-        if not hospital_code:
-            return jsonify({
-                'success': False,
-                'error': 'Hospital code not configured',
-                'data': None
-            })
-
-        conn = get_db_connection()
-        if not conn:
-            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
-
-        cursor = conn.cursor()
-
-        # Query health_offices table for hospital info
-        query = """
-            SELECT
-                hcode9,
-                hcode5,
-                name,
-                hospital_level,
-                actual_beds,
-                province,
-                health_region,
-                hospital_type,
-                is_active
-            FROM health_offices
-            WHERE hcode5 = %s OR hcode9 LIKE %s
-            LIMIT 1
-        """
-        cursor.execute(query, (hospital_code, f'%{hospital_code}'))
-        row = cursor.fetchone()
-
-        cursor.close()
-        conn.close()
-
-        if row:
-            data = {
-                'hcode9': row[0],
-                'hcode5': row[1],
-                'name': row[2],
-                'hospital_level': row[3],
-                'actual_beds': row[4] or 0,
-                'province': row[5],
-                'health_region': row[6],
-                'hospital_type': row[7],
-                'is_active': row[8]
-            }
-            return jsonify({
-                'success': True,
-                'hospital_code': hospital_code,
-                'data': data
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': f'Hospital not found for code: {hospital_code}',
-                'hospital_code': hospital_code,
-                'data': None
-            })
-
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-# ===== License Management API =====
-
-@app.route('/api/settings/license', methods=['GET'])
-@login_required
-@require_admin
-def api_get_license():
-    """Get current license information"""
-    try:
-        license_info = settings_manager.get_license_info()
-        return jsonify({
-            'success': True,
-            'license': license_info
-        })
-    except Exception as e:
-        logger.error(f"Error getting license info: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/settings/license', methods=['POST'])
-@login_required
-@require_admin
-def api_install_license():
-    """Install a new license"""
-    try:
-        data = request.get_json()
-        license_key = data.get('license_key', '').strip()
-        license_token = data.get('license_token', '').strip()
-        public_key = data.get('public_key', '').strip()
-
-        if not license_key or not license_token or not public_key:
-            return jsonify({
-                'success': False,
-                'error': 'Missing required fields: license_key, license_token, public_key'
-            }), 400
-
-        # Install license
-        success, message = settings_manager.install_license(
-            license_key,
-            license_token,
-            public_key
-        )
-
-        if success:
-            # Log audit
-            audit_logger.log(
-                action='ADMIN_ACTION',
-                resource_type='license',
-                user_id=current_user.username,
-                ip_address=request.remote_addr,
-                status='success',
-                details=f'License installed: {license_key}'
-            )
-
-            # Get full license info
-            license_info = settings_manager.get_license_info()
-
-            return jsonify({
-                'success': True,
-                'message': message,
-                'license': license_info
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': message
-            }), 400
-
-    except Exception as e:
-        logger.error(f"Error installing license: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/settings/license', methods=['DELETE'])
-@login_required
-@require_admin
-def api_remove_license():
-    """Remove installed license"""
-    try:
-        success, message = settings_manager.remove_license()
-
-        if success:
-            # Log audit
-            audit_logger.log(
-                action='ADMIN_ACTION',
-                resource_type='license',
-                user_id=current_user.username,
-                ip_address=request.remote_addr,
-                status='success',
-                details='License removed'
-            )
-
-            return jsonify({
-                'success': True,
-                'message': message
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': message
-            }), 400
-
-    except Exception as e:
-        logger.error(f"Error removing license: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.template_filter('naturalsize')
-def naturalsize_filter(value):
-    """Template filter for human-readable file sizes"""
-    return humanize.naturalsize(value)
-
-
-@app.template_filter('naturaltime')
 def naturaltime_filter(value):
     """Template filter for human-readable timestamps"""
     try:
@@ -5091,11 +4624,17 @@ def get_system_health():
         if conn:
             cursor = conn.cursor()
             cursor.execute("SELECT 1")
+
+            # Get database type
+            db_type_display = 'PostgreSQL' if DB_TYPE == 'postgresql' else 'MySQL'
+
             cursor.close()
             conn.close()
+
             health['components']['database'] = {
                 'status': 'healthy',
-                'message': 'Connected to PostgreSQL'
+                'message': 'Connected',
+                'type': db_type_display
             }
         else:
             health['components']['database'] = {
@@ -5952,224 +5491,7 @@ def _check_pid_alive(pid_file_path):
         return False
 
 
-@app.route('/api/schedule', methods=['GET', 'POST'])
-def api_schedule():
-    """Get or update unified schedule settings for all data types"""
-    if request.method == 'GET':
-        # Get current unified schedule settings
-        schedule_settings = settings_manager.get_schedule_settings()
-
-        # Get scheduled jobs info
-        jobs = download_scheduler.get_all_jobs()
-
-        return jsonify({
-            'success': True,
-            'settings': schedule_settings,
-            'jobs': jobs
-        })
-
-    elif request.method == 'POST':
-        # Update unified schedule settings
-        try:
-            data = request.get_json()
-
-            enabled = data.get('schedule_enabled', False)
-            times = data.get('schedule_times', [])
-            auto_import = data.get('schedule_auto_import', True)
-            schemes = data.get('schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
-            type_rep = data.get('schedule_type_rep', True)
-            type_stm = data.get('schedule_type_stm', False)
-            type_smt = data.get('schedule_type_smt', False)
-            smt_vendor_id = data.get('schedule_smt_vendor_id', '')
-            parallel_download = data.get('schedule_parallel_download', False)
-            parallel_workers = data.get('schedule_parallel_workers', 3)
-
-            # Validate at least one data type is selected when enabled
-            if enabled and not type_rep and not type_stm and not type_smt:
-                return jsonify({'success': False, 'error': 'กรุณาเลือกอย่างน้อย 1 ประเภทข้อมูล'}), 400
-
-            # Validate SMT vendor ID if SMT is selected
-            if enabled and type_smt:
-                # If no vendor ID provided, try to get from global hospital_code setting
-                if not smt_vendor_id:
-                    smt_vendor_id = settings_manager.get_hospital_code()
-                if not smt_vendor_id:
-                    return jsonify({'success': False, 'error': 'กรุณาระบุ Hospital Code ในหน้า Settings'}), 400
-
-            # Validate times format
-            for time_config in times:
-                if not isinstance(time_config, dict):
-                    return jsonify({'success': False, 'error': 'Invalid time format'}), 400
-
-                hour = time_config.get('hour')
-                minute = time_config.get('minute')
-
-                if hour is None or minute is None:
-                    return jsonify({'success': False, 'error': 'Missing hour or minute'}), 400
-
-                if not (0 <= hour <= 23) or not (0 <= minute <= 59):
-                    return jsonify({'success': False, 'error': 'Invalid hour or minute value'}), 400
-
-            # Validate schemes
-            valid_schemes = ['ucs', 'ofc', 'sss', 'lgo', 'nhs', 'bkk', 'bmt', 'srt']
-            schemes = [s for s in schemes if s in valid_schemes]
-            if not schemes:
-                schemes = ['ucs']  # Default fallback
-
-            # Save unified settings (including all data type flags)
-            success = settings_manager.update_schedule_settings(
-                enabled, times, auto_import, type_rep, type_stm, type_smt, smt_vendor_id,
-                parallel_download, parallel_workers
-            )
-            if success:
-                # Save schedule_schemes separately
-                settings_manager.update_schedule_schemes(schemes)
-
-            if not success:
-                return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
-
-            # Reinitialize unified scheduler
-            init_scheduler()
-
-            # Build data types string for log
-            data_types = []
-            if type_rep:
-                data_types.append('REP')
-            if type_stm:
-                data_types.append('Statement')
-            if type_smt:
-                data_types.append('SMT')
-            data_types_str = ', '.join(data_types) if data_types else 'None'
-
-            parallel_info = f", parallel={parallel_workers}w" if parallel_download else ""
-            log_streamer.write_log(
-                f"✓ Unified schedule updated: {len(times)} times, types=[{data_types_str}], {len(schemes)} schemes, enabled={enabled}{parallel_info}",
-                'success',
-                'system'
-            )
-
-            return jsonify({'success': True, 'message': 'Schedule settings updated'})
-
-        except Exception as e:
-            return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/schedule/test', methods=['POST'])
-def test_schedule():
-    """Trigger a test run of the scheduled download"""
-    try:
-        schedule_settings = settings_manager.get_schedule_settings()
-        auto_import = schedule_settings.get('schedule_auto_import', True)
-
-        # Run download manually
-        download_scheduler._run_download(auto_import)
-
-        return jsonify({
-            'success': True,
-            'message': 'Test download initiated'
-        })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-# ============================================
-# STM (Statement) Schedule Routes
-# ============================================
-
-@app.route('/api/stm/schedule', methods=['GET', 'POST'])
-def api_stm_schedule():
-    """Get or update STM schedule settings"""
-    if request.method == 'GET':
-        stm_settings = settings_manager.get_stm_schedule_settings()
-        stm_jobs = [j for j in download_scheduler.get_all_jobs() if j['id'].startswith('stm_')]
-
-        return jsonify({
-            'success': True,
-            **stm_settings,
-            'active_jobs': stm_jobs
-        })
-
-    elif request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            enabled = data.get('stm_schedule_enabled', False)
-            times = data.get('stm_schedule_times', [])
-            auto_import = data.get('stm_schedule_auto_import', True)
-            schemes = data.get('stm_schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
-
-            # Validate times format
-            for time_config in times:
-                if not isinstance(time_config, dict):
-                    return jsonify({'success': False, 'error': 'Invalid time format'}), 400
-
-                hour = time_config.get('hour')
-                minute = time_config.get('minute')
-
-                if hour is None or minute is None:
-                    return jsonify({'success': False, 'error': 'Missing hour or minute'}), 400
-
-                if not (0 <= hour <= 23) or not (0 <= minute <= 59):
-                    return jsonify({'success': False, 'error': 'Invalid hour or minute value'}), 400
-
-            # Validate schemes
-            valid_schemes = ['ucs', 'ofc', 'sss', 'lgo']
-            schemes = [s.lower() for s in schemes if s.lower() in valid_schemes]
-            if not schemes:
-                schemes = ['ucs']
-
-            # Save settings
-            success = settings_manager.update_stm_schedule_settings(enabled, times, auto_import, schemes)
-            if not success:
-                return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
-
-            # Update scheduler
-            download_scheduler.remove_stm_jobs()
-
-            if enabled and times:
-                for time_config in times:
-                    download_scheduler.add_stm_scheduled_download(
-                        hour=time_config['hour'],
-                        minute=time_config['minute'],
-                        auto_import=auto_import,
-                        schemes=schemes
-                    )
-
-            log_streamer.write_log(
-                f"✓ STM Schedule updated: {len(times)} times, schemes={schemes}, enabled={enabled}",
-                'success',
-                'system'
-            )
-
-            return jsonify({'success': True, 'message': 'STM schedule settings updated'})
-
-        except Exception as e:
-            app.logger.error(f"Error updating STM schedule: {e}")
-            return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/stm/schedule/test', methods=['POST'])
-def test_stm_schedule():
-    """Trigger a test run of STM download"""
-    try:
-        stm_settings = settings_manager.get_stm_schedule_settings()
-        auto_import = stm_settings.get('stm_schedule_auto_import', True)
-        schemes = stm_settings.get('stm_schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
-
-        # Run download manually in background
-        import threading
-        thread = threading.Thread(
-            target=download_scheduler._run_stm_download,
-            args=(auto_import, schemes)
-        )
-        thread.start()
-
-        return jsonify({
-            'success': True,
-            'message': f'STM test download initiated for schemes: {", ".join(schemes)}'
-        })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+# ===== Schedule API routes moved to routes/settings.py =====
 
 
 # ============================================
@@ -6177,6 +5499,7 @@ def test_stm_schedule():
 # ============================================
 
 @app.route('/smt-budget')
+@login_required
 def smt_budget():
     """SMT Budget Report page"""
     smt_settings = settings_manager.get_smt_settings()
@@ -6419,62 +5742,7 @@ def smt_fetch():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/smt/settings', methods=['GET', 'POST'])
-def api_smt_settings():
-    """Get or update SMT settings"""
-    if request.method == 'GET':
-        smt_settings = settings_manager.get_smt_settings()
-        smt_jobs = [j for j in download_scheduler.get_all_jobs() if j['id'].startswith('smt_')]
-        return jsonify({
-            'success': True,
-            'settings': smt_settings,
-            'jobs': smt_jobs
-        })
-
-    elif request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            vendor_id = data.get('smt_vendor_id', '').strip()
-            schedule_enabled = data.get('smt_schedule_enabled', False)
-            times = data.get('smt_schedule_times', [])
-            auto_save_db = data.get('smt_auto_save_db', True)
-
-            # Validate times format
-            for time_config in times:
-                if not isinstance(time_config, dict):
-                    return jsonify({'success': False, 'error': 'Invalid time format'}), 400
-
-                hour = time_config.get('hour')
-                minute = time_config.get('minute')
-
-                if hour is None or minute is None:
-                    return jsonify({'success': False, 'error': 'Missing hour or minute'}), 400
-
-                if not (0 <= hour <= 23) or not (0 <= minute <= 59):
-                    return jsonify({'success': False, 'error': 'Invalid hour or minute value'}), 400
-
-            # Save settings
-            success = settings_manager.update_smt_settings(
-                vendor_id, schedule_enabled, times, auto_save_db
-            )
-
-            if not success:
-                return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
-
-            # Reinitialize SMT scheduler
-            init_smt_scheduler()
-
-            log_streamer.write_log(
-                f"✓ SMT settings updated: vendor={vendor_id}, enabled={schedule_enabled}",
-                'success',
-                'system'
-            )
-
-            return jsonify({'success': True, 'message': 'SMT settings updated'})
-
-        except Exception as e:
-            return jsonify({'success': False, 'error': str(e)}), 500
+# ===== SMT settings route moved to routes/settings.py =====
 
 
 @app.route('/api/smt/fiscal-years')
@@ -6488,30 +5756,10 @@ def api_smt_fiscal_years():
         cursor = conn.cursor()
 
         # Get distinct fiscal years from posting_date
-        # posting_date format can be:
-        # - "25671227" (yyyymmdd in Buddhist Era) - 8 digits
-        # - "13/01/2569" (dd/mm/yyyy in Buddhist Era) - 10 chars
-        # Extract year and month, determine fiscal year (Oct-Sep)
-        # Month >= 10 means it belongs to next fiscal year
         cursor.execute("""
-            SELECT DISTINCT
-                CASE
-                    WHEN LENGTH(posting_date) = 8 THEN
-                        CASE
-                            WHEN CAST(SUBSTRING(posting_date, 5, 2) AS INTEGER) >= 10
-                            THEN CAST(SUBSTRING(posting_date, 1, 4) AS INTEGER) + 1
-                            ELSE CAST(SUBSTRING(posting_date, 1, 4) AS INTEGER)
-                        END
-                    WHEN LENGTH(posting_date) = 10 THEN
-                        CASE
-                            WHEN CAST(SUBSTRING(posting_date, 4, 2) AS INTEGER) >= 10
-                            THEN CAST(RIGHT(posting_date, 4) AS INTEGER) + 1
-                            ELSE CAST(RIGHT(posting_date, 4) AS INTEGER)
-                        END
-                    ELSE NULL
-                END as fiscal_year
-            FROM smt_budget_transfers
-            WHERE posting_date IS NOT NULL AND LENGTH(posting_date) >= 8
+            SELECT DISTINCT fiscal_year
+            FROM smt_budget
+            WHERE fiscal_year IS NOT NULL
             ORDER BY fiscal_year DESC
         """)
 
@@ -12508,6 +11756,533 @@ def api_health_offices_lookup(code):
                 'district': row[12],
                 'address': row[13]
             }
+        })
+
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/settings/hospital-code', methods=['POST'])
+def api_save_hospital_code():
+    """Save hospital code setting"""
+    try:
+        data = request.get_json()
+        if not data or 'hospital_code' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'hospital_code is required'
+            }), 400
+
+        hospital_code = data['hospital_code'].strip()
+
+        # Validate format (5-digit code)
+        if not hospital_code.isdigit() or len(hospital_code) != 5:
+            return jsonify({
+                'success': False,
+                'error': 'Hospital code must be a 5-digit number'
+            }), 400
+
+        # Save to settings
+        settings_manager.set_hospital_code(hospital_code)
+
+        return jsonify({
+            'success': True,
+            'message': f'Hospital code {hospital_code} saved successfully',
+            'hospital_code': hospital_code
+        })
+
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/settings/hospital-code', methods=['GET'])
+def api_get_hospital_code():
+    """Get current hospital code setting"""
+    try:
+        hospital_code = settings_manager.get_hospital_code()
+        return jsonify({
+            'success': True,
+            'hospital_code': hospital_code
+        })
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== Master Data Count APIs ====================
+
+@app.route('/api/master-data/health-offices/count')
+@login_required
+def api_master_data_health_offices_count():
+    """Get count of health offices"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM health_offices")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'count': count})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/master-data/error-codes/count')
+@login_required
+def api_master_data_error_codes_count():
+    """Get count of NHSO error codes"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM nhso_error_codes")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'count': count})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/master-data/fund-types/count')
+@login_required
+def api_master_data_fund_types_count():
+    """Get count of fund types"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM fund_types")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'count': count})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/master-data/service-types/count')
+@login_required
+def api_master_data_service_types_count():
+    """Get count of service types"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM service_types")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'count': count})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/master-data/dim-date/count')
+@login_required
+def api_master_data_dim_date_count():
+    """Get count of date dimension records"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM dim_date")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'count': count})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== Master Data List APIs ====================
+
+@app.route('/api/master-data/error-codes')
+@login_required
+def api_master_data_error_codes_list():
+    """Get NHSO error codes with pagination"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        search = request.args.get('search', '').strip()
+        category = request.args.get('category', '').strip()
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Build WHERE clause
+        where_clauses = []
+        params = []
+
+        if search:
+            like_op = "LIKE" if DB_TYPE == 'mysql' else "ILIKE"
+            where_clauses.append(f"(code {like_op} %s OR type {like_op} %s OR description {like_op} %s)")
+            params.extend([f'%{search}%', f'%{search}%', f'%{search}%'])
+
+        if category:
+            where_clauses.append("type = %s")
+            params.append(category)
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+        # Get total count
+        cursor.execute(f"SELECT COUNT(*) FROM nhso_error_codes WHERE {where_sql}", params)
+        total = cursor.fetchone()[0]
+
+        # Get paginated data
+        offset = (page - 1) * per_page
+        cursor.execute(f"""
+            SELECT code, description, type, guide
+            FROM nhso_error_codes
+            WHERE {where_sql}
+            ORDER BY code
+            LIMIT %s OFFSET %s
+        """, params + [per_page, offset])
+
+        rows = cursor.fetchall()
+        data = [{
+            'error_code': row[0],
+            'error_message': row[1] or '',
+            'category': row[2],
+            'description': row[3] or ''
+        } for row in rows]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': data, 'total': total})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/master-data/fund-types')
+@login_required
+def api_master_data_fund_types_list():
+    """Get fund types with pagination"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        search = request.args.get('search', '').strip()
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Build WHERE clause
+        where_sql = "1=1"
+        params = []
+
+        if search:
+            like_op = "LIKE" if DB_TYPE == 'mysql' else "ILIKE"
+            where_sql = f"(fund_code {like_op} %s OR fund_name_th {like_op} %s)"
+            params.extend([f'%{search}%', f'%{search}%'])
+
+        # Get total count
+        cursor.execute(f"SELECT COUNT(*) FROM fund_types WHERE {where_sql}", params)
+        total = cursor.fetchone()[0]
+
+        # Get paginated data
+        offset = (page - 1) * per_page
+        cursor.execute(f"""
+            SELECT fund_code, fund_name_th, fund_name_en, description, is_active
+            FROM fund_types
+            WHERE {where_sql}
+            ORDER BY fund_code
+            LIMIT %s OFFSET %s
+        """, params + [per_page, offset])
+
+        rows = cursor.fetchall()
+        data = [{
+            'fund_code': row[0],
+            'fund_name': row[1],
+            'short_name': row[2] or '',
+            'description': row[3] or '',
+            'is_active': bool(row[4])
+        } for row in rows]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': data, 'total': total})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/master-data/service-types')
+@login_required
+def api_master_data_service_types_list():
+    """Get service types with pagination"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        search = request.args.get('search', '').strip()
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Build WHERE clause
+        where_sql = "1=1"
+        params = []
+
+        if search:
+            like_op = "LIKE" if DB_TYPE == 'mysql' else "ILIKE"
+            where_sql = f"(service_code {like_op} %s OR service_name_th {like_op} %s)"
+            params.extend([f'%{search}%', f'%{search}%'])
+
+        # Get total count
+        cursor.execute(f"SELECT COUNT(*) FROM service_types WHERE {where_sql}", params)
+        total = cursor.fetchone()[0]
+
+        # Get paginated data
+        offset = (page - 1) * per_page
+        cursor.execute(f"""
+            SELECT service_code, service_name_th, service_name_en, description, is_active
+            FROM service_types
+            WHERE {where_sql}
+            ORDER BY service_code
+            LIMIT %s OFFSET %s
+        """, params + [per_page, offset])
+
+        rows = cursor.fetchall()
+        data = [{
+            'service_code': row[0],
+            'service_name': row[1],
+            'short_name': row[2] or '',
+            'description': row[3] or '',
+            'is_active': bool(row[4])
+        } for row in rows]
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': data, 'total': total})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/master-data/dim-date')
+@login_required
+def api_master_data_dim_date_list():
+    """Get date dimension with pagination"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        month = request.args.get('month', '').strip()
+        year_be = request.args.get('year_be', type=int)
+        quarter = request.args.get('quarter', type=int)
+        fiscal_year = request.args.get('fiscal_year', type=int)
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Build WHERE clause
+        where_clauses = []
+        params = []
+
+        if month:
+            where_clauses.append("full_date >= %s AND full_date < %s")
+            # month is in format YYYY-MM
+            start_date = f"{month}-01"
+            # Calculate next month
+            import datetime as dt
+            date_obj = dt.datetime.strptime(month, '%Y-%m')
+            next_month = date_obj.replace(day=28) + dt.timedelta(days=4)
+            next_month = next_month.replace(day=1)
+            end_date = next_month.strftime('%Y-%m-%d')
+            params.extend([start_date, end_date])
+
+        if year_be:
+            # Convert BE to Gregorian year
+            gregorian_year = year_be - 543
+            where_clauses.append("year = %s")
+            params.append(gregorian_year)
+
+        if quarter:
+            where_clauses.append("quarter = %s")
+            params.append(quarter)
+
+        if fiscal_year:
+            # Convert BE to Gregorian year
+            gregorian_fiscal = fiscal_year - 543
+            where_clauses.append("fiscal_year = %s")
+            params.append(gregorian_fiscal)
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+        # Get total count
+        cursor.execute(f"SELECT COUNT(*) FROM dim_date WHERE {where_sql}", params)
+        total = cursor.fetchone()[0]
+
+        # Get paginated data
+        offset = (page - 1) * per_page
+        cursor.execute(f"""
+            SELECT full_date, year, fiscal_year, month_name_th, quarter,
+                   week_of_year, day_name
+            FROM dim_date
+            WHERE {where_sql}
+            ORDER BY full_date DESC
+            LIMIT %s OFFSET %s
+        """, params + [per_page, offset])
+
+        rows = cursor.fetchall()
+        data = []
+        for row in rows:
+            # Convert Gregorian date to Buddhist Era format
+            full_date = row[0]
+            year_be = row[1] + 543 if row[1] else None
+            fiscal_year_be = row[2] + 543 if row[2] else None
+
+            # Format date in Thai Buddhist calendar (YYYYMMDD format with BE year)
+            if full_date:
+                date_be_str = full_date.strftime(f'{year_be}%m%d') if year_be else ''
+            else:
+                date_be_str = ''
+
+            data.append({
+                'date_value': str(full_date) if full_date else '',
+                'date_be': date_be_str,
+                'year_be': year_be,
+                'month_name_th': row[3] or '',
+                'quarter': row[4],
+                'fiscal_year_be': fiscal_year_be,
+                'week_of_year': row[5],
+                'day_name_th': row[6] or ''
+            })
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': data, 'total': total})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/master-data/dim-date/coverage')
+@login_required
+def api_master_data_dim_date_coverage():
+    """Get date dimension coverage information"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        # Get date range
+        cursor.execute("""
+            SELECT MIN(full_date) as earliest, MAX(full_date) as latest, COUNT(*) as total
+            FROM dim_date
+        """)
+        row = cursor.fetchone()
+
+        if row and row[0] and row[1]:
+            earliest = row[0]
+            latest = row[1]
+            total = row[2]
+
+            # Convert to BE
+            earliest_be = earliest.year + 543
+            latest_be = latest.year + 543
+
+            # Calculate coverage
+            coverage_days = (latest - earliest).days + 1
+
+            data = {
+                'earliest_date': str(earliest),
+                'latest_date': str(latest),
+                'earliest_year_be': earliest_be,
+                'latest_year_be': latest_be,
+                'total_records': total,
+                'coverage_days': coverage_days,
+                'has_data': True
+            }
+        else:
+            data = {
+                'has_data': False,
+                'total_records': 0
+            }
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/master-data/dim-date/generate', methods=['POST'])
+@login_required
+def api_master_data_dim_date_generate():
+    """Generate date dimension data"""
+    try:
+        data = request.get_json() or {}
+        target_year = data.get('target_year')
+
+        if not target_year:
+            return jsonify({'success': False, 'error': 'target_year is required'}), 400
+
+        target_year = int(target_year)
+
+        # Validate year
+        current_year = datetime.now().year
+        if target_year < current_year:
+            return jsonify({'success': False, 'error': f'Target year must be >= {current_year}'}), 400
+        if target_year > current_year + 20:
+            return jsonify({'success': False, 'error': 'Target year must be within 20 years from now'}), 400
+
+        # Import and run generator
+        from utils.dim_date_generator import DimDateGenerator
+
+        generator = DimDateGenerator()
+        count = generator.extend_to_year(target_year)
+
+        target_year_be = target_year + 543
+
+        return jsonify({
+            'success': True,
+            'message': f'Generated {count} new records up to year {target_year} (BE {target_year_be})',
+            'records_added': count,
+            'target_year': target_year,
+            'target_year_be': target_year_be
         })
 
     except Exception as e:

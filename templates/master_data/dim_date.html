@@ -1,0 +1,420 @@
+{% extends "master_data/layout.html" %}
+
+{% block tab_content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h2 class="text-xl font-bold text-gray-800">Date Dimension</h2>
+            <p class="text-sm text-gray-600 mt-1">ตารางมิติวันที่สำหรับการวิเคราะห์ข้อมูล</p>
+        </div>
+        <button onclick="showGenerateModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Generate ปีใหม่
+        </button>
+    </div>
+
+    <!-- Coverage Info -->
+    <div id="coverage-info" class="bg-blue-50 border border-blue-200 rounded-lg p-4 hidden">
+        <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div class="flex-1">
+                <h3 class="font-medium text-blue-900 mb-1">ข้อมูลปัจจุบัน</h3>
+                <div class="text-sm text-blue-800 space-y-1">
+                    <div>ครอบคลุม: <span id="coverage-range" class="font-medium"></span></div>
+                    <div>จำนวน: <span id="coverage-total" class="font-medium"></span> วัน</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="grid grid-cols-4 gap-4">
+        <input
+            type="month"
+            id="filter-month"
+            class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            onchange="loadData()"
+        >
+        <select id="filter-year-be" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="loadData()">
+            <option value="">ทุกปี พ.ศ.</option>
+        </select>
+        <select id="filter-quarter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="loadData()">
+            <option value="">ทุกไตรมาส</option>
+            <option value="1">Q1</option>
+            <option value="2">Q2</option>
+            <option value="3">Q3</option>
+            <option value="4">Q4</option>
+        </select>
+        <select id="filter-fiscal-year" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="loadData()">
+            <option value="">ทุกปีงบประมาณ</option>
+        </select>
+    </div>
+
+    <!-- Data Table -->
+    <div class="bg-white border rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">วันที่</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">วันที่ พ.ศ.</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ปี พ.ศ.</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">เดือน</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ไตรมาส</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ปีงบ</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">สัปดาห์</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">วัน</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body" class="divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>กำลังโหลดข้อมูล...</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="bg-gray-50 px-4 py-3 border-t flex items-center justify-between">
+            <div class="text-sm text-gray-700">
+                แสดง <span id="showing-start">0</span>-<span id="showing-end">0</span> จาก <span id="total-records">0</span> รายการ
+            </div>
+            <div class="flex gap-2">
+                <button id="prev-btn" onclick="previousPage()" class="px-3 py-1 bg-white border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                    ก่อนหน้า
+                </button>
+                <button id="next-btn" onclick="nextPage()" class="px-3 py-1 bg-white border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                    ถัดไป
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPage = 1;
+let perPage = 50;
+let totalRecords = 0;
+
+async function loadData() {
+    const month = document.getElementById('filter-month').value;
+    const yearBe = document.getElementById('filter-year-be').value;
+    const quarter = document.getElementById('filter-quarter').value;
+    const fiscalYear = document.getElementById('filter-fiscal-year').value;
+
+    const params = new URLSearchParams({
+        page: currentPage,
+        per_page: perPage,
+        ...(month && { month }),
+        ...(yearBe && { year_be: yearBe }),
+        ...(quarter && { quarter }),
+        ...(fiscalYear && { fiscal_year: fiscalYear })
+    });
+
+    try {
+        const response = await fetch(`/api/master-data/dim-date?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+            totalRecords = data.total;
+            renderTable(data.data);
+            updatePagination();
+        }
+    } catch (error) {
+        console.error('Failed to load data:', error);
+        const tbody = document.getElementById('table-body');
+        tbody.textContent = '';
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 8;
+        td.className = 'px-4 py-8 text-center text-red-600';
+        td.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    }
+}
+
+function renderTable(items) {
+    const tbody = document.getElementById('table-body');
+    tbody.textContent = '';
+
+    if (items.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 8;
+        td.className = 'px-4 py-8 text-center text-gray-500';
+        td.textContent = 'ไม่พบข้อมูล';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+    }
+
+    items.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+
+        // date_value
+        const td1 = document.createElement('td');
+        td1.className = 'px-4 py-3 text-sm font-mono';
+        td1.textContent = item.date_value || '-';
+        tr.appendChild(td1);
+
+        // date_be
+        const td2 = document.createElement('td');
+        td2.className = 'px-4 py-3 text-sm';
+        td2.textContent = item.date_be || '-';
+        tr.appendChild(td2);
+
+        // year_be
+        const td3 = document.createElement('td');
+        td3.className = 'px-4 py-3 text-sm';
+        td3.textContent = item.year_be || '-';
+        tr.appendChild(td3);
+
+        // month_name_th
+        const td4 = document.createElement('td');
+        td4.className = 'px-4 py-3 text-sm';
+        td4.textContent = item.month_name_th || '-';
+        tr.appendChild(td4);
+
+        // quarter
+        const td5 = document.createElement('td');
+        td5.className = 'px-4 py-3 text-sm';
+        td5.textContent = item.quarter ? `Q${item.quarter}` : '-';
+        tr.appendChild(td5);
+
+        // fiscal_year_be
+        const td6 = document.createElement('td');
+        td6.className = 'px-4 py-3 text-sm';
+        td6.textContent = item.fiscal_year_be || '-';
+        tr.appendChild(td6);
+
+        // week_of_year
+        const td7 = document.createElement('td');
+        td7.className = 'px-4 py-3 text-sm';
+        td7.textContent = item.week_of_year || '-';
+        tr.appendChild(td7);
+
+        // day_name_th
+        const td8 = document.createElement('td');
+        td8.className = 'px-4 py-3 text-sm';
+        td8.textContent = item.day_name_th || '-';
+        tr.appendChild(td8);
+
+        tbody.appendChild(tr);
+    });
+}
+
+function updatePagination() {
+    const start = (currentPage - 1) * perPage + 1;
+    const end = Math.min(currentPage * perPage, totalRecords);
+
+    document.getElementById('showing-start').textContent = start;
+    document.getElementById('showing-end').textContent = end;
+    document.getElementById('total-records').textContent = totalRecords.toLocaleString();
+
+    document.getElementById('prev-btn').disabled = currentPage === 1;
+    document.getElementById('next-btn').disabled = end >= totalRecords;
+}
+
+function previousPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        loadData();
+    }
+}
+
+function nextPage() {
+    if (currentPage * perPage < totalRecords) {
+        currentPage++;
+        loadData();
+    }
+}
+
+async function loadFilters() {
+    // Populate year filter (2562-2572)
+    const yearSelect = document.getElementById('filter-year-be');
+    for (let year = 2562; year <= 2572; year++) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = `${year}`;
+        yearSelect.appendChild(option);
+    }
+
+    // Populate fiscal year filter
+    const fiscalSelect = document.getElementById('filter-fiscal-year');
+    for (let year = 2562; year <= 2572; year++) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = `${year}`;
+        fiscalSelect.appendChild(option);
+    }
+}
+
+// Load coverage info
+async function loadCoverage() {
+    try {
+        const response = await fetch('/api/master-data/dim-date/coverage');
+        const result = await response.json();
+
+        if (result.success && result.data.has_data) {
+            const data = result.data;
+            const coverageInfo = document.getElementById('coverage-info');
+            const coverageRange = document.getElementById('coverage-range');
+            const coverageTotal = document.getElementById('coverage-total');
+
+            coverageRange.textContent = `${data.earliest_year_be} - ${data.latest_year_be} (พ.ศ.)`;
+            coverageTotal.textContent = data.total_records.toLocaleString();
+
+            coverageInfo.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Failed to load coverage:', error);
+    }
+}
+
+// Show generate modal
+function showGenerateModal() {
+    const modal = document.getElementById('generate-modal');
+    modal.classList.remove('hidden');
+
+    // Set default year (2 years from now)
+    const defaultYear = new Date().getFullYear() + 2;
+    document.getElementById('target-year').value = defaultYear;
+
+    // Clear status
+    const statusDiv = document.getElementById('generate-status');
+    statusDiv.textContent = '';
+}
+
+// Hide generate modal
+function hideGenerateModal() {
+    const modal = document.getElementById('generate-modal');
+    modal.classList.add('hidden');
+}
+
+// Generate date dimension
+async function generateDimDate() {
+    const targetYear = parseInt(document.getElementById('target-year').value);
+    const generateBtn = document.getElementById('generate-btn');
+    const statusDiv = document.getElementById('generate-status');
+
+    if (!targetYear || targetYear < 2020 || targetYear > 2100) {
+        statusDiv.textContent = 'กรุณาระบุปีที่ถูกต้อง (2020-2100)';
+        statusDiv.className = 'text-sm text-red-600';
+        return;
+    }
+
+    // Disable button and show loading
+    generateBtn.disabled = true;
+    generateBtn.textContent = 'กำลัง Generate...';
+    statusDiv.textContent = 'กำลังสร้างข้อมูล กรุณารอสักครู่...';
+    statusDiv.className = 'text-sm text-blue-600';
+
+    try {
+        const response = await fetch('/api/master-data/dim-date/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ target_year: targetYear })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            statusDiv.textContent = `✓ ${result.message}`;
+            statusDiv.className = 'text-sm text-green-600';
+
+            // Reload data after 2 seconds
+            setTimeout(() => {
+                hideGenerateModal();
+                loadCoverage();
+                loadData();
+            }, 2000);
+        } else {
+            statusDiv.textContent = `เกิดข้อผิดพลาด: ${result.error}`;
+            statusDiv.className = 'text-sm text-red-600';
+        }
+    } catch (error) {
+        console.error('Generate failed:', error);
+        statusDiv.textContent = `เกิดข้อผิดพลาด: ${error.message}`;
+        statusDiv.className = 'text-sm text-red-600';
+    } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Generate';
+    }
+}
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadFilters();
+    loadCoverage();
+    loadData();
+});
+</script>
+
+<!-- Generate Modal -->
+<div id="generate-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-800">Generate Date Dimension</h3>
+            <button onclick="hideGenerateModal()" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    ปีที่ต้องการ Generate ถึง (ค.ศ.)
+                </label>
+                <input
+                    type="number"
+                    id="target-year"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    min="2020"
+                    max="2100"
+                    placeholder="เช่น 2030"
+                >
+                <p class="text-xs text-gray-500 mt-1">
+                    ระบบจะสร้างข้อมูลตั้งแต่ปีปัจจุบันถึงปีที่ระบุ
+                </p>
+            </div>
+
+            <div id="generate-status"></div>
+
+            <div class="flex gap-3">
+                <button
+                    id="generate-btn"
+                    onclick="generateDimDate()"
+                    class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Generate
+                </button>
+                <button
+                    onclick="hideGenerateModal()"
+                    class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                    ยกเลิก
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

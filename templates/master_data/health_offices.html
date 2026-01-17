@@ -1,0 +1,361 @@
+{% extends "master_data/layout.html" %}
+
+{% block tab_content %}
+<div class="space-y-6">
+    <!-- Header with Actions -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h2 class="text-xl font-bold text-gray-800">Health Offices</h2>
+            <p class="text-sm text-gray-600 mt-1">ข้อมูลหน่วยบริการสุขภาพทั่วประเทศ</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="clearData()" class="px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+                Clear All Data
+            </button>
+            <button onclick="document.getElementById('import-file').click()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                Import Excel
+            </button>
+            <input type="file" id="import-file" accept=".xlsx,.xls" class="hidden" onchange="importFile(event)">
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="grid grid-cols-5 gap-4">
+        <div class="col-span-2">
+            <input
+                type="text"
+                id="search-input"
+                placeholder="ค้นหา ชื่อหน่วยบริการ, รหัส 5/9 หลัก"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                oninput="debounceSearch()"
+            >
+        </div>
+        <select id="filter-province" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="loadData()">
+            <option value="">ทุกจังหวัด</option>
+        </select>
+        <select id="filter-region" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="loadData()">
+            <option value="">ทุกเขต</option>
+            <option value="เขตสุขภาพที่ 1">เขต 1</option>
+            <option value="เขตสุขภาพที่ 2">เขต 2</option>
+            <option value="เขตสุขภาพที่ 3">เขต 3</option>
+            <option value="เขตสุขภาพที่ 4">เขต 4</option>
+            <option value="เขตสุขภาพที่ 5">เขต 5</option>
+            <option value="เขตสุขภาพที่ 6">เขต 6</option>
+            <option value="เขตสุขภาพที่ 7">เขต 7</option>
+            <option value="เขตสุขภาพที่ 8">เขต 8</option>
+            <option value="เขตสุขภาพที่ 9">เขต 9</option>
+            <option value="เขตสุขภาพที่ 10">เขต 10</option>
+            <option value="เขตสุขภาพที่ 11">เขต 11</option>
+            <option value="เขตสุขภาพที่ 12">เขต 12</option>
+        </select>
+        <select id="filter-level" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="loadData()">
+            <option value="">ทุกระดับ</option>
+        </select>
+    </div>
+
+    <!-- Data Table -->
+    <div class="bg-white border rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">รหัส 5</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">รหัส 9</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase min-w-[200px]">ชื่อหน่วยบริการ</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ประเภท</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ระดับ</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">เตียง</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">จังหวัด</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">เขต</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body" class="divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>กำลังโหลดข้อมูล...</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="bg-gray-50 px-4 py-3 border-t flex items-center justify-between">
+            <div class="text-sm text-gray-700">
+                แสดง <span id="showing-start">0</span>-<span id="showing-end">0</span> จาก <span id="total-records">0</span> รายการ
+            </div>
+            <div class="flex gap-2">
+                <button id="prev-btn" onclick="previousPage()" class="px-3 py-1 bg-white border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                    ก่อนหน้า
+                </button>
+                <button id="next-btn" onclick="nextPage()" class="px-3 py-1 bg-white border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                    ถัดไป
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPage = 1;
+let perPage = 50;
+let totalRecords = 0;
+let searchTimeout;
+
+async function loadData() {
+    const search = document.getElementById('search-input').value;
+    const province = document.getElementById('filter-province').value;
+    const region = document.getElementById('filter-region').value;
+    const level = document.getElementById('filter-level').value;
+
+    const params = new URLSearchParams({
+        page: currentPage,
+        per_page: perPage,
+        ...(search && { search }),
+        ...(province && { province }),
+        ...(region && { region }),
+        ...(level && { level })
+    });
+
+    try {
+        const response = await fetch(`/api/health-offices?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+            totalRecords = data.total;
+            renderTable(data.data);
+            updatePagination();
+        }
+    } catch (error) {
+        console.error('Failed to load data:', error);
+        const tbody = document.getElementById('table-body');
+        tbody.textContent = '';
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 9;
+        td.className = 'px-4 py-8 text-center text-red-600';
+        td.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    }
+}
+
+function renderTable(items) {
+    const tbody = document.getElementById('table-body');
+    tbody.textContent = '';
+
+    if (items.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 9;
+        td.className = 'px-4 py-8 text-center text-gray-500';
+        td.textContent = 'ไม่พบข้อมูล';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+    }
+
+    items.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+
+        // hcode5
+        const td1 = document.createElement('td');
+        td1.className = 'px-4 py-3 text-sm font-mono';
+        td1.textContent = item.hcode5 || '-';
+        tr.appendChild(td1);
+
+        // hcode9
+        const td2 = document.createElement('td');
+        td2.className = 'px-4 py-3 text-sm font-mono';
+        td2.textContent = item.hcode9 || '-';
+        tr.appendChild(td2);
+
+        // name
+        const td3 = document.createElement('td');
+        td3.className = 'px-4 py-3 text-sm font-medium';
+        td3.textContent = item.name || '-';
+        tr.appendChild(td3);
+
+        // org_type
+        const td4 = document.createElement('td');
+        td4.className = 'px-4 py-3 text-sm';
+        td4.textContent = item.org_type || '-';
+        tr.appendChild(td4);
+
+        // hospital_level
+        const td5 = document.createElement('td');
+        td5.className = 'px-4 py-3 text-sm';
+        td5.textContent = item.hospital_level || '-';
+        tr.appendChild(td5);
+
+        // actual_beds
+        const td6 = document.createElement('td');
+        td6.className = 'px-4 py-3 text-sm text-right';
+        td6.textContent = item.actual_beds ? item.actual_beds.toLocaleString() : '-';
+        tr.appendChild(td6);
+
+        // province
+        const td7 = document.createElement('td');
+        td7.className = 'px-4 py-3 text-sm';
+        td7.textContent = item.province || '-';
+        tr.appendChild(td7);
+
+        // health_region
+        const td8 = document.createElement('td');
+        td8.className = 'px-4 py-3 text-sm';
+        td8.textContent = item.health_region || '-';
+        tr.appendChild(td8);
+
+        // status
+        const td9 = document.createElement('td');
+        td9.className = 'px-4 py-3 text-sm';
+        const statusSpan = document.createElement('span');
+        statusSpan.className = `px-2 py-1 text-xs rounded-full ${item.status === 'กำลังใช้งาน' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`;
+        statusSpan.textContent = item.status || '-';
+        td9.appendChild(statusSpan);
+        tr.appendChild(td9);
+
+        tbody.appendChild(tr);
+    });
+}
+
+function updatePagination() {
+    const start = (currentPage - 1) * perPage + 1;
+    const end = Math.min(currentPage * perPage, totalRecords);
+
+    document.getElementById('showing-start').textContent = start;
+    document.getElementById('showing-end').textContent = end;
+    document.getElementById('total-records').textContent = totalRecords.toLocaleString();
+
+    document.getElementById('prev-btn').disabled = currentPage === 1;
+    document.getElementById('next-btn').disabled = end >= totalRecords;
+}
+
+function previousPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        loadData();
+    }
+}
+
+function nextPage() {
+    if (currentPage * perPage < totalRecords) {
+        currentPage++;
+        loadData();
+    }
+}
+
+function debounceSearch() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        currentPage = 1;
+        loadData();
+    }, 300);
+}
+
+async function loadFilters() {
+    try {
+        const response = await fetch('/api/health-offices/stats');
+        const data = await response.json();
+
+        if (data.success) {
+            // Populate province filter
+            const provinceSelect = document.getElementById('filter-province');
+            if (data.provinces) {
+                data.provinces.forEach(province => {
+                    const option = document.createElement('option');
+                    option.value = province;
+                    option.textContent = province;
+                    provinceSelect.appendChild(option);
+                });
+            }
+
+            // Populate level filter
+            const levelSelect = document.getElementById('filter-level');
+            if (data.by_level) {
+                data.by_level.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.level;
+                    option.textContent = `${item.level} (${item.count})`;
+                    levelSelect.appendChild(option);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load filters:', error);
+    }
+}
+
+async function importFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('mode', 'upsert');
+
+    try {
+        const response = await fetch('/api/health-offices/import', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert(`นำเข้าข้อมูลสำเร็จ: ${data.imported} รายการ ใช้เวลา ${data.elapsed_time.toFixed(2)} วินาที`);
+            loadData();
+            loadFilters();
+        } else {
+            alert('เกิดข้อผิดพลาด: ' + data.error);
+        }
+    } catch (error) {
+        alert('เกิดข้อผิดพลาดในการนำเข้าข้อมูล');
+        console.error(error);
+    }
+
+    event.target.value = '';
+}
+
+async function clearData() {
+    if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลทั้งหมด? การกระทำนี้ไม่สามารถยกเลิกได้')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/health-offices/clear', { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+            alert('ลบข้อมูลสำเร็จแล้ว');
+            loadData();
+        } else {
+            alert('เกิดข้อผิดพลาด: ' + data.error);
+        }
+    } catch (error) {
+        alert('เกิดข้อผิดพลาดในการลบข้อมูล');
+        console.error(error);
+    }
+}
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadData();
+    loadFilters();
+});
+</script>
+{% endblock %}
