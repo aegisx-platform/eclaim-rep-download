@@ -11,6 +11,7 @@ This directory contains comprehensive business documentation for selling, implem
 | **[BUSINESS_MODEL.md](BUSINESS_MODEL.md)** | Business strategy, market analysis, pricing, go-to-market plan | Founders, investors, strategic partners |
 | **[PARTNER_PROGRAM.md](PARTNER_PROGRAM.md)** | Partner program details, revenue sharing, requirements | Implementation partners, resellers, sales agents |
 | **[VALUE_PROPOSITION.md](VALUE_PROPOSITION.md)** | Value proposition, ROI analysis, cost savings breakdown | Hospital administrators, finance teams, IT managers |
+| **[ACTIONABLE_DATA_INSIGHTS.md](ACTIONABLE_DATA_INSIGHTS.md)** | Data insights that drive real hospital improvements | Hospital executives, department heads, finance teams |
 | **[HIS_INTEGRATION.md](HIS_INTEGRATION.md)** | Technical integration guide for HIS systems | IT teams, HIS vendors, system integrators |
 
 ## 🎯 Quick Links
@@ -22,6 +23,7 @@ This directory contains comprehensive business documentation for selling, implem
 - [ROI Calculator](VALUE_PROPOSITION.md#roi-calculator)
 - [Case Studies](VALUE_PROPOSITION.md#case-study-examples)
 - [Value Proposition Summary](VALUE_PROPOSITION.md#summary-key-value-propositions)
+- [Data That Helps Hospitals](ACTIONABLE_DATA_INSIGHTS.md) ⭐ NEW
 
 ### For Partners
 
