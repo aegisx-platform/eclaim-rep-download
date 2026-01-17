@@ -17,6 +17,22 @@
         <p class="text-gray-600 mt-2">จัดการ license และตรวจสอบฟีเจอร์ที่ใช้งานได้</p>
     </div>
 
+    <!-- Alert Notification -->
+    <div id="alert-notification" class="hidden mb-6 rounded-lg p-4 shadow-md border-l-4" role="alert">
+        <div class="flex items-start gap-3">
+            <svg id="alert-icon" class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
+            <div class="flex-1">
+                <h3 id="alert-title" class="font-semibold mb-1"></h3>
+                <p id="alert-message" class="text-sm"></p>
+            </div>
+            <button onclick="closeAlert()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
     <!-- Current License Status -->
     <div id="license-status-card" class="bg-white rounded-xl shadow-sm border mb-6">
         <div class="p-6 border-b">
@@ -135,6 +151,62 @@
 </div>
 
 <script>
+    // Alert notification functions
+    function showAlert(type, title, message) {
+        const alert = document.getElementById('alert-notification');
+        const icon = document.getElementById('alert-icon');
+        const titleEl = document.getElementById('alert-title');
+        const messageEl = document.getElementById('alert-message');
+
+        // Set content
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+
+        // Reset classes
+        alert.className = 'mb-6 rounded-lg p-4 shadow-md border-l-4';
+
+        // Clear icon
+        icon.textContent = '';
+
+        // Set colors and icon based on type
+        if (type === 'success') {
+            alert.classList.add('bg-green-50', 'border-green-500');
+            titleEl.className = 'font-semibold mb-1 text-green-800';
+            messageEl.className = 'text-sm text-green-700';
+            icon.className = 'w-6 h-6 flex-shrink-0 text-green-600';
+            icon.appendChild(createSvgIcon('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', 'w-6 h-6 text-green-600'));
+        } else if (type === 'error') {
+            alert.classList.add('bg-red-50', 'border-red-500');
+            titleEl.className = 'font-semibold mb-1 text-red-800';
+            messageEl.className = 'text-sm text-red-700';
+            icon.className = 'w-6 h-6 flex-shrink-0 text-red-600';
+            icon.appendChild(createSvgIcon('M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', 'w-6 h-6 text-red-600'));
+        } else if (type === 'warning') {
+            alert.classList.add('bg-yellow-50', 'border-yellow-500');
+            titleEl.className = 'font-semibold mb-1 text-yellow-800';
+            messageEl.className = 'text-sm text-yellow-700';
+            icon.className = 'w-6 h-6 flex-shrink-0 text-yellow-600';
+            icon.appendChild(createSvgIcon('M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', 'w-6 h-6 text-yellow-600'));
+        }
+
+        // Show alert
+        alert.classList.remove('hidden');
+
+        // Auto-hide after 10 seconds for success messages
+        if (type === 'success') {
+            setTimeout(() => {
+                closeAlert();
+            }, 10000);
+        }
+
+        // Scroll to top to show alert
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function closeAlert() {
+        document.getElementById('alert-notification').classList.add('hidden');
+    }
+
     // Load license info on page load
     document.addEventListener('DOMContentLoaded', function() {
         loadLicenseInfo();
@@ -352,7 +424,7 @@
         const publicKey = document.getElementById('public-key-input').value.trim();
 
         if (!licenseKey || !licenseToken || !publicKey) {
-            alert('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+            showAlert('warning', 'ข้อมูลไม่ครบ', 'กรุณากรอกข้อมูลให้ครบทุกช่อง (License Key, Token และ Public Key)');
             return;
         }
 
@@ -373,7 +445,13 @@
             const data = await response.json();
 
             if (data.success) {
-                alert('✅ License installed successfully!\n\nTier: ' + (data.license?.tier || '-') + '\nExpires: ' + (data.license?.expires_at || 'Never'));
+                const tierName = data.license?.tier || '-';
+                const expiryDate = data.license?.expires_at || 'Never';
+                showAlert(
+                    'success',
+                    'ติดตั้ง License สำเร็จ!',
+                    `License ระดับ ${tierName} ถูกติดตั้งเรียบร้อยแล้ว - หมดอายุ: ${expiryDate}`
+                );
 
                 // Clear form
                 document.getElementById('license-key-input').value = '';
@@ -386,10 +464,20 @@
                 // Reload license info
                 loadLicenseInfo();
             } else {
-                alert('❌ Error: ' + (data.error || 'Failed to install license'));
+                // Check if it's a hospital code mismatch error
+                const errorMsg = data.error || 'Failed to install license';
+                if (errorMsg.includes('License mismatch') || errorMsg.includes('hospital code')) {
+                    showAlert(
+                        'error',
+                        'รหัส รพ. ไม่ตรงกัน',
+                        errorMsg + ' กรุณาติดต่อผู้ให้บริการเพื่อขอ license ที่ถูกต้องสำหรับรหัสโรงพยาบาลของท่าน'
+                    );
+                } else {
+                    showAlert('error', 'ติดตั้ง License ไม่สำเร็จ', errorMsg);
+                }
             }
         } catch (error) {
-            alert('❌ Error: ' + error.message);
+            showAlert('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถติดตั้ง License ได้: ' + error.message);
         }
     }
 

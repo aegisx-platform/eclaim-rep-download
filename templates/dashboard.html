@@ -34,7 +34,9 @@
                     </span>
                 </div>
                 <p class="text-sm {% if license.status == 'invalid' or not license.is_valid %}text-amber-700{% elif license.status == 'grace_period' %}text-orange-700{% elif license.status == 'expiring_soon' %}text-yellow-700{% else %}text-green-700{% endif %}">
-                    {% if license.grace_period %}
+                    {% if license.error and ('hospital code' in license.error or 'License mismatch' in license.error) %}
+                        🚫 {{ license.error[:100] }}{% if license.error|length > 100 %}...{% endif %}
+                    {% elif license.grace_period %}
                         ⚠️ License หมดอายุแล้ว - เหลือช่วงผ่อนผัน {{ license.grace_days_left }} วัน
                     {% elif license.days_until_expiry is not none and license.days_until_expiry <= 30 %}
                         หมดอายุในอีก {{ license.days_until_expiry }} วัน

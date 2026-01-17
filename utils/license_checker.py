@@ -13,6 +13,13 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
 
+# Lazy import to avoid circular dependency
+def get_settings_manager():
+    """Get SettingsManager instance (lazy import)"""
+    from utils.settings_manager import SettingsManager
+    return SettingsManager()
+
+
 class LicenseChecker:
     """
     Client-side license verification for NHSO Revenue Intelligence
@@ -170,6 +177,23 @@ class LicenseChecker:
                 algorithms=['RS256']
             )
 
+            # ===== Hospital Code Validation =====
+            # License must match the hospital code configured in settings
+            license_hospital_code = payload.get('hospital_code', '').strip()
+
+            if license_hospital_code:
+                # Get current hospital code from settings
+                settings_manager = get_settings_manager()
+                current_hospital_code = settings_manager.get_hospital_code()
+
+                # If hospital code is configured, it must match the license
+                if current_hospital_code and license_hospital_code != current_hospital_code:
+                    return False, payload, (
+                        f"License mismatch: This license is issued for hospital code '{license_hospital_code}' "
+                        f"but your system is configured for '{current_hospital_code}'. "
+                        f"Please contact your vendor for the correct license."
+                    )
+
             # Check expiration (with grace period)
             exp = payload.get('exp')
             if exp:
@@ -215,7 +239,18 @@ class LicenseChecker:
                 'status': 'invalid',
                 'error': error,
                 'tier': 'trial',
-                'features': self.TIER_FEATURES['trial']
+                'features': self.TIER_FEATURES['trial'],
+                'days_until_expiry': None,
+                'grace_period': False,
+                'grace_days_left': 0,
+                'max_users': None,
+                'expires_at': None,
+                'issued_at': None,
+                'license_key': None,
+                'license_type': 'trial',
+                'hospital_code': None,
+                'hospital_name': None,
+                'custom_limits': {}
             }
 
         # Calculate days until expiration

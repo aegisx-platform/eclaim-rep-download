@@ -1,0 +1,96 @@
+{
+  "note": "ตัวอย่าง License Tokens สำหรับทดสอบ - สร้างด้วย utils/generate_test_license.py",
+  "instruction": "วิธีใช้: คัดลอก license_key, license_token, และ public_key ไปติดตั้งที่ http://localhost:5001/license",
+  "warning": "⚠️ นี่เป็นตัวอย่างเท่านั้น - ใช้สำหรับทดสอบเท่านั้น! Production ต้องได้ license จริงจากผู้ให้บริการ",
+
+  "installation_steps": [
+    "1. เปิด Docker: docker-compose up -d",
+    "2. Install dependencies: docker-compose exec web pip install PyJWT==2.8.0 cryptography==41.0.7",
+    "3. Generate licenses: docker-compose exec web python utils/generate_test_license.py",
+    "4. License tokens จะถูกสร้างที่ config/test_licenses.json",
+    "5. เปิด http://localhost:5001/license และติดตั้ง license ตามต้องการ"
+  ],
+
+  "tier_comparison": {
+    "trial": {
+      "description": "ทดลองใช้งาน - ฟีเจอร์พื้นฐาน",
+      "max_users": 2,
+      "max_records_per_import": 1000,
+      "smt_budget": false,
+      "reconciliation": false,
+      "analytics_advanced": false,
+      "api_access": false,
+      "validity": "30 days"
+    },
+    "basic": {
+      "description": "พื้นฐาน - เหมาะสำหรับโรงพยาบาลขนาดเล็ก",
+      "max_users": 5,
+      "max_records_per_import": 50000,
+      "smt_budget": true,
+      "reconciliation": true,
+      "analytics_advanced": false,
+      "api_access": false,
+      "validity": "1 year"
+    },
+    "professional": {
+      "description": "มืออาชีพ - ฟีเจอร์ครบทุกอย่าง",
+      "max_users": 20,
+      "max_records_per_import": 500000,
+      "smt_budget": true,
+      "reconciliation": true,
+      "analytics_advanced": true,
+      "api_access": true,
+      "custom_reports": true,
+      "priority_support": true,
+      "validity": "1 year"
+    },
+    "enterprise": {
+      "description": "องค์กร - Unlimited ทุกอย่าง",
+      "max_users": "unlimited",
+      "max_records_per_import": "unlimited",
+      "smt_budget": true,
+      "reconciliation": true,
+      "analytics_advanced": true,
+      "api_access": true,
+      "custom_reports": true,
+      "priority_support": true,
+      "white_label": true,
+      "dedicated_support": true,
+      "validity": "perpetual"
+    }
+  },
+
+  "how_to_generate_real_license": {
+    "step1": "Generate RSA key pair (2048-bit)",
+    "step2": "Create JWT payload with tier, hospital_code, features, expiration",
+    "step3": "Sign JWT with private key using RS256 algorithm",
+    "step4": "Distribute: license_key + license_token + public_key to customer",
+    "step5": "Customer installs via /license page",
+    "step6": "System verifies signature using public_key (offline)",
+    "note": "Private key must be kept secret by license issuer only!"
+  },
+
+  "sample_payload_structure": {
+    "license_key": "NHSO-XXXXXXXX-YYYYYYYY",
+    "hospital_code": "10670",
+    "hospital_name": "โรงพยาบาลศิริราช",
+    "tier": "professional",
+    "license_type": "subscription",
+    "features": {
+      "max_users": 20,
+      "max_records_per_import": 500000,
+      "smt_budget": true,
+      "analytics_advanced": true,
+      "reconciliation": true,
+      "api_access": true,
+      "priority_support": true,
+      "custom_reports": true
+    },
+    "iat": 1234567890,
+    "exp": 1265999999,
+    "max_users": 20,
+    "limits": {
+      "max_records_per_import": 500000
+    }
+  }
+}
