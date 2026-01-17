@@ -1267,6 +1267,26 @@ class EClaimImporterV2:
 
             total_records = len(df)
 
+            # Check license limits
+            try:
+                from utils.settings_manager import SettingsManager
+                settings_mgr = SettingsManager()
+                license_info = settings_mgr.get_license_info()
+
+                max_records = license_info.get('features', {}).get('max_records_per_import', 1000)
+
+                if total_records > max_records:
+                    original_count = total_records
+                    df = df.head(max_records)
+                    total_records = len(df)
+                    print(f"⚠️  License Limit: Importing {total_records} of {original_count} records (tier: {license_info.get('tier', 'trial')})")
+            except Exception as e:
+                # Default to trial limit on error
+                if total_records > 1000:
+                    print(f"⚠️  Trial Mode: Limiting import to 1,000 records ({total_records} found)")
+                    df = df.head(1000)
+                    total_records = len(df)
+
             # Import data based on file type
             if file_type == 'ORF' or 'ORF' in file_type:
                 imported_records = self.import_orf_batch(file_id, df, file_type=file_type)

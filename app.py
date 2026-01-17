@@ -1,7 +1,7 @@
 """Flask Web UI for E-Claim Downloader"""
 
 import os
-from flask import Flask, render_template, jsonify, request, send_from_directory, redirect, url_for, Response, stream_with_context
+from flask import Flask, render_template, jsonify, request, send_from_directory, redirect, url_for, Response, stream_with_context, g
 from werkzeug.utils import secure_filename
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -1396,6 +1396,15 @@ def api_analysis_reconciliation():
     """
     Reconcile REP and Statement data by tran_id
     """
+    # Check license feature access
+    if not settings_manager.check_feature_access('reconciliation'):
+        return jsonify({
+            'success': False,
+            'error': 'Reconciliation feature requires Basic tier or higher license',
+            'upgrade_required': True,
+            'current_tier': settings_manager.get_license_info().get('tier', 'trial')
+        }), 403
+
     conn = get_db_connection()
     if not conn:
         return jsonify({'success': False, 'error': 'Database connection failed'}), 500
@@ -6257,6 +6266,15 @@ def get_smt_summary():
 @app.route('/api/smt/fetch', methods=['POST'])
 def smt_fetch():
     """Trigger SMT budget fetch"""
+    # Check license feature access
+    if not settings_manager.check_feature_access('smt_budget'):
+        return jsonify({
+            'success': False,
+            'error': 'SMT Budget feature requires Basic tier or higher license',
+            'upgrade_required': True,
+            'current_tier': settings_manager.get_license_info().get('tier', 'trial')
+        }), 403
+
     job_id = None
     try:
         data = request.get_json() or {}
