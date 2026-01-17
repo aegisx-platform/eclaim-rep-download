@@ -654,9 +654,13 @@ async function downloadSmtBudget() {
         const result = await response.json();
         if (result.success) {
             showToast(result.message || 'Download completed', 'success');
-            // Reload SMT files list if on SMT tab
-            if (typeof loadSmtFiles === 'function') {
+            // Reload files list based on current page context
+            if (typeof loadSmtFiles === 'function' && document.getElementById('smt-files-table')) {
+                // Only call loadSmtFiles if on data management page (has smt-files-table element)
                 loadSmtFiles();
+            } else if (typeof loadUpdateStatus === 'function') {
+                // On schedule page, refresh status cards instead
+                loadUpdateStatus();
             }
         } else {
             showToast(result.error || 'Download failed', 'error');
