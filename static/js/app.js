@@ -439,6 +439,9 @@ function initSmtDateFields() {
 
     // Set date range based on selected fiscal year
     onSmtDownloadFiscalYearChange();
+
+    // Load hospital code from settings for Vendor ID
+    loadHospitalCodeForVendor();
 }
 
 /**
@@ -483,6 +486,105 @@ function onSmtDownloadFiscalYearChange() {
     } else {
         const fiscalYearEnd = new Date(endYearCE, 8, 30); // Sep 30
         endDateInput.value = formatDate(fiscalYearEnd);
+    }
+}
+
+/**
+ * Populate year dropdowns with current year as default
+ * Used for REP and Statement download forms
+ */
+function populateYearDropdowns() {
+    const currentYear = new Date().getFullYear();
+    const currentYearBE = currentYear + 543;
+    const currentMonth = new Date().getMonth() + 1;
+
+    // Determine current fiscal year (fiscal year starts in October)
+    // If we're in Oct-Dec, fiscal year is next year BE
+    // If we're in Jan-Sep, fiscal year is current year BE
+    const currentFiscalYear = currentMonth >= 10 ? currentYearBE + 1 : currentYearBE;
+
+    const yearSelects = ['bulk-start-year', 'bulk-end-year', 'smt-fiscal-year'];
+
+    yearSelects.forEach(function(id) {
+        const select = document.getElementById(id);
+        if (!select) return;
+
+        // Clear existing options
+        while (select.firstChild) {
+            select.removeChild(select.firstChild);
+        }
+
+        // Add years (current fiscal year - 8 years)
+        for (let i = 0; i <= 8; i++) {
+            const yearBE = currentFiscalYear - i;
+            const option = document.createElement('option');
+            option.value = yearBE;
+            option.textContent = yearBE;
+            if (i === 0) option.selected = true;  // Current fiscal year as default
+            select.appendChild(option);
+        }
+    });
+
+    // REP: Default to current month (REP downloads one month at a time, no "ทุกเดือน")
+    // Statement: Default to "ทุกเดือน" (all months)
+    const monthSelect = document.getElementById('bulk-start-month');
+    const allMonthsOption = document.getElementById('opt-all-months');
+
+    // On initial load, REP is default - hide "ทุกเดือน" and set current month
+    if (allMonthsOption) allMonthsOption.classList.add('hidden');
+    if (monthSelect) monthSelect.value = currentMonth.toString();
+
+    const bulkEndMonth = document.getElementById('bulk-end-month');
+    if (bulkEndMonth) bulkEndMonth.value = '';
+}
+
+/**
+ * Load hospital code from settings and populate Vendor ID field
+ * Makes the field readonly since it should come from hospital settings
+ */
+async function loadHospitalCodeForVendor() {
+    try {
+        const response = await fetch('/api/settings/hospital-code');
+        const result = await response.json();
+
+        const vendorInput = document.getElementById('dl-vendor-id');
+        const scheduleVendorInput = document.getElementById('schedule-smt-vendor-id');
+
+        if (result.success && result.hospital_code) {
+            const hospitalCode = result.hospital_code;
+
+            // Set vendor ID from hospital code (readonly)
+            if (vendorInput) {
+                vendorInput.value = hospitalCode;
+                vendorInput.readOnly = true;
+                vendorInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                vendorInput.placeholder = 'จาก Hospital Settings';
+            }
+
+            // Also set schedule vendor ID if exists
+            if (scheduleVendorInput) {
+                scheduleVendorInput.value = hospitalCode;
+                scheduleVendorInput.readOnly = true;
+                scheduleVendorInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                scheduleVendorInput.placeholder = 'จาก Hospital Settings';
+            }
+        } else {
+            // No hospital code set - show message
+            if (vendorInput) {
+                vendorInput.value = '';
+                vendorInput.readOnly = true;
+                vendorInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                vendorInput.placeholder = 'กรุณาตั้งค่า Hospital Code ที่ Settings';
+            }
+            if (scheduleVendorInput) {
+                scheduleVendorInput.value = '';
+                scheduleVendorInput.readOnly = true;
+                scheduleVendorInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                scheduleVendorInput.placeholder = 'กรุณาตั้งค่า Hospital Code ที่ Settings';
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load hospital code:', error);
     }
 }
 
@@ -1594,6 +1696,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             showImportModal();
             startImportProgressPolling();
         }
+
+        // Populate year dropdowns with current year as default
+        populateYearDropdowns();
     } catch (error) {
         console.error('Error checking initial status:', error);
     }

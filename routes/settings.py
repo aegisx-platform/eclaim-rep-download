@@ -1,0 +1,668 @@
+"""
+Settings Blueprint
+
+Handles all settings-related routes:
+- Settings page and API
+- License management
+- Hospital configuration
+- Schedule management
+- Credentials management
+"""
+
+from flask import Blueprint, render_template, jsonify, request
+from flask_login import login_required
+from utils.auth import require_admin
+from utils.settings_manager import SettingsManager
+from utils.scheduler import download_scheduler
+from utils.logging_config import setup_logger
+
+# Create blueprint for API routes
+settings_api_bp = Blueprint('settings_api', __name__)
+
+# Initialize logger
+logger = setup_logger('settings_routes')
+
+# Get settings manager instance
+settings_manager = SettingsManager()
+
+
+# ===== Settings API =====
+# Note: Page routes (/license, /settings) are in app.py
+# Only API routes are in this blueprint
+
+@settings_api_bp.route('/api/settings', methods=['GET', 'POST'])
+@login_required
+def api_settings():
+    """Get or update settings"""
+    if request.method == 'GET':
+        settings = settings_manager.load_settings()
+        # Don't send password to frontend
+        settings['eclaim_password'] = '********' if settings.get('eclaim_password') else ''
+        return jsonify(settings)
+
+    elif request.method == 'POST':
+        data = request.get_json()
+
+        # Validate required fields
+        username = data.get('eclaim_username', '').strip()
+        password = data.get('eclaim_password', '').strip()
+
+        if not username:
+            return jsonify({'success': False, 'error': 'Username is required'}), 400
+
+        # Don't update password if it's the placeholder
+        current_settings = settings_manager.load_settings()
+        if password == '********':
+            password = current_settings.get('eclaim_password', '')
+        elif not password:
+            return jsonify({'success': False, 'error': 'Password is required'}), 400
+
+        # Update settings
+        success = settings_manager.update_credentials(username, password)
+
+        if success:
+            return jsonify({'success': True, 'message': 'Settings updated successfully'}), 200
+        else:
+            return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
+
+
+# ===== Multiple Credentials Management =====
+
+@settings_api_bp.route('/api/settings/credentials', methods=['GET', 'POST'])
+@login_required
+@require_admin
+def manage_credentials():
+    """Manage multiple E-Claim credentials"""
+    if request.method == 'GET':
+        # Get all credentials (mask passwords)
+        credentials = settings_manager.get_all_credentials()
+        masked_creds = []
+        for cred in credentials:
+            masked_creds.append({
+                'username': cred.get('username', ''),
+                'password': '********',
+                'note': cred.get('note', ''),
+                'enabled': cred.get('enabled', True)
+            })
+        return jsonify({
+            'success': True,
+            'credentials': masked_creds,
+            'count': settings_manager.get_credentials_count()
+        })
+
+    elif request.method == 'POST':
+        # Add new credential
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '').strip()
+        note = data.get('note', '').strip()
+        enabled = data.get('enabled', True)
+
+        if not username:
+            return jsonify({'success': False, 'error': 'Username is required'}), 400
+        if not password:
+            return jsonify({'success': False, 'error': 'Password is required'}), 400
+
+        success = settings_manager.add_credential(username, password, note, enabled)
+        if success:
+            return jsonify({'success': True, 'message': 'Credential added successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to add credential'}), 500
+
+
+@settings_api_bp.route('/api/settings/credentials/<username>', methods=['PUT', 'DELETE'])
+@login_required
+@require_admin
+def manage_credential(username):
+    """Update or delete a specific credential"""
+    if request.method == 'PUT':
+        data = request.get_json()
+        password = data.get('password')
+        note = data.get('note')
+        enabled = data.get('enabled')
+
+        # Don't update password if it's the placeholder
+        if password == '********':
+            password = None
+
+        success = settings_manager.update_credential(username, password, note, enabled)
+        if success:
+            return jsonify({'success': True, 'message': 'Credential updated successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to update credential'}), 500
+
+    elif request.method == 'DELETE':
+        success = settings_manager.delete_credential(username)
+        if success:
+            return jsonify({'success': True, 'message': 'Credential deleted successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to delete credential'}), 500
+
+
+@settings_api_bp.route('/api/settings/credentials/bulk', methods=['POST'])
+@login_required
+@require_admin
+def bulk_credentials():
+    """Bulk operations on credentials"""
+    data = request.get_json()
+    action = data.get('action')
+    usernames = data.get('usernames', [])
+
+    if action == 'delete':
+        success_count = 0
+        for username in usernames:
+            if settings_manager.delete_credential(username):
+                success_count += 1
+
+        return jsonify({
+            'success': True,
+            'message': f'Deleted {success_count}/{len(usernames)} credentials'
+        })
+
+    return jsonify({'success': False, 'error': 'Invalid action'}), 400
+
+
+@settings_api_bp.route('/api/settings/test-connection', methods=['POST'])
+@login_required
+def test_connection():
+    """Test E-Claim connection with credentials"""
+    data = request.get_json() or {}
+    username = data.get('username')
+    password = data.get('password')
+
+    # If no username/password provided, use random from settings
+    if not username or not password:
+        credentials = settings_manager.get_all_credentials()
+        if not credentials:
+            return jsonify({'success': False, 'error': 'No credentials configured'}), 400
+
+        # Filter active credentials
+        active_creds = [c for c in credentials if c.get('enabled', True)]
+        if not active_creds:
+            return jsonify({'success': False, 'error': 'No active credentials available'}), 400
+
+        # Pick random credential
+        import random
+        selected = random.choice(active_creds)
+        username = selected['username']
+        password = selected['password']
+        logger.info(f"Testing connection with random account: {username}")
+
+    try:
+        # Import here to avoid circular dependency
+        from eclaim_downloader_http import EClaimDownloader
+
+        downloader = EClaimDownloader(username, password)
+        if downloader.login():
+            return jsonify({
+                'success': True,
+                'message': f'Connection successful with account: {username}'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Login failed with account: {username}'
+            }), 401
+
+    except Exception as e:
+        logger.error(f"Connection test error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Connection error: {str(e)}'
+        }), 500
+
+
+# ===== Hospital Configuration =====
+
+@settings_api_bp.route('/api/settings/hospital-code', methods=['GET', 'POST'])
+@login_required
+@require_admin
+def hospital_code():
+    """Get or set hospital code (HCODE)"""
+    if request.method == 'GET':
+        code = settings_manager.get_hospital_code()
+        return jsonify({
+            'success': True,
+            'hospital_code': code
+        })
+
+    elif request.method == 'POST':
+        data = request.get_json()
+        code = data.get('hospital_code', '').strip()
+
+        if not code:
+            return jsonify({'success': False, 'error': 'Hospital code is required'}), 400
+
+        if not code.isdigit() or len(code) != 5:
+            return jsonify({'success': False, 'error': 'Hospital code must be 5 digits'}), 400
+
+        success = settings_manager.set_hospital_code(code)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Hospital code updated successfully'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to save hospital code'}), 500
+
+
+@settings_api_bp.route('/api/settings/hospital-info')
+@login_required
+def hospital_info():
+    """Get hospital information from database"""
+    try:
+        hospital_code = settings_manager.get_hospital_code()
+
+        if not hospital_code:
+            return jsonify({
+                'success': False,
+                'error': 'Hospital code not configured'
+            }), 400
+
+        # Import here to avoid circular dependency
+        from config.db_pool import get_connection, return_connection
+
+        conn = get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT hcode, hname, province, region
+                FROM health_offices
+                WHERE hcode = %s
+                LIMIT 1
+            """, (hospital_code,))
+
+            row = cursor.fetchone()
+            cursor.close()
+
+            if row:
+                return jsonify({
+                    'success': True,
+                    'hospital': {
+                        'hcode': row[0],
+                        'hname': row[1],
+                        'province': row[2],
+                        'region': row[3]
+                    }
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'Hospital code {hospital_code} not found in database'
+                }), 404
+
+        finally:
+            return_connection(conn)
+
+    except Exception as e:
+        logger.error(f"Error getting hospital info: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ===== License Management API =====
+
+@settings_api_bp.route('/api/settings/license', methods=['GET'])
+@login_required
+def get_license():
+    """Get current license information"""
+    try:
+        license_info = settings_manager.get_license_info()
+        return jsonify({
+            'success': True,
+            'license': license_info
+        })
+    except Exception as e:
+        logger.error(f"Error getting license: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@settings_api_bp.route('/api/settings/license', methods=['POST'])
+@login_required
+@require_admin
+def install_license():
+    """Install a new license"""
+    try:
+        data = request.get_json()
+        license_key = data.get('license_key', '').strip()
+        license_token = data.get('license_token', '').strip()
+        public_key = data.get('public_key', '').strip()
+
+        if not license_key:
+            return jsonify({'success': False, 'error': 'License key is required'}), 400
+        if not license_token:
+            return jsonify({'success': False, 'error': 'License token is required'}), 400
+        if not public_key:
+            return jsonify({'success': False, 'error': 'Public key is required'}), 400
+
+        success, message = settings_manager.install_license(license_key, license_token, public_key)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': message
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': message
+            }), 400
+
+    except Exception as e:
+        logger.error(f"Error installing license: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@settings_api_bp.route('/api/settings/license', methods=['DELETE'])
+@login_required
+@require_admin
+def remove_license():
+    """Remove installed license"""
+    try:
+        success = settings_manager.remove_license()
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'License removed successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to remove license'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error removing license: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ===== Schedule Management =====
+
+@settings_api_bp.route('/api/schedule', methods=['GET', 'POST'])
+@login_required
+@require_admin
+def schedule_settings():
+    """Get or update schedule settings"""
+    if request.method == 'GET':
+        settings = settings_manager.get_schedule_settings()
+        jobs = download_scheduler.get_all_jobs()
+
+        return jsonify({
+            'success': True,
+            'settings': settings,
+            'jobs': jobs
+        })
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            logger.info(f"Received schedule settings: {data}")
+
+            enabled = data.get('enabled', False)
+            times = data.get('times', [])
+            auto_import = data.get('auto_import', False)
+
+            # Get additional settings
+            data_types = data.get('data_types', {})
+            type_rep = data_types.get('rep', True)
+            type_stm = data_types.get('stm', False)
+            type_smt = data_types.get('smt', False)
+
+            rep_schemes = data.get('rep_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
+            parallel_download = data.get('parallel_download', False)
+            parallel_workers = data.get('parallel_workers', 3)
+            smt_vendor_id = data.get('smt_vendor_id', '')
+
+            logger.info(f"Schedule times: {times}, enabled: {enabled}")
+
+            # Update settings
+            success = settings_manager.update_schedule_settings(
+                enabled, times, auto_import,
+                type_rep=type_rep,
+                type_stm=type_stm,
+                type_smt=type_smt,
+                smt_vendor_id=smt_vendor_id,
+                parallel_download=parallel_download,
+                parallel_workers=parallel_workers,
+                rep_schemes=rep_schemes
+            )
+
+            if not success:
+                logger.error("Failed to save schedule settings")
+                return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
+
+            # Update scheduler
+            if enabled and times:
+                # Clear existing jobs first
+                download_scheduler.clear_all_jobs()
+
+                # Add jobs for each time slot based on selected data types
+                for time in times:
+                    hour = time.get('hour', 0)
+                    minute = time.get('minute', 0)
+
+                    # Add REP download job if enabled
+                    if type_rep:
+                        download_scheduler.add_scheduled_download(hour, minute, auto_import)
+
+                    # Add Statement download job if enabled
+                    if type_stm:
+                        download_scheduler.add_stm_scheduled_download(hour, minute, auto_import)
+
+                    # Add SMT fetch job if enabled
+                    if type_smt:
+                        download_scheduler.add_smt_scheduled_fetch(hour, minute, smt_vendor_id, auto_import)
+
+                logger.info(f"Scheduled {len(times)} time slots with data types: REP={type_rep}, STM={type_stm}, SMT={type_smt}")
+            else:
+                download_scheduler.clear_all_jobs()
+
+            return jsonify({
+                'success': True,
+                'message': 'Schedule updated successfully'
+            })
+
+        except Exception as e:
+            logger.error(f"Error saving schedule settings: {e}", exc_info=True)
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@settings_api_bp.route('/api/schedule/test', methods=['POST'])
+@login_required
+@require_admin
+def test_schedule():
+    """Test schedule immediately"""
+    try:
+        # Trigger download now
+        from utils.downloader_runner import DownloaderRunner
+        downloader_runner = DownloaderRunner()
+
+        if downloader_runner.is_running():
+            return jsonify({
+                'success': False,
+                'error': 'Download already in progress'
+            }), 400
+
+        downloader_runner.start()
+
+        return jsonify({
+            'success': True,
+            'message': 'Test download started'
+        })
+
+    except Exception as e:
+        logger.error(f"Error testing schedule: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ===== STM Schedule Management =====
+
+@settings_api_bp.route('/api/stm/schedule', methods=['GET', 'POST'])
+@login_required
+@require_admin
+def api_stm_schedule():
+    """Get or update STM schedule settings"""
+    if request.method == 'GET':
+        stm_settings = settings_manager.get_stm_schedule_settings()
+        stm_jobs = [j for j in download_scheduler.get_all_jobs() if j['id'].startswith('stm_')]
+
+        return jsonify({
+            'success': True,
+            **stm_settings,
+            'active_jobs': stm_jobs
+        })
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+
+            enabled = data.get('stm_schedule_enabled', False)
+            times = data.get('stm_schedule_times', [])
+            auto_import = data.get('stm_schedule_auto_import', True)
+            schemes = data.get('stm_schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
+
+            # Validate times format
+            for time_config in times:
+                if not isinstance(time_config, dict):
+                    return jsonify({'success': False, 'error': 'Invalid time format'}), 400
+
+                hour = time_config.get('hour')
+                minute = time_config.get('minute')
+
+                if hour is None or minute is None:
+                    return jsonify({'success': False, 'error': 'Missing hour or minute'}), 400
+
+                if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+                    return jsonify({'success': False, 'error': 'Invalid hour or minute value'}), 400
+
+            # Validate schemes
+            valid_schemes = ['ucs', 'ofc', 'sss', 'lgo']
+            schemes = [s.lower() for s in schemes if s.lower() in valid_schemes]
+            if not schemes:
+                schemes = ['ucs']
+
+            # Save settings
+            success = settings_manager.update_stm_schedule_settings(enabled, times, auto_import, schemes)
+            if not success:
+                return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
+
+            # Update scheduler
+            download_scheduler.remove_stm_jobs()
+
+            if enabled and times:
+                for time_config in times:
+                    download_scheduler.add_stm_scheduled_download(
+                        hour=time_config['hour'],
+                        minute=time_config['minute'],
+                        auto_import=auto_import,
+                        schemes=schemes
+                    )
+
+            logger.info(f"✓ STM Schedule updated: {len(times)} times, schemes={schemes}, enabled={enabled}")
+
+            return jsonify({'success': True, 'message': 'STM schedule settings updated'})
+
+        except Exception as e:
+            logger.error(f"Error updating STM schedule: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@settings_api_bp.route('/api/stm/schedule/test', methods=['POST'])
+@login_required
+@require_admin
+def test_stm_schedule():
+    """Trigger a test run of STM download"""
+    try:
+        stm_settings = settings_manager.get_stm_schedule_settings()
+        auto_import = stm_settings.get('stm_schedule_auto_import', True)
+        schemes = stm_settings.get('stm_schedule_schemes', ['ucs', 'ofc', 'sss', 'lgo'])
+
+        # Run download manually in background
+        import threading
+        thread = threading.Thread(
+            target=download_scheduler._run_stm_download,
+            args=(auto_import, schemes)
+        )
+        thread.start()
+
+        return jsonify({
+            'success': True,
+            'message': f'STM test download initiated for schemes: {", ".join(schemes)}'
+        })
+    except Exception as e:
+        logger.error(f"Error testing STM schedule: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ===== SMT Settings Management =====
+
+@settings_api_bp.route('/api/smt/settings', methods=['GET', 'POST'])
+@login_required
+@require_admin
+def api_smt_settings():
+    """Get or update SMT settings"""
+    if request.method == 'GET':
+        smt_settings = settings_manager.get_smt_settings()
+        smt_jobs = [j for j in download_scheduler.get_all_jobs() if j['id'].startswith('smt_')]
+        return jsonify({
+            'success': True,
+            'settings': smt_settings,
+            'jobs': smt_jobs
+        })
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+
+            vendor_id = data.get('smt_vendor_id', '').strip()
+            schedule_enabled = data.get('smt_schedule_enabled', False)
+            times = data.get('smt_schedule_times', [])
+            auto_save_db = data.get('smt_auto_save_db', True)
+
+            # Validate times format
+            for time_config in times:
+                if not isinstance(time_config, dict):
+                    return jsonify({'success': False, 'error': 'Invalid time format'}), 400
+
+                hour = time_config.get('hour')
+                minute = time_config.get('minute')
+
+                if hour is None or minute is None:
+                    return jsonify({'success': False, 'error': 'Missing hour or minute'}), 400
+
+                if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+                    return jsonify({'success': False, 'error': 'Invalid hour or minute value'}), 400
+
+            # Save settings
+            success = settings_manager.update_smt_settings(
+                vendor_id, schedule_enabled, times, auto_save_db
+            )
+
+            if not success:
+                return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
+
+            # Reinitialize SMT scheduler (will be called from app.py)
+            # init_smt_scheduler()  # Comment out - should be called from main app
+
+            logger.info(f"✓ SMT settings updated: vendor={vendor_id}, enabled={schedule_enabled}")
+
+            return jsonify({'success': True, 'message': 'SMT settings updated'})
+
+        except Exception as e:
+            logger.error(f"Error updating SMT settings: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
