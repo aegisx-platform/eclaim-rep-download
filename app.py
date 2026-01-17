@@ -25,6 +25,7 @@ from utils.logging_config import setup_logger, safe_format_exception
 from utils.auth import auth_manager, User, require_role, require_admin
 from utils.audit_logger import audit_logger
 from utils.rate_limiter import rate_limiter, limit_login, limit_api, limit_download, limit_export
+from utils.security_headers import setup_security_headers
 from config.database import get_db_config, DB_TYPE
 from config.db_pool import init_pool, close_pool, get_connection as get_pooled_connection, return_connection, get_pool_status
 
@@ -238,6 +239,12 @@ login_manager.login_message_category = 'info'
 
 # Initialize Bcrypt
 bcrypt = Bcrypt(app)
+
+# Setup Security Headers
+# Auto-detect mode: strict for HTTPS, permissive for HTTP (development)
+security_mode = 'strict' if is_https else 'permissive'
+setup_security_headers(app, mode=security_mode)
+logger.info(f"Security headers configured ({security_mode} mode)")
 
 @login_manager.user_loader
 def load_user(user_id):
