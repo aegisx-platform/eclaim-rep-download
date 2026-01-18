@@ -1047,6 +1047,24 @@
                     </div>
                 </div>
 
+                <!-- OR Separator -->
+                <div class="flex items-center pb-2">
+                    <span class="text-xs text-gray-400 font-medium">OR</span>
+                </div>
+
+                <!-- Date Range Filter (Gregorian) -->
+                <div class="flex items-end gap-2">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">วันที่ (From)</label>
+                        <input type="date" id="rep-filter-date-from" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                    </div>
+                    <span class="text-gray-400 pb-1.5">-</span>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">วันที่ (To)</label>
+                        <input type="date" id="rep-filter-date-to" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                    </div>
+                </div>
+
                 <!-- Scheme Filter -->
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">สิทธิ</label>
@@ -1497,6 +1515,24 @@
                     </div>
                 </div>
 
+                <!-- OR Separator -->
+                <div class="flex items-center pb-2">
+                    <span class="text-xs text-gray-400 font-medium">OR</span>
+                </div>
+
+                <!-- Date Range Filter (Gregorian) -->
+                <div class="flex items-end gap-2">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">วันที่ (From)</label>
+                        <input type="date" id="stm-filter-date-from" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                    </div>
+                    <span class="text-gray-400 pb-1.5">-</span>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">วันที่ (To)</label>
+                        <input type="date" id="stm-filter-date-to" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                    </div>
+                </div>
+
                 <!-- Search Box -->
                 <div class="flex-1 min-w-[200px]">
                     <label class="block text-xs text-gray-500 mb-1">ค้นหา Filename</label>
@@ -1844,6 +1880,24 @@
                             <option value="8">สิงหาคม</option>
                             <option value="9">กันยายน</option>
                         </select>
+                    </div>
+                </div>
+
+                <!-- OR Separator -->
+                <div class="flex items-center pb-2">
+                    <span class="text-xs text-gray-400 font-medium">OR</span>
+                </div>
+
+                <!-- Date Range Filter (Gregorian) -->
+                <div class="flex items-end gap-2">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">วันที่ (From)</label>
+                        <input type="date" id="smt-filter-date-from" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+                    </div>
+                    <span class="text-gray-400 pb-1.5">-</span>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">วันที่ (To)</label>
+                        <input type="date" id="smt-filter-date-to" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
                     </div>
                 </div>
 
@@ -2638,6 +2692,16 @@ function buildFilterParams(prefix) {
         params.set('search', searchInput.value.trim());
     }
 
+    // Date Range filter (all tabs)
+    var dateFromInput = document.getElementById(prefix + '-filter-date-from');
+    var dateToInput = document.getElementById(prefix + '-filter-date-to');
+    if (dateFromInput && dateFromInput.value) {
+        params.set('date_from', dateFromInput.value);
+    }
+    if (dateToInput && dateToInput.value) {
+        params.set('date_to', dateToInput.value);
+    }
+
     // REP specific filters
     if (prefix === 'rep') {
         var schemeSelect = document.getElementById('rep-filter-scheme');
@@ -2677,6 +2741,8 @@ function resetRepFilter() {
     document.getElementById('rep-filter-fiscal-year').value = '';
     document.getElementById('rep-filter-start-month').value = '';
     document.getElementById('rep-filter-end-month').value = '';
+    document.getElementById('rep-filter-date-from').value = '';
+    document.getElementById('rep-filter-date-to').value = '';
     document.getElementById('rep-filter-scheme').value = '';
     document.getElementById('rep-filter-file-type').value = '';
     document.getElementById('rep-filter-search').value = '';
@@ -2702,6 +2768,8 @@ function resetStmFilter() {
     document.getElementById('stm-filter-fiscal-year').value = '';
     document.getElementById('stm-filter-start-month').value = '';
     document.getElementById('stm-filter-end-month').value = '';
+    document.getElementById('stm-filter-date-from').value = '';
+    document.getElementById('stm-filter-date-to').value = '';
     document.getElementById('stm-filter-search').value = '';
     setStmStatusFilter('all');
 
@@ -2725,6 +2793,8 @@ function resetSmtFilter() {
     document.getElementById('smt-filter-fiscal-year').value = '';
     document.getElementById('smt-filter-start-month').value = '';
     document.getElementById('smt-filter-end-month').value = '';
+    document.getElementById('smt-filter-date-from').value = '';
+    document.getElementById('smt-filter-date-to').value = '';
     document.getElementById('smt-filter-search').value = '';
     setSmtStatusFilter('all');
 
