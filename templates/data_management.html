@@ -1176,6 +1176,11 @@
                             {% if not file.imported %}
                             <button onclick="importFile('{{ file.filename }}')" class="text-purple-600 hover:text-purple-800 text-sm font-medium mr-2">Import</button>
                             {% endif %}
+                            <button onclick="reDownloadFile('{{ file.filename }}')" class="text-green-600 hover:text-green-800 text-sm font-medium mr-2" title="Re-download this file">
+                                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                            </button>
                             <a href="{{ url_for('download_file', filename=file.filename) }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium mr-2">Download</a>
                             <button onclick="deleteFile('{{ file.filename }}')" class="text-red-600 hover:text-red-800 text-sm font-medium">Delete</button>
                         </td>
@@ -5117,6 +5122,14 @@ async function loadStatementFiles(filterParams) {
                     importBtn.onclick = (e) => { e.preventDefault(); importStatementFile(f.filename); };
                     actionsCell.appendChild(importBtn);
                 }
+
+                const redownloadBtn = document.createElement('a');
+                redownloadBtn.href = '#';
+                redownloadBtn.className = 'text-green-600 hover:text-green-800 text-sm ml-2';
+                redownloadBtn.title = 'Re-download this file';
+                redownloadBtn.innerHTML = '<svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>';
+                redownloadBtn.onclick = (e) => { e.preventDefault(); reDownloadFile(f.filename); };
+                actionsCell.appendChild(redownloadBtn);
 
                 const downloadBtn = document.createElement('a');
                 downloadBtn.href = `/downloads/${f.filename}`;
