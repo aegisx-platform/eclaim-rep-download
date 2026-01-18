@@ -282,6 +282,135 @@
             </div>
         </div>
 
+        <!-- Data Quality & Missing Claims Alert -->
+        {% set dq = performance_metrics.data_quality %}
+        <div class="mt-6 p-5 rounded-xl border-2 {% if dq.alert_level == 'critical' %}bg-red-50 border-red-300{% elif dq.alert_level == 'warning' %}bg-yellow-50 border-yellow-300{% elif dq.alert_level == 'caution' %}bg-orange-50 border-orange-300{% else %}bg-green-50 border-green-300{% endif %}">
+            <div class="flex items-start gap-3">
+                <!-- Alert Icon -->
+                <div class="flex-shrink-0 mt-1">
+                    {% if dq.alert_level == 'critical' %}
+                    <div class="w-12 h-12 rounded-full bg-red-200 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    {% elif dq.alert_level == 'warning' %}
+                    <div class="w-12 h-12 rounded-full bg-yellow-200 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-yellow-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    {% elif dq.alert_level == 'caution' %}
+                    <div class="w-12 h-12 rounded-full bg-orange-200 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    {% else %}
+                    <div class="w-12 h-12 rounded-full bg-green-200 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Alert Content -->
+                <div class="flex-1">
+                    <h4 class="text-lg font-bold {% if dq.alert_level == 'critical' %}text-red-800{% elif dq.alert_level == 'warning' %}text-yellow-800{% elif dq.alert_level == 'caution' %}text-orange-800{% else %}text-green-800{% endif %} mb-2">
+                        {% if dq.alert_level == 'critical' %}
+                        🚨 Data Quality Alert: Critical - ข้อมูล REP ไม่สมบูรณ์มาก
+                        {% elif dq.alert_level == 'warning' %}
+                        ⚠️ Data Quality Alert: Warning - ข้อมูล REP ไม่สมบูรณ์
+                        {% elif dq.alert_level == 'caution' %}
+                        ⚡ Data Quality Alert: Caution - ข้อมูล REP ควรตรวจสอบ
+                        {% else %}
+                        ✅ Data Quality: Good - ข้อมูล REP สมบูรณ์ดี
+                        {% endif %}
+                    </h4>
+
+                    <!-- Coverage Bar -->
+                    <div class="mb-3">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm font-medium {% if dq.alert_level == 'critical' %}text-red-700{% elif dq.alert_level == 'warning' %}text-yellow-700{% elif dq.alert_level == 'caution' %}text-orange-700{% else %}text-green-700{% endif %}">
+                                REP Data Coverage
+                            </span>
+                            <span class="text-sm font-bold {% if dq.alert_level == 'critical' %}text-red-700{% elif dq.alert_level == 'warning' %}text-yellow-700{% elif dq.alert_level == 'caution' %}text-orange-700{% else %}text-green-700{% endif %}">
+                                {{ "%.1f"|format(dq.coverage_rate) }}%
+                            </span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="h-3 rounded-full {% if dq.alert_level == 'critical' %}bg-red-600{% elif dq.alert_level == 'warning' %}bg-yellow-500{% elif dq.alert_level == 'caution' %}bg-orange-500{% else %}bg-green-500{% endif %}" style="width: {{ dq.coverage_rate if dq.coverage_rate <= 100 else 100 }}%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Missing Claims Summary -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                        <div class="bg-white bg-opacity-70 rounded-lg p-3 border border-gray-200">
+                            <div class="text-xs text-gray-600 mb-1">Expected Claims</div>
+                            <div class="text-xl font-bold text-gray-900">{{ "{:,}".format(dq.expected_claims) }}</div>
+                            <div class="text-xs text-gray-500 mt-1">Based on SMT payments</div>
+                        </div>
+                        <div class="bg-white bg-opacity-70 rounded-lg p-3 border border-gray-200">
+                            <div class="text-xs text-gray-600 mb-1">Actual Claims (REP)</div>
+                            <div class="text-xl font-bold text-blue-600">{{ "{:,}".format(dq.actual_claims) }}</div>
+                            <div class="text-xs text-gray-500 mt-1">Currently in database</div>
+                        </div>
+                        <div class="bg-white bg-opacity-70 rounded-lg p-3 border {% if dq.alert_level == 'critical' %}border-red-300{% elif dq.alert_level == 'warning' %}border-yellow-300{% elif dq.alert_level == 'caution' %}border-orange-300{% else %}border-green-300{% endif %}">
+                            <div class="text-xs text-gray-600 mb-1">Missing Claims</div>
+                            <div class="text-xl font-bold {% if dq.alert_level == 'critical' %}text-red-700{% elif dq.alert_level == 'warning' %}text-yellow-700{% elif dq.alert_level == 'caution' %}text-orange-700{% else %}text-green-700{% endif %}">
+                                {{ "{:,}".format(dq.missing_claims) }}
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">Need to investigate</div>
+                        </div>
+                    </div>
+
+                    <!-- Missing Amount -->
+                    <div class="bg-white bg-opacity-70 rounded-lg p-3 border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-xs text-gray-600 mb-1">Estimated Missing Amount</div>
+                                <div class="text-2xl font-bold {% if dq.alert_level == 'critical' %}text-red-700{% elif dq.alert_level == 'warning' %}text-yellow-700{% elif dq.alert_level == 'caution' %}text-orange-700{% else %}text-green-700{% endif %}">
+                                    {{ "{:,.0f}".format(dq.missing_amount) }} THB
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">Average per claim: {{ "{:,.0f}".format(dq.avg_claim_amount) }} THB</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actionable Recommendations -->
+                    <div class="mt-3 p-3 bg-white bg-opacity-50 rounded-lg border border-gray-200">
+                        <h5 class="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                            </svg>
+                            Next Steps - สิ่งที่ควรทำ:
+                        </h5>
+                        <ul class="text-sm text-gray-700 space-y-1">
+                            {% if dq.alert_level == 'critical' %}
+                            <li>🔍 <strong>ตรวจสอบไฟล์ REP</strong> ที่ยังไม่ได้ Import เข้าระบบ (ประมาณ {{ "{:,}".format(dq.missing_claims) }} claims หาย)</li>
+                            <li>📅 ดูว่าเดือนไหนมีข้อมูลน้อยผิดปกติ จากตารางด้านล่าง</li>
+                            <li>💾 Download ไฟล์ E-Claim ย้อนหลังจาก NHSO และ Import เพิ่ม</li>
+                            <li>⚠️ ระวัง: ข้อมูลไม่ครบอาจทำให้วิเคราะห์ผิดพลาด</li>
+                            {% elif dq.alert_level == 'warning' %}
+                            <li>🔍 ตรวจสอบว่ามีไฟล์ REP ที่พลาดหรือไม่ (ขาดประมาณ {{ "{:,}".format(dq.missing_claims) }} claims)</li>
+                            <li>📊 เปรียบเทียบกับสถิติเดือนอื่นๆ เพื่อหาความผิดปกติ</li>
+                            <li>💡 พิจารณา Import ไฟล์เพิ่มเติมหากมี</li>
+                            {% elif dq.alert_level == 'caution' %}
+                            <li>✅ ข้อมูลค่อนข้างครบ แต่ยังขาดอีก {{ "{:,}".format(dq.missing_claims) }} claims</li>
+                            <li>🔎 ตรวจสอบเดือนที่มี Coverage ต่ำกว่าปกติ</li>
+                            <li>📈 ติดตามการ Import เป็นประจำ</li>
+                            {% else %}
+                            <li>✅ ข้อมูล REP ครบถ้วน สามารถนำไปวิเคราะห์ได้</li>
+                            <li>📊 ใช้ตัวเลขนี้วิเคราะห์ Performance ได้เลย</li>
+                            <li>🎯 รักษาระดับ Coverage ไว้ต่อไป</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Performance Insights -->
         <div class="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <div class="flex items-start gap-2">

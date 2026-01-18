@@ -8,6 +8,11 @@ from typing import Dict, List, Any, Optional
 from decimal import Decimal
 
 from config.database import DB_TYPE
+from utils.fiscal_year import (
+    get_fiscal_year_sql_filter_gregorian,
+    get_fiscal_year_sql_filter_be,
+    get_fiscal_year_be_range_for_query
+)
 
 
 # SQL helpers for cross-database compatibility
@@ -507,20 +512,13 @@ class ReconciliationReport:
         """
         cursor = self.conn.cursor()
 
-        # Fiscal year date range
-        # FY 2568 = Oct 2024 (2567-10) to Sep 2025 (2568-09)
-        fy_start_year_be = fiscal_year - 1  # Start in previous calendar year
-        fy_end_year_be = fiscal_year  # End in fiscal year
+        # Get fiscal year range from utilities
+        fy_start_year_be, fy_end_year_be = get_fiscal_year_be_range_for_query(fiscal_year)
 
-        # Get REP data for fiscal year
-        # FY 2569 = Oct 2024 - Sep 2025 (Gregorian) = 2567-10 to 2568-09 (BE)
-        # dateadm is Gregorian date, so: 2024+543=2567, 2025+543=2568
-        rep_fy_start_be = fy_start_year_be - 1
-        rep_fy_end_be = fy_end_year_be - 1
+        # Get REP data for fiscal year using Gregorian date filter
+        rep_where, rep_params = get_fiscal_year_sql_filter_gregorian(fiscal_year, 'dateadm')
 
         be_month_sql = sql_be_month('dateadm')
-        year_expr = sql_extract_year('dateadm')
-        month_expr = sql_extract_month('dateadm')
         rep_query = f"""
         SELECT
             {be_month_sql} as month_be,
@@ -530,16 +528,12 @@ class ReconciliationReport:
             COALESCE(SUM(reimb_agency), 0) as total_reimb_agency
         FROM claim_rep_opip_nhso_item
         WHERE dateadm IS NOT NULL
-          AND (
-            ({year_expr} + 543 = %s AND {month_expr} >= 10)
-            OR
-            ({year_expr} + 543 = %s AND {month_expr} <= 9)
-          )
+          AND {rep_where}
         GROUP BY
             {be_month_sql}
         ORDER BY month_be
         """
-        cursor.execute(rep_query, (rep_fy_start_be, rep_fy_end_be))
+        cursor.execute(rep_query, rep_params)
         rep_data = {row[0]: {
             'claim_count': row[1],
             'unique_claims': row[2],
@@ -547,19 +541,11 @@ class ReconciliationReport:
             'reimb_agency': float(row[4] or 0)
         } for row in cursor.fetchall()}
 
-        # Get SMT data for fiscal year
-        # posting_date is already in BE format, but we need to adjust for fiscal year
-        # FY 2569 = Oct 2024 - Sep 2025 = 256710-256809 (in BE posting_date)
-        smt_fy_start_be = fy_start_year_be - 1  # 2568 - 1 = 2567
-        smt_fy_end_be = fy_end_year_be - 1      # 2569 - 1 = 2568
+        # Get SMT data for fiscal year using BE date filter
+        smt_where_fy, smt_fy_params = get_fiscal_year_sql_filter_be(fiscal_year, 'posting_date')
 
-        smt_where = """WHERE posting_date IS NOT NULL
-          AND (
-            (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) >= '10')
-            OR
-            (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) <= '09')
-          )"""
-        smt_params = [str(smt_fy_start_be), str(smt_fy_end_be)]
+        smt_where = f"WHERE posting_date IS NOT NULL AND {smt_where_fy}"
+        smt_params = smt_fy_params.copy()
 
         if self.hospital_code:
             smt_where += " AND TRIM(LEADING '0' FROM vendor_no) = TRIM(LEADING '0' FROM %s)"
@@ -649,19 +635,8 @@ class ReconciliationReport:
         cursor = self.conn.cursor()
 
         if fiscal_year:
-            fy_start_year_be = fiscal_year - 1
-            fy_end_year_be = fiscal_year
-
-            year_expr = sql_extract_year('dateadm')
-            month_expr = sql_extract_month('dateadm')
-
-            # REP stats for FY
-            # FY 2569 = Oct 2024 - Sep 2025 (Gregorian)
-            # In BE: Oct 2567 - Sep 2568
-            # So we need to match: (2024+543=2567 AND month>=10) OR (2025+543=2568 AND month<=9)
-            # Which is: fy_start_year_be-1 and fy_end_year_be-1
-            rep_fy_start_be = fy_start_year_be - 1
-            rep_fy_end_be = fy_end_year_be - 1
+            # Get REP stats for fiscal year using Gregorian date filter
+            rep_where, rep_params = get_fiscal_year_sql_filter_gregorian(fiscal_year, 'dateadm')
 
             cursor.execute(f"""
             SELECT
@@ -673,30 +648,19 @@ class ReconciliationReport:
                 MAX(dateadm) as latest_date
             FROM claim_rep_opip_nhso_item
             WHERE dateadm IS NOT NULL
-              AND (
-                ({year_expr} + 543 = %s AND {month_expr} >= 10)
-                OR
-                ({year_expr} + 543 = %s AND {month_expr} <= 9)
-              )
-            """, (rep_fy_start_be, rep_fy_end_be))
+              AND {rep_where}
+            """, rep_params)
             rep_row = cursor.fetchone()
 
-            # SMT stats for FY
-            # posting_date is already in BE, adjust for fiscal year
-            smt_fy_start_be = fy_start_year_be - 1
-            smt_fy_end_be = fy_end_year_be - 1
+            # Get SMT stats for fiscal year using BE date filter
+            smt_fy_where, smt_fy_params = get_fiscal_year_sql_filter_be(fiscal_year, 'posting_date')
 
-            smt_fy_where = """WHERE posting_date IS NOT NULL
-              AND (
-                (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) >= '10')
-                OR
-                (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) <= '09')
-              )"""
-            smt_fy_params = [str(smt_fy_start_be), str(smt_fy_end_be)]
+            smt_where = f"WHERE posting_date IS NOT NULL AND {smt_fy_where}"
+            smt_params = smt_fy_params.copy()
 
             if self.hospital_code:
-                smt_fy_where += " AND TRIM(LEADING '0' FROM vendor_no) = TRIM(LEADING '0' FROM %s)"
-                smt_fy_params.append(self.hospital_code)
+                smt_where += " AND TRIM(LEADING '0' FROM vendor_no) = TRIM(LEADING '0' FROM %s)"
+                smt_params.append(self.hospital_code)
 
             cursor.execute(f"""
             SELECT
@@ -707,8 +671,8 @@ class ReconciliationReport:
                 MIN(posting_date) as earliest_date,
                 MAX(posting_date) as latest_date
             FROM smt_budget_transfers
-            {smt_fy_where}
-            """, smt_fy_params)
+            {smt_where}
+            """, smt_params)
             smt_row = cursor.fetchone()
         else:
             # All time stats

@@ -79,8 +79,8 @@ class STMDownloader:
         self._history_db = None
 
         # Set year and month
-        now = datetime.now()
-        current_fiscal_year = now.year + 543 if now.month >= 10 else now.year + 542
+        from utils.fiscal_year import get_current_fiscal_year_be
+        current_fiscal_year = get_current_fiscal_year_be()
         self.year = year if year is not None else current_fiscal_year
         self.month = month  # None = all months
 

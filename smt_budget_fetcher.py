@@ -122,22 +122,25 @@ class SMTBudgetFetcher:
         Thai fiscal year: October 1 - September 30
 
         Returns:
-            (start_date, end_date) in dd/mm/yyyy Buddhist Era format
+            (start_date, end_date, fiscal_year) in dd/mm/yyyy Buddhist Era format
         """
+        from utils.fiscal_year import get_current_fiscal_year_be, get_fiscal_year_range_be
+
         now = datetime.now()
         be_year = now.year + 543  # Convert to Buddhist Era
 
-        # Determine fiscal year
-        if now.month >= 10:
-            # Current fiscal year started this October
-            fiscal_year = be_year + 1
-            start_year = be_year
-        else:
-            # Current fiscal year started last October
-            fiscal_year = be_year
-            start_year = be_year - 1
+        # Get current fiscal year using standard utility
+        fiscal_year = get_current_fiscal_year_be()
 
+        # Get fiscal year date range in BE format (YYYYMMDD)
+        fy_start_be, fy_end_be = get_fiscal_year_range_be(fiscal_year, to_current=True)
+
+        # Convert to dd/mm/yyyy format for API
+        # fy_start_be format: '25681001' -> '01/10/2568'
+        start_year = fy_start_be[:4]
         start_date = f"01/10/{start_year}"
+
+        # Use current date for end_date
         end_date = now.strftime(f"%d/%m/{be_year}")
 
         return start_date, end_date, fiscal_year
