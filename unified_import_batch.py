@@ -90,6 +90,15 @@ def get_rep_imported_files() -> set:
 
 def import_rep_file(filepath: str) -> dict:
     """Import a single REP file"""
+    # Validate file exists and has content
+    file_path = Path(filepath)
+    if not file_path.exists():
+        return {'success': False, 'error': f'File not found: {filepath}'}
+
+    file_size = file_path.stat().st_size
+    if file_size == 0:
+        return {'success': False, 'error': f'File is empty (0 bytes)'}
+
     from config.database import get_db_config, DB_TYPE
     from utils.eclaim.importer_v2 import import_eclaim_file
 
@@ -235,6 +244,15 @@ def get_stm_imported_files() -> set:
 
 def import_stm_file(filepath: str) -> dict:
     """Import a single STM file"""
+    # Validate file exists and has content
+    file_path = Path(filepath)
+    if not file_path.exists():
+        return {'success': False, 'error': f'File not found: {filepath}'}
+
+    file_size = file_path.stat().st_size
+    if file_size == 0:
+        return {'success': False, 'error': f'File is empty (0 bytes)'}
+
     from config.database import get_db_config, DB_TYPE
     from utils.stm.importer import STMImporter
 
@@ -376,6 +394,15 @@ def import_smt_file(filepath: str) -> dict:
     - CSV files (.csv)
     - Excel files (.xlsx) - with header at row 5 (skip 4 rows)
     """
+    # Validate file exists and has content
+    file_path = Path(filepath)
+    if not file_path.exists():
+        return {'success': False, 'error': f'File not found: {filepath}'}
+
+    file_size = file_path.stat().st_size
+    if file_size == 0:
+        return {'success': False, 'error': f'File is empty (0 bytes)'}
+
     from smt_budget_fetcher import SMTBudgetFetcher
     import pandas as pd
 

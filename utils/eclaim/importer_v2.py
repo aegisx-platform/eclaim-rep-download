@@ -707,6 +707,19 @@ class EClaimImporterV2:
         # Date columns that need parsing
         date_columns = ['dateadm', 'datedsc', 'service_date', 'inp_date']
 
+        # Numeric columns that need type conversion (to handle non-numeric values gracefully)
+        numeric_columns = [
+            'rw', 'adjrw', 'adjrw2', 'va', 'fs',
+            'invoice_total', 'invoice_other', 'invoice_central', 'copay',
+            'adjrate', 'late_ps', 'ccuf', 'adjrw_nhso', 'reimb_total',
+            'accidentinsurance', 'salary', 'net_reimb', 'hc_total', 'hc_paid',
+            'ae_total', 'ae_paid', 'inst_total', 'inst_paid',
+            'ip_total', 'ip_paid', 'dmis_total', 'dmis_paid',
+            'drug_total', 'opbkk_total', 'deny_total', 'deny_hc_total',
+            'deny_ae_total', 'deny_inst_total', 'deny_ip_total', 'deny_dmis_total',
+            'baserate_orig', 'baserate_add', 'baserate_total'
+        ]
+
         # String field max lengths (from schema)
         max_lengths = {
             'chk_refer': 1, 'chk_right': 1, 'chk_use_right': 1, 'chk': 1,
@@ -749,6 +762,13 @@ class EClaimImporterV2:
                                 parsed_date = pd.to_datetime(value, format='%d/%m/%Y', errors='coerce')
                             mapped[db_col] = parsed_date if not pd.isna(parsed_date) else None
                         except (ValueError, TypeError, AttributeError):
+                            mapped[db_col] = None
+                    # Handle numeric columns - convert to float, fallback to NULL
+                    elif db_col in numeric_columns:
+                        try:
+                            num_val = pd.to_numeric(value, errors='coerce')
+                            mapped[db_col] = num_val if not pd.isna(num_val) else None
+                        except (ValueError, TypeError):
                             mapped[db_col] = None
                     # Clean ID fields - remove .0 suffix from float conversion
                     elif db_col in ['tran_id', 'hn', 'an', 'pid']:
@@ -1249,9 +1269,10 @@ class EClaimImporterV2:
                 df = df[df.iloc[:, 0].apply(lambda x: str(x).strip() != '' and str(x).strip() != 'nan')]
             elif file_type in ['OP', 'IP']:
                 # OP/IP UCS files: Use index-based mapping for complete column coverage
-                # Skip first 5 rows (report header) + 2 header rows + 1 empty row
-                # Header structure: row 5 = main header, row 6 = sub-header, row 7 = empty/units
-                df = pd.read_excel(filepath, engine='xlrd', header=None, skiprows=8)
+                # Skip first 5 rows (rows 0-4: report metadata/headers)
+                # Row 5: main header with column names (REP No., TRAN_ID, ..., VA, ...)
+                # Row 6 onwards: data rows
+                df = pd.read_excel(filepath, engine='xlrd', header=None, skiprows=5)
 
                 # Filter out empty rows (check column 2 which is TRAN_ID)
                 df = df[df.iloc[:, 2].notna()]
