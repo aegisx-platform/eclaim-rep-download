@@ -3415,9 +3415,9 @@ def cancel_bulk_download():
 @app.route('/api/downloads/parallel', methods=['POST'])
 @app.route('/api/download/parallel', methods=['POST'])  # Legacy alias
 def trigger_parallel_download():
-    """Trigger parallel download with multiple browser sessions"""
+    """Trigger parallel download with multiple browser sessions (using DownloadManager v2)"""
     try:
-        from utils.parallel_downloader import ParallelDownloader
+        from utils.download_manager.parallel_bridge import get_parallel_bridge
 
         data = request.get_json()
         month = data.get('month')
@@ -3448,8 +3448,29 @@ def trigger_parallel_download():
         else:
             app.logger.info(f"Parallel download with 1 account, {max_workers} workers")
 
+        # Use ParallelDownloadBridge (creates session in database)
+        bridge = get_parallel_bridge()
+
+        params = {
+            'fiscal_year': year,
+            'service_month': month,
+            'scheme': scheme,
+            'max_workers': max_workers,
+            'auto_import': auto_import,
+            'source_type': 'rep'
+        }
+
+        # Start download (creates session in DownloadManager)
+        try:
+            session_id = bridge.start_download(enabled_creds, params)
+            app.logger.info(f"Created download session: {session_id}")
+        except ValueError as e:
+            # Session already running
+            return jsonify({'success': False, 'error': str(e)}), 409
+
         # Run in background thread
         import threading
+        from utils.parallel_downloader import ParallelDownloader
 
         def run_parallel():
             # Start job tracking
@@ -3461,19 +3482,18 @@ def trigger_parallel_download():
                     'year': year,
                     'scheme': scheme,
                     'max_workers': max_workers,
-                    'auto_import': auto_import
+                    'auto_import': auto_import,
+                    'session_id': session_id
                 },
                 triggered_by='manual'
             )
 
             try:
-                downloader = ParallelDownloader(
-                    credentials=enabled_creds,
-                    month=month,
-                    year=year,
-                    scheme=scheme,
-                    max_workers=max_workers
-                )
+                # Get downloader from bridge (already monkey-patched)
+                downloader = bridge.active_downloaders.get(session_id)
+                if not downloader:
+                    raise ValueError(f"Downloader not found for session {session_id}")
+
                 result = downloader.run()
 
                 # Complete job with results

@@ -69,9 +69,10 @@ class ParallelDownloadBridge:
         # Create parallel downloader instance
         downloader = ParallelDownloader(
             credentials=credentials,
-            fiscal_year=params.get('fiscal_year'),
-            service_month=params.get('service_month'),
-            scheme=params.get('scheme')
+            month=params.get('service_month'),
+            year=params.get('fiscal_year'),
+            scheme=params.get('scheme', 'ucs'),
+            max_workers=params.get('max_workers', 3)
         )
 
         # Monkey-patch progress updates to go through DownloadManager
