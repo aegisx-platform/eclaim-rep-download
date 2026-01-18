@@ -194,12 +194,12 @@ class LicenseChecker:
                         f"Please contact your vendor for the correct license."
                     )
 
-            # Check expiration (with grace period)
+            # Check expiration (with configurable grace period)
             exp = payload.get('exp')
             if exp:
                 exp_date = datetime.fromtimestamp(exp)
-                grace_days = 7  # 7-day grace period
-                grace_date = exp_date + timedelta(days=grace_days)
+                grace_period_days = payload.get('grace_period_days', 90)  # Default 90 days, configurable
+                grace_date = exp_date + timedelta(days=grace_period_days)
 
                 if datetime.now() > grace_date:
                     return False, payload, f"License expired on {exp_date.strftime('%Y-%m-%d')} (grace period ended)"
@@ -208,6 +208,7 @@ class LicenseChecker:
                     days_left = (grace_date - datetime.now()).days
                     payload['_grace_period'] = True
                     payload['_grace_days_left'] = days_left
+                    payload['_grace_period_days'] = grace_period_days
 
             # Add tier features to payload
             tier = payload.get('tier', 'trial')
@@ -284,6 +285,31 @@ class LicenseChecker:
             'max_users': payload.get('max_users'),
             'custom_limits': payload.get('limits', {})
         }
+
+    def get_license_state(self) -> str:
+        """
+        Get current license state for access control
+
+        States:
+        - 'active': License valid, all features available
+        - 'grace_period': License expired but within grace period, downloads blocked
+        - 'read_only': License expired beyond grace period or invalid, downloads blocked
+
+        Returns:
+            License state string ('active', 'grace_period', or 'read_only')
+        """
+        is_valid, payload, error = self.verify_license()
+
+        # If verification failed completely (expired beyond grace or invalid)
+        if not is_valid:
+            return 'read_only'
+
+        # Check if in grace period
+        if payload.get('_grace_period', False):
+            return 'grace_period'
+
+        # Valid and not expired
+        return 'active'
 
     def check_feature_access(self, feature: str) -> bool:
         """

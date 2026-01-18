@@ -27,6 +27,7 @@ from utils.auth import auth_manager, User, require_role, require_admin
 from utils.audit_logger import audit_logger
 from utils.rate_limiter import rate_limiter, limit_login, limit_api, limit_download, limit_export
 from utils.security_headers import setup_security_headers
+from utils.license_middleware import require_license_write_access, get_license_status_banner
 from utils.fiscal_year import (
     get_fiscal_year_sql_filter_gregorian,
     get_fiscal_year_range_gregorian,
@@ -967,6 +968,7 @@ def api_change_password():
 
 @app.route('/api/downloads/single', methods=['POST'])
 @app.route('/download/trigger', methods=['POST'])  # Legacy alias
+@require_license_write_access
 def trigger_download():
     """Trigger downloader as background process"""
     data = request.get_json() or {}
@@ -3285,6 +3287,7 @@ def api_analysis_his_reconciliation():
 
 @app.route('/api/downloads/month', methods=['POST'])
 @app.route('/download/trigger/single', methods=['POST'])  # Legacy alias
+@require_license_write_access
 def trigger_single_download():
     """Trigger download for specific month/year and schemes"""
     try:
@@ -3329,6 +3332,7 @@ def trigger_single_download():
 
 @app.route('/api/downloads/bulk', methods=['POST'])
 @app.route('/download/trigger/bulk', methods=['POST'])  # Legacy alias
+@require_license_write_access
 def trigger_bulk_download():
     """Trigger bulk download for date range and schemes"""
     try:
@@ -3588,6 +3592,7 @@ def parallel_download_progress():
     """Get parallel download progress from DownloadManager (database)"""
     try:
         from utils.download_manager import get_download_manager
+        from datetime import datetime, timedelta
 
         manager = get_download_manager()
         active_sessions = manager.get_active_sessions()
@@ -3607,7 +3612,50 @@ def parallel_download_progress():
                     'session_id': progress_info.session_id
                 })
 
-        # No active REP session
+        # Check for recently completed REP session (within last 10 seconds)
+        # This ensures UI shows final 100% progress before switching to idle
+        from config.db_pool import get_connection, return_connection
+        conn = None
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            # Get most recent completed REP session
+            cursor.execute("""
+                SELECT id, total_discovered, downloaded, skipped, failed,
+                       processed, status, completed_at
+                FROM download_sessions
+                WHERE source_type = 'rep'
+                  AND status IN ('completed', 'failed', 'cancelled')
+                  AND completed_at >= %s
+                ORDER BY completed_at DESC
+                LIMIT 1
+            """, (datetime.now() - timedelta(seconds=10),))
+
+            row = cursor.fetchone()
+            cursor.close()
+
+            if row:
+                # Return final progress (running=False so UI stops polling after showing 100%)
+                return_connection(conn)
+                return jsonify({
+                    'running': False,
+                    'status': row[6] or 'completed',
+                    'total': row[1] or 0,
+                    'completed': row[2] or 0,
+                    'skipped': row[3] or 0,
+                    'failed': row[4] or 0,
+                    'processed': row[5] or 0,
+                    'session_id': row[0]
+                })
+
+            return_connection(conn)
+        except Exception as e:
+            if conn:
+                return_connection(conn)
+            logger.warning(f"Could not check recent sessions: {e}")
+
+        # No active or recent REP session
         return jsonify({
             'running': False,
             'status': 'idle'
