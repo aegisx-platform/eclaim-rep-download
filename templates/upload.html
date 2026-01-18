@@ -247,7 +247,7 @@ function formatFileSize(bytes) {
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
 }
 
-async function uploadFile() {
+async function uploadFile(replace = false) {
     if (!selectedType || !selectedFile) {
         alert('กรุณาเลือกประเภทไฟล์และเลือกไฟล์ที่ต้องการอัปโหลด');
         return;
@@ -257,6 +257,7 @@ async function uploadFile() {
     formData.append('file', selectedFile);
     formData.append('type', selectedType);
     formData.append('auto_import', document.getElementById('auto-import').checked ? 'true' : 'false');
+    formData.append('replace', replace ? 'true' : 'false');
 
     // Show progress
     document.getElementById('upload-progress').classList.remove('hidden');
@@ -270,6 +271,20 @@ async function uploadFile() {
         });
 
         const result = await response.json();
+
+        // Check if file exists (409 Conflict)
+        if (response.status === 409 && result.error === 'file_exists') {
+            // Hide progress
+            document.getElementById('upload-progress').classList.add('hidden');
+            document.getElementById('upload-btn').disabled = false;
+
+            // Show confirmation dialog
+            if (confirm(result.message)) {
+                // User confirmed, retry with replace=true
+                await uploadFile(true);
+            }
+            return;
+        }
 
         // Update progress to 100%
         document.getElementById('progress-bar').style.width = '100%';

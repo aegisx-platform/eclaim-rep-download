@@ -13081,8 +13081,9 @@ def upload_file():
         if file_type not in ['rep', 'stm', 'smt']:
             return jsonify({'success': False, 'error': 'Invalid file type. Must be rep, stm, or smt'}), 400
 
-        # Get auto_import flag (default: true)
+        # Get flags
         auto_import = request.form.get('auto_import', 'true').lower() == 'true'
+        replace = request.form.get('replace', 'false').lower() == 'true'
 
         # Validate file extension
         filename = secure_filename(file.filename)
@@ -13104,8 +13105,24 @@ def upload_file():
         target_dir = Path(f'downloads/{file_type}')
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save file
+        # Check if file already exists
         target_path = target_dir / filename
+        if target_path.exists() and not replace:
+            # File exists and user hasn't confirmed replacement
+            return jsonify({
+                'success': False,
+                'error': 'file_exists',
+                'message': f'ไฟล์ "{filename}" มีอยู่แล้ว ต้องการแทนที่หรือไม่?',
+                'filename': filename,
+                'existing_path': str(target_path)
+            }), 409  # 409 Conflict
+
+        # If replace=true and file exists, delete old file first
+        if target_path.exists() and replace:
+            logger.info(f"Replacing existing file: {filename}")
+            target_path.unlink()
+
+        # Save file
         file.save(str(target_path))
 
         logger.info(f"Uploaded {file_type.upper()} file: {filename}")
