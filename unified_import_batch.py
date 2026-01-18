@@ -369,17 +369,43 @@ def import_stm_directory(dirpath: str) -> dict:
 # === SMT Import Functions ===
 
 def import_smt_file(filepath: str) -> dict:
-    """Import a single SMT CSV file to database"""
+    """
+    Import a single SMT file to database
+
+    Supports:
+    - CSV files (.csv)
+    - Excel files (.xlsx) - with header at row 5 (skip 4 rows)
+    """
     from smt_budget_fetcher import SMTBudgetFetcher
+    import pandas as pd
 
     try:
         fetcher = SMTBudgetFetcher()
         records = []
 
-        with open(filepath, 'r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                records.append(row)
+        filepath_obj = Path(filepath)
+        file_ext = filepath_obj.suffix.lower()
+
+        # Read file based on extension
+        if file_ext == '.csv':
+            # CSV format
+            with open(filepath, 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    records.append(row)
+
+        elif file_ext in ['.xlsx', '.xls']:
+            # Excel format - skip first 4 rows, header at row 5
+            df = pd.read_excel(filepath, skiprows=4, engine='openpyxl' if file_ext == '.xlsx' else 'xlrd')
+
+            # Convert DataFrame to list of dicts
+            records = df.to_dict('records')
+
+            # Filter out empty rows (all values are NaN)
+            records = [r for r in records if not all(pd.isna(v) for v in r.values())]
+
+        else:
+            return {'success': False, 'error': f'Unsupported file format: {file_ext}. Use .csv, .xlsx, or .xls'}
 
         if not records:
             return {'success': False, 'error': 'No records in file'}
@@ -389,14 +415,14 @@ def import_smt_file(filepath: str) -> dict:
         return {
             'success': True,
             'records': saved_count,
-            'message': f'Imported {saved_count} records'
+            'message': f'Imported {saved_count} records from {file_ext} file'
         }
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
 
 def import_smt_directory(dirpath: str) -> dict:
-    """Import all SMT CSV files in directory with progress tracking"""
+    """Import all SMT files (CSV and Excel) in directory with progress tracking"""
     path = Path(dirpath)
     if not path.is_dir():
         update_progress({
@@ -406,8 +432,11 @@ def import_smt_directory(dirpath: str) -> dict:
         })
         return {'success': False, 'error': f'{dirpath} is not a directory'}
 
-    # Find all SMT CSV files
-    smt_files = sorted(path.glob('smt_budget_*.csv'))
+    # Find all SMT files (CSV and Excel)
+    smt_csv_files = list(path.glob('smt_budget_*.csv'))
+    smt_xlsx_files = list(path.glob('smt_budget_*.xlsx'))
+    smt_xls_files = list(path.glob('smt_budget_*.xls'))
+    smt_files = sorted(smt_csv_files + smt_xlsx_files + smt_xls_files)
     if not smt_files:
         update_progress({
             'status': 'completed',

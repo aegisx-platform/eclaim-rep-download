@@ -3418,6 +3418,7 @@ def cancel_bulk_download():
 
 @app.route('/api/downloads/parallel', methods=['POST'])
 @app.route('/api/download/parallel', methods=['POST'])  # Legacy alias
+@require_license_write_access
 def trigger_parallel_download():
     """Trigger parallel download with multiple browser sessions (using DownloadManager v2)"""
     try:
@@ -13027,6 +13028,109 @@ def scan_files_to_history():
             'total_added': total_added,
             'message': f'Scanned {len(types)} directories, added {total_added} files to history'
         })
+
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/files/upload', methods=['POST'])
+@login_required
+def upload_file():
+    """
+    Upload E-Claim files (REP/STM/SMT) manually
+
+    Accepts multipart/form-data with:
+    - file: The uploaded file
+    - type: File type (rep, stm, smt)
+    - auto_import: Whether to trigger import after upload (default: true)
+
+    Supported formats:
+    - REP: .xls
+    - STM: .xls
+    - SMT: .xlsx, .xls, .csv
+
+    Returns:
+        {
+            "success": true,
+            "filename": "uploaded_file.xls",
+            "type": "rep",
+            "path": "downloads/rep/uploaded_file.xls",
+            "import_triggered": true,
+            "import_result": {...}  // If auto_import=true
+        }
+    """
+    try:
+        # Check if file exists in request
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+
+        # Get file type (rep/stm/smt)
+        file_type = request.form.get('type', '').lower()
+        if file_type not in ['rep', 'stm', 'smt']:
+            return jsonify({'success': False, 'error': 'Invalid file type. Must be rep, stm, or smt'}), 400
+
+        # Get auto_import flag (default: true)
+        auto_import = request.form.get('auto_import', 'true').lower() == 'true'
+
+        # Validate file extension
+        filename = secure_filename(file.filename)
+        file_ext = Path(filename).suffix.lower()
+
+        valid_extensions = {
+            'rep': ['.xls'],
+            'stm': ['.xls'],
+            'smt': ['.xlsx', '.xls', '.csv']
+        }
+
+        if file_ext not in valid_extensions[file_type]:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid file extension for {file_type.upper()}. Allowed: {", ".join(valid_extensions[file_type])}'
+            }), 400
+
+        # Create target directory
+        target_dir = Path(f'downloads/{file_type}')
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save file
+        target_path = target_dir / filename
+        file.save(str(target_path))
+
+        logger.info(f"Uploaded {file_type.upper()} file: {filename}")
+
+        result = {
+            'success': True,
+            'filename': filename,
+            'type': file_type,
+            'path': str(target_path),
+            'import_triggered': auto_import
+        }
+
+        # Trigger import if requested
+        if auto_import:
+            try:
+                if file_type == 'rep':
+                    import_result = unified_import_runner.start_single_file_import('rep', str(target_path))
+                elif file_type == 'stm':
+                    import_result = unified_import_runner.start_single_file_import('stm', str(target_path))
+                elif file_type == 'smt':
+                    import_result = unified_import_runner.start_single_file_import('smt', str(target_path))
+                else:
+                    import_result = {'success': False, 'error': 'Unknown file type'}
+
+                result['import_result'] = import_result
+
+            except Exception as import_error:
+                logger.error(f"Error triggering import: {import_error}")
+                result['import_error'] = str(import_error)
+                result['import_triggered'] = False
+
+        return jsonify(result), 200
 
     except Exception as e:
         logger.error(safe_format_exception())

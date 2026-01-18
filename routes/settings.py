@@ -16,6 +16,7 @@ from utils.auth import require_admin
 from utils.settings_manager import SettingsManager
 from utils.scheduler import download_scheduler
 from utils.logging_config import setup_logger
+from utils.license_middleware import require_license_write_access_for_methods
 
 # Create blueprint for API routes
 settings_api_bp = Blueprint('settings_api', __name__)
@@ -72,6 +73,7 @@ def api_settings():
 @settings_api_bp.route('/api/settings/credentials', methods=['GET', 'POST'])
 @login_required
 @require_admin
+@require_license_write_access_for_methods(['POST'])
 def manage_credentials():
     """Manage multiple E-Claim credentials"""
     if request.method == 'GET':
@@ -114,6 +116,7 @@ def manage_credentials():
 @settings_api_bp.route('/api/settings/credentials/<username>', methods=['PUT', 'DELETE'])
 @login_required
 @require_admin
+@require_license_write_access_for_methods(['PUT', 'DELETE'])
 def manage_credential(username):
     """Update or delete a specific credential"""
     if request.method == 'PUT':
@@ -218,6 +221,7 @@ def test_connection():
 @settings_api_bp.route('/api/settings/hospital-code', methods=['GET', 'POST'])
 @login_required
 @require_admin
+@require_license_write_access_for_methods(['POST'])
 def hospital_code():
     """Get or set hospital code (HCODE)"""
     if request.method == 'GET':
@@ -394,6 +398,7 @@ def remove_license():
 @settings_api_bp.route('/api/schedule', methods=['GET', 'POST'])
 @login_required
 @require_admin
+@require_license_write_access_for_methods(['POST'])
 def schedule_settings():
     """Get or update schedule settings"""
     if request.method == 'GET':

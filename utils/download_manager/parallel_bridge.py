@@ -79,13 +79,17 @@ class ParallelDownloadBridge:
         original_update = downloader._update_progress
 
         def wrapped_update(**kwargs):
-            # Call original update (writes to JSON file for backward compat)
-            original_update(**kwargs)
+            try:
+                # Call original update (updates in-memory state)
+                original_update(**kwargs)
 
-            # Also update DownloadManager
-            self._sync_progress_to_manager(session_id, downloader)
+                # Also update DownloadManager (sync to database)
+                self._sync_progress_to_manager(session_id, downloader)
+            except Exception as e:
+                logger.error(f"Error in wrapped_update: {e}", exc_info=True)
 
         downloader._update_progress = wrapped_update
+        logger.info(f"Monkey-patched _update_progress for session {session_id}")
 
         # Store downloader
         self.active_downloaders[session_id] = downloader
@@ -95,7 +99,7 @@ class ParallelDownloadBridge:
     def _sync_progress_to_manager(self, session_id: str, downloader: ParallelDownloader):
         """Sync progress from parallel downloader (in-memory) to DownloadManager (database)"""
         try:
-            # Read progress from downloader's in-memory state (not JSON)
+            # Read progress from downloader's in-memory state
             with downloader.progress_lock:
                 progress = downloader.progress.copy()
 
@@ -114,6 +118,9 @@ class ParallelDownloadBridge:
                 status = SessionStatus.FAILED
             elif progress.get('status') == 'cancelled':
                 status = SessionStatus.CANCELLED
+
+            # Debug log
+            logger.debug(f"[Bridge] Syncing progress: {processed}/{total} (status={status.value})")
 
             # Update DownloadManager
             self.manager.update_progress(
@@ -134,13 +141,14 @@ class ParallelDownloadBridge:
             if status in (SessionStatus.COMPLETED, SessionStatus.FAILED, SessionStatus.CANCELLED):
                 error = progress.get('error_message') if status == SessionStatus.FAILED else None
                 self.manager.complete_session(session_id, error)
+                logger.info(f"[Bridge] Session {session_id} completed: {processed}/{total}")
 
                 # Clean up
                 if session_id in self.active_downloaders:
                     del self.active_downloaders[session_id]
 
         except Exception as e:
-            logger.error(f"Error syncing progress for session {session_id}: {e}")
+            logger.error(f"[Bridge] Error syncing progress for session {session_id}: {e}", exc_info=True)
 
     def get_progress(self, session_id: str) -> Optional[Dict[str, Any]]:
         """
