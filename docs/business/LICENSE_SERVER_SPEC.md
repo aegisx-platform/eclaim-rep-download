@@ -657,7 +657,7 @@ eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBZWdpc1ggUGxhdGZvcm0iLCJpYXQiOjE
 **Method:** Bearer Token (API Key)
 
 ```http
-Authorization: Bearer sk_live_abc123def456ghi789
+Authorization: Bearer YOUR_ADMIN_API_KEY_HERE
 ```
 
 **API Key Format:**
@@ -665,13 +665,13 @@ Authorization: Bearer sk_live_abc123def456ghi789
 sk_{env}_{random_32_chars}
 
 Examples:
-- sk_live_abc123def456ghi789jkl012  (Production)
-- sk_test_xyz987wvu654tsr321opq210  (Testing)
+- sk_live_[YOUR_32_CHAR_KEY_HERE]  (Production)
+- sk_test_[YOUR_32_CHAR_KEY_HERE]  (Testing)
 ```
 
 **Storage:** Environment variable
 ```bash
-ADMIN_API_KEY=sk_live_abc123def456ghi789jkl012
+ADMIN_API_KEY=sk_live_[YOUR_32_CHAR_KEY_HERE]
 ```
 
 ### Public Endpoint Rate Limiting
