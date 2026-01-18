@@ -2744,7 +2744,10 @@ function initFilters() {
 // ==================== Tab Dropdown Functions ====================
 
 // Tab group mapping - which tabs belong to which group
-var tabGroups = {};
+var tabGroups = {
+    'files': ['rep', 'statement', 'smt'],
+    'history': ['jobs']
+};
 
 // Tab labels for indicator
 var tabLabels = {
@@ -2846,26 +2849,20 @@ function switchTab(tab) {
     // Show selected tab content
     document.getElementById('content-' + tab).classList.remove('hidden');
 
-    // Update standalone tab button styles (Dashboard and Download)
-    var dashboardBtn = document.getElementById('tab-dashboard');
-    var downloadBtn = document.getElementById('tab-download');
+    // Reset ALL tab buttons (Dashboard, Download, REP, Statement, SMT, Jobs)
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        btn.classList.remove('border-blue-600', 'text-blue-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
 
-    // Reset both standalone buttons
-    dashboardBtn.classList.remove('border-blue-600', 'text-blue-600');
-    dashboardBtn.classList.add('border-transparent', 'text-gray-500');
-    downloadBtn.classList.remove('border-blue-600', 'text-blue-600');
-    downloadBtn.classList.add('border-transparent', 'text-gray-500');
-
-    // Highlight active standalone tab
-    if (tab === 'dashboard') {
-        dashboardBtn.classList.remove('border-transparent', 'text-gray-500');
-        dashboardBtn.classList.add('border-blue-600', 'text-blue-600');
-    } else if (tab === 'download') {
-        downloadBtn.classList.remove('border-transparent', 'text-gray-500');
-        downloadBtn.classList.add('border-blue-600', 'text-blue-600');
+    // Highlight active tab button
+    var activeBtn = document.getElementById('tab-' + tab);
+    if (activeBtn) {
+        activeBtn.classList.remove('border-transparent', 'text-gray-500');
+        activeBtn.classList.add('border-blue-600', 'text-blue-600');
     }
 
-    // Update dropdown group highlight
+    // Update dropdown group highlight (for grouped tabs)
     updateGroupHighlight(tab);
 
     // Load data for specific tabs

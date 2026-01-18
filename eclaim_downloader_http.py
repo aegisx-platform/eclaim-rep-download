@@ -402,7 +402,40 @@ class EClaimDownloader:
                     # Get file size
                     file_size = file_path.stat().st_size
 
-                    # Check if file is valid (not empty or too small)
+                    # Handle 0-byte files (no data from NHSO)
+                    if file_size == 0:
+                        # Retry once for 0-byte files (might be network issue)
+                        if retry_count == 0:
+                            stream_log(f"[{idx}/{total_files}] ⚠ File is 0 bytes, retrying...", 'warning')
+                            file_path.unlink(missing_ok=True)  # Delete 0-byte file
+                            retry_count += 1
+                            continue
+                        else:
+                            # After retry, still 0 bytes = no data from NHSO
+                            stream_log(f"[{idx}/{total_files}] ℹ No data available from NHSO (0 bytes)", 'warning')
+                            file_path.unlink(missing_ok=True)  # Delete 0-byte file
+
+                            # Record as "no_data" in database
+                            try:
+                                db = self._get_history_db()
+                                db_record = {
+                                    'filename': filename,
+                                    'scheme': self.scheme,
+                                    'fiscal_year': self.year,
+                                    'service_month': self.month,
+                                    'file_size': 0,
+                                    'file_path': str(file_path),
+                                    'source_url': url,
+                                }
+                                db.record_download('rep', db_record, status='no_data')
+                            except Exception as db_error:
+                                stream_log(f"    Warning: Could not save to DB: {db_error}", 'warning')
+
+                            skipped_count += 1
+                            success = True  # Mark as success to exit retry loop
+                            continue
+
+                    # Check if file is too small (but not 0)
                     if file_size < 100:
                         raise Exception(f"Downloaded file too small ({file_size} bytes)")
 

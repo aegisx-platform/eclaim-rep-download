@@ -150,6 +150,133 @@ async function deleteFile(filename) {
 }
 
 /**
+ * Re-download a file by extracting date from filename
+ */
+async function reDownloadFile(filename) {
+    // Confirm re-download
+    if (!confirm(`Re-download "${filename}"?\n\nThis will delete the existing file and download a fresh copy from NHSO.`)) {
+        return;
+    }
+
+    try {
+        // Show progress modal
+        showDownloadProgress(`Re-downloading: ${filename}`);
+
+        const response = await fetch(`/api/files/re-download/${encodeURIComponent(filename)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            updateDownloadProgress(`Downloading ${data.file_type} files...`, 10);
+
+            // Start polling download status
+            pollDownloadStatus(filename);
+        } else {
+            hideDownloadProgress();
+            showToast(data.error || 'Failed to re-download file', 'error');
+        }
+    } catch (error) {
+        console.error('Error re-downloading file:', error);
+        hideDownloadProgress();
+        showToast('Error re-downloading file', 'error');
+    }
+}
+
+/**
+ * Poll download status for re-download
+ */
+function pollDownloadStatus(filename) {
+    const pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch('/api/downloads/status');
+            const status = await response.json();
+
+            if (status.running) {
+                // Download in progress
+                const percent = status.total > 0
+                    ? Math.round((status.completed / status.total) * 100)
+                    : 10;
+                updateDownloadProgress(
+                    `Downloading... ${status.completed}/${status.total} files`,
+                    percent
+                );
+            } else {
+                // Download completed or stopped
+                clearInterval(pollInterval);
+                updateDownloadProgress('Download complete! Refreshing...', 100);
+
+                setTimeout(() => {
+                    hideDownloadProgress();
+                    location.reload();
+                }, 1500);
+            }
+        } catch (error) {
+            console.error('Error polling download status:', error);
+            clearInterval(pollInterval);
+            hideDownloadProgress();
+            showToast('Download monitoring error', 'warning');
+        }
+    }, 2000); // Poll every 2 seconds
+}
+
+/**
+ * Show download progress modal
+ */
+function showDownloadProgress(message) {
+    let modal = document.getElementById('re-download-progress-modal');
+    if (!modal) {
+        // Create modal if doesn't exist
+        modal = document.createElement('div');
+        modal.id = 're-download-progress-modal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Re-downloading File</h3>
+                <div class="mb-4">
+                    <p id="re-download-progress-text" class="text-sm text-gray-600 mb-2">Starting...</p>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="re-download-progress-bar" class="bg-blue-600 h-3 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                    <p id="re-download-progress-percent" class="text-xs text-gray-500 mt-1 text-right">0%</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    modal.classList.remove('hidden');
+    updateDownloadProgress(message, 0);
+}
+
+/**
+ * Update download progress
+ */
+function updateDownloadProgress(message, percent) {
+    const textEl = document.getElementById('re-download-progress-text');
+    const barEl = document.getElementById('re-download-progress-bar');
+    const percentEl = document.getElementById('re-download-progress-percent');
+
+    if (textEl) textEl.textContent = message;
+    if (barEl) barEl.style.width = `${percent}%`;
+    if (percentEl) percentEl.textContent = `${percent}%`;
+}
+
+/**
+ * Hide download progress modal
+ */
+function hideDownloadProgress() {
+    const modal = document.getElementById('re-download-progress-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+/**
  * Show toast notification (XSS-safe implementation)
  */
 function showToast(message, type = 'info') {

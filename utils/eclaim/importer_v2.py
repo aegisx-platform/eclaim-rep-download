@@ -903,6 +903,29 @@ class EClaimImporterV2:
         # Date columns that need parsing
         date_columns = ['dateadm', 'datedsc', 'inp_date']
 
+        # Numeric columns that need type conversion (to handle non-numeric values gracefully)
+        # All columns with int/double/decimal/float types from database schema
+        numeric_columns = [
+            'seq', 'rw', 'adjrw2', 'adjrw_nhso', 'va', 'fs',
+            'claim_able', 'claim_request', 'claim_unable', 'claim_drg', 'claim_xdrg',
+            'claim_net', 'claim_central_reimb', 'copay', 'late_ps', 'ccuf',
+            'reimb_amt', 'accidentinsurance', 'salary_amt', 'reimb_diff_salary',
+            'hc_amt', 'ae_amt', 'inst', 'ip_amt', 'dmis_catinst', 'dmis_dm',
+            'dmis_dmicnt', 'dmis_dmidml', 'dmis_dmishd', 'dmis_llop', 'dmis_llrgc',
+            'dmis_llrgr', 'dmis_lp', 'dmis_paliative', 'dmis_pp', 'dmis_stroke_drug',
+            'dmisrc_amt', 'dmisrc_workload', 'drug', 'op_amt', 'opbkk_dent',
+            'opbkk_drug', 'opbkk_fs', 'opbkk_hc', 'opbkk_others', 'ophc', 'opinst',
+            'int_amt', 'reimb_nhso', 'reimb_agency',
+            'paid', 'pay_point', 'baserate_old', 'baserate_add', 'baserate_total',
+            'on_top_amt', 'pp_amt', 'total_service_amt', 'his_amount_diff',
+            'ae_carae', 'ae_caref', 'ae_caref_puc', 'ae_ip3sss', 'ae_ip7sss',
+            'ae_ipnb', 'ae_ipuc', 'ae_opae', 'cataract_amt', 'cataract_hosp',
+            'cataract_oth', 'ipaec', 'ipaer', 'ipbkk_inst', 'iphc', 'ipinrgc',
+            'ipinrgr', 'ipinspsn', 'ipprcc', 'ipprcc_puc', 'rcuhosc_amt',
+            'rcuhosc_workload', 'rcuhosr_amt', 'rcuhosr_workload', 'act_amt',
+            'inp_id', 'his_matched'
+        ]
+
         # String field max lengths (from schema)
         max_lengths = {
             'chk_refer': 1, 'chk_right': 1, 'chk_use_right': 1, 'chk': 1,
@@ -955,6 +978,13 @@ class EClaimImporterV2:
                             # Already a datetime-like object
                             mapped[db_col] = value
                         else:
+                            mapped[db_col] = None
+                    # Handle numeric columns - convert to float, fallback to NULL
+                    elif db_col in numeric_columns:
+                        try:
+                            num_val = pd.to_numeric(value, errors='coerce')
+                            mapped[db_col] = num_val if not pd.isna(num_val) else None
+                        except (ValueError, TypeError):
                             mapped[db_col] = None
                     # Clean ID fields - remove .0 suffix from float conversion
                     elif db_col in ['tran_id', 'hn', 'an', 'pid', 'rep_no', 'seq_no']:

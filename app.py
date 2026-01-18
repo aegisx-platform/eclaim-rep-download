@@ -886,53 +886,75 @@ def files():
     # Get filter parameters
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
-    filter_month = request.args.get('month', type=int)
-    filter_year = request.args.get('year', type=int)
-    filter_type = request.args.get('type', type=str)  # NEW: Filter by file type (rep, stm, smt)
+    filter_type = request.args.get('type', type=str)  # Filter by file type (rep, stm, smt)
+    filter_search = request.args.get('search', type=str)  # Search filename
 
-    # Default to current month/year if not specified
+    # Date range filter with defaults
     now = datetime.now(TZ_BANGKOK)
-    if filter_month is None:
-        filter_month = now.month
-    if filter_year is None:
-        filter_year = now.year + 543  # Convert to Buddhist Era
+    default_date_from = now.replace(day=1).strftime('%Y-%m-%d')  # 1st day of current month
+    default_date_to = now.strftime('%Y-%m-%d')  # Today
+
+    filter_date_from = request.args.get('date_from', default_date_from, type=str)
+    filter_date_to = request.args.get('date_to', default_date_to, type=str)
 
     all_files = history_manager.get_all_downloads()
 
     # Get import status from database
     import_status_map = get_import_status_map()
 
-    # Filter by month/year and type
+    # Filter by date range, type, and search
     filtered_files = []
     for file in all_files:
-        file_month = file.get('month')
-        file_year = file.get('year')
+        # Extract date from filename (format: eclaim_10670_OP_25690106_xxx.xls → 2569-01-06)
+        import re
+        match = re.search(r'_(\d{4})(\d{2})(\d{2})_', file.get('filename', ''))
+        if match:
+            file_year = int(match.group(1))
+            file_month = int(match.group(2))
+            file_day = int(match.group(3))
+            # Convert Buddhist Era to Gregorian (2569 → 2026)
+            file_date_str = f"{file_year - 543:04d}-{file_month:02d}-{file_day:02d}"
+        else:
+            # Fallback: use download_date
+            download_date = file.get('download_date', '')
+            if download_date:
+                try:
+                    dt = datetime.fromisoformat(download_date)
+                    file_date_str = dt.strftime('%Y-%m-%d')
+                except:
+                    file_date_str = None
+            else:
+                file_date_str = None
 
-        # If month/year not in file metadata, try to extract from filename
-        if file_month is None or file_year is None:
-            # Filename format: eclaim_10670_OP_25690106_xxx.xls
-            # Extract year (2569) and month (01) from 25690106
-            import re
-            match = re.search(r'_(\d{4})(\d{2})\d{2}_', file.get('filename', ''))
-            if match:
-                file_year = int(match.group(1))
-                file_month = int(match.group(2))
+        # Apply date range filter
+        if filter_date_from and file_date_str:
+            if file_date_str < filter_date_from:
+                continue
 
-        # Apply month/year filter
-        if file_month != filter_month or file_year != filter_year:
-            continue
+        if filter_date_to and file_date_str:
+            if file_date_str > filter_date_to:
+                continue
 
         # Apply type filter if specified
         if filter_type:
+            file_path = file.get('file_path') or ''
             filename = file.get('filename', '').lower()
-            # Determine file type from directory or filename
-            file_path = file.get('file_path', '')
 
-            if filter_type == 'rep' and '/rep/' not in file_path:
-                continue
-            elif filter_type == 'stm' and '/stm/' not in file_path:
-                continue
-            elif filter_type == 'smt' and '/smt/' not in file_path:
+            # Check both file_path and filename for type matching
+            if filter_type == 'rep':
+                if '/rep/' not in file_path and 'eclaim_' not in filename:
+                    continue
+            elif filter_type == 'stm':
+                if '/stm/' not in file_path and 'stm_' not in filename:
+                    continue
+            elif filter_type == 'smt':
+                if '/smt/' not in file_path and 'smt_budget_' not in filename:
+                    continue
+
+        # Apply search filter if specified
+        if filter_search:
+            filename = file.get('filename', '').lower()
+            if filter_search.lower() not in filename:
                 continue
 
         filtered_files.append(file)
@@ -958,16 +980,18 @@ def files():
     for file in paginated_files:
         file['size_formatted'] = humanize.naturalsize(file.get('file_size') or 0)
         try:
-            # Parse datetime (stored as UTC in Docker container)
+            # Parse datetime (MySQL stores in Bangkok time due to SYSTEM timezone)
             dt = datetime.fromisoformat(file.get('download_date', ''))
-            # If naive datetime, assume it's UTC and convert to Bangkok time
+            # If naive datetime, add Bangkok timezone
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc).astimezone(TZ_BANGKOK)
+                dt = dt.replace(tzinfo=TZ_BANGKOK)
             file['date_formatted'] = dt.strftime('%Y-%m-%d %H:%M:%S')
             # Use current Bangkok time for relative time calculation
             now = datetime.now(TZ_BANGKOK)
             file['date_relative'] = humanize.naturaltime(dt, when=now)
-        except (ValueError, TypeError, AttributeError):
+        except Exception as e:
+            # Log error for debugging
+            logger.error(f"Error parsing date for {file.get('filename')}: {e}")
             file['date_formatted'] = file.get('download_date', 'Unknown')
             file['date_relative'] = 'Unknown'
 
@@ -1000,9 +1024,10 @@ def files():
         per_page=per_page,
         total_pages=total_pages,
         total_files=total_files,
-        filter_month=filter_month,
-        filter_year=filter_year,
-        filter_type=filter_type,  # NEW: Pass type filter to template
+        filter_type=filter_type,
+        filter_date_from=filter_date_from,
+        filter_date_to=filter_date_to,
+        filter_search=filter_search,
         available_dates=available_dates,
         schedule_settings=schedule_settings,
         schedule_jobs=schedule_jobs
@@ -1167,6 +1192,111 @@ def download_file(filename):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': f'Error: {str(e)}'}), 500
+
+
+@app.route('/api/files/re-download/<filename>', methods=['POST'])
+def re_download_file(filename):
+    """
+    Re-download a file by extracting date from filename and triggering download
+
+    Filename format: eclaim_{hospcode}_{file_type}_{YYYYMMDD}_{timestamp}.xls
+    Example: eclaim_10670_IP_APPEAL_NHSO_25680913_103449525.xls
+             → Year: 2568, Month: 09
+    """
+    try:
+        import re
+        from datetime import datetime
+
+        # Extract date from filename (YYYYMMDD format)
+        # Pattern: eclaim_{hospcode}_{file_type}_{YYYYMMDD}_{timestamp}.xls
+        match = re.search(r'_(\d{8})_\d+\.xls$', filename)
+
+        if not match:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid filename format. Cannot extract date.'
+            }), 400
+
+        date_str = match.group(1)  # e.g., "25680913"
+
+        # Parse date (Buddhist Era)
+        year = int(date_str[:4])    # 2568
+        month = int(date_str[4:6])  # 09
+        day = int(date_str[6:8])    # 13
+
+        # Validate date
+        if year < 2500 or year > 2600:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid year: {year}. Expected Buddhist Era year (2500-2600)'
+            }), 400
+
+        if month < 1 or month > 12:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid month: {month}'
+            }), 400
+
+        # Determine file type
+        file_type = 'unknown'
+        if '_OP_' in filename:
+            file_type = 'OP'
+        elif '_IP_APPEAL_NHSO_' in filename:
+            file_type = 'IP_APPEAL_NHSO'
+        elif '_IP_APPEAL_' in filename:
+            file_type = 'IP_APPEAL'
+        elif '_IP_' in filename:
+            file_type = 'IP'
+        elif '_ORF_' in filename:
+            file_type = 'ORF'
+
+        # Extract scheme (default to 'ucs')
+        scheme = 'ucs'
+        if 'SSS' in filename:
+            scheme = 'sss'
+        elif 'OFC' in filename:
+            scheme = 'ofc'
+
+        logger.info(f"Re-download request: {filename} → Year={year}, Month={month}, Type={file_type}, Scheme={scheme}")
+
+        # Delete existing file
+        file_path = file_manager.get_file_path(filename)
+        if file_path.exists():
+            file_path.unlink()
+            logger.info(f"Deleted existing file: {filename}")
+
+        # Delete from database history (if exists)
+        try:
+            from utils.download_manager import get_download_manager
+            db = get_download_manager()
+            # Note: We don't have a delete method, but the download will overwrite
+        except Exception as e:
+            logger.warning(f"Could not clean history: {e}")
+
+        # Trigger download for that month (use global downloader_runner instance)
+        result = downloader_runner.start(month=month, year=year, schemes=[scheme])
+
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': f'Re-download started for {file_type}',
+                'year': year,
+                'month': month,
+                'file_type': file_type,
+                'scheme': scheme
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Failed to start download')
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error re-downloading {filename}: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Error: {str(e)}'
+        }), 500
 
 
 @app.route('/api/imports/rep/<filename>', methods=['POST'])
