@@ -136,6 +136,22 @@
                         Benchmark
                     </a>
 
+                    <!-- Files -->
+                    <a href="{{ url_for('files') }}" class="px-4 py-2 rounded-lg font-medium transition-all {% if request.endpoint == 'files' %}bg-white/20 text-white{% else %}text-blue-100 hover:bg-white/10 hover:text-white{% endif %}">
+                        <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                        </svg>
+                        Files
+                    </a>
+
+                    <!-- Upload -->
+                    <a href="{{ url_for('upload_page') }}" class="px-4 py-2 rounded-lg font-medium transition-all {% if request.endpoint == 'upload_page' %}bg-white/20 text-white{% else %}text-blue-100 hover:bg-white/10 hover:text-white{% endif %}">
+                        <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        Upload
+                    </a>
+
                     <!-- Settings Dropdown -->
                     <div class="relative settings-dropdown">
                         <button onclick="toggleSettingsDropdown()" class="px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-1 {% if request.endpoint and (request.endpoint.startswith('settings.') or request.endpoint in ['data_management', 'master_data_management']) %}bg-white/20 text-white{% else %}text-blue-100 hover:bg-white/10 hover:text-white{% endif %}">
