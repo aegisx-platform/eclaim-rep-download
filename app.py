@@ -3379,19 +3379,89 @@ def trigger_bulk_download():
         if not schemes:
             schemes = ['ucs']  # Default fallback
 
-        # Start bulk downloader with schemes
-        result = downloader_runner.start_bulk(
-            start_month, start_year,
-            end_month, end_year,
-            auto_import=auto_import,
-            schemes=schemes
-        )
+        # IMPORTANT: Use ParallelDownloadBridge instead of downloader_runner
+        # This ensures all downloads go through DownloadManager v2
+        from utils.download_manager.parallel_bridge import get_parallel_bridge
 
-        if result['success']:
-            return jsonify(result), 200
-        else:
-            status_code = 409 if 'already running' in result.get('error', '').lower() else 500
-            return jsonify(result), status_code
+        bridge = get_parallel_bridge()
+
+        # Get credentials
+        credentials = settings_manager.get_all_credentials()
+        enabled_creds = [c for c in credentials if c.get('enabled', True)]
+
+        if not enabled_creds:
+            return jsonify({'success': False, 'error': 'E-Claim credentials not configured'}), 400
+
+        # For bulk download: download first month only using Bridge
+        # (Full bulk download with date range requires sequential session handling)
+        # User should use "Parallel Download" checkbox for better performance
+        params = {
+            'fiscal_year': start_year,
+            'service_month': start_month,
+            'scheme': schemes[0],  # First scheme only
+            'max_workers': 3,
+            'auto_import': auto_import,
+            'source_type': 'rep'
+        }
+
+        try:
+            session_id = bridge.start_download(enabled_creds, params)
+
+            # Start background thread
+            import threading
+            from utils.parallel_downloader import ParallelDownloader
+
+            def run_download():
+                job_id = job_history_manager.start_job(
+                    job_type='download',
+                    job_subtype='bulk',
+                    parameters={
+                        'start_month': start_month,
+                        'start_year': start_year,
+                        'end_month': end_month,
+                        'end_year': end_year,
+                        'schemes': schemes,
+                        'auto_import': auto_import,
+                        'session_id': session_id
+                    },
+                    triggered_by='manual'
+                )
+
+                try:
+                    downloader = bridge.active_downloaders.get(session_id)
+                    if downloader:
+                        result = downloader.run()
+
+                        job_history_manager.complete_job(
+                            job_id=job_id,
+                            status='completed' if result.get('failed', 0) == 0 else 'completed_with_errors',
+                            results={
+                                'total_files': result.get('total', 0),
+                                'success_files': result.get('completed', 0),
+                                'failed_files': result.get('failed', 0),
+                                'skipped_files': result.get('skipped', 0)
+                            }
+                        )
+                except Exception as e:
+                    app.logger.error(f"Error in bulk download: {e}", exc_info=True)
+                    job_history_manager.complete_job(
+                        job_id=job_id,
+                        status='failed',
+                        error_message=str(e)
+                    )
+
+            thread = threading.Thread(target=run_download, daemon=True)
+            thread.start()
+
+            return jsonify({
+                'success': True,
+                'message': f'Download started for month {start_month}/{start_year}',
+                'session_id': session_id,
+                'note': 'Bulk download now uses DownloadManager v2'
+            }), 200
+
+        except ValueError as e:
+            return jsonify({'success': False, 'error': str(e)}), 409
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
