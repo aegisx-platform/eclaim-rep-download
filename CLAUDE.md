@@ -204,6 +204,54 @@ The API follows a consistent RESTful naming convention with resources grouped by
 
 **Legacy Routes**: Old routes (e.g., `/download/trigger`, `/import/all`) are kept as aliases for backward compatibility but should be migrated to new routes.
 
+### External API & HIS Integration
+
+The system provides a RESTful API for Hospital Information System (HIS) integration via the `/api/v1` endpoint.
+
+**API Documentation:**
+- **Swagger UI**: http://localhost:5001/api/docs (interactive documentation)
+- **OpenAPI 3.0 Spec**:
+  - YAML: http://localhost:5001/api/v1/openapi.yaml
+  - JSON: http://localhost:5001/api/v1/openapi.json
+- **Documentation**: `docs/EXTERNAL_API.md`
+
+**Available Endpoints:**
+```
+/api/v1/
+├── health                    # GET - Health check (no auth)
+├── claims                    # GET - Get claims data
+├── claims/{tran_id}          # GET - Get single claim
+├── claims/summary            # GET - Get claims summary
+├── reconciliation/
+│   ├── match                 # POST - Match claims with HIS
+│   └── status                # GET - Get reconciliation status
+└── imports/status            # GET - Get import status
+```
+
+**Authentication:**
+- All endpoints (except `/health`) require API key authentication
+- Generate API keys from admin panel: Settings → API Keys
+- Include in header: `X-API-Key: your-api-key-here`
+
+**Example Usage:**
+```bash
+# Health check (no auth)
+curl http://localhost:5001/api/v1/health
+
+# Get claims (with auth)
+curl -H "X-API-Key: your-key" \
+  "http://localhost:5001/api/v1/claims?date_from=2025-12-01&date_to=2025-12-31"
+
+# Match claims with HIS
+curl -X POST -H "X-API-Key: your-key" \
+  -H "Content-Type: application/json" \
+  -d '{"matches":[{"tran_id":"123","his_vn":"456"}]}' \
+  http://localhost:5001/api/v1/reconciliation/match
+```
+
+**Postman Collection:**
+Download OpenAPI spec from `/api/v1/openapi.yaml` and import into Postman for ready-to-use collection with all endpoints.
+
 ### Data Flow
 
 ```

@@ -11,6 +11,7 @@ from pathlib import Path
 import subprocess
 import sys
 import traceback
+import yaml
 from utils import FileManager, DownloaderRunner
 from utils.history_manager_db import HistoryManagerDB
 from utils.import_runner import ImportRunner
@@ -41,6 +42,9 @@ from flask_bcrypt import Bcrypt
 
 # Flask-WTF CSRF Protection
 from flask_wtf.csrf import CSRFProtect, CSRFError
+
+# Swagger/OpenAPI Documentation
+from flasgger import Swagger
 
 
 # Database-specific SQL helpers for PostgreSQL/MySQL compatibility
@@ -264,6 +268,45 @@ logger.info("✓ External API blueprint registered at /api/v1")
 
 app.register_blueprint(api_keys_mgmt_bp)  # API Keys management routes
 logger.info("✓ API Keys Management blueprint registered")
+
+# Initialize Swagger UI for API documentation
+# Load OpenAPI spec from YAML file
+openapi_spec_path = os.path.join(app.root_path, 'static', 'swagger', 'openapi.yaml')
+
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": 'apispec',
+            "route": '/api/v1/apispec.json',
+            "rule_filter": lambda _: True,
+            "model_filter": lambda _: True,
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/api/docs",
+    "openapi": "3.0.3"
+}
+
+# Load OpenAPI spec from YAML file
+try:
+    with open(openapi_spec_path, 'r', encoding='utf-8') as f:
+        swagger_template = yaml.safe_load(f)
+    logger.info("✓ Loaded OpenAPI spec from openapi.yaml")
+except FileNotFoundError:
+    logger.warning("⚠ OpenAPI spec file not found, using minimal template")
+    swagger_template = {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "E-Claim HIS Integration API",
+            "description": "REST API for Hospital Information System (HIS) integration with E-Claim data",
+            "version": "1.0.0"
+        }
+    }
+
+swagger = Swagger(app, config=swagger_config, template=swagger_template)
+logger.info("✓ Swagger UI initialized at /api/docs")
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -820,6 +863,39 @@ def files():
         schedule_jobs=schedule_jobs
     )
 
+
+# ==================== OpenAPI Documentation Routes ====================
+
+@app.route('/api/v1/openapi.yaml')
+def serve_openapi_yaml():
+    """Serve OpenAPI 3.0 specification in YAML format"""
+    return send_from_directory(
+        os.path.join(app.root_path, 'static', 'swagger'),
+        'openapi.yaml',
+        mimetype='application/x-yaml'
+    )
+
+
+@app.route('/api/v1/openapi.json')
+def serve_openapi_json():
+    """Serve OpenAPI 3.0 specification in JSON format"""
+    yaml_path = os.path.join(app.root_path, 'static', 'swagger', 'openapi.yaml')
+
+    try:
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            spec = yaml.safe_load(f)
+        return jsonify(spec)
+    except FileNotFoundError:
+        return jsonify({
+            'error': 'OpenAPI specification not found'
+        }), 404
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to load OpenAPI specification: {str(e)}'
+        }), 500
+
+
+# ==================== User Management Routes ====================
 
 @app.route('/api/user/change-password', methods=['POST'])
 @login_required
@@ -11083,6 +11159,93 @@ def api_ml_high_risk():
 # Reconciliation Routes
 # ============================================
 
+def calculate_performance_metrics(summary, monthly_data):
+    """
+    Calculate Claims Performance Metrics
+    Returns dict with:
+    - payment_accuracy: % of months with matched amounts
+    - claim_to_payment_ratio: SMT/REP amount ratio
+    - underpayment_rate: % of months underpaid
+    - pending_rate: % of months pending payment
+    - avg_difference: Average difference per claim
+    - top_month: Month with highest claim amount
+    - matched_months: Count of matched months
+    - underpaid_months: Count of underpaid months
+    - pending_months: Count of pending months
+    - total_months: Total months with data
+    """
+    if not summary or not monthly_data:
+        return {
+            'payment_accuracy': 0,
+            'claim_to_payment_ratio': 0,
+            'underpayment_rate': 0,
+            'pending_rate': 0,
+            'avg_difference': 0,
+            'top_month': None,
+            'matched_months': 0,
+            'underpaid_months': 0,
+            'pending_months': 0,
+            'total_months': 0
+        }
+
+    total_months = len(monthly_data)
+    matched_months = 0
+    underpaid_months = 0
+    pending_months = 0
+    top_month = None
+    max_claim_total = 0
+
+    for month in monthly_data:
+        has_rep = month.get('has_rep_data', False)
+        has_smt = month.get('has_smt_data', False)
+        difference = month.get('difference', 0)
+        claim_total = month.get('claim_total', 0)
+
+        # Count matched months (difference < 1% of claim total)
+        if has_rep and has_smt and claim_total > 0:
+            diff_percent = abs(difference / claim_total)
+            if diff_percent < 0.01:  # Less than 1%
+                matched_months += 1
+
+        # Count underpaid months
+        if has_rep and has_smt and difference < 0:
+            underpaid_months += 1
+
+        # Count pending months (has REP but no SMT)
+        if has_rep and not has_smt:
+            pending_months += 1
+
+        # Find top month
+        if has_rep and claim_total > max_claim_total:
+            max_claim_total = claim_total
+            top_month = month
+
+    # Calculate ratios
+    payment_accuracy = (matched_months / total_months * 100) if total_months > 0 else 0
+    underpayment_rate = (underpaid_months / total_months * 100) if total_months > 0 else 0
+    pending_rate = (pending_months / total_months * 100) if total_months > 0 else 0
+
+    rep_total = summary.get('rep', {}).get('total_amount', 0)
+    smt_total = summary.get('smt', {}).get('total_amount', 0)
+    total_claims = summary.get('rep', {}).get('total_claims', 0)
+
+    claim_to_payment_ratio = (smt_total / rep_total * 100) if rep_total > 0 else 0
+    avg_difference = ((smt_total - rep_total) / total_claims) if total_claims > 0 else 0
+
+    return {
+        'payment_accuracy': payment_accuracy,
+        'claim_to_payment_ratio': claim_to_payment_ratio,
+        'underpayment_rate': underpayment_rate,
+        'pending_rate': pending_rate,
+        'avg_difference': avg_difference,
+        'top_month': top_month,
+        'matched_months': matched_months,
+        'underpaid_months': underpaid_months,
+        'pending_months': pending_months,
+        'total_months': total_months
+    }
+
+
 @app.route('/reconciliation')
 def reconciliation():
     """Reconciliation Report page - Compare REP claims vs SMT payments"""
@@ -11090,6 +11253,9 @@ def reconciliation():
 
     # Get fiscal year from query param
     fiscal_year = request.args.get('fy', type=int)
+
+    # Get hospital code from settings
+    hospital_code = settings_manager.get_hospital_code()
 
     conn = get_db_connection()
     if not conn:
@@ -11100,11 +11266,12 @@ def reconciliation():
             monthly_data=[],
             fund_data=[],
             fiscal_years=[],
-            selected_fy=None
+            selected_fy=None,
+            performance_metrics=None
         )
 
     try:
-        report = ReconciliationReport(conn)
+        report = ReconciliationReport(conn, hospital_code)
 
         # Get available fiscal years
         fiscal_years = report.get_available_fiscal_years()
@@ -11122,6 +11289,10 @@ def reconciliation():
             monthly_data = report.get_monthly_reconciliation()
 
         fund_data = report.get_fund_reconciliation()
+
+        # Calculate performance metrics
+        performance_metrics = calculate_performance_metrics(summary, monthly_data)
+
         conn.close()
 
         return render_template(
@@ -11130,7 +11301,8 @@ def reconciliation():
             monthly_data=monthly_data,
             fund_data=fund_data,
             fiscal_years=fiscal_years,
-            selected_fy=fiscal_year
+            selected_fy=fiscal_year,
+            performance_metrics=performance_metrics
         )
     except Exception as e:
         app.logger.error(f"Reconciliation error: {e}")
@@ -11143,7 +11315,8 @@ def reconciliation():
             monthly_data=[],
             fund_data=[],
             fiscal_years=[],
-            selected_fy=None
+            selected_fy=None,
+            performance_metrics=None
         )
 
 
@@ -11157,7 +11330,7 @@ def api_reconciliation_fiscal_years():
         if not conn:
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
-        report = ReconciliationReport(conn)
+        report = ReconciliationReport(conn, settings_manager.get_hospital_code())
         fiscal_years = report.get_available_fiscal_years()
         conn.close()
 
@@ -11181,7 +11354,7 @@ def api_reconciliation_monthly():
         if not conn:
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
-        report = ReconciliationReport(conn)
+        report = ReconciliationReport(conn, settings_manager.get_hospital_code())
 
         if fiscal_year:
             data = report.get_monthly_reconciliation_by_fy(fiscal_year)
@@ -11211,7 +11384,7 @@ def api_reconciliation_fund():
         if not conn:
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
-        report = ReconciliationReport(conn)
+        report = ReconciliationReport(conn, settings_manager.get_hospital_code())
         data = report.get_fund_reconciliation(month_be)
         conn.close()
 
@@ -11235,7 +11408,7 @@ def api_reconciliation_summary():
         if not conn:
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
-        report = ReconciliationReport(conn)
+        report = ReconciliationReport(conn, settings_manager.get_hospital_code())
 
         if fiscal_year:
             summary = report.get_summary_stats_by_fy(fiscal_year)
@@ -11262,7 +11435,7 @@ def api_rep_monthly():
         if not conn:
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
-        report = ReconciliationReport(conn)
+        report = ReconciliationReport(conn, settings_manager.get_hospital_code())
         data = report.get_rep_monthly_summary()
         conn.close()
 
@@ -11284,7 +11457,7 @@ def api_smt_monthly():
         if not conn:
             return jsonify({'success': False, 'error': 'Database connection failed'}), 500
 
-        report = ReconciliationReport(conn)
+        report = ReconciliationReport(conn, settings_manager.get_hospital_code())
         data = report.get_smt_monthly_summary()
         conn.close()
 
@@ -12067,6 +12240,43 @@ def api_master_data_error_codes_list():
         return jsonify({'success': True, 'data': data, 'total': total})
     except Exception as e:
         logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/master-data/error-codes/<code>')
+@login_required
+def api_master_data_error_code_by_code(code):
+    """Get error code details by code"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'error': 'Database connection failed'}), 500
+
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT code, description, type, guide
+            FROM nhso_error_codes
+            WHERE code = %s
+        """, [code])
+
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not row:
+            return jsonify({'success': False, 'error': 'Error code not found'}), 404
+
+        data = {
+            'error_code': row[0],
+            'error_message': row[1] or '',
+            'category': row[2] or '',
+            'guide': row[3] or ''
+        }
+
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        logger.error(f"Error getting error code {code}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
