@@ -121,8 +121,9 @@ def convert_gregorian_to_be(gregorian_date) -> Optional[str]:
 class ReconciliationReport:
     """Generate reconciliation report between REP claims and SMT payments"""
 
-    def __init__(self, db_connection):
+    def __init__(self, db_connection, hospital_code: str = None):
         self.conn = db_connection
+        self.hospital_code = hospital_code
 
     def get_rep_monthly_summary(self) -> List[Dict]:
         """
@@ -180,7 +181,15 @@ class ReconciliationReport:
         """
         cursor = self.conn.cursor()
 
-        query = """
+        # Build WHERE clause with hospital filter
+        where_clause = "WHERE posting_date IS NOT NULL"
+        params = []
+        if self.hospital_code:
+            # Normalize vendor_no by removing leading zeros for comparison
+            where_clause += " AND TRIM(LEADING '0' FROM vendor_no) = TRIM(LEADING '0' FROM %s)"
+            params.append(self.hospital_code)
+
+        query = f"""
         SELECT
             LEFT(posting_date, 6) as month_be,
             fund_group_desc,
@@ -189,7 +198,7 @@ class ReconciliationReport:
             COALESCE(SUM(amount), 0) as amount,
             COALESCE(SUM(total_amount), 0) as total_amount
         FROM smt_budget_transfers
-        WHERE posting_date IS NOT NULL
+        {where_clause}
         GROUP BY
             LEFT(posting_date, 6),
             fund_group_desc,
@@ -197,7 +206,7 @@ class ReconciliationReport:
         ORDER BY month_be DESC, fund_group_desc
         """
 
-        cursor.execute(query)
+        cursor.execute(query, params)
         rows = cursor.fetchall()
         cursor.close()
 
@@ -259,7 +268,13 @@ class ReconciliationReport:
         } for row in cursor.fetchall()}
 
         # Get SMT summary by month
-        smt_query = """
+        smt_where = "WHERE posting_date IS NOT NULL"
+        smt_params = []
+        if self.hospital_code:
+            smt_where += " AND TRIM(LEADING '0' FROM vendor_no) = TRIM(LEADING '0' FROM %s)"
+            smt_params.append(self.hospital_code)
+
+        smt_query = f"""
         SELECT
             LEFT(posting_date, 6) as month_be,
             COUNT(*) as payment_count,
@@ -267,12 +282,12 @@ class ReconciliationReport:
             COALESCE(SUM(wait_amount), 0) as wait_amount,
             COALESCE(SUM(debt_amount), 0) as debt_amount
         FROM smt_budget_transfers
-        WHERE posting_date IS NOT NULL
+        {smt_where}
         GROUP BY LEFT(posting_date, 6)
         ORDER BY month_be DESC
         """
 
-        cursor.execute(smt_query)
+        cursor.execute(smt_query, smt_params)
         smt_data = {row[0]: {
             'payment_count': row[1],
             'total_amount': float(row[2] or 0),
@@ -342,11 +357,16 @@ class ReconciliationReport:
         # Build WHERE clause
         rep_where = "WHERE dateadm IS NOT NULL"
         smt_where = "WHERE posting_date IS NOT NULL"
+        smt_params = []
 
         if month_be:
             be_month_sql = sql_be_month('dateadm')
             rep_where += f" AND {be_month_sql} = '{month_be}'"
             smt_where += f" AND LEFT(posting_date, 6) = '{month_be}'"
+
+        if self.hospital_code:
+            smt_where += " AND TRIM(LEADING '0' FROM vendor_no) = TRIM(LEADING '0' FROM %s)"
+            smt_params.append(self.hospital_code)
 
         # Get REP by fund
         rep_query = f"""
@@ -378,7 +398,7 @@ class ReconciliationReport:
         ORDER BY amount DESC
         """
 
-        cursor.execute(smt_query)
+        cursor.execute(smt_query, smt_params)
         smt_data = {row[0]: {
             'payment_count': row[1],
             'amount': float(row[2] or 0)
@@ -523,7 +543,24 @@ class ReconciliationReport:
         } for row in cursor.fetchall()}
 
         # Get SMT data for fiscal year
-        smt_query = """
+        # posting_date is already in BE format, but we need to adjust for fiscal year
+        # FY 2569 = Oct 2024 - Sep 2025 = 256710-256809 (in BE posting_date)
+        smt_fy_start_be = fy_start_year_be - 1  # 2568 - 1 = 2567
+        smt_fy_end_be = fy_end_year_be - 1      # 2569 - 1 = 2568
+
+        smt_where = """WHERE posting_date IS NOT NULL
+          AND (
+            (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) >= '10')
+            OR
+            (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) <= '09')
+          )"""
+        smt_params = [str(smt_fy_start_be), str(smt_fy_end_be)]
+
+        if self.hospital_code:
+            smt_where += " AND TRIM(LEADING '0' FROM vendor_no) = TRIM(LEADING '0' FROM %s)"
+            smt_params.append(self.hospital_code)
+
+        smt_query = f"""
         SELECT
             LEFT(posting_date, 6) as month_be,
             COUNT(*) as payment_count,
@@ -531,16 +568,11 @@ class ReconciliationReport:
             COALESCE(SUM(wait_amount), 0) as wait_amount,
             COALESCE(SUM(debt_amount), 0) as debt_amount
         FROM smt_budget_transfers
-        WHERE posting_date IS NOT NULL
-          AND (
-            (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) >= '10')
-            OR
-            (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) <= '09')
-          )
+        {smt_where}
         GROUP BY LEFT(posting_date, 6)
         ORDER BY month_be
         """
-        cursor.execute(smt_query, (str(fy_start_year_be), str(fy_end_year_be)))
+        cursor.execute(smt_query, smt_params)
         smt_data = {row[0]: {
             'payment_count': row[1],
             'total_amount': float(row[2] or 0),
@@ -638,7 +670,23 @@ class ReconciliationReport:
             rep_row = cursor.fetchone()
 
             # SMT stats for FY
-            cursor.execute("""
+            # posting_date is already in BE, adjust for fiscal year
+            smt_fy_start_be = fy_start_year_be - 1
+            smt_fy_end_be = fy_end_year_be - 1
+
+            smt_fy_where = """WHERE posting_date IS NOT NULL
+              AND (
+                (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) >= '10')
+                OR
+                (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) <= '09')
+              )"""
+            smt_fy_params = [str(smt_fy_start_be), str(smt_fy_end_be)]
+
+            if self.hospital_code:
+                smt_fy_where += " AND TRIM(LEADING '0' FROM vendor_no) = TRIM(LEADING '0' FROM %s)"
+                smt_fy_params.append(self.hospital_code)
+
+            cursor.execute(f"""
             SELECT
                 COUNT(*) as total_payments,
                 COALESCE(SUM(amount), 0) as total_amount,
@@ -647,13 +695,8 @@ class ReconciliationReport:
                 MIN(posting_date) as earliest_date,
                 MAX(posting_date) as latest_date
             FROM smt_budget_transfers
-            WHERE posting_date IS NOT NULL
-              AND (
-                (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) >= '10')
-                OR
-                (LEFT(posting_date, 4) = %s AND SUBSTRING(posting_date, 5, 2) <= '09')
-              )
-            """, (str(fy_start_year_be), str(fy_end_year_be)))
+            {smt_fy_where}
+            """, smt_fy_params)
             smt_row = cursor.fetchone()
         else:
             # All time stats
@@ -669,7 +712,13 @@ class ReconciliationReport:
             """)
             rep_row = cursor.fetchone()
 
-            cursor.execute("""
+            smt_all_where = "WHERE 1=1"
+            smt_all_params = []
+            if self.hospital_code:
+                smt_all_where += " AND TRIM(LEADING '0' FROM vendor_no) = TRIM(LEADING '0' FROM %s)"
+                smt_all_params.append(self.hospital_code)
+
+            cursor.execute(f"""
             SELECT
                 COUNT(*) as total_payments,
                 COALESCE(SUM(amount), 0) as total_amount,
@@ -678,7 +727,8 @@ class ReconciliationReport:
                 MIN(posting_date) as earliest_date,
                 MAX(posting_date) as latest_date
             FROM smt_budget_transfers
-            """)
+            {smt_all_where}
+            """, smt_all_params)
             smt_row = cursor.fetchone()
 
         cursor.close()
@@ -727,7 +777,13 @@ class ReconciliationReport:
         rep_row = cursor.fetchone()
 
         # SMT stats
-        cursor.execute("""
+        smt_summary_where = "WHERE 1=1"
+        smt_summary_params = []
+        if self.hospital_code:
+            smt_summary_where += " AND TRIM(LEADING '0' FROM vendor_no) = TRIM(LEADING '0' FROM %s)"
+            smt_summary_params.append(self.hospital_code)
+
+        cursor.execute(f"""
         SELECT
             COUNT(*) as total_payments,
             COALESCE(SUM(amount), 0) as total_amount,
@@ -736,7 +792,8 @@ class ReconciliationReport:
             MIN(posting_date) as earliest_date,
             MAX(posting_date) as latest_date
         FROM smt_budget_transfers
-        """)
+        {smt_summary_where}
+        """, smt_summary_params)
         smt_row = cursor.fetchone()
 
         cursor.close()
