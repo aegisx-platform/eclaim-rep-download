@@ -45,6 +45,7 @@ from routes.analytics_api import analytics_api_bp
 from routes.downloads_api import downloads_api_bp
 from routes.imports_api import imports_api_bp
 from routes.files_api import files_api_bp
+from routes.jobs_api import jobs_api_bp
 from routes.rep_api import rep_api_bp
 from routes.stm_api import stm_api_bp
 from routes.smt_api import smt_api_bp
@@ -295,6 +296,9 @@ logger.info("✓ Imports API blueprint registered")
 
 app.register_blueprint(files_api_bp)  # File management API routes
 logger.info("✓ Files API blueprint registered")
+
+app.register_blueprint(jobs_api_bp)  # Jobs and History API routes
+logger.info("✓ Jobs API blueprint registered")
 
 app.register_blueprint(rep_api_bp)  # REP data source API routes
 logger.info("✓ REP API blueprint registered")
@@ -1583,70 +1587,7 @@ def clear_logs():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-# ==================== Job History API ====================
-
-@app.route('/api/jobs')
-def get_jobs():
-    """Get recent job history"""
-    try:
-        job_type = request.args.get('type')  # download, import, schedule
-        status = request.args.get('status')  # running, completed, failed
-        limit = request.args.get('limit', 50, type=int)
-        date_from = request.args.get('date_from')  # YYYY-MM-DD
-        date_to = request.args.get('date_to')  # YYYY-MM-DD
-
-        jobs = job_history_manager.get_recent_jobs(
-            job_type=job_type,
-            status=status,
-            limit=min(limit, 200),
-            date_from=date_from,
-            date_to=date_to
-        )
-
-        return jsonify({
-            'success': True,
-            'jobs': jobs,
-            'total': len(jobs)
-        })
-
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/jobs/stats')
-def get_job_stats():
-    """Get job statistics"""
-    try:
-        days = request.args.get('days', 7, type=int)
-        stats = job_history_manager.get_job_stats(days=min(days, 30))
-
-        return jsonify({
-            'success': True,
-            'stats': stats,
-            'period_days': days
-        })
-
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/jobs/<job_id>')
-def get_job_detail(job_id):
-    """Get specific job details"""
-    try:
-        jobs = job_history_manager.get_recent_jobs(limit=500)
-        job = next((j for j in jobs if j['job_id'] == job_id), None)
-
-        if not job:
-            return jsonify({'success': False, 'error': 'Job not found'}), 404
-
-        return jsonify({
-            'success': True,
-            'job': job
-        })
-
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+# ===== Jobs API routes moved to routes/jobs_api.py =====
 
 
 # ==================== System Health Dashboard ====================
