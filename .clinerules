@@ -1,0 +1,329 @@
+# NHSO Revenue Intelligence - Cline AI Rules
+
+You are an expert Python/Flask developer working on the NHSO Revenue Intelligence system - a hospital e-claim data management platform.
+
+## Project Context
+
+**System**: E-Claim data downloader, importer, and analytics platform for Thai hospitals
+**Tech**: Python 3.12, Flask, PostgreSQL/MySQL, Docker, Tailwind CSS
+**Purpose**: Automate NHSO e-claim data management with RESTful API and web UI
+
+## Architecture Principles
+
+### Multi-Database Support
+- **CRITICAL**: Always check `DB_TYPE` before writing SQL
+- Support both PostgreSQL and MySQL with conditional queries
+- Use UPSERT pattern:
+  ```python
+  from config.database import DB_TYPE
+
+  if DB_TYPE == 'mysql':
+      sql = "INSERT ... ON DUPLICATE KEY UPDATE ..."
+  else:
+      sql = "INSERT ... ON CONFLICT (...) DO UPDATE SET ..."
+  ```
+
+### Import System (v2)
+- **Use**: `utils/eclaim/importer_v2.py` (NOT legacy `importer.py`)
+- **Column Mapping**: Excel columns have `\n` newlines - match EXACTLY
+  - ✓ `'เรียกเก็บ\n(1)'` ✗ `'เรียกเก็บ(1)'`
+  - ✓ `'CCUF \n(6)'` (note trailing space)
+- **Date Handling**: Thai Buddhist Era → Gregorian (year - 543)
+- **UPSERT**: Use `(tran_id, file_id)` unique constraint
+
+### Downloader
+- **HTTP-based** (NOT Playwright/Selenium)
+- Session authentication with NHSO
+- Track in `download_history` database table
+- Buddhist Era calendar for month/year
+
+## Code Patterns
+
+### API Endpoint Template
+```python
+@app.route('/api/resource', methods=['GET', 'POST'])
+@login_required  # if auth needed
+def api_resource():
+    """Clear docstring explaining endpoint purpose"""
+    try:
+        # Validate inputs
+        data = request.get_json()
+
+        # Business logic
+        result = process_data(data)
+
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+```
+
+### Background Process Pattern
+```python
+import subprocess
+from pathlib import Path
+
+def run_background_task(args):
+    """Run task in subprocess with logging"""
+    log_file = Path('logs') / f'task_{datetime.now():%Y%m%d_%H%M%S}.log'
+
+    process = subprocess.Popen(
+        ['python', 'script.py', *args],
+        stdout=open(log_file, 'w'),
+        stderr=subprocess.STDOUT
+    )
+
+    return process.pid
+```
+
+### Database Query Pattern
+```python
+from config.database import get_db_connection, DB_TYPE
+
+def query_with_db_support():
+    """Example query with multi-DB support"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Write conditional SQL
+        if DB_TYPE == 'mysql':
+            cursor.execute("SELECT * FROM table LIMIT %s", (limit,))
+        else:
+            cursor.execute("SELECT * FROM table LIMIT %s", (limit,))
+
+        results = cursor.fetchall()
+        conn.commit()
+        return results
+    except Exception as e:
+        conn.rollback()
+        raise
+    finally:
+        cursor.close()
+        conn.close()
+```
+
+## File Structure
+
+```
+├── app.py                          # Flask application (main)
+├── eclaim_downloader_http.py       # HTTP downloader
+├── eclaim_import.py                # Import CLI
+├── config/
+│   ├── database.py                 # DB config & connection
+│   └── settings.json               # User settings
+├── database/
+│   ├── migrations/{db_type}/       # SQL migrations
+│   ├── seeds/{db_type}/            # SQL seed data
+│   ├── seeds/*.py                  # Python seed importers
+│   └── migrate.py                  # Migration runner
+├── utils/
+│   ├── eclaim/
+│   │   ├── importer_v2.py          # MAIN importer (use this!)
+│   │   └── parser.py               # Excel parser
+│   ├── downloader_runner.py        # Background download
+│   ├── import_runner.py            # Background import
+│   ├── history_manager_db.py       # Download history CRUD
+│   └── settings_manager.py         # Settings CRUD
+├── templates/                      # Jinja2 HTML
+├── static/                         # CSS/JS
+└── downloads/
+    ├── rep/                        # E-Claim files
+    ├── stm/                        # Statement files
+    └── smt/                        # Budget files
+```
+
+## Critical Rules
+
+### Database
+1. **NEVER** modify hospital's original columns in claim tables
+2. **ALWAYS** use parameterized queries (`%s` placeholders)
+3. **CHECK** for duplicate filename in `eclaim_imported_files` before INSERT
+4. **QUOTE** MySQL reserved words: `row_number` → \`row_number\`
+
+### Imports
+1. **USE** `importer_v2.py` (NOT legacy `importer.py`)
+2. **MATCH** Excel column names with `\n` exactly
+3. **HANDLE** Thai dates (Buddhist Era → Gregorian)
+4. **UPSERT** on `(tran_id, file_id)` to prevent duplicates
+
+### Downloads
+1. **HTTP** requests only (no browser automation)
+2. **TRACK** in `download_history` table
+3. **USE** Buddhist Era for month/year
+4. **LOG** to `logs/download_*.log`
+
+### Background Tasks
+1. **SUBPROCESS** (not threads) for isolation
+2. **LOG** to timestamped files in `logs/`
+3. **TRACK** progress in JSON files
+4. **STREAM** logs via SSE for real-time UI updates
+
+### API Design
+1. **RESTful** naming: `/api/{resource}/{action}`
+2. **RETURN** `{'success': bool, 'data': ..., 'error': str}`
+3. **STATUS** codes: 200 (OK), 400 (Bad Request), 401 (Unauthorized), 500 (Error)
+4. **PAGINATE** results: `?page=1&per_page=100`
+
+### Security
+1. **BCRYPT** for passwords (never plaintext)
+2. **LOGIN** required for all routes except `/login`, `/health`, `/api/v1/health`
+3. **API KEYS** for external API (`/api/v1/*`)
+4. **VALIDATE** all user inputs
+5. **ESCAPE** HTML output in templates
+
+## Common Tasks
+
+### Add New Migration
+```bash
+# 1. Create migration file
+# database/migrations/postgresql/006_new_feature.sql
+# database/migrations/mysql/006_new_feature.sql
+
+# 2. Use idempotent SQL
+CREATE TABLE IF NOT EXISTS new_table (...);
+CREATE INDEX IF NOT EXISTS idx_name ON table(column);
+
+# 3. Test
+docker-compose exec web python database/migrate.py --status
+docker-compose exec web python database/migrate.py
+```
+
+### Add New Seed Data
+```bash
+# 1. Create seed file
+# database/seeds/postgresql/004_new_data.sql
+
+# 2. Run seed
+docker-compose exec web python database/migrate.py --seed
+```
+
+### Add New File Type Import
+1. Update schema: `database/schema-{postgresql|mysql}-merged.sql`
+2. Add column map: `utils/eclaim/importer_v2.py`
+3. Add import method: `EClaimImporterV2.import_newtype_batch()`
+4. Update parser: `utils/eclaim/parser.py`
+
+### Debug Import Issues
+```bash
+# 1. Check logs
+tail -f logs/import_*.log
+
+# 2. Check progress
+cat import_progress.json
+
+# 3. Check database
+docker-compose exec db psql -U eclaim -d eclaim_db -c "SELECT * FROM eclaim_imported_files WHERE filename = 'file.xls';"
+
+# 4. Verify column mapping
+python -c "import pandas as pd; df = pd.read_excel('file.xls'); print(df.columns.tolist())"
+```
+
+## Testing Checklist
+
+- [ ] Database connection works (both PostgreSQL and MySQL)
+- [ ] Migrations apply cleanly
+- [ ] Seed data imports without errors
+- [ ] Downloads work (HTTP client)
+- [ ] Imports parse Excel correctly
+- [ ] UPSERT prevents duplicates
+- [ ] API endpoints return correct format
+- [ ] Background processes log properly
+- [ ] Error handling catches exceptions
+- [ ] UI updates in real-time (SSE)
+
+## Deployment Flow
+
+```bash
+# 1. Install (one-click)
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
+
+# 2. Wait for startup
+docker-compose logs -f web
+# Look for: "[entrypoint] Starting Flask application..."
+# Admin credentials shown in logs and saved to .admin-credentials
+
+# 3. Seed data (automatically done by install.sh)
+# But can be run manually:
+docker-compose exec web python database/migrate.py --seed
+docker-compose exec web python database/seeds/health_offices_importer.py
+docker-compose exec web python database/seeds/nhso_error_codes_importer.py
+
+# 4. Configure
+# Go to http://localhost:5001/setup
+# - Set hospital code (5 digits)
+# - Import data files
+# - Set NHSO credentials
+```
+
+## Error Patterns & Solutions
+
+### "duplicate key value violates unique constraint"
+**Cause**: Trying to INSERT duplicate filename in `eclaim_imported_files`
+**Fix**: Use UPSERT or check existence first
+
+### "relation eclaim_claims does not exist"
+**Cause**: Using legacy `importer.py` instead of `importer_v2.py`
+**Fix**: Update imports to use `importer_v2`
+
+### "ON CONFLICT not recognized" (MySQL)
+**Cause**: Using PostgreSQL syntax on MySQL
+**Fix**: Add `DB_TYPE` check and use `ON DUPLICATE KEY UPDATE`
+
+### "DNS resolution failed"
+**Cause**: Docker DNS issue
+**Fix**: Add explicit DNS in docker-compose.yml:
+```yaml
+dns:
+  - 8.8.8.8
+  - 1.1.1.1
+```
+
+### "Column not found in Excel"
+**Cause**: Column mapping doesn't match Excel structure
+**Fix**: Check actual column names (with `\n` newlines)
+
+## Best Practices
+
+1. **Read CLAUDE.md** - It contains detailed implementation notes
+2. **Check DB_TYPE** - Always support both PostgreSQL and MySQL
+3. **Use managers** - HistoryManager, FileManager, SettingsManager
+4. **Log everything** - Use appropriate levels (DEBUG, INFO, ERROR)
+5. **Handle errors** - Try/except with rollback for DB operations
+6. **Validate inputs** - Never trust user data
+7. **Test both DBs** - Verify code works on PostgreSQL AND MySQL
+8. **Document changes** - Update CLAUDE.md for significant changes
+
+## Quick Commands
+
+```bash
+# Start
+docker-compose up -d
+
+# Logs
+docker-compose logs -f web
+
+# Shell
+docker-compose exec web bash
+
+# Database
+docker-compose exec db psql -U eclaim -d eclaim_db
+
+# Migrations
+docker-compose exec web python database/migrate.py --status
+
+# Test import
+docker-compose exec web python eclaim_import.py downloads/sample.xls
+
+# Restart
+docker-compose restart web
+```
+
+## Documentation
+
+- **Full docs**: `CLAUDE.md`
+- **API spec**: `static/swagger/openapi.yaml` or http://localhost:5001/api/docs
+- **External API**: `docs/EXTERNAL_API.md`
+- **Schema**: `database/schema-{postgresql|mysql}-merged.sql`
+
+Remember: When in doubt, check CLAUDE.md for detailed implementation notes and examples.

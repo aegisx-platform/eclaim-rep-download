@@ -1,0 +1,245 @@
+# NHSO Revenue Intelligence - Cursor AI Rules
+
+You are an expert Python/Flask developer working on the NHSO Revenue Intelligence system - a hospital e-claim data management platform.
+
+## Project Overview
+
+**Purpose**: Automates downloading and importing E-Claim data from NHSO (National Health Security Office) for Thai hospitals.
+
+**Tech Stack**:
+- **Backend**: Python 3.12, Flask 3.0+
+- **Database**: PostgreSQL (primary) / MySQL (alternative)
+- **Frontend**: Tailwind CSS, Vanilla JavaScript, Jinja2 templates
+- **Deployment**: Docker, Docker Compose
+- **Task Scheduling**: APScheduler
+- **Authentication**: Flask-Login, Bcrypt
+
+## Critical Architecture Rules
+
+### 1. Database Abstraction
+- **ALWAYS** check `DB_TYPE` from `config.database` before writing SQL
+- **NEVER** use PostgreSQL-only syntax (like `ON CONFLICT`) without MySQL fallback
+- Use conditional UPSERT:
+  ```python
+  from config.database import DB_TYPE
+
+  if DB_TYPE == 'mysql':
+      query = "INSERT ... ON DUPLICATE KEY UPDATE ..."
+  else:
+      query = "INSERT ... ON CONFLICT (...) DO UPDATE SET ..."
+  ```
+
+### 2. Import System
+- **ALWAYS** use `utils/eclaim/importer_v2.py` (NOT legacy `importer.py`)
+- Excel column names contain `\n` (newlines) and spaces - match EXACTLY
+  - Example: `'เรียกเก็บ\n(1)'` NOT `'เรียกเก็บ(1)'`
+  - Example: `'CCUF \n(6)'` has trailing space before `\n`
+- Use UPSERT on `(tran_id, file_id)` unique constraint
+- Date parsing: Handle Thai Buddhist Era (year + 543 to Gregorian)
+
+### 3. Downloader
+- Uses **HTTP requests** (NOT Playwright/Selenium)
+- Session-based authentication with NHSO e-claim system
+- Duplicate prevention via `download_history` table in database
+- Month/year must be in Buddhist Era (Thai calendar)
+
+### 4. File Organization
+```
+downloads/
+├── rep/     # E-Claim reimbursement (OP/IP)
+├── stm/     # Statement reconciliation
+└── smt/     # Smart Money Transfer budget
+```
+
+### 5. Background Processes
+- Use `subprocess` for downloads/imports (not threads)
+- Log to `logs/{process}_YYYYMMDD_HHMMSS.log`
+- Track progress in JSON files (`import_progress.json`, `parallel_download_progress.json`)
+- Stream logs via SSE (`/logs/stream`)
+
+### 6. API Design
+- RESTful naming: `/api/{resource}/{action}` or `/api/{resource}/{id}`
+- Return format: `{'success': bool, 'data': ..., 'error': str}`
+- Use HTTP status codes correctly (200, 400, 401, 500)
+- Support pagination: `?page=1&per_page=100`
+
+### 7. Frontend
+- Use Tailwind CSS via CDN (no build step)
+- Vanilla JavaScript (no frameworks)
+- Server-Sent Events for real-time updates
+- Fetch API for AJAX
+
+## Code Style
+
+### Python
+- **Type hints**: Use for function signatures
+- **Logging**: Use `logger.info/error/debug` (NOT print)
+- **Error handling**: Always wrap DB operations in try/except
+- **Imports**: Absolute imports from project root
+- **Formatting**: Black-compatible (120 line length)
+
+### SQL
+- **Quote reserved words** in MySQL: `row_number` → \`row_number\`
+- **Use parameterized queries**: Always use `%s` placeholders
+- **Indexes**: Add indexes on frequently queried columns
+- **Transactions**: Commit after batch operations
+
+### JavaScript
+- **ES6+**: Use modern syntax (const/let, arrow functions, async/await)
+- **Error handling**: Use try/catch for async operations
+- **DOM manipulation**: Use vanilla JS (no jQuery)
+
+## Security Requirements
+
+### Authentication
+- **NEVER** store passwords in plaintext
+- Use bcrypt for password hashing
+- Require login for all routes except `/login`, `/health`, `/api/v1/health`
+- API keys for external API (`/api/v1/*`)
+
+### Input Validation
+- **Validate** all user inputs (especially file uploads)
+- **Sanitize** SQL parameters (use parameterized queries)
+- **Check** file types and sizes
+- **Escape** HTML output in templates
+
+### API Security
+- Rate limiting: 100 req/min, 1000 req/hour per API key
+- X-API-Key header authentication
+- CORS: Restrict to allowed origins
+
+## Database Schema Rules
+
+### Table Structure
+- **Primary tables**: `eclaim_imported_files`, `claim_rep_opip_nhso_item`, `claim_rep_orf_nhso_item`
+- **Tracking**: `download_history`, `job_history`, `system_alerts`
+- **Reference**: `health_offices`, `nhso_error_codes`, `fund_types`, `service_types`
+- **Dimension**: `dim_date` (7 years of dates)
+
+### Constraints
+- Foreign key: `file_id` references `eclaim_imported_files(id)`
+- Unique: `(tran_id, file_id)` in claim tables
+- Unique: `(download_type, filename)` in download_history
+
+### DO NOT Modify
+- Hospital's original columns in `claim_rep_opip_nhso_item` or `claim_rep_orf_nhso_item`
+- Core schema structure (only ADD new columns if needed)
+
+## Migration System
+
+### When Adding Migrations
+1. Create numbered SQL file: `database/migrations/{db_type}/NNN_description.sql`
+2. Use idempotent statements: `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`
+3. Write for BOTH PostgreSQL AND MySQL
+4. Test with `python database/migrate.py --status`
+
+### Seed Data
+- `database/seeds/{db_type}/*.sql` - SQL seed files
+- `database/seeds/*.py` - Python importers (health_offices, error_codes)
+
+## Common Tasks
+
+### Adding New API Endpoint
+```python
+@app.route('/api/resource', methods=['GET', 'POST'])
+@login_required  # if auth required
+def api_resource():
+    try:
+        # Logic here
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({'success': False, 'error': str(e)}), 500
+```
+
+### Adding New Import File Type
+1. Update schema in `database/schema-{postgresql|mysql}-merged.sql`
+2. Add column mapping in `utils/eclaim/importer_v2.py`
+3. Implement import method in `EClaimImporterV2`
+4. Update file type detection in parser
+
+### Background Process Pattern
+```python
+def run_in_background(args):
+    process = subprocess.Popen(
+        ['python', 'script.py', *args],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    return process.pid
+```
+
+## Testing
+
+### Manual Testing
+```bash
+# Test database connection
+docker-compose exec web python -c "from config.database import get_db_config; import psycopg2; conn = psycopg2.connect(**get_db_config()); print('✓ Connected')"
+
+# Test downloader
+docker-compose exec web python eclaim_downloader_http.py
+
+# Test importer
+docker-compose exec web python eclaim_import.py downloads/sample.xls
+
+# Check migrations
+docker-compose exec web python database/migrate.py --status
+```
+
+### Database Verification
+```bash
+# Check record counts
+docker-compose exec db psql -U eclaim -d eclaim_db -c "SELECT COUNT(*) FROM claim_rep_opip_nhso_item;"
+```
+
+## Common Pitfalls to Avoid
+
+1. **DNS Issues**: Always include explicit DNS servers in docker-compose.yml
+   ```yaml
+   dns:
+     - 8.8.8.8
+     - 1.1.1.1
+   ```
+
+2. **Date Parsing**: Thai Buddhist Era → Gregorian (year - 543)
+
+3. **Excel Column Names**: Must match exactly with `\n` newlines
+
+4. **MySQL Reserved Words**: Quote `row_number`, `rank`, etc.
+
+5. **UPSERT Duplicate Keys**: Check `eclaim_imported_files` for existing filename before INSERT
+
+6. **File Scanning**: Use `download_history` table (NOT `download_history.json` file)
+
+7. **Import Status**: Join with `eclaim_imported_files` table to get import status
+
+8. **Error Handling**: Always return 200 status for progress endpoints (even on error) to prevent UI breakage
+
+## Deployment Checklist
+
+- [ ] Environment variables in `.env`
+- [ ] Database schema applied via migrations
+- [ ] Seed data imported (dim_date, health_offices, error_codes)
+- [ ] Hospital code configured (`/setup` page)
+- [ ] NHSO credentials set (Settings → API Keys)
+- [ ] Admin user created (check `.admin-credentials`)
+- [ ] File permissions: `downloads/`, `logs/` directories writable
+- [ ] Docker DNS servers configured
+- [ ] Health check endpoint accessible: `/api/v1/health`
+
+## Documentation References
+
+- Full documentation: `CLAUDE.md`
+- API specification: `static/swagger/openapi.yaml`
+- External API docs: `docs/EXTERNAL_API.md`
+- Database schema: `database/schema-{postgresql|mysql}-merged.sql`
+
+## Remember
+
+- **Backward compatibility**: Keep old API routes as aliases
+- **Error messages**: User-friendly for frontend, detailed in logs
+- **Performance**: Batch operations, use indexes, paginate results
+- **Code reuse**: Use managers (HistoryManager, FileManager, SettingsManager)
+- **Logging**: Use appropriate log levels (DEBUG, INFO, WARNING, ERROR)
+
+When in doubt, check `CLAUDE.md` for detailed implementation notes.

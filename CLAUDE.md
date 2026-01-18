@@ -344,8 +344,9 @@ docker-compose exec web python database/migrate.py --seed
 On `docker-compose up`, the entrypoint automatically runs:
 1. **Wait for database** - Retries connection up to 30 times
 2. **Run migrations** - Applies pending database migrations (creates 27 tables)
-3. **Scan files** - Registers existing files in `downloads/rep/` and `downloads/stm/` to download_history.json
-4. **Start Flask** - Launches the web application
+3. **Create default admin** - Generate random admin user (credentials saved to `.admin-credentials` file)
+4. **Scan files** - Registers existing files in `downloads/rep/` and `downloads/stm/` to database
+5. **Start Flask** - Launches the web application
 
 **Fresh Installation (Complete Setup):**
 
@@ -356,6 +357,7 @@ docker-compose up -d
 # Step 2: Wait for startup to complete (Ctrl+C to exit logs)
 docker-compose logs -f web
 # Wait until you see: "[entrypoint] Starting Flask application..."
+# Admin credentials will be displayed in logs and saved to .admin-credentials file
 
 # Step 3: Import ALL seed data (REQUIRED for full functionality)
 # Using docker-compose exec (standard method):
