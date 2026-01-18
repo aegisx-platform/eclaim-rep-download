@@ -12,7 +12,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                 </svg>
             </button>
-            <button onclick="toggleLogViewer()" class="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700 transition-colors" title="Minimize">
+            <button onclick="minimizeLogViewer()" class="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700 transition-colors" title="Minimize">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
@@ -32,7 +32,7 @@
 </div>
 
 <!-- Floating Log Button (when minimized) -->
-<button id="log-viewer-btn" onclick="toggleLogViewer()" class="fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg border border-gray-700 hover:bg-gray-800 transition-all z-40 flex items-center gap-2">
+<button id="log-viewer-btn" onclick="expandLogViewer()" class="fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg border border-gray-700 hover:bg-gray-800 transition-all z-40 hidden items-center gap-2">
     <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse" id="log-btn-indicator"></div>
     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -119,9 +119,9 @@ let isLogViewerExpanded = false;
 let autoScroll = true;
 
 function initLogViewer() {
-    // Initially show the button, hide the viewer
+    // Initially hide both viewer and floating button (use toggle button in Data Management instead)
     document.getElementById('log-viewer').classList.add('hidden');
-    document.getElementById('log-viewer-btn').classList.remove('hidden');
+    document.getElementById('log-viewer-btn').classList.add('hidden');
 
     // Connect to log stream
     connectToLogStream();
@@ -219,18 +219,82 @@ function appendLogEntry(entry) {
     }
 }
 
+// Toggle log viewer (for Data Management button) - Show/Hide only
 function toggleLogViewer() {
     const viewer = document.getElementById('log-viewer');
-    const button = document.getElementById('log-viewer-btn');
+    const toggleBtn = document.getElementById('btn-toggle-logs');
+    const toggleBtnText = document.getElementById('log-btn-text');
 
     isLogViewerExpanded = !isLogViewerExpanded;
 
     if (isLogViewerExpanded) {
+        // Show log viewer
         viewer.classList.remove('hidden');
-        button.classList.add('hidden');
+
+        // Update toggle button text in Data Management page if exists
+        if (toggleBtnText) {
+            toggleBtnText.textContent = 'ซ่อน Logs';
+        }
+        if (toggleBtn) {
+            toggleBtn.classList.remove('bg-green-50', 'hover:bg-green-100', 'text-green-700', 'border-green-200');
+            toggleBtn.classList.add('bg-gray-100', 'hover:bg-gray-200', 'text-gray-700', 'border-gray-300');
+        }
     } else {
+        // Hide log viewer (no floating button)
         viewer.classList.add('hidden');
-        button.classList.remove('hidden');
+
+        // Update toggle button text in Data Management page if exists
+        if (toggleBtnText) {
+            toggleBtnText.textContent = 'แสดง Logs';
+        }
+        if (toggleBtn) {
+            toggleBtn.classList.remove('bg-gray-100', 'hover:bg-gray-200', 'text-gray-700', 'border-gray-300');
+            toggleBtn.classList.add('bg-green-50', 'hover:bg-green-100', 'text-green-700', 'border-green-200');
+        }
+    }
+}
+
+// Minimize log viewer (collapse to floating button)
+function minimizeLogViewer() {
+    const viewer = document.getElementById('log-viewer');
+    const button = document.getElementById('log-viewer-btn');
+    const toggleBtn = document.getElementById('btn-toggle-logs');
+    const toggleBtnText = document.getElementById('log-btn-text');
+
+    // Hide viewer, show floating button
+    viewer.classList.add('hidden');
+    button.classList.remove('hidden');
+    isLogViewerExpanded = false;
+
+    // Update Data Management button if exists
+    if (toggleBtnText) {
+        toggleBtnText.textContent = 'แสดง Logs';
+    }
+    if (toggleBtn) {
+        toggleBtn.classList.remove('bg-gray-100', 'hover:bg-gray-200', 'text-gray-700', 'border-gray-300');
+        toggleBtn.classList.add('bg-green-50', 'hover:bg-green-100', 'text-green-700', 'border-green-200');
+    }
+}
+
+// Expand log viewer (from floating button)
+function expandLogViewer() {
+    const viewer = document.getElementById('log-viewer');
+    const button = document.getElementById('log-viewer-btn');
+    const toggleBtn = document.getElementById('btn-toggle-logs');
+    const toggleBtnText = document.getElementById('log-btn-text');
+
+    // Show viewer, hide floating button
+    viewer.classList.remove('hidden');
+    button.classList.add('hidden');
+    isLogViewerExpanded = true;
+
+    // Update Data Management button if exists
+    if (toggleBtnText) {
+        toggleBtnText.textContent = 'ซ่อน Logs';
+    }
+    if (toggleBtn) {
+        toggleBtn.classList.remove('bg-green-50', 'hover:bg-green-100', 'text-green-700', 'border-green-200');
+        toggleBtn.classList.add('bg-gray-100', 'hover:bg-gray-200', 'text-gray-700', 'border-gray-300');
     }
 }
 
@@ -266,14 +330,31 @@ function updateConnectionStatus(connected) {
     ];
 
     indicators.forEach(indicator => {
-        if (connected) {
-            indicator.classList.add('bg-green-500');
-            indicator.classList.remove('bg-red-500');
-        } else {
-            indicator.classList.add('bg-red-500');
-            indicator.classList.remove('bg-green-500');
+        if (indicator) {
+            if (connected) {
+                indicator.classList.add('bg-green-500');
+                indicator.classList.remove('bg-red-500');
+            } else {
+                indicator.classList.add('bg-red-500');
+                indicator.classList.remove('bg-green-500');
+            }
         }
     });
+
+    // Update Data Management toggle button indicator
+    const btnIndicator = document.getElementById('btn-toggle-logs');
+    if (btnIndicator) {
+        const pulseDiv = btnIndicator.querySelector('.animate-pulse');
+        if (pulseDiv) {
+            if (connected) {
+                pulseDiv.classList.add('bg-green-500');
+                pulseDiv.classList.remove('bg-red-500');
+            } else {
+                pulseDiv.classList.add('bg-red-500');
+                pulseDiv.classList.remove('bg-green-500');
+            }
+        }
+    }
 }
 
 // Initialize on page load

@@ -84,7 +84,7 @@ def get_claims():
         params = [date_from, date_to]
 
         if scheme:
-            where_clauses.append("UPPER(SUBSTRING(repno, 1, 3)) = %s")
+            where_clauses.append("UPPER(SUBSTRING(rep_no, 1, 3)) = %s")
             params.append(scheme)
 
         if hn:
@@ -128,8 +128,8 @@ def get_claims():
                 dateadm,
                 datedsc,
                 an,
-                repno,
-                total_approve,
+                rep_no,
+                claim_net as total_approve,
                 hcode,
                 hmain,
                 his_matched,
@@ -204,7 +204,7 @@ def get_claim_by_id(tran_id):
         cursor.execute("""
             SELECT
                 tran_id, file_id, hn, pid, dateadm, datedsc,
-                an, vn, total_approve, hcode, hmain,
+                an, rep_no, claim_net as total_approve, hcode, hmain,
                 his_matched, his_vn, reconcile_status
             FROM claim_rep_opip_nhso_item
             WHERE tran_id = %s
@@ -278,7 +278,7 @@ def get_claims_summary():
         cursor.execute("""
             SELECT
                 COUNT(*) as total_claims,
-                SUM(total_approve) as total_amount
+                SUM(claim_net) as total_amount
             FROM claim_rep_opip_nhso_item
             WHERE dateadm BETWEEN %s AND %s
         """, (date_from, date_to))
@@ -288,12 +288,12 @@ def get_claims_summary():
         # Get by scheme
         cursor.execute("""
             SELECT
-                SUBSTRING(repno, 1, 3) as scheme,
+                SUBSTRING(rep_no, 1, 3) as scheme,
                 COUNT(*) as count,
-                SUM(total_approve) as amount
+                SUM(claim_net) as amount
             FROM claim_rep_opip_nhso_item
             WHERE dateadm BETWEEN %s AND %s
-            GROUP BY SUBSTRING(repno, 1, 3)
+            GROUP BY SUBSTRING(rep_no, 1, 3)
         """, (date_from, date_to))
 
         schemes = cursor.fetchall()
@@ -316,7 +316,7 @@ def get_claims_summary():
         # Format response
         by_scheme = {}
         for scheme in schemes:
-            scheme_code = scheme['scheme'].upper()
+            scheme_code = (scheme['scheme'] or 'UNKNOWN').upper()
             by_scheme[scheme_code] = {
                 'count': int(scheme['count']),
                 'amount': float(scheme['amount'] or 0)
@@ -584,15 +584,20 @@ def imports_status():
         """)
         stm = cursor.fetchone()
 
-        # SMT status
-        cursor.execute("""
-            SELECT
-                COUNT(*) as total_records,
-                SUM(total) as total_amount,
-                MAX(imported_at) as last_sync
-            FROM smt_budget
-        """)
-        smt = cursor.fetchone()
+        # SMT status (handle table not exists)
+        smt = None
+        try:
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total_records,
+                    SUM(total) as total_amount,
+                    MAX(imported_at) as last_sync
+                FROM smt_budget
+            """)
+            smt = cursor.fetchone()
+        except Exception as smt_error:
+            logger.warning(f"SMT table not found or error: {smt_error}")
+            smt = {'total_records': 0, 'total_amount': 0, 'last_sync': None}
 
         cursor.close()
         conn.close()
@@ -616,7 +621,7 @@ def imports_status():
                 'smt': {
                     'total_records': int(smt['total_records'] or 0),
                     'total_amount': float(smt['total_amount'] or 0),
-                    'last_sync': smt['last_sync'].strftime('%Y-%m-%d') if smt['last_sync'] else None
+                    'last_sync': smt['last_sync'].strftime('%Y-%m-%d') if smt.get('last_sync') else None
                 }
             }
         }

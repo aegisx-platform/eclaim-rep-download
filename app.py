@@ -7351,7 +7351,7 @@ def api_analytics_service_type():
             FROM claim_rep_opip_nhso_item
             WHERE {base_where}
             GROUP BY service_type
-            ORDER BY SUM(reimb_nhso) DESC NULLS LAST
+            ORDER BY SUM(reimb_nhso) DESC
         """
         cursor.execute(query, filter_params)
         rows = cursor.fetchall()
@@ -7409,7 +7409,7 @@ def api_analytics_fund():
             FROM claim_rep_opip_nhso_item
             WHERE {base_where}
             GROUP BY main_fund
-            ORDER BY SUM(reimb_nhso) DESC NULLS LAST
+            ORDER BY SUM(reimb_nhso) DESC
             LIMIT 10
         """
         cursor.execute(query, filter_params)
@@ -7568,7 +7568,7 @@ def api_analytics_drug():
             INNER JOIN claim_rep_opip_nhso_item c ON d.tran_id = c.tran_id
             WHERE {base_where}
             GROUP BY COALESCE(d.generic_name, d.trade_name, d.drug_code)
-            ORDER BY SUM(d.reimb_amount) DESC NULLS LAST
+            ORDER BY SUM(d.reimb_amount) DESC
             LIMIT 15
         """
         cursor.execute(query, filter_params)
@@ -7594,7 +7594,7 @@ def api_analytics_drug():
             INNER JOIN claim_rep_opip_nhso_item c ON d.tran_id = c.tran_id
             WHERE {all_where}
             GROUP BY d.drug_type
-            ORDER BY SUM(d.claim_amount) DESC NULLS LAST
+            ORDER BY SUM(d.claim_amount) DESC
             LIMIT 10
         """
         cursor.execute(cat_query, filter_params)
@@ -7653,7 +7653,7 @@ def api_analytics_instrument():
             INNER JOIN claim_rep_opip_nhso_item c ON i.tran_id = c.tran_id
             WHERE {base_where}
             GROUP BY i.inst_name
-            ORDER BY SUM(i.claim_amount) DESC NULLS LAST
+            ORDER BY SUM(i.claim_amount) DESC
             LIMIT 15
         """
         cursor.execute(query, filter_params)

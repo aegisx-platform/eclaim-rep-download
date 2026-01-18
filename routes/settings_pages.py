@@ -111,3 +111,26 @@ def api_keys():
 def audit():
     """Audit log viewer page - Admin only"""
     return render_template('settings/audit_log.html')
+
+
+@settings_pages_bp.route('/api-keys/download-postman')
+@login_required
+@require_admin
+def download_postman_collection():
+    """Download Postman Collection for External API"""
+    import os
+    from pathlib import Path
+
+    # Get project root directory
+    project_root = Path(__file__).parent.parent
+    collection_path = project_root / 'docs' / 'E-Claim_External_API.postman_collection.json'
+
+    if not collection_path.exists():
+        return "Postman Collection not found", 404
+
+    return send_file(
+        collection_path,
+        as_attachment=True,
+        download_name='E-Claim_External_API.postman_collection.json',
+        mimetype='application/json'
+    )
