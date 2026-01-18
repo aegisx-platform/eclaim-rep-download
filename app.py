@@ -773,6 +773,7 @@ def files():
     per_page = request.args.get('per_page', 50, type=int)
     filter_month = request.args.get('month', type=int)
     filter_year = request.args.get('year', type=int)
+    filter_type = request.args.get('type', type=str)  # NEW: Filter by file type (rep, stm, smt)
 
     # Default to current month/year if not specified
     now = datetime.now(TZ_BANGKOK)
@@ -786,7 +787,7 @@ def files():
     # Get import status from database
     import_status_map = get_import_status_map()
 
-    # Filter by month/year
+    # Filter by month/year and type
     filtered_files = []
     for file in all_files:
         file_month = file.get('month')
@@ -802,9 +803,24 @@ def files():
                 file_year = int(match.group(1))
                 file_month = int(match.group(2))
 
-        # Apply filter
-        if file_month == filter_month and file_year == filter_year:
-            filtered_files.append(file)
+        # Apply month/year filter
+        if file_month != filter_month or file_year != filter_year:
+            continue
+
+        # Apply type filter if specified
+        if filter_type:
+            filename = file.get('filename', '').lower()
+            # Determine file type from directory or filename
+            file_path = file.get('file_path', '')
+
+            if filter_type == 'rep' and '/rep/' not in file_path:
+                continue
+            elif filter_type == 'stm' and '/stm/' not in file_path:
+                continue
+            elif filter_type == 'smt' and '/smt/' not in file_path:
+                continue
+
+        filtered_files.append(file)
 
     # Sort by download date (most recent first)
     filtered_files = sorted(
@@ -871,6 +887,7 @@ def files():
         total_files=total_files,
         filter_month=filter_month,
         filter_year=filter_year,
+        filter_type=filter_type,  # NEW: Pass type filter to template
         available_dates=available_dates,
         schedule_settings=schedule_settings,
         schedule_jobs=schedule_jobs

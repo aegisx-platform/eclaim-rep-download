@@ -10,9 +10,15 @@
             <h2 class="text-3xl font-bold text-gray-800 mb-2">Downloaded Files</h2>
             <p class="text-gray-600">รายการไฟล์ทั้งหมดที่ download จากระบบ e-claim</p>
         </div>
-        <!-- Month/Year Filter -->
+        <!-- Month/Year and Type Filter -->
         <div class="flex items-center gap-3">
             <label class="text-sm text-gray-700 font-medium">Filter by:</label>
+            <select id="type-filter" onchange="updateFilter()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="" {% if not filter_type %}selected{% endif %}>All Types</option>
+                <option value="rep" {% if filter_type == 'rep' %}selected{% endif %}>REP (Reimbursement)</option>
+                <option value="stm" {% if filter_type == 'stm' %}selected{% endif %}>STM (Statement)</option>
+                <option value="smt" {% if filter_type == 'smt' %}selected{% endif %}>SMT (Budget)</option>
+            </select>
             <select id="month-filter" onchange="updateFilter()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 {% for date in available_dates %}
                 <option value="{{ date.month }},{{ date.year }}" {% if date.month == filter_month and date.year == filter_year %}selected{% endif %}>
@@ -370,11 +376,20 @@
 </div>
 
 <script>
-// Month/Year filter update
+// Month/Year and Type filter update
 function updateFilter() {
-    const select = document.getElementById('month-filter');
-    const [month, year] = select.value.split(',');
-    window.location.href = `?month=${month}&year=${year}&page=1`;
+    const monthSelect = document.getElementById('month-filter');
+    const typeSelect = document.getElementById('type-filter');
+    const [month, year] = monthSelect.value.split(',');
+    const type = typeSelect.value;
+
+    // Build query string
+    let url = `?month=${month}&year=${year}&page=1`;
+    if (type) {
+        url += `&type=${type}`;
+    }
+
+    window.location.href = url;
 }
 </script>
 {% endblock %}
