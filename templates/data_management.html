@@ -10,6 +10,14 @@
         <p class="text-gray-600">จัดการข้อมูล E-Claim: Download, Import, และตั้งค่าระบบ</p>
     </div>
     <div class="flex items-center gap-3">
+        <!-- Upload Button -->
+        <button onclick="openUploadModal()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            <span>Upload Files</span>
+        </button>
+
         <!-- Log Viewer Toggle Button -->
         <button onclick="toggleLogViewer()" id="btn-toggle-logs" class="flex items-center gap-2 px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-medium transition-colors border border-green-200">
             <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -1063,6 +1071,12 @@
                     </select>
                 </div>
 
+                <!-- Search Box -->
+                <div class="flex-1 min-w-[200px]">
+                    <label class="block text-xs text-gray-500 mb-1">ค้นหา Filename</label>
+                    <input type="text" id="rep-filter-search" placeholder="eclaim_10670..." class="border border-gray-300 rounded-md px-3 py-1.5 text-sm w-full">
+                </div>
+
                 <!-- Status Filter -->
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">สถานะ</label>
@@ -1478,6 +1492,12 @@
                     </div>
                 </div>
 
+                <!-- Search Box -->
+                <div class="flex-1 min-w-[200px]">
+                    <label class="block text-xs text-gray-500 mb-1">ค้นหา Filename</label>
+                    <input type="text" id="stm-filter-search" placeholder="stm_10670..." class="border border-gray-300 rounded-md px-3 py-1.5 text-sm w-full">
+                </div>
+
                 <!-- Status Filter -->
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">สถานะ</label>
@@ -1820,6 +1840,12 @@
                             <option value="9">กันยายน</option>
                         </select>
                     </div>
+                </div>
+
+                <!-- Search Box -->
+                <div class="flex-1 min-w-[200px]">
+                    <label class="block text-xs text-gray-500 mb-1">ค้นหา Filename</label>
+                    <input type="text" id="smt-filter-search" placeholder="smt_budget..." class="border border-gray-300 rounded-md px-3 py-1.5 text-sm w-full">
                 </div>
 
                 <!-- Status Filter -->
@@ -2590,6 +2616,7 @@ function buildFilterParams(prefix) {
     var fySelect = document.getElementById(prefix + '-filter-fiscal-year');
     var startSelect = document.getElementById(prefix + '-filter-start-month');
     var endSelect = document.getElementById(prefix + '-filter-end-month');
+    var searchInput = document.getElementById(prefix + '-filter-search');
 
     if (fySelect && fySelect.value) {
         params.set('fiscal_year', fySelect.value);
@@ -2599,6 +2626,11 @@ function buildFilterParams(prefix) {
     }
     if (endSelect && endSelect.value) {
         params.set('end_month', endSelect.value);
+    }
+
+    // Search filter (all tabs)
+    if (searchInput && searchInput.value.trim()) {
+        params.set('search', searchInput.value.trim());
     }
 
     // REP specific filters
@@ -2642,6 +2674,7 @@ function resetRepFilter() {
     document.getElementById('rep-filter-end-month').value = '';
     document.getElementById('rep-filter-scheme').value = '';
     document.getElementById('rep-filter-file-type').value = '';
+    document.getElementById('rep-filter-search').value = '';
     setRepStatusFilter('all');
 
     window.location.href = '/data-management?tab=rep';
@@ -2664,6 +2697,7 @@ function resetStmFilter() {
     document.getElementById('stm-filter-fiscal-year').value = '';
     document.getElementById('stm-filter-start-month').value = '';
     document.getElementById('stm-filter-end-month').value = '';
+    document.getElementById('stm-filter-search').value = '';
     setStmStatusFilter('all');
 
     loadStatementFiles();
@@ -2686,6 +2720,7 @@ function resetSmtFilter() {
     document.getElementById('smt-filter-fiscal-year').value = '';
     document.getElementById('smt-filter-start-month').value = '';
     document.getElementById('smt-filter-end-month').value = '';
+    document.getElementById('smt-filter-search').value = '';
     setSmtStatusFilter('all');
 
     loadSmtFiles();
@@ -5929,6 +5964,194 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     updateBulkEstimate();
+
+    // Check if upload modal should open on page load
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('upload') === 'open') {
+        openUploadModal();
+    }
 });
+
+// ==================== Upload Modal Functions ====================
+
+function openUploadModal() {
+    document.getElementById('upload-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden'; // Prevent background scroll
+}
+
+function closeUploadModal() {
+    document.getElementById('upload-modal').classList.add('hidden');
+    document.body.style.overflow = 'auto'; // Restore scroll
+    // Reset form
+    document.getElementById('upload-type-selector').value = 'rep';
+    document.getElementById('upload-file-input').value = '';
+    document.getElementById('upload-file-list').innerHTML = '';
+    document.getElementById('upload-submit-btn').disabled = true;
+}
+
+function selectUploadType(type) {
+    document.getElementById('upload-type-selector').value = type;
+    // Update UI
+    document.querySelectorAll('.upload-type-card').forEach(function(card) {
+        card.classList.remove('border-blue-500', 'bg-blue-50');
+        card.classList.add('border-gray-200');
+    });
+    document.getElementById('upload-card-' + type).classList.remove('border-gray-200');
+    document.getElementById('upload-card-' + type).classList.add('border-blue-500', 'bg-blue-50');
+}
+
+function handleUploadFiles(files) {
+    if (!files || files.length === 0) return;
+
+    var fileList = document.getElementById('upload-file-list');
+    fileList.innerHTML = '';
+
+    Array.from(files).forEach(function(file) {
+        var fileItem = document.createElement('div');
+        fileItem.className = 'flex items-center justify-between p-2 bg-gray-50 rounded border';
+
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'text-sm text-gray-700';
+        nameSpan.textContent = file.name;
+
+        var sizeSpan = document.createElement('span');
+        sizeSpan.className = 'text-xs text-gray-500';
+        sizeSpan.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+
+        fileItem.appendChild(nameSpan);
+        fileItem.appendChild(sizeSpan);
+        fileList.appendChild(fileItem);
+    });
+
+    document.getElementById('upload-submit-btn').disabled = files.length === 0;
+}
+
+function submitUpload() {
+    var fileInput = document.getElementById('upload-file-input');
+    var files = fileInput.files;
+    var type = document.getElementById('upload-type-selector').value;
+    var autoImport = document.getElementById('upload-auto-import').checked;
+
+    if (files.length === 0) {
+        alert('กรุณาเลือกไฟล์');
+        return;
+    }
+
+    var formData = new FormData();
+    Array.from(files).forEach(function(file) {
+        formData.append('files', file);
+    });
+    formData.append('type', type);
+    formData.append('auto_import', autoImport);
+
+    // Show loading state
+    var submitBtn = document.getElementById('upload-submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'กำลังอัปโหลด...';
+
+    fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+        if (data.success) {
+            alert('อัปโหลดสำเร็จ ' + files.length + ' ไฟล์');
+            closeUploadModal();
+            location.reload(); // Refresh to show new files
+        } else {
+            alert('Error: ' + data.error);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Upload (' + files.length + ' files)';
+        }
+    })
+    .catch(function(error) {
+        console.error('Upload error:', error);
+        alert('เกิดข้อผิดพลาดในการอัปโหลด');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Upload (' + files.length + ' files)';
+    });
+}
+
 </script>
+
+<!-- Upload Modal -->
+<div id="upload-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-6 border-b">
+            <h3 class="text-xl font-semibold text-gray-800">Upload Files</h3>
+            <button onclick="closeUploadModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6">
+            <!-- File Type Selector -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-3">Select File Type:</label>
+                <input type="hidden" id="upload-type-selector" value="rep">
+                <div class="grid grid-cols-3 gap-4">
+                    <!-- REP Card -->
+                    <div id="upload-card-rep" onclick="selectUploadType('rep')" class="upload-type-card cursor-pointer border-2 border-blue-500 bg-blue-50 rounded-lg p-4 text-center transition-all hover:shadow-md">
+                        <div class="text-4xl mb-2">📄</div>
+                        <div class="font-medium text-gray-800">REP</div>
+                        <div class="text-xs text-gray-500 mt-1">(.xls)</div>
+                    </div>
+
+                    <!-- STM Card -->
+                    <div id="upload-card-stm" onclick="selectUploadType('stm')" class="upload-type-card cursor-pointer border-2 border-gray-200 rounded-lg p-4 text-center transition-all hover:shadow-md">
+                        <div class="text-4xl mb-2">📊</div>
+                        <div class="font-medium text-gray-800">STM</div>
+                        <div class="text-xs text-gray-500 mt-1">(.xls)</div>
+                    </div>
+
+                    <!-- SMT Card -->
+                    <div id="upload-card-smt" onclick="selectUploadType('smt')" class="upload-type-card cursor-pointer border-2 border-gray-200 rounded-lg p-4 text-center transition-all hover:shadow-md">
+                        <div class="text-4xl mb-2">💰</div>
+                        <div class="font-medium text-gray-800">SMT</div>
+                        <div class="text-xs text-gray-500 mt-1">(.xlsx/.csv)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Drop Zone -->
+            <div class="mb-6">
+                <label for="upload-file-input" class="block border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                    <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <p class="text-gray-600 font-medium">📁 Drag & drop files here</p>
+                    <p class="text-gray-500 text-sm mt-1">or click to browse</p>
+                    <input type="file" id="upload-file-input" multiple class="hidden" onchange="handleUploadFiles(this.files)" accept=".xls,.xlsx,.csv">
+                </label>
+            </div>
+
+            <!-- Selected Files List -->
+            <div id="upload-file-list" class="mb-4 space-y-2"></div>
+
+            <!-- Auto Import Checkbox -->
+            <div class="mb-6">
+                <label class="flex items-center">
+                    <input type="checkbox" id="upload-auto-import" checked class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <span class="ml-2 text-sm text-gray-700">Auto-import after upload</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
+            <button onclick="closeUploadModal()" class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                Cancel
+            </button>
+            <button id="upload-submit-btn" onclick="submitUpload()" disabled class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                Upload
+            </button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
