@@ -1,18 +1,38 @@
 {% extends "base.html" %}
 
-{% block title %}Upload Files - E-Claim Downloader{% endblock %}
+{% block title %}File Management - E-Claim Downloader{% endblock %}
 
 {% block content %}
 <!-- Header -->
-<div class="mb-8">
-    <div class="flex items-center justify-between">
-        <div>
-            <h2 class="text-3xl font-bold text-gray-800 mb-2">Manual File Upload</h2>
-            <p class="text-gray-600">อัปโหลดไฟล์ที่ดาวน์โหลดจาก NHSO ด้วยตนเอง</p>
-        </div>
+<div class="mb-6">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">File Management</h2>
+    <p class="text-gray-600">อัปโหลดและจัดการไฟล์จากระบบ e-claim</p>
+</div>
+
+<!-- Tabs Navigation -->
+<div class="mb-6">
+    <div class="border-b border-gray-200">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button onclick="switchTab('upload')" id="tab-upload" class="tab-btn border-b-2 border-blue-500 py-4 px-1 text-sm font-medium text-blue-600">
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                Upload Files
+            </button>
+            <button onclick="switchTab('files')" id="tab-files" class="tab-btn border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                </svg>
+                Downloaded Files
+                {% if total_files %}
+                <span class="ml-2 bg-gray-200 text-gray-800 text-xs font-semibold px-2 py-0.5 rounded-full">{{ total_files }}</span>
+                {% endif %}
+            </button>
+        </nav>
     </div>
 </div>
 
+<!-- Tab Content: Upload --><div id="content-upload" class="tab-content">
 <!-- Upload Form -->
 <div class="max-w-4xl">
     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -31,7 +51,7 @@
                         </svg>
                         <div class="font-semibold text-gray-800">REP</div>
                         <div class="text-xs text-gray-500 mb-1">Reimbursement (.xls)</div>
-                        <a href="/files?type=rep" onclick="event.stopPropagation()" class="text-xs text-blue-600 hover:text-blue-800 hover:underline">
+                        <a href="?tab=files&type=rep" onclick="event.stopPropagation()" class="text-xs text-blue-600 hover:text-blue-800 hover:underline">
                             ดูรายการไฟล์ →
                         </a>
                     </div>
@@ -174,6 +194,50 @@
         </div>
     </div>
 </div>
+</div>
+<!-- End Tab Content: Upload -->
+
+<!-- Tab Content: Files -->
+<div id="content-files" class="tab-content hidden">
+    <!-- Files content will be loaded here -->
+    <p class="text-center text-gray-500 py-8">Loading files...</p>
+</div>
+<!-- End Tab Content: Files -->
 
 <script src="{{ url_for('static', filename='js/upload-multiple.js') }}"></script>
+<script>
+// Tab switching function
+function switchTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+
+    // Remove active styles from all tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-blue-500', 'text-blue-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
+
+    // Show selected tab content
+    document.getElementById(`content-${tabName}`).classList.remove('hidden');
+
+    // Add active styles to selected tab
+    const activeTab = document.getElementById(`tab-${tabName}`);
+    activeTab.classList.remove('border-transparent', 'text-gray-500');
+    activeTab.classList.add('border-blue-500', 'text-blue-600');
+
+    // Update URL without reload
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabName);
+    window.history.pushState({}, '', url);
+}
+
+// Initialize tab from URL or default to upload
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('tab') || 'upload';
+    switchTab(activeTab);
+});
+</script>
 {% endblock %}

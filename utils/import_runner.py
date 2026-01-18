@@ -53,7 +53,10 @@ class ImportRunner:
                        import_started_at, import_completed_at
                 FROM eclaim_imported_files
                 WHERE status IN ('processing', 'pending')
-                ORDER BY import_started_at DESC NULLS LAST, created_at DESC
+                ORDER BY
+                    CASE WHEN import_started_at IS NULL THEN 1 ELSE 0 END,
+                    import_started_at DESC,
+                    created_at DESC
                 LIMIT 1
             """)
 

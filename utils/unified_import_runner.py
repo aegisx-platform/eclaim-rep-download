@@ -95,7 +95,10 @@ class UnifiedImportRunner:
                        import_completed_at
                 FROM {table}
                 WHERE status IN ('processing', 'pending')
-                ORDER BY import_started_at DESC NULLS LAST, created_at DESC
+                ORDER BY
+                    CASE WHEN import_started_at IS NULL THEN 1 ELSE 0 END,
+                    import_started_at DESC,
+                    created_at DESC
                 LIMIT 1
             """)
 
@@ -184,24 +187,9 @@ class UnifiedImportRunner:
                 'message': f'No {import_type.upper()} files to import',
                 'total': 0
             }
-
-        # Initialize progress file with standardized format
-        progress = {
-            'import_type': import_type,
-            'import_id': f"import_{import_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            'status': 'running',
-            'running': True,
-            'total_files': total_files,
-            'completed_files': 0,
-            'current_file': None,
-            'records_imported': 0,
-            'failed_files': [],
-            'started_at': datetime.now().isoformat(),
-            'completed_at': None
-        }
-
-        with open(self.progress_file, 'w') as f:
-            json.dump(progress, f, indent=2)
+        # Progress tracking via database (eclaim_imported_files table)
+        # Generate import_id for tracking
+        import_id = f"import_{import_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         # Build command
         cmd = [
@@ -235,7 +223,7 @@ class UnifiedImportRunner:
         return {
             'success': True,
             'pid': process.pid,
-            'import_id': progress['import_id'],
+            'import_id': import_id,
             'import_type': import_type,
             'total_files': total_files
         }
@@ -272,24 +260,9 @@ class UnifiedImportRunner:
                 'success': False,
                 'error': f'File not found: {filepath}'
             }
-
-        # Initialize progress file
-        progress = {
-            'import_type': import_type,
-            'import_id': f"import_{import_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            'status': 'running',
-            'running': True,
-            'total_files': 1,
-            'completed_files': 0,
-            'current_file': file_path.name,
-            'records_imported': 0,
-            'failed_files': [],
-            'started_at': datetime.now().isoformat(),
-            'completed_at': None
-        }
-
-        with open(self.progress_file, 'w') as f:
-            json.dump(progress, f, indent=2)
+        # Progress tracking via database (eclaim_imported_files table)
+        # Generate import_id for tracking
+        import_id = f"import_{import_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         # Build command
         cmd = [
@@ -319,9 +292,9 @@ class UnifiedImportRunner:
         return {
             'success': True,
             'pid': process.pid,
-            'import_id': progress['import_id'],
+            'import_id': import_id,
             'import_type': import_type,
-            'filename': file_path.name
+            'filename': Path(filepath).name
         }
 
     def stop(self) -> Dict:
@@ -335,19 +308,7 @@ class UnifiedImportRunner:
         try:
             pid = int(self.pid_file.read_text().strip())
             subprocess.run(['kill', str(pid)], check=True)
-            self.pid_file.unlink(missing_ok=True)
-
-            # Update progress file
-            if self.progress_file.exists():
-                with open(self.progress_file, 'r') as f:
-                    progress = json.load(f)
-
-                progress['status'] = 'cancelled'
-                progress['running'] = False
-                progress['completed_at'] = datetime.now().isoformat()
-
-                with open(self.progress_file, 'w') as f:
-                    json.dump(progress, f, indent=2)
+            self.pid_file.unlink(missing_ok=True)            # Progress is tracked in database
 
             return {
                 'success': True,
@@ -365,20 +326,7 @@ class UnifiedImportRunner:
         self.pid_file.unlink(missing_ok=True)
 
         # Keep progress file for history, but mark as completed if stale
-        if self.progress_file.exists() and not self.is_running():
-            try:
-                with open(self.progress_file, 'r') as f:
-                    progress = json.load(f)
-
-                if progress.get('status') == 'running':
-                    progress['status'] = 'interrupted'
-                    progress['running'] = False
-                    progress['completed_at'] = datetime.now().isoformat()
-
-                    with open(self.progress_file, 'w') as f:
-                        json.dump(progress, f, indent=2)
-            except (json.JSONDecodeError, IOError):
-                pass
+        # Progress is tracked in database, no JSON cleanup needed
 
 
 # Singleton instance for use across app
