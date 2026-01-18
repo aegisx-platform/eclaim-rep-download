@@ -27,6 +27,11 @@ from utils.auth import auth_manager, User, require_role, require_admin
 from utils.audit_logger import audit_logger
 from utils.rate_limiter import rate_limiter, limit_login, limit_api, limit_download, limit_export
 from utils.security_headers import setup_security_headers
+from utils.fiscal_year import (
+    get_fiscal_year_sql_filter_gregorian,
+    get_fiscal_year_range_gregorian,
+    get_fiscal_year_range_be
+)
 from config.database import get_db_config, DB_TYPE
 from config.db_pool import init_pool, close_pool, get_connection as get_pooled_connection, return_connection, get_pool_status
 
@@ -1411,14 +1416,18 @@ def api_analysis_summary():
 
         if fiscal_year:
             # Fiscal year in Thai BE: FY 2569 = Oct 2568 to Sep 2569 (Gregorian: Oct 2025 to Sep 2026)
-            # Convert to Gregorian: BE - 543 = CE
-            gregorian_year = fiscal_year - 543
-            fy_start = f"{gregorian_year - 1}-10-01"  # Oct of previous year
-            fy_end = f"{gregorian_year}-09-30"  # Sep of fiscal year
+            # Use standardized fiscal year calculation
+            fy_start, fy_end = get_fiscal_year_range_gregorian(fiscal_year)
 
             # SMT uses Thai BE format YYYYMMDD (e.g., "25681001" for Oct 1, 2568)
-            smt_fy_start = f"{fiscal_year - 1}1001"  # Oct of previous BE year
-            smt_fy_end = f"{fiscal_year}0930"  # Sep of fiscal BE year
+            smt_fy_start, smt_fy_end = get_fiscal_year_range_be(fiscal_year)
+
+            # Calculate Gregorian years for fiscal year
+            # FY 2569 = Oct 2025 - Sep 2026
+            # Start year (for Oct-Dec months): fiscal_year - 543 - 1
+            # End year (for Jan-Sep months): fiscal_year - 543
+            fy_start_gregorian_year = fiscal_year - 543 - 1  # e.g., 2569 - 543 - 1 = 2025
+            fy_end_gregorian_year = fiscal_year - 543        # e.g., 2569 - 543 = 2026
 
             # If specific months are selected
             if start_month and end_month:
@@ -1426,22 +1435,21 @@ def api_analysis_summary():
                 # But user selects calendar months (1=Jan, ..., 12=Dec)
                 # So we need to convert calendar months to actual dates
                 if start_month >= 10:
-                    start_date = f"{gregorian_year - 1}-{start_month:02d}-01"
+                    start_date = f"{fy_start_gregorian_year}-{start_month:02d}-01"
                     smt_start = f"{fiscal_year - 1}{start_month:02d}01"
                 else:
-                    start_date = f"{gregorian_year}-{start_month:02d}-01"
+                    start_date = f"{fy_end_gregorian_year}-{start_month:02d}-01"
                     smt_start = f"{fiscal_year}{start_month:02d}01"
 
                 if end_month >= 10:
-                    end_date = f"{gregorian_year - 1}-{end_month:02d}-01"
+                    end_year = fy_start_gregorian_year
                     smt_end_year = fiscal_year - 1
                 else:
-                    end_date = f"{gregorian_year}-{end_month:02d}-01"
+                    end_year = fy_end_gregorian_year
                     smt_end_year = fiscal_year
 
                 # Get last day of end month
                 from calendar import monthrange
-                end_year = gregorian_year if end_month < 10 else gregorian_year - 1
                 _, last_day = monthrange(end_year, end_month)
                 end_date = f"{end_year}-{end_month:02d}-{last_day:02d}"
                 smt_end = f"{smt_end_year}{end_month:02d}{last_day:02d}"
@@ -3571,8 +3579,25 @@ def parallel_download_progress():
                 'status': 'idle'
             })
 
-        with open(progress_file, 'r', encoding='utf-8') as f:
-            progress = json.load(f)
+        try:
+            with open(progress_file, 'r', encoding='utf-8') as f:
+                progress = json.load(f)
+        except json.JSONDecodeError as e:
+            # Progress file corrupted, remove it and return idle state
+            logger.warning(f"Corrupted progress file detected, removing: {e}")
+            progress_file.unlink(missing_ok=True)
+            return jsonify({
+                'running': False,
+                'status': 'idle',
+                'error': 'Progress file corrupted (recovered)'
+            })
+        except Exception as e:
+            logger.error(f"Error reading progress file: {e}")
+            return jsonify({
+                'running': False,
+                'status': 'error',
+                'error': f'Failed to read progress: {str(e)}'
+            })
 
         # Check if still running
         status = progress.get('status')
@@ -3594,7 +3619,8 @@ def parallel_download_progress():
         return jsonify(progress)
 
     except Exception as e:
-        return jsonify({'running': False, 'error': str(e)}), 500
+        logger.error(f"Unexpected error in parallel_download_progress: {e}", exc_info=True)
+        return jsonify({'running': False, 'error': str(e)})
 
 
 @app.route('/api/downloads/parallel/cancel', methods=['POST'])
@@ -6806,7 +6832,7 @@ def get_analytics_date_filter():
     Returns tuple: (where_clause, params, filter_info)
 
     Supports:
-    - fiscal_year: Buddhist Era fiscal year (e.g., 2568 = Oct 2024 - Sep 2025)
+    - fiscal_year: Buddhist Era fiscal year (e.g., 2569 = Oct 2025 - Sep 2026)
     - start_date: Start date in YYYY-MM-DD format
     - end_date: End date in YYYY-MM-DD format
 
@@ -6821,15 +6847,13 @@ def get_analytics_date_filter():
     filter_info = {}
 
     if fiscal_year:
-        # Thai fiscal year runs Oct 1 to Sep 30
-        # FY 2568 BE = Oct 2024 CE - Sep 2025 CE
-        gregorian_year = fiscal_year - 543
-        fy_start = f"{gregorian_year - 1}-10-01"
-        fy_end = f"{gregorian_year}-09-30"
-        where_clauses.append("dateadm >= %s AND dateadm <= %s")
-        params.extend([fy_start, fy_end])
+        # Use standardized fiscal year calculation from utils/fiscal_year.py
+        # FY 2569 BE = Oct 2025 CE - Sep 2026 CE (1 Oct 2025 - 30 Sep 2026)
+        where_clause, where_params = get_fiscal_year_sql_filter_gregorian(fiscal_year, 'dateadm')
+        where_clauses.append(where_clause)
+        params.extend(where_params)
         filter_info['fiscal_year'] = fiscal_year
-        filter_info['date_range'] = f"{fy_start} to {fy_end}"
+        filter_info['date_range'] = f"{where_params[0]} to {where_params[1]}"
     elif start_date or end_date:
         if start_date:
             where_clauses.append("dateadm >= %s")
@@ -7955,11 +7979,9 @@ def api_claims_detail():
 
         # Fiscal year filter
         if fiscal_year:
-            gregorian_year = fiscal_year - 543
-            fy_start = f"{gregorian_year - 1}-10-01"
-            fy_end = f"{gregorian_year}-09-30"
-            where_clauses.append("dateadm >= %s AND dateadm <= %s")
-            params.extend([fy_start, fy_end])
+            where_clause, where_params = get_fiscal_year_sql_filter_gregorian(fiscal_year, 'dateadm')
+            where_clauses.append(where_clause)
+            params.extend(where_params)
 
         # Date range filter
         if start_date:
@@ -8156,11 +8178,9 @@ def api_denial_root_cause():
         params = []
 
         if fiscal_year:
-            gregorian_year = fiscal_year - 543
-            fy_start = f"{gregorian_year - 1}-10-01"
-            fy_end = f"{gregorian_year}-09-30"
-            where_clauses.append("dateadm >= %s AND dateadm <= %s")
-            params.extend([fy_start, fy_end])
+            where_clause, where_params = get_fiscal_year_sql_filter_gregorian(fiscal_year, 'dateadm')
+            where_clauses.append(where_clause)
+            params.extend(where_params)
 
         if start_date:
             where_clauses.append("dateadm >= %s")
@@ -8992,9 +9012,9 @@ def api_export_report(report_type):
             params = []
 
             if fiscal_year:
-                gregorian_year = fiscal_year - 543
-                where_clauses.append("dateadm >= %s AND dateadm <= %s")
-                params.extend([f"{gregorian_year - 1}-10-01", f"{gregorian_year}-09-30"])
+                where_clause, where_params = get_fiscal_year_sql_filter_gregorian(fiscal_year, 'dateadm')
+                where_clauses.append(where_clause)
+                params.extend(where_params)
 
             if start_date:
                 where_clauses.append("dateadm >= %s")
@@ -9358,16 +9378,26 @@ def api_benchmark_hospitals():
 
         if fiscal_year:
             fiscal_year_int = int(fiscal_year)
-            # Convert Buddhist Era to Gregorian
-            gregorian_year = fiscal_year_int - 543
-            # Fiscal year starts Oct of previous year, ends Sep of the year
-            start_date = f"{gregorian_year - 1}-10-01"
-            end_date = f"{gregorian_year}-09-30"
-            where_clause = "WHERE s.run_date >= %s AND s.run_date <= %s"
-            params = [start_date, end_date]
+            # Use fiscal year utility for Gregorian date filtering (run_date is Gregorian)
+            sql_filter, filter_params = get_fiscal_year_sql_filter_gregorian(fiscal_year_int, 's.run_date')
+            where_clause = f"WHERE {sql_filter}"
+            params = filter_params
 
         # Get summary by vendor from smt_budget_transfers with hospital name lookup
         ltrim_expr = "TRIM(LEADING '0' FROM s.vendor_no)" if DB_TYPE == 'mysql' else "LTRIM(s.vendor_no, '0')"
+
+        # Fix collation mismatch for MySQL
+        if DB_TYPE == 'mysql':
+            join_condition = f"""
+                h.hcode5 COLLATE utf8mb4_unicode_ci = {ltrim_expr} COLLATE utf8mb4_unicode_ci
+                OR h.hcode5 COLLATE utf8mb4_unicode_ci = s.vendor_no COLLATE utf8mb4_unicode_ci
+            """
+        else:
+            join_condition = f"""
+                h.hcode5 = {ltrim_expr}
+                OR h.hcode5 = s.vendor_no
+            """
+
         query = f"""
             SELECT
                 s.vendor_no,
@@ -9381,8 +9411,7 @@ def api_benchmark_hospitals():
                 h.name as hospital_name
             FROM smt_budget_transfers s
             LEFT JOIN health_offices h ON (
-                h.hcode5 = {ltrim_expr}
-                OR h.hcode5 = s.vendor_no
+                {join_condition}
             )
             {where_clause}
             GROUP BY s.vendor_no, h.name
@@ -9442,19 +9471,18 @@ def api_benchmark_timeseries():
 
         if fiscal_year:
             fiscal_year_int = int(fiscal_year)
-            # Convert Buddhist Era to Gregorian
-            gregorian_year = fiscal_year_int - 543
-            # Fiscal year starts Oct of previous year, ends Sep of the year
-            start_date = f"{gregorian_year - 1}-10-01"
-            end_date = f"{gregorian_year}-09-30"
-            where_clause = "WHERE run_date >= %s AND run_date <= %s"
-            params = [start_date, end_date]
+            # Use fiscal year utility for Gregorian date filtering (run_date is Gregorian)
+            sql_filter, filter_params = get_fiscal_year_sql_filter_gregorian(fiscal_year_int, 'run_date')
+            where_clause = f"WHERE {sql_filter}"
+            params = filter_params
 
             # If specific month range is specified
             if start_month and end_month:
                 start_m = int(start_month)
                 end_m = int(end_month)
                 # Adjust dates based on month in fiscal year
+                # Convert Buddhist Era to Gregorian for month range calculation
+                gregorian_year = fiscal_year_int - 543
                 if start_m >= 10:
                     start_date = f"{gregorian_year - 1}-{start_m:02d}-01"
                 else:
@@ -9463,6 +9491,8 @@ def api_benchmark_timeseries():
                     end_date = f"{gregorian_year - 1}-{end_m:02d}-28"
                 else:
                     end_date = f"{gregorian_year}-{end_m:02d}-28"
+                # Override with month-specific range
+                where_clause = "WHERE run_date >= %s AND run_date <= %s"
                 params = [start_date, end_date]
 
         # Get monthly summary by vendor
@@ -9682,14 +9712,11 @@ def api_benchmark_my_hospital():
 
         cursor = conn.cursor()
 
-        # Convert fiscal year to date range
-        gregorian_year = fiscal_year - 543
-        start_date = f"{gregorian_year - 1}-10-01"
-        end_date = f"{gregorian_year}-09-30"
+        # Convert fiscal year to date range using standardized calculation
+        start_date, end_date = get_fiscal_year_range_gregorian(fiscal_year)
 
         # Previous year for YoY comparison
-        prev_start_date = f"{gregorian_year - 2}-10-01"
-        prev_end_date = f"{gregorian_year - 1}-09-30"
+        prev_start_date, prev_end_date = get_fiscal_year_range_gregorian(fiscal_year - 1)
 
         # Normalize vendor_id (can be 5 or 10 digits)
         vendor_id_10 = vendor_id.zfill(10)
@@ -9987,10 +10014,8 @@ def api_benchmark_region_average():
 
         cursor = conn.cursor()
 
-        # Convert fiscal year to date range
-        gregorian_year = fiscal_year - 543
-        start_date = f"{gregorian_year - 1}-10-01"
-        end_date = f"{gregorian_year}-09-30"
+        # Convert fiscal year to date range using standardized calculation
+        start_date, end_date = get_fiscal_year_range_gregorian(fiscal_year)
 
         # Get regional averages
         ltrim_expr = "TRIM(LEADING '0' FROM s.vendor_no)" if DB_TYPE == 'mysql' else "LTRIM(s.vendor_no, '0')"
@@ -11173,6 +11198,7 @@ def calculate_performance_metrics(summary, monthly_data):
     - underpaid_months: Count of underpaid months
     - pending_months: Count of pending months
     - total_months: Total months with data
+    - data_quality: Data quality metrics
     """
     if not summary or not monthly_data:
         return {
@@ -11185,7 +11211,16 @@ def calculate_performance_metrics(summary, monthly_data):
             'matched_months': 0,
             'underpaid_months': 0,
             'pending_months': 0,
-            'total_months': 0
+            'total_months': 0,
+            'data_quality': {
+                'coverage_rate': 0,
+                'alert_level': 'unknown',
+                'missing_amount': 0,
+                'expected_claims': 0,
+                'actual_claims': 0,
+                'missing_claims': 0,
+                'avg_claim_amount': 0
+            }
         }
 
     total_months = len(monthly_data)
@@ -11232,6 +11267,36 @@ def calculate_performance_metrics(summary, monthly_data):
     claim_to_payment_ratio = (smt_total / rep_total * 100) if rep_total > 0 else 0
     avg_difference = ((smt_total - rep_total) / total_claims) if total_claims > 0 else 0
 
+    # Calculate Data Quality Metrics
+    # Coverage Rate: REP / SMT (%)
+    coverage_rate = (rep_total / smt_total * 100) if smt_total > 0 else 0
+
+    # Determine alert level based on coverage
+    if coverage_rate < 20:
+        alert_level = 'critical'  # Red - Very low coverage
+    elif coverage_rate < 50:
+        alert_level = 'warning'   # Yellow - Low coverage
+    elif coverage_rate < 80:
+        alert_level = 'caution'   # Orange - Moderate coverage
+    else:
+        alert_level = 'good'      # Green - Good coverage
+
+    # Estimate missing claims
+    avg_claim_amount = rep_total / total_claims if total_claims > 0 else 0
+    expected_claims = int(smt_total / avg_claim_amount) if avg_claim_amount > 0 else 0
+    missing_claims = max(0, expected_claims - total_claims)
+    missing_amount = smt_total - rep_total if smt_total > rep_total else 0
+
+    data_quality = {
+        'coverage_rate': coverage_rate,
+        'alert_level': alert_level,
+        'missing_amount': missing_amount,
+        'expected_claims': expected_claims,
+        'actual_claims': total_claims,
+        'missing_claims': missing_claims,
+        'avg_claim_amount': avg_claim_amount
+    }
+
     return {
         'payment_accuracy': payment_accuracy,
         'claim_to_payment_ratio': claim_to_payment_ratio,
@@ -11242,7 +11307,8 @@ def calculate_performance_metrics(summary, monthly_data):
         'matched_months': matched_months,
         'underpaid_months': underpaid_months,
         'pending_months': pending_months,
-        'total_months': total_months
+        'total_months': total_months,
+        'data_quality': data_quality
     }
 
 
