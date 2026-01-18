@@ -373,14 +373,344 @@ class SourceAdapter(ABC):
 **Implementations:**
 ```python
 class REPSourceAdapter(SourceAdapter):
-    """Adapter for REP (e-Claim) downloads"""
+    """Adapter for REP (e-Claim) downloads via web scraping"""
+    def get_source_type(self) -> str:
+        return "rep"
+
+    def fetch_file_list(self, params: Dict) -> List[FileInfo]:
+        # Login to NHSO e-claim portal
+        # Scrape file list from HTML table
+        # Return FileInfo objects
 
 class STMSourceAdapter(SourceAdapter):
-    """Adapter for Statement downloads"""
+    """Adapter for Statement downloads via web scraping"""
+    def get_source_type(self) -> str:
+        return "stm"
+
+    def fetch_file_list(self, params: Dict) -> List[FileInfo]:
+        # Login to STM portal
+        # Parse file list from HTML
+        # Return FileInfo objects
 
 class SMTSourceAdapter(SourceAdapter):
-    """Adapter for Smart Money Transfer API"""
+    """Adapter for Smart Money Transfer via API"""
+    def get_source_type(self) -> str:
+        return "smt"
+
+    def fetch_file_list(self, params: Dict) -> List[FileInfo]:
+        # Call NHSO SMT API
+        # Parse JSON response
+        # Return FileInfo objects (virtual files for DB import)
 ```
+
+### Adding New Sources (Extensibility)
+
+The adapter pattern makes it easy to add new download sources **without modifying core code**.
+
+#### Example: Adding a New Source (Claims Processing System - CPS)
+
+**Step 1: Create New Adapter**
+```python
+# utils/download_manager/adapters/cps.py
+
+from .base import SourceAdapter, FileInfo, AuthResult, DownloadResult
+from typing import Dict, List
+import requests
+
+class CPSSourceAdapter(SourceAdapter):
+    """
+    Adapter for Claims Processing System (CPS) API
+    Source Type: API-based download
+    """
+
+    def get_source_type(self) -> str:
+        return "cps"
+
+    def authenticate(self, credentials: Dict) -> AuthResult:
+        """Authenticate with CPS API"""
+        response = requests.post(
+            "https://cps.nhso.go.th/api/v1/auth",
+            json={
+                "api_key": credentials.get("api_key"),
+                "secret": credentials.get("secret")
+            }
+        )
+
+        if response.status_code == 200:
+            self._token = response.json()["access_token"]
+            return AuthResult(success=True, token=self._token)
+        else:
+            return AuthResult(success=False, error=response.text)
+
+    def fetch_file_list(self, params: Dict) -> List[FileInfo]:
+        """Fetch available files from CPS API"""
+        fiscal_year = params.get("fiscal_year")
+        hospital_code = params.get("hospital_code")
+
+        response = requests.get(
+            f"https://cps.nhso.go.th/api/v1/files",
+            headers={"Authorization": f"Bearer {self._token}"},
+            params={
+                "fiscal_year": fiscal_year,
+                "hospital": hospital_code,
+                "file_type": "claims"
+            }
+        )
+
+        files = []
+        for item in response.json()["data"]:
+            files.append(FileInfo(
+                filename=item["filename"],
+                url=item["download_url"],
+                file_type=item["type"],
+                size_hint=item["size_bytes"],
+                metadata={
+                    "file_id": item["id"],
+                    "created_at": item["created_at"],
+                    "claim_count": item["claim_count"]
+                }
+            ))
+
+        return files
+
+    def download_file(self, file_info: FileInfo, dest_path: Path) -> DownloadResult:
+        """Download file from CPS API"""
+        response = requests.get(
+            file_info.url,
+            headers={"Authorization": f"Bearer {self._token}"},
+            stream=True
+        )
+
+        if response.status_code == 200:
+            with open(dest_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            return DownloadResult(
+                success=True,
+                file_path=dest_path,
+                file_size=dest_path.stat().st_size
+            )
+        else:
+            return DownloadResult(
+                success=False,
+                error=f"HTTP {response.status_code}: {response.text}"
+            )
+
+    def validate_file(self, file_path: Path, file_info: FileInfo) -> bool:
+        """Validate downloaded file"""
+        # Check file size matches
+        actual_size = file_path.stat().st_size
+        expected_size = file_info.size_hint
+
+        if expected_size and abs(actual_size - expected_size) > 1024:
+            return False
+
+        # Verify file is valid Excel/CSV
+        try:
+            import pandas as pd
+            df = pd.read_excel(file_path) if file_path.suffix == '.xls' else pd.read_csv(file_path)
+            return len(df) > 0
+        except Exception:
+            return False
+```
+
+**Step 2: Register Adapter**
+```python
+# utils/download_manager/adapters/__init__.py
+
+from .base import SourceAdapter
+from .rep import REPSourceAdapter
+from .stm import STMSourceAdapter
+from .smt import SMTSourceAdapter
+from .cps import CPSSourceAdapter  # ← New adapter
+
+# Adapter registry (auto-discovery)
+ADAPTER_REGISTRY = {
+    'rep': REPSourceAdapter,
+    'stm': STMSourceAdapter,
+    'smt': SMTSourceAdapter,
+    'cps': CPSSourceAdapter,  # ← Register here
+}
+
+def get_adapter(source_type: str) -> SourceAdapter:
+    """Factory function to get adapter by source type"""
+    adapter_class = ADAPTER_REGISTRY.get(source_type)
+    if not adapter_class:
+        raise ValueError(f"Unknown source type: {source_type}")
+    return adapter_class()
+```
+
+**Step 3: Add Database Config (Optional)**
+```python
+# config/download_sources.py
+
+DOWNLOAD_SOURCES = {
+    'rep': {
+        'name': 'REP Files (e-Claim)',
+        'type': 'web',
+        'max_workers': 3,
+        'requires_credentials': True,
+        'supports_bulk': True,
+        'icon': 'file-medical'
+    },
+    'stm': {
+        'name': 'STM Files (Statement)',
+        'type': 'web',
+        'max_workers': 2,
+        'requires_credentials': True,
+        'supports_bulk': True,
+        'icon': 'file-invoice'
+    },
+    'smt': {
+        'name': 'SMT Data (API)',
+        'type': 'api',
+        'max_workers': 1,
+        'requires_credentials': True,
+        'supports_bulk': False,
+        'icon': 'database'
+    },
+    'cps': {  # ← New source config
+        'name': 'CPS Claims (API)',
+        'type': 'api',
+        'max_workers': 2,
+        'requires_credentials': True,
+        'supports_bulk': True,
+        'icon': 'chart-line'
+    }
+}
+```
+
+**Step 4: Update Frontend (Automatic Discovery)**
+```javascript
+// Frontend automatically discovers new sources from API
+
+fetch('/api/v2/downloads/sources')
+    .then(r => r.json())
+    .then(data => {
+        // Render download cards for all available sources
+        data.sources.forEach(source => {
+            renderDownloadCard({
+                type: source.type,        // 'cps'
+                name: source.name,        // 'CPS Claims (API)'
+                icon: source.icon,        // 'chart-line'
+                maxWorkers: source.max_workers
+            });
+        });
+    });
+```
+
+**Step 5: Use New Source (No Core Changes Needed!)**
+```bash
+# API call to start CPS download
+POST /api/v2/downloads/sessions
+{
+    "source_type": "cps",
+    "fiscal_year": 2569,
+    "hospital_code": "10670",
+    "credentials": {
+        "api_key": "...",
+        "secret": "..."
+    }
+}
+
+# Download Manager automatically:
+# 1. Loads CPSSourceAdapter from registry
+# 2. Creates isolated session
+# 3. Runs download with progress tracking
+# 4. All existing features work (cancel, resume, events, etc.)
+```
+
+#### Template for New Adapter
+
+```python
+# utils/download_manager/adapters/my_new_source.py
+
+from .base import SourceAdapter, FileInfo, AuthResult, DownloadResult
+from typing import Dict, List
+from pathlib import Path
+
+class MyNewSourceAdapter(SourceAdapter):
+    """
+    Adapter for [SOURCE NAME]
+
+    Source Type: [web/api]
+    Authentication: [credentials required/optional]
+    Bulk Download: [yes/no]
+    """
+
+    def get_source_type(self) -> str:
+        """Return unique source identifier"""
+        return "my_source"
+
+    def authenticate(self, credentials: Dict) -> AuthResult:
+        """
+        Authenticate with source
+
+        Args:
+            credentials: Dict with auth info (username/password or API key)
+
+        Returns:
+            AuthResult with success status and token/error
+        """
+        # TODO: Implement authentication logic
+        pass
+
+    def fetch_file_list(self, params: Dict) -> List[FileInfo]:
+        """
+        Fetch list of available files
+
+        Args:
+            params: Download parameters (fiscal_year, month, etc.)
+
+        Returns:
+            List of FileInfo objects
+        """
+        # TODO: Implement file discovery logic
+        # For web: scrape HTML table/links
+        # For API: call endpoint and parse JSON
+        pass
+
+    def download_file(self, file_info: FileInfo, dest_path: Path) -> DownloadResult:
+        """
+        Download a single file
+
+        Args:
+            file_info: File metadata from fetch_file_list()
+            dest_path: Where to save the file
+
+        Returns:
+            DownloadResult with success status
+        """
+        # TODO: Implement download logic
+        # Use requests for HTTP download
+        # Handle streaming for large files
+        pass
+
+    def validate_file(self, file_path: Path, file_info: FileInfo) -> bool:
+        """
+        Validate downloaded file
+
+        Args:
+            file_path: Path to downloaded file
+            file_info: Original file metadata
+
+        Returns:
+            True if valid, False otherwise
+        """
+        # TODO: Implement validation logic
+        # Check file size, format, integrity
+        pass
+```
+
+### Benefits of Adapter Pattern
+
+1. **Zero Core Changes** - Add new sources without modifying DownloadManager
+2. **Type Safety** - Abstract base enforces interface contract
+3. **Auto-Discovery** - Registry pattern finds adapters automatically
+4. **Consistent UX** - All sources get same progress tracking, cancel/resume, etc.
+5. **Easy Testing** - Mock adapters for unit tests
+6. **Future-Proof** - New NHSO systems or APIs? Just add adapter!
 
 ---
 

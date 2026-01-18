@@ -25,9 +25,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Progress file for real-time tracking
-PROGRESS_FILE = Path('import_progress.json')
-
 # Realtime log file (same as log_streamer uses)
 REALTIME_LOG_FILE = Path('logs/realtime.log')
 _log_lock = threading.Lock()
@@ -57,18 +54,7 @@ def stream_log(message: str, level: str = 'info', source: str = 'import'):
             print(f"Error writing to realtime log: {e}")
 
 
-def update_progress(progress_data: dict):
-    """
-    Update import progress file for real-time tracking
-
-    Args:
-        progress_data: Progress dict to save
-    """
-    try:
-        with open(PROGRESS_FILE, 'w') as f:
-            json.dump(progress_data, f, indent=2)
-    except Exception as e:
-        logger.warning(f"Could not update progress file: {e}")
+# Progress tracking removed - importer_v2.py writes directly to eclaim_imported_files table
 
 
 def import_single_file(filepath: str, db_config: dict, log_to_stream: bool = True) -> dict:
@@ -171,7 +157,6 @@ def import_directory(directory: str, db_config: dict, file_pattern: str = '*.xls
         'total_records_imported': 0,
         'failed_files': []
     }
-    update_progress(progress)
 
     for idx, filepath in enumerate(xls_files, 1):
         logger.info(f"\n{'='*60}")
@@ -181,11 +166,10 @@ def import_directory(directory: str, db_config: dict, file_pattern: str = '*.xls
         if idx == 1 or idx % 10 == 0 or idx == len(xls_files):
             stream_log(f"[{idx}/{len(xls_files)}] Processing: {filepath.name}", 'info', 'import')
 
-        # Update progress
+        # Update progress (in-memory only - database updated by importer_v2)
         progress['current_file'] = filepath.name
         progress['current_file_index'] = idx
         progress['completed_files'] = idx - 1
-        update_progress(progress)
 
         result = import_single_file(str(filepath), db_config, log_to_stream=True)
 
@@ -206,15 +190,13 @@ def import_directory(directory: str, db_config: dict, file_pattern: str = '*.xls
             'error': result.get('error')
         })
 
-        # Update progress after each file
+        # Update progress after each file (in-memory only)
         progress['completed_files'] = idx
-        update_progress(progress)
 
     # Mark as completed
     progress['status'] = 'completed'
     progress['completed_at'] = datetime.now().isoformat()
     progress['current_file'] = None
-    update_progress(progress)
 
     # Stream final summary
     stream_log("=" * 50, 'info', 'import')

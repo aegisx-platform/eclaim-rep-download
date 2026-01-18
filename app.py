@@ -3565,113 +3565,68 @@ def trigger_parallel_download():
 @app.route('/api/downloads/parallel/progress')
 @app.route('/api/download/parallel/progress')  # Legacy alias
 def parallel_download_progress():
-    """Get parallel download progress"""
+    """Get parallel download progress from DownloadManager (database)"""
     try:
-        import json
-        from pathlib import Path
-        from datetime import datetime
+        from utils.download_manager import get_download_manager
 
-        progress_file = Path('parallel_download_progress.json')
+        manager = get_download_manager()
+        active_sessions = manager.get_active_sessions()
 
-        if not progress_file.exists():
-            return jsonify({
-                'running': False,
-                'status': 'idle'
-            })
+        # Find active REP session (parallel download is typically REP)
+        for progress_info in active_sessions:
+            if progress_info.source_type == 'rep':
+                # Return progress in legacy format for UI compatibility
+                return jsonify({
+                    'running': True,
+                    'status': progress_info.status.value,
+                    'total': progress_info.total_discovered,
+                    'completed': progress_info.downloaded,
+                    'skipped': progress_info.skipped,
+                    'failed': progress_info.failed,
+                    'processed': progress_info.processed,
+                    'session_id': progress_info.session_id
+                })
 
-        try:
-            with open(progress_file, 'r', encoding='utf-8') as f:
-                progress = json.load(f)
-        except json.JSONDecodeError as e:
-            # Progress file corrupted, remove it and return idle state
-            logger.warning(f"Corrupted progress file detected, removing: {e}")
-            progress_file.unlink(missing_ok=True)
-            return jsonify({
-                'running': False,
-                'status': 'idle',
-                'error': 'Progress file corrupted (recovered)'
-            })
-        except Exception as e:
-            logger.error(f"Error reading progress file: {e}")
-            return jsonify({
-                'running': False,
-                'status': 'error',
-                'error': f'Failed to read progress: {str(e)}'
-            })
-
-        # Check if still running
-        status = progress.get('status')
-        running = status == 'downloading'
-
-        # Auto-recovery: detect orphan/stale downloads
-        # If status is "downloading" but file hasn't been updated in 60 seconds, mark as stale
-        if running:
-            file_mtime = progress_file.stat().st_mtime
-            seconds_since_update = (datetime.now().timestamp() - file_mtime)
-            if seconds_since_update > 60:  # No update in 60 seconds = likely orphaned
-                progress['running'] = False
-                progress['status'] = 'stale'
-                progress['stale_reason'] = 'No progress update for 60+ seconds. Process may have crashed.'
-                return jsonify(progress)
-
-        progress['running'] = running
-
-        return jsonify(progress)
+        # No active REP session
+        return jsonify({
+            'running': False,
+            'status': 'idle'
+        })
 
     except Exception as e:
-        logger.error(f"Unexpected error in parallel_download_progress: {e}", exc_info=True)
+        logger.error(f"Error getting download progress: {e}", exc_info=True)
         return jsonify({'running': False, 'error': str(e)})
 
 
 @app.route('/api/downloads/parallel/cancel', methods=['POST'])
 @app.route('/api/download/parallel/cancel', methods=['POST'])  # Legacy alias
 def cancel_parallel_download():
-    """Cancel or force-clear parallel download progress"""
+    """Cancel parallel download session via DownloadManager"""
     try:
-        import json
-        from pathlib import Path
+        from utils.download_manager import get_download_manager
 
-        progress_file = Path('parallel_download_progress.json')
+        manager = get_download_manager()
+        active_sessions = manager.get_active_sessions()
 
-        if not progress_file.exists():
-            return jsonify({
-                'success': True,
-                'message': 'No download in progress'
-            })
-
-        # Read current progress
-        with open(progress_file, 'r', encoding='utf-8') as f:
-            progress = json.load(f)
-
-        # Check if force cancel requested
-        data = request.get_json() or {}
-        force = data.get('force', False)
-
-        # If actually running (recent update), try graceful cancel
-        if progress.get('status') == 'downloading' and not force:
-            file_mtime = progress_file.stat().st_mtime
-            seconds_since_update = (datetime.now().timestamp() - file_mtime)
-
-            if seconds_since_update < 30:
-                # Process seems active, set cancel flag
-                progress['cancel_requested'] = True
-                with open(progress_file, 'w', encoding='utf-8') as f:
-                    json.dump(progress, f, ensure_ascii=False, indent=2)
+        # Find active REP session
+        for progress_info in active_sessions:
+            if progress_info.source_type == 'rep':
+                # Cancel the session
+                manager.cancel_session(progress_info.session_id)
                 return jsonify({
                     'success': True,
-                    'message': 'Cancel signal sent to running download'
+                    'message': 'Download cancelled',
+                    'session_id': progress_info.session_id
                 })
 
-        # Force cancel: delete progress file
-        progress_file.unlink()
-
+        # No active download
         return jsonify({
             'success': True,
-            'message': 'Download progress cleared',
-            'was_stale': progress.get('status') == 'downloading'
+            'message': 'No download in progress'
         })
 
     except Exception as e:
+        logger.error(f"Error cancelling download: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -5398,14 +5353,6 @@ def sync_system_status():
         'smt': Path('/tmp/eclaim_smt_fetch.pid')
     }
 
-    # Progress files to reset if process is dead
-    progress_files = {
-        'parallel_download': Path('parallel_download_progress.json'),
-        'bulk_download': Path('bulk_download_progress.json'),
-        'import': Path('import_progress.json'),
-        'download_iteration': Path('download_iteration_progress.json')
-    }
-
     # === STEP 1: Check PID files and reset if processes are dead ===
     for name, pid_file in pid_files.items():
         report['summary']['processes_checked'] += 1
@@ -5455,52 +5402,8 @@ def sync_system_status():
                 })
                 report['summary']['processes_reset'] += 1
 
-    # === STEP 2: Reset stuck progress files ===
-    # Only reset if no related process is running
-    downloader_running = any(
-        Path(f'/tmp/eclaim_{name}.pid').exists() and _check_pid_alive(f'/tmp/eclaim_{name}.pid')
-        for name in ['downloader', 'parallel_download']
-    )
-
-    for name, progress_file in progress_files.items():
-        if progress_file.exists():
-            try:
-                with open(progress_file, 'r', encoding='utf-8') as f:
-                    progress = json.load(f)
-
-                status = progress.get('status', '')
-                # Check if stuck (running/downloading but no process)
-                if status in ['running', 'downloading', 'processing'] and not downloader_running:
-                    # Reset progress file
-                    if 'parallel' in name:
-                        new_progress = {'status': 'idle', 'total': 0, 'completed': 0, 'failed': 0, 'skipped': 0}
-                    elif 'bulk' in name:
-                        new_progress = {'status': 'completed', 'total_iterations': 0, 'completed_iterations': 0}
-                    elif 'import' in name:
-                        new_progress = {'status': 'idle', 'running': False}
-                    else:
-                        new_progress = {'status': 'idle'}
-
-                    with open(progress_file, 'w', encoding='utf-8') as f:
-                        json.dump(new_progress, f, indent=2)
-
-                    report['actions'].append({
-                        'type': 'progress_reset',
-                        'file': str(progress_file),
-                        'old_status': status,
-                        'new_status': new_progress.get('status'),
-                        'action': 'reset'
-                    })
-                    report['summary']['processes_reset'] += 1
-            except (json.JSONDecodeError, IOError) as e:
-                report['actions'].append({
-                    'type': 'progress_reset',
-                    'file': str(progress_file),
-                    'status': 'error',
-                    'error': str(e)
-                })
-
-    # === STEP 3: Sync REP files with database ===
+    # === STEP 2: Sync REP files with database ===
+    # (Progress tracking now uses database - no JSON files to reset)
     # REP files are stored in downloads/rep/ subfolder
     rep_dir = Path('downloads/rep')
 
@@ -13062,45 +12965,146 @@ def scan_files_to_history():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def recover_stale_downloads():
-    """
-    Auto-recovery: Clean up stale/orphaned download progress files on server startup.
-    This prevents the UI from being stuck showing 'downloading' when the process crashed.
-    """
-    from pathlib import Path
-    import json
+# Removed: recover_stale_downloads() - Progress tracking now uses database
 
-    progress_files = [
-        ('parallel_download_progress.json', 'Parallel Download'),
-        ('stm_download_progress.json', 'STM Download'),
-    ]
+# =============================================================================
+# Download Manager V2 API - Session-based downloads with isolation
+# =============================================================================
 
-    for filename, name in progress_files:
-        progress_file = Path(filename)
-        if not progress_file.exists():
-            continue
+from utils.download_manager import get_download_manager
 
-        try:
-            with open(progress_file, 'r', encoding='utf-8') as f:
-                progress = json.load(f)
+@app.route('/api/v2/downloads/sessions', methods=['POST'])
+@login_required
+@limit_api
+def api_v2_create_session():
+    """Create new download session (v2 API)"""
+    try:
+        data = request.get_json()
+        source_type = data.get('source_type')  # rep, stm, smt
+        params = {
+            'fiscal_year': data.get('fiscal_year'),
+            'service_month': data.get('service_month'),
+            'scheme': data.get('scheme'),
+            'max_workers': data.get('max_workers', 1),
+            'auto_import': data.get('auto_import', False)
+        }
 
-            status = progress.get('status')
+        # Validate source type
+        if source_type not in ('rep', 'stm', 'smt'):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid source_type. Must be: rep, stm, or smt'
+            }), 400
 
-            # If status is 'downloading', it was interrupted by server restart
-            if status == 'downloading':
-                # Mark as interrupted instead of deleting (preserve history)
-                progress['status'] = 'interrupted'
-                progress['interrupted_reason'] = 'Server restarted while download was in progress'
-                progress['interrupted_at'] = datetime.now().isoformat()
+        # Check if can start
+        manager = get_download_manager()
+        can_start, reason = manager.can_start_download(source_type)
 
-                with open(progress_file, 'w', encoding='utf-8') as f:
-                    json.dump(progress, f, ensure_ascii=False, indent=2)
+        if not can_start:
+            return jsonify({
+                'success': False,
+                'error': reason,
+                'existing_sessions': [
+                    p.to_dict() for p in manager.get_active_sessions()
+                    if p.source_type == source_type
+                ]
+            }), 409  # Conflict
 
-                app.logger.warning(f"[Auto-Recovery] {name} was interrupted - marked as 'interrupted'")
-                print(f"⚠️  [Auto-Recovery] {name} was interrupted by server restart")
+        # Create session
+        session_id = manager.create_session(source_type, params)
 
-        except Exception as e:
-            app.logger.error(f"[Auto-Recovery] Error processing {filename}: {e}")
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'message': f'{source_type.upper()} download session created',
+            'progress_url': f'/api/v2/downloads/sessions/{session_id}/progress'
+        })
+
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/v2/downloads/sessions/<session_id>/progress')
+@login_required
+def api_v2_get_session_progress(session_id):
+    """Get progress for a specific session"""
+    try:
+        manager = get_download_manager()
+        progress = manager.get_progress(session_id)
+
+        if not progress:
+            return jsonify({
+                'success': False,
+                'error': 'Session not found'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            **progress.to_dict()
+        })
+
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/v2/downloads/sessions/<session_id>/cancel', methods=['POST'])
+@login_required
+def api_v2_cancel_session(session_id):
+    """Cancel active session"""
+    try:
+        manager = get_download_manager()
+        session = manager.get_session(session_id)
+
+        if not session:
+            return jsonify({
+                'success': False,
+                'error': 'Session not found'
+            }), 404
+
+        manager.cancel_session(session_id)
+
+        return jsonify({
+            'success': True,
+            'message': 'Session cancelled',
+            'session_id': session_id
+        })
+
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/v2/downloads/active')
+@login_required
+def api_v2_get_active_sessions():
+    """Get all active download sessions"""
+    try:
+        manager = get_download_manager()
+        active_sessions = manager.get_active_sessions()
+
+        return jsonify({
+            'success': True,
+            'active_sessions': [p.to_dict() for p in active_sessions],
+            'count': len(active_sessions)
+        })
+
+    except Exception as e:
+        logger.error(safe_format_exception())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 if __name__ == '__main__':
@@ -13118,9 +13122,6 @@ if __name__ == '__main__':
 
     # Check license status on startup
     check_license_status()
-
-    # Auto-recovery: clean up stale downloads from previous crashes
-    recover_stale_downloads()
 
     # Initialize schedulers on startup
     init_scheduler()

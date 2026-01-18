@@ -111,11 +111,9 @@ class ParallelDownloader:
         }
         self.progress_lock = threading.Lock()
 
-        # Progress file
-        self.progress_file = Path('parallel_download_progress.json')
-
         # Download history - now using database (no need to load entire history)
         # Just check DB on demand for each file
+        # Progress is tracked in-memory and synced to DownloadManager via Bridge
 
     def _is_already_downloaded(self, filename: str) -> bool:
         """Check if file was already downloaded (using database)"""
@@ -202,25 +200,17 @@ class ParallelDownloader:
             if conn:
                 return_connection(conn)
 
-    def _save_progress(self):
-        """Save progress to file for real-time tracking"""
-        try:
-            with self.progress_lock:
-                progress_data = self.progress.copy()
-
-            with open(self.progress_file, 'w', encoding='utf-8') as f:
-                json.dump(progress_data, f, indent=2, ensure_ascii=False, default=str)
-        except Exception as e:
-            stream_log(f"Warning: Could not save progress: {e}", 'warning')
-
     def _update_progress(self, **kwargs):
-        """Update progress and save to file"""
+        """
+        Update progress in-memory.
+
+        Note: Progress is no longer saved to JSON files.
+        ParallelDownloadBridge will sync this to DownloadManager/Database.
+        """
         with self.progress_lock:
             for key, value in kwargs.items():
                 if key in self.progress:
                     self.progress[key] = value
-
-        self._save_progress()
 
         if self.progress_callback:
             try:

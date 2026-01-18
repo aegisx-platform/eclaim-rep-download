@@ -5,18 +5,18 @@ STM Import Runner - Manage background STM import processes with progress trackin
 
 import subprocess
 import sys
-import json
 import os
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
 
+from config.db_pool import get_connection, return_connection
+
 
 class STMImportRunner:
-    """Manage background STM import processes with progress tracking"""
+    """Manage background STM import processes with progress tracking (using database)"""
 
     def __init__(self):
-        self.progress_file = Path('stm_import_progress.json')
         self.pid_file = Path('/tmp/eclaim_stm_import.pid')
 
     def is_running(self) -> bool:
@@ -35,27 +35,58 @@ class STMImportRunner:
             return False
 
     def get_progress(self) -> Dict:
-        """Get current STM import progress"""
-        if not self.progress_file.exists():
-            return {
-                'running': False,
-                'status': 'idle'
-            }
+        """
+        Get current STM import progress from database
 
+        Returns progress for most recent processing/pending STM import
+        """
+        conn = None
         try:
-            with open(self.progress_file, 'r') as f:
-                progress = json.load(f)
+            conn = get_connection()
+            cursor = conn.cursor()
 
-            # Add running status based on PID
-            progress['running'] = self.is_running()
+            # Get most recent processing or pending STM import
+            cursor.execute("""
+                SELECT filename, status, total_records, imported_records,
+                       failed_records, error_message, import_started_at,
+                       import_completed_at
+                FROM stm_imported_files
+                WHERE status IN ('processing', 'pending')
+                ORDER BY import_started_at DESC NULLS LAST, created_at DESC
+                LIMIT 1
+            """)
 
-            return progress
+            row = cursor.fetchone()
+            cursor.close()
 
-        except (json.JSONDecodeError, IOError):
+            if row:
+                progress = {
+                    'running': self.is_running() and row[1] == 'processing',
+                    'status': row[1],
+                    'filename': row[0],
+                    'total_records': row[2] or 0,
+                    'imported_records': row[3] or 0,
+                    'failed_records': row[4] or 0,
+                    'error_message': row[5],
+                    'started_at': row[6].isoformat() if row[6] else None,
+                    'completed_at': row[7].isoformat() if row[7] else None
+                }
+                return_connection(conn)
+                return progress
+            else:
+                return_connection(conn)
+                return {
+                    'running': False,
+                    'status': 'idle'
+                }
+
+        except Exception as e:
+            if conn:
+                return_connection(conn)
             return {
                 'running': False,
                 'status': 'error',
-                'error': 'Could not read progress file'
+                'error': f'Database error: {str(e)}'
             }
 
     def start_bulk_import(self, directory: str = 'downloads/stm') -> Dict:

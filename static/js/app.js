@@ -1015,9 +1015,13 @@ function startParallelProgressPolling() {
             if (progress.running || progress.status === 'downloading') {
                 // Update display
                 const completed = progress.completed || 0;
+                const skipped = progress.skipped || 0;
                 const total = progress.total || 0;
                 const failed = progress.failed || 0;
                 const workers = progress.workers || [];
+
+                // Calculate processed (completed + skipped)
+                const processed = completed + skipped;
 
                 // Update current status
                 if (currentMonthSpan) {
@@ -1027,20 +1031,24 @@ function startParallelProgressPolling() {
                     currentMonthSpan.textContent = `Parallel: ${workerInfo}`;
                 }
 
-                // Update progress count
+                // Update progress count with detailed breakdown
                 if (progressCountSpan) {
-                    progressCountSpan.textContent = `${completed} / ${total} files`;
+                    if (skipped > 0 || completed > 0) {
+                        progressCountSpan.textContent = `${processed} / ${total} files (${completed} new, ${skipped} skipped)`;
+                    } else {
+                        progressCountSpan.textContent = `${processed} / ${total} files`;
+                    }
                 }
 
-                // Update progress bar
-                const percentage = total > 0 ? (completed / total) * 100 : 0;
+                // Update progress bar (use processed instead of completed)
+                const percentage = total > 0 ? (processed / total) * 100 : 0;
                 if (progressBar) {
                     progressBar.style.width = `${Math.max(percentage, 2)}%`;
                 }
 
                 // Update percentage text
                 if (progressPercentage) {
-                    progressPercentage.textContent = `${completed}/${total}`;
+                    progressPercentage.textContent = `${processed}/${total}`;
                 }
 
             } else if (progress.status === 'stale' || progress.status === 'interrupted') {
@@ -1730,7 +1738,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     : '⚠️ Interrupted by server restart';
             }
             if (progressCountSpan) {
-                progressCountSpan.textContent = (parallelProgress.completed || 0) + ' / ' + (parallelProgress.total || 0) + ' files';
+                const completed = parallelProgress.completed || 0;
+                const skipped = parallelProgress.skipped || 0;
+                const total = parallelProgress.total || 0;
+                const processed = completed + skipped;
+
+                if (skipped > 0 || completed > 0) {
+                    progressCountSpan.textContent = `${processed} / ${total} files (${completed} new, ${skipped} skipped)`;
+                } else {
+                    progressCountSpan.textContent = `${processed} / ${total} files`;
+                }
             }
             if (cancelBtn) {
                 cancelBtn.textContent = '🔄 ล้างแล้วลองใหม่';

@@ -5,15 +5,16 @@ Unified Import Runner - Manage background import processes for all types (REP, S
 
 import subprocess
 import sys
-import json
 import os
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
 
+from config.db_pool import get_connection, return_connection
+
 
 class UnifiedImportRunner:
-    """Unified runner for all import types with consistent progress tracking"""
+    """Unified runner for all import types with consistent progress tracking (using database)"""
 
     VALID_TYPES = ['rep', 'stm', 'smt']
 
@@ -22,23 +23,24 @@ class UnifiedImportRunner:
         'rep': {
             'directory': 'downloads/rep',
             'pattern': '*.xls',
-            'description': 'REP (Reimbursement)'
+            'description': 'REP (Reimbursement)',
+            'table': 'eclaim_imported_files'
         },
         'stm': {
             'directory': 'downloads/stm',
             'pattern': 'STM_*.xls',
-            'description': 'STM (Statement)'
+            'description': 'STM (Statement)',
+            'table': 'stm_imported_files'
         },
         'smt': {
             'directory': 'downloads/smt',
             'pattern': 'smt_budget_*.csv',
-            'description': 'SMT (Budget Transfer)'
+            'description': 'SMT (Budget Transfer)',
+            'table': 'smt_budget_import_history'
         }
     }
 
     def __init__(self):
-        # Single progress file for all imports
-        self.progress_file = Path('import_progress.json')
         # Single PID file - only one import at a time
         self.pid_file = Path('/tmp/eclaim_import.pid')
 
@@ -57,27 +59,71 @@ class UnifiedImportRunner:
             self.pid_file.unlink(missing_ok=True)
             return False
 
-    def get_progress(self) -> Dict:
-        """Get current import progress (any type)"""
-        if not self.progress_file.exists():
-            return {
-                'running': False,
-                'status': 'idle',
-                'import_type': None
-            }
+    def get_progress(self, import_type: str = None) -> Dict:
+        """
+        Get current import progress from database
 
+        Args:
+            import_type: Optional filter by type (rep, stm, smt)
+
+        Returns progress for most recent processing/pending import
+        """
+        conn = None
         try:
-            with open(self.progress_file, 'r') as f:
-                progress = json.load(f)
+            conn = get_connection()
+            cursor = conn.cursor()
 
-            # Determine running status:
-            # 1. If progress file says completed/error/cancelled, trust it (not running)
-            # 2. Otherwise, check PID to see if process is still alive
-            status = progress.get('status', '')
-            if status in ('completed', 'error', 'cancelled', 'interrupted'):
-                progress['running'] = False
-                # Clean up PID file if status is terminal
-                self.pid_file.unlink(missing_ok=True)
+            # Query from appropriate table based on import_type
+            # If no type specified, check all tables and return most recent
+            if import_type == 'stm':
+                table = 'stm_imported_files'
+            elif import_type == 'smt':
+                # SMT doesn't have tracking table yet - return idle
+                return_connection(conn)
+                return {
+                    'running': False,
+                    'status': 'idle',
+                    'import_type': 'smt'
+                }
+            else:
+                # REP or None - use eclaim_imported_files
+                table = 'eclaim_imported_files'
+
+            cursor.execute(f"""
+                SELECT filename, status, total_records, imported_records,
+                       failed_records, error_message, import_started_at,
+                       import_completed_at
+                FROM {table}
+                WHERE status IN ('processing', 'pending')
+                ORDER BY import_started_at DESC NULLS LAST, created_at DESC
+                LIMIT 1
+            """)
+
+            row = cursor.fetchone()
+            cursor.close()
+
+            if row:
+                progress = {
+                    'running': self.is_running() and row[1] == 'processing',
+                    'status': row[1],
+                    'import_type': import_type or 'rep',
+                    'filename': row[0],
+                    'total_records': row[2] or 0,
+                    'imported_records': row[3] or 0,
+                    'failed_records': row[4] or 0,
+                    'error_message': row[5],
+                    'started_at': row[6].isoformat() if row[6] else None,
+                    'completed_at': row[7].isoformat() if row[7] else None
+                }
+                return_connection(conn)
+                return progress
+            else:
+                return_connection(conn)
+                return {
+                    'running': False,
+                    'status': 'idle',
+                    'import_type': import_type
+                }
             else:
                 progress['running'] = self.is_running()
 
