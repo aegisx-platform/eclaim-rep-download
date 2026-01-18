@@ -124,16 +124,14 @@ class UnifiedImportRunner:
                     'status': 'idle',
                     'import_type': import_type
                 }
-            else:
-                progress['running'] = self.is_running()
 
-            return progress
-
-        except (json.JSONDecodeError, IOError):
+        except Exception as e:
+            if conn:
+                return_connection(conn)
             return {
                 'running': False,
                 'status': 'error',
-                'error': 'Could not read progress file'
+                'error': f'Database error: {str(e)}'
             }
 
     def get_current_import_type(self) -> Optional[str]:

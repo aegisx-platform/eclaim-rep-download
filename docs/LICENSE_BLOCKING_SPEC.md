@@ -5,10 +5,16 @@
 Simple license enforcement for on-premise deployment. The system uses a 3-state model with configurable grace period.
 
 **Philosophy:**
-- Core value = Automated downloads (manual download is painful)
-- Block downloads/imports when expired = Strong incentive to renew
+- Core value = **Automated downloads** (manual download is painful)
+- Block auto-downloads when expired = Strong incentive to renew
+- **Allow manual upload** = Users can still work (but tedious)
 - Keep existing data accessible = No production breakage
 - Grace period configurable via license = Future flexibility
+
+**Key Insight:**
+> Forcing users to manually download + upload files creates friction (pain)
+> while keeping the system functional. This balances business needs with
+> customer satisfaction for on-premise deployments.
 
 ---
 
@@ -65,19 +71,22 @@ Contact: sales@vendor.com
 - OR signature verification failed
 
 **Behavior:**
-- **Core pain point: Cannot download new files** (manual download is tedious)
-- Cannot import data
+- **Core pain point: Cannot auto-download files** (must download manually from NHSO)
+- Can manually upload files (tedious workflow)
+- Can import uploaded files
 - Can view all existing data
 - Can export existing data
 - External API still works (for HIS integration)
 
-**Blocked Operations (Core Value):**
-- ❌ **Download** (REP/STM/SMT) - Manual/Scheduled/Bulk ← Main pain point!
-- ❌ **Import** files (no new data)
+**Blocked Operations (Core Value = Automation):**
+- ❌ **Auto Download** (REP/STM/SMT) - Scheduled/Bulk/API ← Main pain point!
 - ❌ **Settings** modifications
 - ❌ **User management** (add/edit users)
+- ❌ **Scheduler** (cannot add/edit scheduled downloads)
 
-**Allowed Operations (Data Access):**
+**Allowed Operations (Manual Workflow):**
+- ✅ **Manual Upload** files (REP/STM/SMT) ← Fallback for expired users
+- ✅ **Import** uploaded files
 - ✅ View Dashboard
 - ✅ View Analytics/Reports
 - ✅ View Files list
@@ -85,6 +94,14 @@ Contact: sales@vendor.com
 - ✅ View Settings (read-only)
 - ✅ **External API** (HIS integration) - Read existing data only
 - ✅ External API health check
+
+**Manual Workflow (Read-Only Mode):**
+```
+1. User manually logs into NHSO e-claim website
+2. User manually downloads files (painful!)
+3. User uploads files to system via Upload UI
+4. System imports uploaded files (same as before)
+```
 
 **Error Message:**
 ```
@@ -108,16 +125,20 @@ You can still:
 
 | Feature | Active | Grace Period | Read-Only |
 |---------|--------|--------------|-----------|
-| **Downloads** |
+| **Downloads (Automated)** |
 | Single download | ✅ | ✅ | ❌ |
 | Bulk download | ✅ | ✅ | ❌ |
 | Scheduled download | ✅ | ✅ | ❌ |
 | Cancel download | ✅ | ✅ | ✅ (if running) |
+| **Manual Upload (New!)** |
+| Upload REP files | ✅ | ✅ | ✅ ← Fallback! |
+| Upload STM files | ✅ | ✅ | ✅ ← Fallback! |
+| Upload SMT files | ✅ | ✅ | ✅ ← Fallback! |
 | **Imports** |
-| Import REP files | ✅ | ✅ | ❌ |
-| Import STM files | ✅ | ✅ | ❌ |
-| Import SMT data | ✅ | ✅ | ❌ |
-| Scan files | ✅ | ✅ | ❌ |
+| Import REP files | ✅ | ✅ | ✅ (uploaded only) |
+| Import STM files | ✅ | ✅ | ✅ (uploaded only) |
+| Import SMT data | ✅ | ✅ | ✅ (uploaded only) |
+| Scan files | ✅ | ✅ | ✅ |
 | **Data Access** |
 | View Dashboard | ✅ | ✅ | ✅ |
 | View Analytics | ✅ | ✅ | ✅ |
@@ -338,7 +359,20 @@ def update_settings():
 # Hospital can still query existing data for patient care
 ```
 
-**Total: ~20-25 endpoints** to protect (15-20 internal + External API blueprint)
+**Upload API Endpoints (New - Always Allowed):**
+```python
+@app.route('/api/files/upload', methods=['POST'])
+def upload_files():
+    """
+    Upload files manually (REP/STM/SMT)
+    Always allowed - even in read-only mode
+    Provides fallback for expired license users
+    """
+    # No license check - always allow upload
+    # But auto-download is blocked
+```
+
+**Total: ~15-18 endpoints** to protect (downloads, scheduler, settings)
 
 ---
 
@@ -451,16 +485,41 @@ if (window.LICENSE_STATE.state === 'read_only') {
   - [ ] Implement `@require_license_write_access` decorator
 
 - [ ] Apply decorator to endpoints:
-  - [ ] Download endpoints (5 routes) ← Main blocking
-  - [ ] Import endpoints (6 routes) ← Main blocking
+  - [ ] Download endpoints (5 routes) ← Main blocking (auto-download)
+  - [ ] Scheduler endpoints (4 routes) ← Block scheduled downloads
   - [ ] Settings endpoints (4 routes)
   - [ ] User management endpoints (3 routes)
+
+- [ ] **Skip Import blocking**:
+  - Import endpoints still work in read-only mode
+  - Allows importing manually uploaded files
 
 - [ ] **Skip External API blocking**:
   - External API continues to work in read-only mode
   - Rationale: HIS integration must not break
 
-### Phase 3: Frontend UI (2-3 hours)
+### Phase 3: Upload Feature (3-4 hours)
+
+- [ ] Create Upload API (`/api/files/upload`):
+  - [ ] Accept file upload (multipart/form-data)
+  - [ ] Auto-detect file type (REP/STM/SMT)
+  - [ ] Validate file format
+  - [ ] Save to appropriate directory
+  - [ ] Return upload result
+
+- [ ] Update SMT importer:
+  - [ ] Support Excel (.xlsx) format
+  - [ ] Handle multi-row headers (skip 4 rows)
+  - [ ] Map columns correctly
+  - [ ] Fallback to CSV if needed
+
+- [ ] Create Upload UI component:
+  - [ ] Drag & drop zone
+  - [ ] File type selection
+  - [ ] Progress indicator
+  - [ ] Show uploaded files
+
+### Phase 4: Frontend UI (2-3 hours)
 
 - [ ] Update `base.html`:
   - [ ] Add license state to global JS variable
@@ -468,25 +527,32 @@ if (window.LICENSE_STATE.state === 'read_only') {
   - [ ] Add read-only mode banner
 
 - [ ] Update `app.js`:
-  - [ ] Disable buttons in read-only mode
+  - [ ] Disable download buttons in read-only mode
+  - [ ] Show upload button in read-only mode
   - [ ] Add license expired modal
   - [ ] Handle blocked API responses
 
 - [ ] Update pages:
-  - [ ] Downloads page - disable forms
-  - [ ] Files page - disable import buttons
+  - [ ] Downloads page - hide auto-download, show upload
+  - [ ] Files page - keep import buttons enabled
   - [ ] Settings page - disable edit forms
 
-### Phase 4: Testing (1-2 hours)
+### Phase 5: Testing (1-2 hours)
 
-- [ ] Test with active license
+- [ ] Test with active license (all features)
 - [ ] Test with expired license (grace period)
-- [ ] Test with expired license (read-only)
+- [ ] Test with expired license (read-only + upload)
 - [ ] Test with no license
 - [ ] Test API endpoints blocking
 - [ ] Test UI button states
+- [ ] **Test Upload feature:**
+  - [ ] Upload REP file (.xls)
+  - [ ] Upload STM file (.xls)
+  - [ ] Upload SMT file (.xlsx)
+  - [ ] Auto-detect file type
+  - [ ] Import uploaded files
 
-### Phase 5: Documentation (30 mins)
+### Phase 6: Documentation (30 mins)
 
 - [ ] Update CLAUDE.md with license blocking info
 - [ ] Add license troubleshooting guide
@@ -522,8 +588,9 @@ docker-compose exec web python install_test_license.py expired
 
 # Expected:
 # - Red banner "Download Disabled - License Expired"
-# - Download button disabled ← Main pain point!
-# - Import button disabled
+# - Download button disabled/hidden ← Main pain point!
+# - Upload button visible and enabled ← Fallback!
+# - Import button enabled (for uploaded files)
 # - Dashboard/Analytics still work
 # - Export still works (with watermark)
 # - External API still works
@@ -584,8 +651,9 @@ curl http://localhost:5001/api/v1/health
 
 ✅ **Read-Only Mode:**
 - Red banner always visible
-- **Download buttons disabled** ← Core pain point!
-- **Import buttons disabled**
+- **Auto-download blocked** ← Core pain point!
+- **Upload button enabled** ← Fallback workflow
+- **Import still works** (for uploaded files)
 - Settings are read-only
 - **External API still works** (HIS integration preserved)
 - Analytics/Reports still work
@@ -593,9 +661,11 @@ curl http://localhost:5001/api/v1/health
 - Clear error messages
 
 ✅ **Technical:**
-- ~15-18 endpoints protected (download/import/settings)
+- ~12-15 endpoints protected (downloads/scheduler/settings)
+- Import NOT blocked (allows manual workflow)
 - External API NOT blocked (HIS integration safe)
-- Grace period configurable via license token
+- Grace period configurable via license token (default: 90 days)
+- Upload feature always available (fallback)
 - Consistent error responses (403 with license_state)
 - No false positives
 - Performance not impacted
@@ -607,7 +677,10 @@ curl http://localhost:5001/api/v1/health
 - Grace period **default: 90 days**, configurable via `grace_period_days` in license token
 - No tier-based restrictions (all licenses have same features)
 - **Core value = Automated downloads** - blocking this creates strong renewal incentive
+- **Upload feature as fallback** - system remains usable but tedious
+- Manual workflow (download from NHSO → upload → import) creates friction
 - External API NOT blocked - HIS integration must remain stable
+- Import NOT blocked - allows processing uploaded files
 - System never "stops working" - existing data always accessible
 - License page always accessible (to install new license)
 - No telemetry or phone-home (pure on-premise)
@@ -615,6 +688,7 @@ curl http://localhost:5001/api/v1/health
 
 ---
 
-**Total Estimated Time:** 6-8 hours
+**Total Estimated Time:** 10-12 hours (includes Upload feature)
+**Priority:** P1 (High) - Core licensing functionality
 **Priority:** P1 (High) - Core licensing functionality
 **Complexity:** Medium - Straightforward implementation
