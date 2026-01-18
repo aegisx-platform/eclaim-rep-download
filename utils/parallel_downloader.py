@@ -28,6 +28,7 @@ from utils.browser_fingerprints import (
 )
 from utils.log_stream import stream_log
 from config.db_pool import get_connection, return_connection
+from config.database import DB_TYPE
 
 # Configuration
 PARALLEL_CONFIG = {
@@ -157,18 +158,35 @@ class ParallelDownloader:
 
             file_path = str(self.download_dir / filename)
 
-            cursor.execute("""
-                INSERT INTO download_history
-                (download_type, filename, scheme, fiscal_year, service_month,
-                 file_size, file_path, source_url, file_exists, download_status)
-                VALUES ('rep', %s, %s, %s, %s, %s, %s, %s, TRUE, 'success')
-                ON CONFLICT (download_type, filename) DO UPDATE SET
-                    file_size = EXCLUDED.file_size,
-                    file_path = EXCLUDED.file_path,
-                    file_exists = TRUE,
-                    download_status = 'success',
-                    updated_at = CURRENT_TIMESTAMP
-            """, (filename, self.scheme, self.year, self.month,
+            # Use appropriate UPSERT syntax based on database type
+            if DB_TYPE == 'mysql':
+                query = """
+                    INSERT INTO download_history
+                    (download_type, filename, scheme, fiscal_year, service_month,
+                     file_size, file_path, source_url, file_exists, download_status)
+                    VALUES ('rep', %s, %s, %s, %s, %s, %s, %s, TRUE, 'success')
+                    ON DUPLICATE KEY UPDATE
+                        file_size = VALUES(file_size),
+                        file_path = VALUES(file_path),
+                        file_exists = TRUE,
+                        download_status = 'success',
+                        updated_at = CURRENT_TIMESTAMP
+                """
+            else:
+                query = """
+                    INSERT INTO download_history
+                    (download_type, filename, scheme, fiscal_year, service_month,
+                     file_size, file_path, source_url, file_exists, download_status)
+                    VALUES ('rep', %s, %s, %s, %s, %s, %s, %s, TRUE, 'success')
+                    ON CONFLICT (download_type, filename) DO UPDATE SET
+                        file_size = EXCLUDED.file_size,
+                        file_path = EXCLUDED.file_path,
+                        file_exists = TRUE,
+                        download_status = 'success',
+                        updated_at = CURRENT_TIMESTAMP
+                """
+
+            cursor.execute(query, (filename, self.scheme, self.year, self.month,
                   file_size, file_path, url))
 
             conn.commit()

@@ -11865,50 +11865,95 @@ def api_health_offices_import():
                     """, values)
                     imported += 1
                 else:
-                    # Upsert by hcode5
-                    cursor.execute("""
-                        INSERT INTO health_offices (
-                            name, hcode9_new, hcode9, hcode5, license_no, org_type, service_type,
-                            affiliation, department, hospital_level, actual_beds, status, health_region,
-                            address, province_code, province, district_code, district, subdistrict_code,
-                            subdistrict, moo, postal_code, parent_code, established_date, closed_date,
-                            source_updated_at
-                        ) VALUES (
-                            %(name)s, %(hcode9_new)s, %(hcode9)s, %(hcode5)s, %(license_no)s, %(org_type)s,
-                            %(service_type)s, %(affiliation)s, %(department)s, %(hospital_level)s,
-                            %(actual_beds)s, %(status)s, %(health_region)s, %(address)s, %(province_code)s,
-                            %(province)s, %(district_code)s, %(district)s, %(subdistrict_code)s,
-                            %(subdistrict)s, %(moo)s, %(postal_code)s, %(parent_code)s, %(established_date)s,
-                            %(closed_date)s, %(source_updated_at)s
-                        )
-                        ON CONFLICT (hcode5) DO UPDATE SET
-                            name = EXCLUDED.name,
-                            hcode9_new = EXCLUDED.hcode9_new,
-                            hcode9 = EXCLUDED.hcode9,
-                            license_no = EXCLUDED.license_no,
-                            org_type = EXCLUDED.org_type,
-                            service_type = EXCLUDED.service_type,
-                            affiliation = EXCLUDED.affiliation,
-                            department = EXCLUDED.department,
-                            hospital_level = EXCLUDED.hospital_level,
-                            actual_beds = EXCLUDED.actual_beds,
-                            status = EXCLUDED.status,
-                            health_region = EXCLUDED.health_region,
-                            address = EXCLUDED.address,
-                            province_code = EXCLUDED.province_code,
-                            province = EXCLUDED.province,
-                            district_code = EXCLUDED.district_code,
-                            district = EXCLUDED.district,
-                            subdistrict_code = EXCLUDED.subdistrict_code,
-                            subdistrict = EXCLUDED.subdistrict,
-                            moo = EXCLUDED.moo,
-                            postal_code = EXCLUDED.postal_code,
-                            parent_code = EXCLUDED.parent_code,
-                            established_date = EXCLUDED.established_date,
-                            closed_date = EXCLUDED.closed_date,
-                            source_updated_at = EXCLUDED.source_updated_at,
-                            updated_at = CURRENT_TIMESTAMP
-                    """, values)
+                    # Upsert by hcode5 - use appropriate syntax based on database type
+                    if DB_TYPE == 'mysql':
+                        cursor.execute("""
+                            INSERT INTO health_offices (
+                                name, hcode9_new, hcode9, hcode5, license_no, org_type, service_type,
+                                affiliation, department, hospital_level, actual_beds, status, health_region,
+                                address, province_code, province, district_code, district, subdistrict_code,
+                                subdistrict, moo, postal_code, parent_code, established_date, closed_date,
+                                source_updated_at
+                            ) VALUES (
+                                %(name)s, %(hcode9_new)s, %(hcode9)s, %(hcode5)s, %(license_no)s, %(org_type)s,
+                                %(service_type)s, %(affiliation)s, %(department)s, %(hospital_level)s,
+                                %(actual_beds)s, %(status)s, %(health_region)s, %(address)s, %(province_code)s,
+                                %(province)s, %(district_code)s, %(district)s, %(subdistrict_code)s,
+                                %(subdistrict)s, %(moo)s, %(postal_code)s, %(parent_code)s, %(established_date)s,
+                                %(closed_date)s, %(source_updated_at)s
+                            )
+                            ON DUPLICATE KEY UPDATE
+                                name = VALUES(name),
+                                hcode9_new = VALUES(hcode9_new),
+                                hcode9 = VALUES(hcode9),
+                                license_no = VALUES(license_no),
+                                org_type = VALUES(org_type),
+                                service_type = VALUES(service_type),
+                                affiliation = VALUES(affiliation),
+                                department = VALUES(department),
+                                hospital_level = VALUES(hospital_level),
+                                actual_beds = VALUES(actual_beds),
+                                status = VALUES(status),
+                                health_region = VALUES(health_region),
+                                address = VALUES(address),
+                                province_code = VALUES(province_code),
+                                province = VALUES(province),
+                                district_code = VALUES(district_code),
+                                district = VALUES(district),
+                                subdistrict_code = VALUES(subdistrict_code),
+                                subdistrict = VALUES(subdistrict),
+                                moo = VALUES(moo),
+                                postal_code = VALUES(postal_code),
+                                parent_code = VALUES(parent_code),
+                                established_date = VALUES(established_date),
+                                closed_date = VALUES(closed_date),
+                                source_updated_at = VALUES(source_updated_at),
+                                updated_at = CURRENT_TIMESTAMP
+                        """, values)
+                    else:
+                        cursor.execute("""
+                            INSERT INTO health_offices (
+                                name, hcode9_new, hcode9, hcode5, license_no, org_type, service_type,
+                                affiliation, department, hospital_level, actual_beds, status, health_region,
+                                address, province_code, province, district_code, district, subdistrict_code,
+                                subdistrict, moo, postal_code, parent_code, established_date, closed_date,
+                                source_updated_at
+                            ) VALUES (
+                                %(name)s, %(hcode9_new)s, %(hcode9)s, %(hcode5)s, %(license_no)s, %(org_type)s,
+                                %(service_type)s, %(affiliation)s, %(department)s, %(hospital_level)s,
+                                %(actual_beds)s, %(status)s, %(health_region)s, %(address)s, %(province_code)s,
+                                %(province)s, %(district_code)s, %(district)s, %(subdistrict_code)s,
+                                %(subdistrict)s, %(moo)s, %(postal_code)s, %(parent_code)s, %(established_date)s,
+                                %(closed_date)s, %(source_updated_at)s
+                            )
+                            ON CONFLICT (hcode5) DO UPDATE SET
+                                name = EXCLUDED.name,
+                                hcode9_new = EXCLUDED.hcode9_new,
+                                hcode9 = EXCLUDED.hcode9,
+                                license_no = EXCLUDED.license_no,
+                                org_type = EXCLUDED.org_type,
+                                service_type = EXCLUDED.service_type,
+                                affiliation = EXCLUDED.affiliation,
+                                department = EXCLUDED.department,
+                                hospital_level = EXCLUDED.hospital_level,
+                                actual_beds = EXCLUDED.actual_beds,
+                                status = EXCLUDED.status,
+                                health_region = EXCLUDED.health_region,
+                                address = EXCLUDED.address,
+                                province_code = EXCLUDED.province_code,
+                                province = EXCLUDED.province,
+                                district_code = EXCLUDED.district_code,
+                                district = EXCLUDED.district,
+                                subdistrict_code = EXCLUDED.subdistrict_code,
+                                subdistrict = EXCLUDED.subdistrict,
+                                moo = EXCLUDED.moo,
+                                postal_code = EXCLUDED.postal_code,
+                                parent_code = EXCLUDED.parent_code,
+                                established_date = EXCLUDED.established_date,
+                                closed_date = EXCLUDED.closed_date,
+                                source_updated_at = EXCLUDED.source_updated_at,
+                                updated_at = CURRENT_TIMESTAMP
+                        """, values)
                     if cursor.rowcount > 0:
                         imported += 1
 

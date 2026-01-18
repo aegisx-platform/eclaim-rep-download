@@ -513,6 +513,11 @@ class ReconciliationReport:
         fy_end_year_be = fiscal_year  # End in fiscal year
 
         # Get REP data for fiscal year
+        # FY 2569 = Oct 2024 - Sep 2025 (Gregorian) = 2567-10 to 2568-09 (BE)
+        # dateadm is Gregorian date, so: 2024+543=2567, 2025+543=2568
+        rep_fy_start_be = fy_start_year_be - 1
+        rep_fy_end_be = fy_end_year_be - 1
+
         be_month_sql = sql_be_month('dateadm')
         year_expr = sql_extract_year('dateadm')
         month_expr = sql_extract_month('dateadm')
@@ -534,7 +539,7 @@ class ReconciliationReport:
             {be_month_sql}
         ORDER BY month_be
         """
-        cursor.execute(rep_query, (fy_start_year_be, fy_end_year_be))
+        cursor.execute(rep_query, (rep_fy_start_be, rep_fy_end_be))
         rep_data = {row[0]: {
             'claim_count': row[1],
             'unique_claims': row[2],
@@ -651,6 +656,13 @@ class ReconciliationReport:
             month_expr = sql_extract_month('dateadm')
 
             # REP stats for FY
+            # FY 2569 = Oct 2024 - Sep 2025 (Gregorian)
+            # In BE: Oct 2567 - Sep 2568
+            # So we need to match: (2024+543=2567 AND month>=10) OR (2025+543=2568 AND month<=9)
+            # Which is: fy_start_year_be-1 and fy_end_year_be-1
+            rep_fy_start_be = fy_start_year_be - 1
+            rep_fy_end_be = fy_end_year_be - 1
+
             cursor.execute(f"""
             SELECT
                 COUNT(*) as total_claims,
@@ -666,7 +678,7 @@ class ReconciliationReport:
                 OR
                 ({year_expr} + 543 = %s AND {month_expr} <= 9)
               )
-            """, (fy_start_year_be, fy_end_year_be))
+            """, (rep_fy_start_be, rep_fy_end_be))
             rep_row = cursor.fetchone()
 
             # SMT stats for FY
