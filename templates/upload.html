@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Files - E-Claim Downloader{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-8">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Manual File Upload</h2>
+            <p class="text-gray-600">อัปโหลดไฟล์ที่ดาวน์โหลดจาก NHSO ด้วยตนเอง</p>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Form -->
+<div class="max-w-4xl">
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">เลือกประเภทและไฟล์</h3>
+
+        <!-- File Type Selector -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">ประเภทไฟล์</label>
+            <div class="grid grid-cols-3 gap-4">
+                <button type="button" onclick="selectFileType('rep')"
+                        id="btn-rep"
+                        class="file-type-btn p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition">
+                    <div class="text-center">
+                        <svg class="w-8 h-8 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <div class="font-semibold text-gray-800">REP</div>
+                        <div class="text-xs text-gray-500">Reimbursement (.xls)</div>
+                    </div>
+                </button>
+
+                <button type="button" onclick="selectFileType('stm')"
+                        id="btn-stm"
+                        class="file-type-btn p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition">
+                    <div class="text-center">
+                        <svg class="w-8 h-8 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <div class="font-semibold text-gray-800">STM</div>
+                        <div class="text-xs text-gray-500">Statement (.xls)</div>
+                    </div>
+                </button>
+
+                <button type="button" onclick="selectFileType('smt')"
+                        id="btn-smt"
+                        class="file-type-btn p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition">
+                    <div class="text-center">
+                        <svg class="w-8 h-8 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <div class="font-semibold text-gray-800">SMT</div>
+                        <div class="text-xs text-gray-500">Budget (.xlsx/.csv)</div>
+                    </div>
+                </button>
+            </div>
+            <input type="hidden" id="file-type" value="">
+        </div>
+
+        <!-- File Upload Zone -->
+        <div class="mb-6" id="upload-zone-container" style="display: none;">
+            <label class="block text-sm font-medium text-gray-700 mb-2">เลือกไฟล์</label>
+
+            <!-- Drag & Drop Zone -->
+            <div id="drop-zone"
+                 class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 hover:bg-blue-50 transition cursor-pointer">
+                <svg class="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <p class="text-gray-600 mb-2">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
+                <p class="text-sm text-gray-500" id="file-format-hint">รองรับ: .xls</p>
+                <input type="file" id="file-input" class="hidden" accept="">
+            </div>
+
+            <!-- Selected File Display -->
+            <div id="selected-file" class="mt-4 hidden">
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <div>
+                            <div class="font-medium text-gray-800" id="file-name"></div>
+                            <div class="text-sm text-gray-500" id="file-size"></div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="clearFile()" class="text-red-600 hover:text-red-800">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Auto Import Option -->
+            <div class="mt-4">
+                <label class="flex items-center">
+                    <input type="checkbox" id="auto-import" checked
+                           class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <span class="ml-2 text-sm text-gray-700">นำเข้าข้อมูลอัตโนมัติหลังอัปโหลด</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Upload Button -->
+        <div class="flex justify-end gap-3">
+            <button type="button" onclick="window.location.href='/files'"
+                    class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                ยกเลิก
+            </button>
+            <button type="button" id="upload-btn" onclick="uploadFile()" disabled
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                อัปโหลด
+            </button>
+        </div>
+    </div>
+
+    <!-- Upload Progress -->
+    <div id="upload-progress" class="bg-white rounded-lg shadow-md p-6 hidden">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">กำลังอัปโหลดและนำเข้า...</h3>
+        <div class="space-y-4">
+            <div>
+                <div class="flex justify-between text-sm text-gray-600 mb-1">
+                    <span id="progress-text">กำลังอัปโหลดไฟล์...</span>
+                    <span id="progress-percent">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                </div>
+            </div>
+            <div id="import-status" class="text-sm text-gray-600 hidden">
+                <div class="flex items-center">
+                    <svg class="animate-spin h-4 w-4 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>กำลังนำเข้าข้อมูล...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Result -->
+    <div id="upload-result" class="hidden"></div>
+</div>
+
+<script>
+let selectedType = '';
+let selectedFile = null;
+
+function selectFileType(type) {
+    selectedType = type;
+
+    // Update button styles
+    document.querySelectorAll('.file-type-btn').forEach(btn => {
+        btn.classList.remove('border-blue-500', 'bg-blue-50');
+        btn.classList.add('border-gray-300');
+    });
+    document.getElementById(`btn-${type}`).classList.add('border-blue-500', 'bg-blue-50');
+    document.getElementById(`btn-${type}`).classList.remove('border-gray-300');
+
+    // Update file type hidden input
+    document.getElementById('file-type').value = type;
+
+    // Show upload zone
+    document.getElementById('upload-zone-container').style.display = 'block';
+
+    // Update accepted file types
+    const fileInput = document.getElementById('file-input');
+    const formatHint = document.getElementById('file-format-hint');
+
+    if (type === 'smt') {
+        fileInput.accept = '.xlsx,.xls,.csv';
+        formatHint.textContent = 'รองรับ: .xlsx, .xls, .csv';
+    } else {
+        fileInput.accept = '.xls';
+        formatHint.textContent = 'รองรับ: .xls';
+    }
+
+    // Clear previous selection
+    clearFile();
+}
+
+// Drag & Drop handlers
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click', () => fileInput.click());
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('border-blue-500', 'bg-blue-50');
+});
+
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+
+    if (e.dataTransfer.files.length > 0) {
+        handleFileSelect(e.dataTransfer.files[0]);
+    }
+});
+
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        handleFileSelect(e.target.files[0]);
+    }
+});
+
+function handleFileSelect(file) {
+    // Validate file extension
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    const acceptedExts = fileInput.accept.split(',');
+
+    if (!acceptedExts.includes(ext)) {
+        alert(`ไฟล์ประเภท ${ext} ไม่รองรับ กรุณาเลือกไฟล์ ${fileInput.accept}`);
+        return;
+    }
+
+    selectedFile = file;
+
+    // Display selected file
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = formatFileSize(file.size);
+    document.getElementById('selected-file').classList.remove('hidden');
+    document.getElementById('upload-btn').disabled = false;
+}
+
+function clearFile() {
+    selectedFile = null;
+    fileInput.value = '';
+    document.getElementById('selected-file').classList.add('hidden');
+    document.getElementById('upload-btn').disabled = true;
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+async function uploadFile() {
+    if (!selectedType || !selectedFile) {
+        alert('กรุณาเลือกประเภทไฟล์และเลือกไฟล์ที่ต้องการอัปโหลด');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('type', selectedType);
+    formData.append('auto_import', document.getElementById('auto-import').checked ? 'true' : 'false');
+
+    // Show progress
+    document.getElementById('upload-progress').classList.remove('hidden');
+    document.getElementById('upload-result').classList.add('hidden');
+    document.getElementById('upload-btn').disabled = true;
+
+    try {
+        const response = await fetch('/api/files/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        // Update progress to 100%
+        document.getElementById('progress-bar').style.width = '100%';
+        document.getElementById('progress-percent').textContent = '100%';
+
+        if (result.success) {
+            // Show import status if auto-import enabled
+            if (result.import_triggered) {
+                document.getElementById('import-status').classList.remove('hidden');
+                document.getElementById('progress-text').textContent = 'อัปโหลดเสร็จสิ้น กำลังนำเข้าข้อมูล...';
+
+                // Wait a bit then show success
+                setTimeout(() => {
+                    showSuccessMessage(result);
+                }, 2000);
+            } else {
+                showSuccessMessage(result);
+            }
+        } else {
+            showErrorMessage(result.error || 'เกิดข้อผิดพลาดในการอัปโหลด');
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        showErrorMessage('เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + error.message);
+    }
+}
+
+function showSuccessMessage(result) {
+    document.getElementById('upload-progress').classList.add('hidden');
+
+    const resultDiv = document.getElementById('upload-result');
+    resultDiv.classList.remove('hidden');
+    resultDiv.className = 'bg-green-50 border border-green-200 rounded-lg p-6';
+
+    // Build message using DOM methods (safe from XSS)
+    const message = document.createElement('div');
+    message.className = 'flex items-start';
+
+    // Icon
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('class', 'w-6 h-6 text-green-600 mr-3 mt-0.5');
+    icon.setAttribute('fill', 'none');
+    icon.setAttribute('stroke', 'currentColor');
+    icon.setAttribute('viewBox', '0 0 24 24');
+    const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    iconPath.setAttribute('stroke-linecap', 'round');
+    iconPath.setAttribute('stroke-linejoin', 'round');
+    iconPath.setAttribute('stroke-width', '2');
+    iconPath.setAttribute('d', 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z');
+    icon.appendChild(iconPath);
+
+    // Content
+    const content = document.createElement('div');
+    content.className = 'flex-1';
+
+    const title = document.createElement('h3');
+    title.className = 'font-semibold text-green-800 mb-2';
+    title.textContent = 'อัปโหลดสำเร็จ!';
+
+    const fileInfo = document.createElement('p');
+    fileInfo.className = 'text-sm text-green-700 mb-2';
+    fileInfo.textContent = 'ไฟล์: ';
+    const strong = document.createElement('strong');
+    strong.textContent = result.filename;
+    fileInfo.appendChild(strong);
+
+    content.appendChild(title);
+    content.appendChild(fileInfo);
+
+    if (result.import_triggered) {
+        const importInfo = document.createElement('p');
+        importInfo.className = 'text-sm text-green-700';
+        importInfo.textContent = 'กำลังนำเข้าข้อมูลเบื้องหลัง...';
+        content.appendChild(importInfo);
+    }
+
+    // Buttons
+    const actions = document.createElement('div');
+    actions.className = 'mt-4 flex gap-3';
+
+    const viewFilesBtn = document.createElement('button');
+    viewFilesBtn.className = 'text-sm text-blue-600 hover:text-blue-800';
+    viewFilesBtn.textContent = 'ดูรายการไฟล์';
+    viewFilesBtn.onclick = () => window.location.href = '/files';
+
+    const uploadAgainBtn = document.createElement('button');
+    uploadAgainBtn.className = 'text-sm text-gray-600 hover:text-gray-800';
+    uploadAgainBtn.textContent = 'อัปโหลดไฟล์ใหม่';
+    uploadAgainBtn.onclick = () => location.reload();
+
+    actions.appendChild(viewFilesBtn);
+    actions.appendChild(uploadAgainBtn);
+    content.appendChild(actions);
+
+    message.appendChild(icon);
+    message.appendChild(content);
+    resultDiv.appendChild(message);
+}
+
+function showErrorMessage(error) {
+    document.getElementById('upload-progress').classList.add('hidden');
+
+    const resultDiv = document.getElementById('upload-result');
+    resultDiv.classList.remove('hidden');
+    resultDiv.className = 'bg-red-50 border border-red-200 rounded-lg p-6';
+
+    // Build message using DOM methods (safe from XSS)
+    const message = document.createElement('div');
+    message.className = 'flex items-start';
+
+    // Icon
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('class', 'w-6 h-6 text-red-600 mr-3 mt-0.5');
+    icon.setAttribute('fill', 'none');
+    icon.setAttribute('stroke', 'currentColor');
+    icon.setAttribute('viewBox', '0 0 24 24');
+    const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    iconPath.setAttribute('stroke-linecap', 'round');
+    iconPath.setAttribute('stroke-linejoin', 'round');
+    iconPath.setAttribute('stroke-width', '2');
+    iconPath.setAttribute('d', 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z');
+    icon.appendChild(iconPath);
+
+    // Content
+    const content = document.createElement('div');
+    content.className = 'flex-1';
+
+    const title = document.createElement('h3');
+    title.className = 'font-semibold text-red-800 mb-2';
+    title.textContent = 'เกิดข้อผิดพลาด';
+
+    const errorMsg = document.createElement('p');
+    errorMsg.className = 'text-sm text-red-700';
+    errorMsg.textContent = error;
+
+    const actions = document.createElement('div');
+    actions.className = 'mt-4';
+
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'text-sm text-blue-600 hover:text-blue-800';
+    retryBtn.textContent = 'ลองอีกครั้ง';
+    retryBtn.onclick = () => location.reload();
+
+    actions.appendChild(retryBtn);
+    content.appendChild(title);
+    content.appendChild(errorMsg);
+    content.appendChild(actions);
+
+    message.appendChild(icon);
+    message.appendChild(content);
+    resultDiv.appendChild(message);
+
+    document.getElementById('upload-btn').disabled = false;
+}
+</script>
+{% endblock %}

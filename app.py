@@ -758,6 +758,13 @@ def dashboard():
     )
 
 
+@app.route('/upload')
+@login_required
+def upload():
+    """Manual file upload page"""
+    return render_template('upload.html')
+
+
 @app.route('/files')
 def files():
     """File list view with all downloads"""
