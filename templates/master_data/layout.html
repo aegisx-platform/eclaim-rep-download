@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Master Data Management - NHSO Revenue Intelligence{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-4">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
+            <div class="bg-blue-100 p-3 rounded-xl">
+                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+                </svg>
+            </div>
+            Data Management
+        </h1>
+        <p class="text-gray-600 mt-2">จัดการข้อมูลพื้นฐานและข้อมูลอ้างอิงของระบบ</p>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div class="bg-white rounded-xl shadow-sm border mb-6">
+        <div class="border-b border-gray-200">
+            <nav class="flex -mb-px overflow-x-auto" aria-label="Master Data Tabs">
+                <!-- Health Offices Tab -->
+                <a href="{{ url_for('master_data_management') }}?tab=offices"
+                   class="whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm transition-colors {% if active_tab == 'offices' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                        <span>Health Offices</span>
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full" id="offices-count">-</span>
+                    </div>
+                </a>
+
+                <!-- NHSO Error Codes Tab -->
+                <a href="{{ url_for('master_data_management') }}?tab=error-codes"
+                   class="whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm transition-colors {% if active_tab == 'error-codes' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        <span>Error Codes</span>
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full" id="errors-count">-</span>
+                    </div>
+                </a>
+
+                <!-- Fund Types Tab -->
+                <a href="{{ url_for('master_data_management') }}?tab=fund-types"
+                   class="whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm transition-colors {% if active_tab == 'fund-types' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                        <span>Fund Types</span>
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full" id="funds-count">-</span>
+                    </div>
+                </a>
+
+                <!-- Service Types Tab -->
+                <a href="{{ url_for('master_data_management') }}?tab=service-types"
+                   class="whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm transition-colors {% if active_tab == 'service-types' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                        </svg>
+                        <span>Service Types</span>
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full" id="services-count">-</span>
+                    </div>
+                </a>
+
+                <!-- Date Dimension Tab -->
+                <a href="{{ url_for('master_data_management') }}?tab=dim-date"
+                   class="whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm transition-colors {% if active_tab == 'dim-date' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <span>Date Dimension</span>
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full" id="dates-count">-</span>
+                    </div>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="p-6">
+            {% block tab_content %}
+            <!-- Content from child templates will be inserted here -->
+            {% endblock %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Load counts for each tab
+async function loadTabCounts() {
+    try {
+        // Health Offices count
+        const officesResp = await fetch('/api/master-data/health-offices/count');
+        if (officesResp.ok) {
+            const data = await officesResp.json();
+            document.getElementById('offices-count').textContent = data.count?.toLocaleString() || '0';
+        }
+
+        // Error Codes count
+        const errorsResp = await fetch('/api/master-data/error-codes/count');
+        if (errorsResp.ok) {
+            const data = await errorsResp.json();
+            document.getElementById('errors-count').textContent = data.count?.toLocaleString() || '0';
+        }
+
+        // Fund Types count
+        const fundsResp = await fetch('/api/master-data/fund-types/count');
+        if (fundsResp.ok) {
+            const data = await fundsResp.json();
+            document.getElementById('funds-count').textContent = data.count?.toLocaleString() || '0';
+        }
+
+        // Service Types count
+        const servicesResp = await fetch('/api/master-data/service-types/count');
+        if (servicesResp.ok) {
+            const data = await servicesResp.json();
+            document.getElementById('services-count').textContent = data.count?.toLocaleString() || '0';
+        }
+
+        // Date Dimension count
+        const datesResp = await fetch('/api/master-data/dim-date/count');
+        if (datesResp.ok) {
+            const data = await datesResp.json();
+            document.getElementById('dates-count').textContent = data.count?.toLocaleString() || '0';
+        }
+    } catch (error) {
+        console.error('Failed to load tab counts:', error);
+    }
+}
+
+// Load counts on page load
+document.addEventListener('DOMContentLoaded', loadTabCounts);
+</script>
+{% endblock %}

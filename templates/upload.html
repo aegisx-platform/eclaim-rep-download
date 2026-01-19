@@ -1,0 +1,685 @@
+{% extends "base.html" %}
+
+{% block title %}File Management - E-Claim Downloader{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-6">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">File Management</h2>
+    <p class="text-gray-600">อัปโหลดและจัดการไฟล์จากระบบ e-claim</p>
+</div>
+
+<!-- Tabs Navigation -->
+<div class="mb-6">
+    <div class="border-b border-gray-200">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button onclick="switchTab('upload')" id="tab-upload" class="tab-btn border-b-2 border-blue-500 py-4 px-1 text-sm font-medium text-blue-600">
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                Upload Files
+            </button>
+            <button onclick="switchTab('files')" id="tab-files" class="tab-btn border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                </svg>
+                Downloaded Files
+                {% if total_files %}
+                <span class="ml-2 bg-gray-200 text-gray-800 text-xs font-semibold px-2 py-0.5 rounded-full">{{ total_files }}</span>
+                {% endif %}
+            </button>
+        </nav>
+    </div>
+</div>
+
+<!-- Tab Content: Upload --><div id="content-upload" class="tab-content">
+<!-- Upload Form -->
+<div class="max-w-4xl">
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">เลือกประเภทและไฟล์</h3>
+
+        <!-- File Type Selector -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">ประเภทไฟล์</label>
+            <div class="grid grid-cols-3 gap-4">
+                <button type="button" onclick="selectFileType('rep')"
+                        id="btn-rep"
+                        class="file-type-btn p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition">
+                    <div class="text-center">
+                        <svg class="w-8 h-8 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <div class="font-semibold text-gray-800">REP</div>
+                        <div class="text-xs text-gray-500 mb-1">Reimbursement (.xls)</div>
+                        <a href="?tab=files&type=rep" onclick="event.stopPropagation()" class="text-xs text-blue-600 hover:text-blue-800 hover:underline">
+                            ดูรายการไฟล์ →
+                        </a>
+                    </div>
+                </button>
+
+                <button type="button" onclick="selectFileType('stm')"
+                        id="btn-stm"
+                        class="file-type-btn p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition">
+                    <div class="text-center">
+                        <svg class="w-8 h-8 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <div class="font-semibold text-gray-800">STM</div>
+                        <div class="text-xs text-gray-500 mb-1">Statement (.xls)</div>
+                        <a href="/files?type=stm" onclick="event.stopPropagation()" class="text-xs text-blue-600 hover:text-blue-800 hover:underline">
+                            ดูรายการไฟล์ →
+                        </a>
+                    </div>
+                </button>
+
+                <button type="button" onclick="selectFileType('smt')"
+                        id="btn-smt"
+                        class="file-type-btn p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition">
+                    <div class="text-center">
+                        <svg class="w-8 h-8 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <div class="font-semibold text-gray-800">SMT</div>
+                        <div class="text-xs text-gray-500 mb-1">Budget (.xlsx/.csv)</div>
+                        <a href="/files?type=smt" onclick="event.stopPropagation()" class="text-xs text-blue-600 hover:text-blue-800 hover:underline">
+                            ดูรายการไฟล์ →
+                        </a>
+                    </div>
+                </button>
+            </div>
+            <input type="hidden" id="file-type" value="">
+        </div>
+
+        <!-- File Upload Zone -->
+        <div class="mb-6" id="upload-zone-container" style="display: none;">
+            <label class="block text-sm font-medium text-gray-700 mb-2">เลือกไฟล์</label>
+
+            <!-- Drag & Drop Zone -->
+            <div id="drop-zone"
+                 class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 hover:bg-blue-50 transition cursor-pointer">
+                <svg class="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <p class="text-gray-600 mb-2">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์ (เลือกได้หลายไฟล์)</p>
+                <p class="text-sm text-gray-500" id="file-format-hint">รองรับ: .xls</p>
+                <input type="file" id="file-input" class="hidden" accept="" multiple>
+            </div>
+
+            <!-- Selected Files List -->
+            <div id="selected-files-list" class="mt-4 hidden">
+                <div class="mb-2 flex items-center justify-between">
+                    <span class="text-sm font-medium text-gray-700">ไฟล์ที่เลือก (<span id="files-count">0</span>)</span>
+                    <button type="button" onclick="clearAllFiles()" class="text-sm text-red-600 hover:text-red-800">
+                        ลบทั้งหมด
+                    </button>
+                </div>
+                <div id="files-container" class="space-y-2 max-h-60 overflow-y-auto">
+                    <!-- Files will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Auto Import Option -->
+            <div class="mt-4">
+                <label class="flex items-center">
+                    <input type="checkbox" id="auto-import" checked
+                           class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <span class="ml-2 text-sm text-gray-700">นำเข้าข้อมูลอัตโนมัติหลังอัปโหลด</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Upload Button -->
+        <div class="flex justify-end gap-3">
+            <button type="button" onclick="window.location.href='/files'"
+                    class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                ยกเลิก
+            </button>
+            <button type="button" id="upload-btn" onclick="uploadBatch()" disabled
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                อัปโหลด
+            </button>
+        </div>
+    </div>
+
+    <!-- Upload Progress -->
+    <div id="upload-progress" class="bg-white rounded-lg shadow-md p-6 hidden">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">กำลังอัปโหลดและนำเข้า...</h3>
+        <div class="space-y-4">
+            <div>
+                <div class="flex justify-between text-sm text-gray-600 mb-1">
+                    <span id="progress-text">กำลังอัปโหลดไฟล์...</span>
+                    <span id="progress-percent">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                </div>
+            </div>
+            <div id="import-status" class="text-sm text-gray-600 hidden">
+                <div class="flex items-center">
+                    <svg class="animate-spin h-4 w-4 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>กำลังนำเข้าข้อมูล...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Result -->
+    <div id="upload-result" class="hidden"></div>
+</div>
+
+<!-- Duplicate Files Modal -->
+<div id="duplicate-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+        <div class="p-6 border-b">
+            <h3 class="text-lg font-semibold text-gray-800">พบไฟล์ซ้ำ</h3>
+            <p class="text-sm text-gray-600 mt-1">เลือกไฟล์ที่ต้องการแทนที่ไฟล์เก่า</p>
+        </div>
+        <div class="p-6 overflow-y-auto max-h-96">
+            <div id="duplicate-files-list" class="space-y-2">
+                <!-- Duplicate files will be inserted here -->
+            </div>
+        </div>
+        <div class="p-6 border-t flex justify-end gap-3">
+            <button type="button" onclick="closeDuplicateModal()"
+                    class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                ยกเลิก
+            </button>
+            <button type="button" onclick="proceedWithDuplicates()"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                ดำเนินการต่อ
+            </button>
+        </div>
+    </div>
+</div>
+</div>
+<!-- End Tab Content: Upload -->
+
+<!-- Tab Content: Files -->
+<div id="content-files" class="tab-content hidden">
+<!-- Advanced Filters -->
+<div class="mb-6">
+    <div class="flex flex-col gap-3">
+        <!-- Row 1: Type and Date Range -->
+        <div class="flex items-center gap-3">
+            <label class="text-sm text-gray-700 font-medium whitespace-nowrap">Filter by:</label>
+            <select id="type-filter" onchange="applyFilesFilters()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="" {% if not filter_type %}selected{% endif %}>All Types</option>
+                <option value="rep" {% if filter_type == 'rep' %}selected{% endif %}>REP (Reimbursement)</option>
+                <option value="stm" {% if filter_type == 'stm' %}selected{% endif %}>STM (Statement)</option>
+                <option value="smt" {% if filter_type == 'smt' %}selected{% endif %}>SMT (Budget)</option>
+            </select>
+
+            <span class="text-sm text-gray-700">From:</span>
+            <input type="date" id="date-from" value="{{ filter_date_from or '' }}"
+                   class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+
+            <span class="text-sm text-gray-700">To:</span>
+            <input type="date" id="date-to" value="{{ filter_date_to or '' }}"
+                   class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+        </div>
+
+        <!-- Row 2: Search and Apply Button -->
+        <div class="flex items-center gap-3">
+            <input type="text" id="filename-search" placeholder="Search filename..." value="{{ filter_search or '' }}"
+                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <button onclick="applyFilesFilters()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                </svg>
+                Apply Filter
+            </button>
+            <button onclick="clearFilesFilters()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                Clear
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Schedule Status Banner -->
+{% if schedule_settings.schedule_enabled %}
+<div class="bg-green-50 border-l-4 border-green-400 p-4 mb-6 rounded-r-lg">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center">
+            <svg class="w-5 h-5 text-green-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+            </svg>
+            <div>
+                <p class="font-medium text-green-800">Auto Download: <span class="text-green-900">Active</span></p>
+                <p class="text-sm text-green-700">
+                    Scheduled at:
+                    {% for time in schedule_settings.schedule_times %}
+                        <span class="font-semibold">{{ "%02d"|format(time.hour) }}:{{ "%02d"|format(time.minute) }}</span>{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                    {% if schedule_settings.schedule_auto_import %}
+                    • <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Auto-import ON</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        {% if schedule_jobs and schedule_jobs|length > 0 %}
+        <div class="text-right">
+            <p class="text-xs text-green-600">Next run:</p>
+            {% set next_job = schedule_jobs[0] %}
+            {% if next_job.next_run_time %}
+            <p class="text-sm font-semibold text-green-800">{{ next_job.next_run_time[:19]|replace('T', ' ') }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="bg-gray-50 border-l-4 border-gray-300 p-4 mb-6 rounded-r-lg">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center">
+            <svg class="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <div>
+                <p class="font-medium text-gray-700">Auto Download: <span class="text-gray-900">Inactive</span></p>
+                <p class="text-sm text-gray-600">Enable schedule in settings for automatic downloads</p>
+            </div>
+        </div>
+        <a href="{{ url_for('data_management') }}?tab=download" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+            Configure →
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Import Progress Modal -->
+<div id="import-progress-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Importing Files to Database</h3>
+
+            <!-- Progress Info -->
+            <div class="mb-4">
+                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                    <span id="import-progress-text">Preparing...</span>
+                    <span id="import-progress-percentage">0%</span>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                    <div id="import-progress-bar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+
+                <!-- File Count -->
+                <div class="mt-2 text-sm text-gray-600">
+                    <span id="import-file-count">0 / 0 files</span>
+                    <span class="mx-2">•</span>
+                    <span id="import-record-count">0 records imported</span>
+                </div>
+            </div>
+
+            <!-- Current File -->
+            <div class="bg-gray-50 rounded-lg p-3 mb-4">
+                <div class="text-xs text-gray-500 mb-1">Current File:</div>
+                <div id="import-current-file" class="text-sm font-mono text-gray-800 truncate">-</div>
+            </div>
+
+            <!-- Cancel Button -->
+            <div class="text-center">
+                <button onclick="closeImportModal()" class="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400">
+                    Run in Background
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Files List -->
+<div class="bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+        <div>
+            <h3 class="text-xl font-bold text-gray-800 mb-1">Files (Page {{ page }}/{{ total_pages }})</h3>
+            <div class="flex items-center gap-4 text-sm">
+                <span class="text-gray-600">Showing {{ files|length }} of {{ total_files }} files</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    {{ imported_count }} imported
+                </span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                    </svg>
+                    {{ not_imported_count }} pending
+                </span>
+            </div>
+        </div>
+        <div class="flex gap-3">
+            {% if not_imported_count > 0 %}
+            <button onclick="importAllFiles()" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                </svg>
+                Import All ({{ not_imported_count }})
+            </button>
+            {% endif %}
+            {% if files|length > 0 %}
+            <button onclick="clearAllData()" class="inline-flex items-center bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+                Clear All Data
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Filter Buttons -->
+    <div class="px-6 py-3 border-b border-gray-200 bg-gray-50">
+        <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 mr-2">Filter:</span>
+            <button onclick="filterFiles('all')" id="filter-all" class="filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white">
+                All ({{ files|length }})
+            </button>
+            <button onclick="filterFiles('imported')" id="filter-imported" class="filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">
+                Imported ({{ imported_count }})
+            </button>
+            <button onclick="filterFiles('pending')" id="filter-pending" class="filter-btn px-3 py-1.5 text-sm font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300">
+                Pending ({{ not_imported_count }})
+            </button>
+        </div>
+    </div>
+
+    {% if files %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filename</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Download Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Import Status</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for file in files %}
+                <tr class="hover:bg-gray-50 transition-colors file-row" data-file="{{ file.filename }}" data-import-status="{% if file.imported %}imported{% else %}pending{% endif %}">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <!-- File icon based on type -->
+                            {% if '_OP_' in file.filename %}
+                            <svg class="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% elif '_ORF_' in file.filename %}
+                            <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% elif '_IP_' in file.filename %}
+                            <svg class="w-5 h-5 text-purple-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% else %}
+                            <svg class="w-5 h-5 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% endif %}
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">{{ file.filename }}</div>
+                                <div class="text-xs text-gray-500">{{ file.date_relative }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ file.date_formatted }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            {{ file.size_formatted }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if file.imported %}
+                        <span class="inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-green-100 text-green-800">
+                            <svg class="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            Imported ({{ file.import_status.imported_records }} records)
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <svg class="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                            </svg>
+                            Pending
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                        {% if not file.imported %}
+                        <button onclick="importFile('{{ file.filename }}')" class="inline-flex items-center text-purple-600 hover:text-purple-900">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                            </svg>
+                            Import
+                        </button>
+                        {% endif %}
+                        <button onclick="reDownloadFile('{{ file.filename }}')" class="inline-flex items-center text-green-600 hover:text-green-900" title="Re-download this file">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            Re-download
+                        </button>
+                        <a href="{{ url_for('download_file', filename=file.filename) }}" class="inline-flex items-center text-blue-600 hover:text-blue-900">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            Download
+                        </a>
+                        <button onclick="deleteFile('{{ file.filename }}')" class="inline-flex items-center text-red-600 hover:text-red-900">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="px-6 py-12 text-center">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No files yet</h3>
+        <p class="text-gray-500 mb-6">ยังไม่มีไฟล์ที่ download กดปุ่มด้านล่างเพื่อเริ่ม download</p>
+        <a href="{{ url_for('data_management') }}?tab=download" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:shadow-lg transition-all">
+            <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            Go to Download
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Pagination Controls -->
+    {% if total_pages > 1 %}
+    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div class="flex items-center justify-between">
+            <div class="text-sm text-gray-700">
+                Showing <span class="font-medium">{{ (page - 1) * per_page + 1 }}</span> to <span class="font-medium">{{ [page * per_page, total_files] | min }}</span> of <span class="font-medium">{{ total_files }}</span> results
+            </div>
+            <div class="flex gap-2">
+                {% if page > 1 %}
+                <a href="?tab=files&page={{ page - 1 }}&type={{ filter_type or '' }}&date_from={{ filter_date_from or '' }}&date_to={{ filter_date_to or '' }}&search={{ filter_search or '' }}"
+                   class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-700">
+                    Previous
+                </a>
+                {% endif %}
+
+                <!-- Page numbers -->
+                {% if total_pages <= 7 %}
+                    <!-- Show all pages if 7 or fewer -->
+                    {% for p in range(1, total_pages + 1) %}
+                    <a href="?tab=files&page={{ p }}&type={{ filter_type or '' }}&date_from={{ filter_date_from or '' }}&date_to={{ filter_date_to or '' }}&search={{ filter_search or '' }}"
+                       class="px-4 py-2 border rounded-lg text-sm font-medium {% if p == page %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 text-gray-700 hover:bg-gray-100{% endif %}">
+                        {{ p }}
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <!-- Show condensed pagination for many pages -->
+                    {% if page <= 4 %}
+                        <!-- Show first 5 pages -->
+                        {% for p in range(1, 6) %}
+                        <a href="?tab=files&page={{ p }}&type={{ filter_type or '' }}&date_from={{ filter_date_from or '' }}&date_to={{ filter_date_to or '' }}&search={{ filter_search or '' }}"
+                           class="px-4 py-2 border rounded-lg text-sm font-medium {% if p == page %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 text-gray-700 hover:bg-gray-100{% endif %}">
+                            {{ p }}
+                        </a>
+                        {% endfor %}
+                        <span class="px-3 py-2 text-gray-700">...</span>
+                        <a href="?tab=files&page={{ total_pages }}&type={{ filter_type or '' }}&date_from={{ filter_date_from or '' }}&date_to={{ filter_date_to or '' }}&search={{ filter_search or '' }}"
+                           class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">
+                            {{ total_pages }}
+                        </a>
+                    {% elif page >= total_pages - 3 %}
+                        <!-- Show last 5 pages -->
+                        <a href="?tab=files&page=1&type={{ filter_type or '' }}&date_from={{ filter_date_from or '' }}&date_to={{ filter_date_to or '' }}&search={{ filter_search or '' }}"
+                           class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">
+                            1
+                        </a>
+                        <span class="px-3 py-2 text-gray-700">...</span>
+                        {% for p in range(total_pages - 4, total_pages + 1) %}
+                        <a href="?tab=files&page={{ p }}&type={{ filter_type or '' }}&date_from={{ filter_date_from or '' }}&date_to={{ filter_date_to or '' }}&search={{ filter_search or '' }}"
+                           class="px-4 py-2 border rounded-lg text-sm font-medium {% if p == page %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 text-gray-700 hover:bg-gray-100{% endif %}">
+                            {{ p }}
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                        <!-- Show middle pages -->
+                        <a href="?tab=files&page=1&type={{ filter_type or '' }}&date_from={{ filter_date_from or '' }}&date_to={{ filter_date_to or '' }}&search={{ filter_search or '' }}"
+                           class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">
+                            1
+                        </a>
+                        <span class="px-3 py-2 text-gray-700">...</span>
+                        {% for p in range(page - 1, page + 2) %}
+                        <a href="?tab=files&page={{ p }}&type={{ filter_type or '' }}&date_from={{ filter_date_from or '' }}&date_to={{ filter_date_to or '' }}&search={{ filter_search or '' }}"
+                           class="px-4 py-2 border rounded-lg text-sm font-medium {% if p == page %}bg-blue-600 text-white border-blue-600{% else %}border-gray-300 text-gray-700 hover:bg-gray-100{% endif %}">
+                            {{ p }}
+                        </a>
+                        {% endfor %}
+                        <span class="px-3 py-2 text-gray-700">...</span>
+                        <a href="?tab=files&page={{ total_pages }}&type={{ filter_type or '' }}&date_from={{ filter_date_from or '' }}&date_to={{ filter_date_to or '' }}&search={{ filter_search or '' }}"
+                           class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">
+                            {{ total_pages }}
+                        </a>
+                    {% endif %}
+                {% endif %}
+
+                {% if page < total_pages %}
+                <a href="?tab=files&page={{ page + 1 }}&type={{ filter_type or '' }}&date_from={{ filter_date_from or '' }}&date_to={{ filter_date_to or '' }}&search={{ filter_search or '' }}"
+                   class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 text-sm font-medium text-gray-700">
+                    Next
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Apply filters for Files tab (includes tab parameter)
+function applyFilesFilters() {
+    const typeSelect = document.getElementById('type-filter');
+    const dateFrom = document.getElementById('date-from');
+    const dateTo = document.getElementById('date-to');
+    const searchInput = document.getElementById('filename-search');
+
+    const type = typeSelect.value;
+    const from = dateFrom.value;
+    const to = dateTo.value;
+    const search = searchInput.value.trim();
+
+    // Build query string with tab=files
+    let params = new URLSearchParams();
+    params.set('tab', 'files');
+    params.set('page', '1');
+
+    if (type) {
+        params.set('type', type);
+    }
+    if (from) {
+        params.set('date_from', from);
+    }
+    if (to) {
+        params.set('date_to', to);
+    }
+    if (search) {
+        params.set('search', search);
+    }
+
+    window.location.href = `?${params.toString()}`;
+}
+
+// Clear all filters (redirect to Files tab)
+function clearFilesFilters() {
+    window.location.href = '?tab=files';
+}
+
+// Support Enter key on search input
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('filename-search');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                applyFilesFilters();
+            }
+        });
+    }
+});
+</script>
+</div>
+<!-- End Tab Content: Files -->
+
+<script src="{{ url_for('static', filename='js/upload-multiple.js') }}"></script>
+<script>
+// Tab switching function
+function switchTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+
+    // Remove active styles from all tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-blue-500', 'text-blue-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
+
+    // Show selected tab content
+    document.getElementById(`content-${tabName}`).classList.remove('hidden');
+
+    // Add active styles to selected tab
+    const activeTab = document.getElementById(`tab-${tabName}`);
+    activeTab.classList.remove('border-transparent', 'text-gray-500');
+    activeTab.classList.add('border-blue-500', 'text-blue-600');
+
+    // Update URL without reload
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabName);
+    window.history.pushState({}, '', url);
+}
+
+// Initialize tab from URL or default to upload
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('tab') || 'upload';
+    switchTab(activeTab);
+});
+</script>
+{% endblock %}

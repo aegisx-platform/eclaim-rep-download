@@ -13,6 +13,10 @@ import subprocess
 
 # Import the main downloader
 from eclaim_downloader_http import EClaimDownloader
+from utils.logging_config import setup_logger, safe_format_exception
+
+# Set up secure logging with credential masking
+logger = setup_logger('bulk_downloader', enable_masking=True)
 
 # Job history tracking (optional - may not be available in all environments)
 job_history_manager = None
@@ -603,8 +607,7 @@ Insurance Schemes:
         sys.exit(1)
     except Exception as e:
         stream_log(f"✗ Bulk download error: {str(e)}", 'error')
-        import traceback
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         sys.exit(1)
 
 

@@ -18,7 +18,7 @@ async function triggerDownload() {
     buttonText.textContent = 'Starting...';
 
     try {
-        const response = await fetch('/download/trigger', {
+        const response = await fetch('/api/downloads/single', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -58,7 +58,7 @@ function startStatusPolling() {
     // Poll every 5 seconds
     pollingInterval = setInterval(async () => {
         try {
-            const response = await fetch('/download/status');
+            const response = await fetch('/api/downloads/status');
             const status = await response.json();
 
             updateStatusUI(status);
@@ -146,6 +146,133 @@ async function deleteFile(filename) {
     } catch (error) {
         console.error('Error deleting file:', error);
         showToast('Error deleting file', 'error');
+    }
+}
+
+/**
+ * Re-download a file by extracting date from filename
+ */
+async function reDownloadFile(filename) {
+    // Confirm re-download
+    if (!confirm(`Re-download "${filename}"?\n\nThis will delete the existing file and download a fresh copy from NHSO.`)) {
+        return;
+    }
+
+    try {
+        // Show progress modal
+        showDownloadProgress(`Re-downloading: ${filename}`);
+
+        const response = await fetch(`/api/files/re-download/${encodeURIComponent(filename)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            updateDownloadProgress(`Downloading ${data.file_type} files...`, 10);
+
+            // Start polling download status
+            pollDownloadStatus(filename);
+        } else {
+            hideDownloadProgress();
+            showToast(data.error || 'Failed to re-download file', 'error');
+        }
+    } catch (error) {
+        console.error('Error re-downloading file:', error);
+        hideDownloadProgress();
+        showToast('Error re-downloading file', 'error');
+    }
+}
+
+/**
+ * Poll download status for re-download
+ */
+function pollDownloadStatus(filename) {
+    const pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch('/api/downloads/status');
+            const status = await response.json();
+
+            if (status.running) {
+                // Download in progress
+                const percent = status.total > 0
+                    ? Math.round((status.completed / status.total) * 100)
+                    : 10;
+                updateDownloadProgress(
+                    `Downloading... ${status.completed}/${status.total} files`,
+                    percent
+                );
+            } else {
+                // Download completed or stopped
+                clearInterval(pollInterval);
+                updateDownloadProgress('Download complete! Refreshing...', 100);
+
+                setTimeout(() => {
+                    hideDownloadProgress();
+                    location.reload();
+                }, 1500);
+            }
+        } catch (error) {
+            console.error('Error polling download status:', error);
+            clearInterval(pollInterval);
+            hideDownloadProgress();
+            showToast('Download monitoring error', 'warning');
+        }
+    }, 2000); // Poll every 2 seconds
+}
+
+/**
+ * Show download progress modal
+ */
+function showDownloadProgress(message) {
+    let modal = document.getElementById('re-download-progress-modal');
+    if (!modal) {
+        // Create modal if doesn't exist
+        modal = document.createElement('div');
+        modal.id = 're-download-progress-modal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Re-downloading File</h3>
+                <div class="mb-4">
+                    <p id="re-download-progress-text" class="text-sm text-gray-600 mb-2">Starting...</p>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="re-download-progress-bar" class="bg-blue-600 h-3 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                    <p id="re-download-progress-percent" class="text-xs text-gray-500 mt-1 text-right">0%</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    modal.classList.remove('hidden');
+    updateDownloadProgress(message, 0);
+}
+
+/**
+ * Update download progress
+ */
+function updateDownloadProgress(message, percent) {
+    const textEl = document.getElementById('re-download-progress-text');
+    const barEl = document.getElementById('re-download-progress-bar');
+    const percentEl = document.getElementById('re-download-progress-percent');
+
+    if (textEl) textEl.textContent = message;
+    if (barEl) barEl.style.width = `${percent}%`;
+    if (percentEl) percentEl.textContent = `${percent}%`;
+}
+
+/**
+ * Hide download progress modal
+ */
+function hideDownloadProgress() {
+    const modal = document.getElementById('re-download-progress-modal');
+    if (modal) {
+        modal.classList.add('hidden');
     }
 }
 
@@ -256,7 +383,7 @@ async function downloadSingleMonth() {
     const autoImport = document.getElementById('single-auto-import')?.checked || false;
 
     try {
-        const response = await fetch('/download/trigger/single', {
+        const response = await fetch('/api/downloads/month', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -439,6 +566,9 @@ function initSmtDateFields() {
 
     // Set date range based on selected fiscal year
     onSmtDownloadFiscalYearChange();
+
+    // Load hospital code from settings for Vendor ID
+    loadHospitalCodeForVendor();
 }
 
 /**
@@ -487,6 +617,105 @@ function onSmtDownloadFiscalYearChange() {
 }
 
 /**
+ * Populate year dropdowns with current year as default
+ * Used for REP and Statement download forms
+ */
+function populateYearDropdowns() {
+    const currentYear = new Date().getFullYear();
+    const currentYearBE = currentYear + 543;
+    const currentMonth = new Date().getMonth() + 1;
+
+    // Determine current fiscal year (fiscal year starts in October)
+    // If we're in Oct-Dec, fiscal year is next year BE
+    // If we're in Jan-Sep, fiscal year is current year BE
+    const currentFiscalYear = currentMonth >= 10 ? currentYearBE + 1 : currentYearBE;
+
+    const yearSelects = ['bulk-start-year', 'bulk-end-year', 'smt-fiscal-year'];
+
+    yearSelects.forEach(function(id) {
+        const select = document.getElementById(id);
+        if (!select) return;
+
+        // Clear existing options
+        while (select.firstChild) {
+            select.removeChild(select.firstChild);
+        }
+
+        // Add years (current fiscal year - 8 years)
+        for (let i = 0; i <= 8; i++) {
+            const yearBE = currentFiscalYear - i;
+            const option = document.createElement('option');
+            option.value = yearBE;
+            option.textContent = yearBE;
+            if (i === 0) option.selected = true;  // Current fiscal year as default
+            select.appendChild(option);
+        }
+    });
+
+    // REP: Default to current month (REP downloads one month at a time, no "ทุกเดือน")
+    // Statement: Default to "ทุกเดือน" (all months)
+    const monthSelect = document.getElementById('bulk-start-month');
+    const allMonthsOption = document.getElementById('opt-all-months');
+
+    // On initial load, REP is default - hide "ทุกเดือน" and set current month
+    if (allMonthsOption) allMonthsOption.classList.add('hidden');
+    if (monthSelect) monthSelect.value = currentMonth.toString();
+
+    const bulkEndMonth = document.getElementById('bulk-end-month');
+    if (bulkEndMonth) bulkEndMonth.value = '';
+}
+
+/**
+ * Load hospital code from settings and populate Vendor ID field
+ * Makes the field readonly since it should come from hospital settings
+ */
+async function loadHospitalCodeForVendor() {
+    try {
+        const response = await fetch('/api/settings/hospital-code');
+        const result = await response.json();
+
+        const vendorInput = document.getElementById('dl-vendor-id');
+        const scheduleVendorInput = document.getElementById('schedule-smt-vendor-id');
+
+        if (result.success && result.hospital_code) {
+            const hospitalCode = result.hospital_code;
+
+            // Set vendor ID from hospital code (readonly)
+            if (vendorInput) {
+                vendorInput.value = hospitalCode;
+                vendorInput.readOnly = true;
+                vendorInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                vendorInput.placeholder = 'จาก Hospital Settings';
+            }
+
+            // Also set schedule vendor ID if exists
+            if (scheduleVendorInput) {
+                scheduleVendorInput.value = hospitalCode;
+                scheduleVendorInput.readOnly = true;
+                scheduleVendorInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                scheduleVendorInput.placeholder = 'จาก Hospital Settings';
+            }
+        } else {
+            // No hospital code set - show message
+            if (vendorInput) {
+                vendorInput.value = '';
+                vendorInput.readOnly = true;
+                vendorInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                vendorInput.placeholder = 'กรุณาตั้งค่า Hospital Code ที่ Settings';
+            }
+            if (scheduleVendorInput) {
+                scheduleVendorInput.value = '';
+                scheduleVendorInput.readOnly = true;
+                scheduleVendorInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                scheduleVendorInput.placeholder = 'กรุณาตั้งค่า Hospital Code ที่ Settings';
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load hospital code:', error);
+    }
+}
+
+/**
  * Convert date to Thai Buddhist Era format (dd/mm/yyyy)
  */
 function toThaiDateFormat(dateStr) {
@@ -496,6 +725,57 @@ function toThaiDateFormat(dateStr) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const beYear = date.getFullYear() + 543;
     return `${day}/${month}/${beYear}`;
+}
+
+/**
+ * Convert datetime to time ago format in Thai
+ * Returns: "X วัน Y ชั่วโมง ที่แล้ว" or "เมื่อสักครู่"
+ */
+function timeAgo(dateStr) {
+    if (!dateStr) return '-';
+
+    const now = new Date();
+    const past = new Date(dateStr);
+    const diffMs = now - past;
+
+    // If invalid date
+    if (isNaN(diffMs)) return '-';
+
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    // Less than 1 minute
+    if (diffMin < 1) return 'เมื่อสักครู่';
+
+    // Less than 1 hour
+    if (diffHour < 1) return `${diffMin} นาที ที่แล้ว`;
+
+    // Less than 1 day
+    if (diffDay < 1) return `${diffHour} ชั่วโมง ที่แล้ว`;
+
+    // Less than 7 days
+    if (diffDay < 7) {
+        const remainHours = diffHour % 24;
+        if (remainHours > 0) {
+            return `${diffDay} วัน ${remainHours} ชั่วโมง ที่แล้ว`;
+        }
+        return `${diffDay} วัน ที่แล้ว`;
+    }
+
+    // Less than 30 days
+    if (diffDay < 30) {
+        const weeks = Math.floor(diffDay / 7);
+        const remainDays = diffDay % 7;
+        if (remainDays > 0) {
+            return `${weeks} สัปดาห์ ${remainDays} วัน ที่แล้ว`;
+        }
+        return `${weeks} สัปดาห์ ที่แล้ว`;
+    }
+
+    // More than 30 days - show actual date instead
+    return toThaiDateFormat(dateStr);
 }
 
 /**
@@ -552,9 +832,13 @@ async function downloadSmtBudget() {
         const result = await response.json();
         if (result.success) {
             showToast(result.message || 'Download completed', 'success');
-            // Reload SMT files list if on SMT tab
-            if (typeof loadSmtFiles === 'function') {
+            // Reload files list based on current page context
+            if (typeof loadSmtFiles === 'function' && document.getElementById('smt-files-table')) {
+                // Only call loadSmtFiles if on data management page (has smt-files-table element)
                 loadSmtFiles();
+            } else if (typeof loadUpdateStatus === 'function') {
+                // On schedule page, refresh status cards instead
+                loadUpdateStatus();
             }
         } else {
             showToast(result.error || 'Download failed', 'error');
@@ -667,7 +951,7 @@ async function downloadBulk() {
             }
         } else {
             // Sequential download
-            const response = await fetch('/download/trigger/bulk', {
+            const response = await fetch('/api/downloads/bulk', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -727,7 +1011,7 @@ async function cancelBulkDownload() {
     }
 
     try {
-        const response = await fetch('/download/bulk/cancel', {
+        const response = await fetch('/api/downloads/cancel', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -858,9 +1142,13 @@ function startParallelProgressPolling() {
             if (progress.running || progress.status === 'downloading') {
                 // Update display
                 const completed = progress.completed || 0;
+                const skipped = progress.skipped || 0;
                 const total = progress.total || 0;
                 const failed = progress.failed || 0;
                 const workers = progress.workers || [];
+
+                // Calculate processed (completed + skipped)
+                const processed = completed + skipped;
 
                 // Update current status
                 if (currentMonthSpan) {
@@ -870,20 +1158,24 @@ function startParallelProgressPolling() {
                     currentMonthSpan.textContent = `Parallel: ${workerInfo}`;
                 }
 
-                // Update progress count
+                // Update progress count with detailed breakdown
                 if (progressCountSpan) {
-                    progressCountSpan.textContent = `${completed} / ${total} files`;
+                    if (skipped > 0 || completed > 0) {
+                        progressCountSpan.textContent = `${processed} / ${total} files (${completed} new, ${skipped} skipped)`;
+                    } else {
+                        progressCountSpan.textContent = `${processed} / ${total} files`;
+                    }
                 }
 
-                // Update progress bar
-                const percentage = total > 0 ? (completed / total) * 100 : 0;
+                // Update progress bar (use processed instead of completed)
+                const percentage = total > 0 ? (processed / total) * 100 : 0;
                 if (progressBar) {
                     progressBar.style.width = `${Math.max(percentage, 2)}%`;
                 }
 
                 // Update percentage text
                 if (progressPercentage) {
-                    progressPercentage.textContent = `${completed}/${total}`;
+                    progressPercentage.textContent = `${processed}/${total}`;
                 }
 
             } else if (progress.status === 'stale' || progress.status === 'interrupted') {
@@ -960,7 +1252,7 @@ function startBulkProgressPolling() {
     // Poll every 3 seconds
     pollingInterval = setInterval(async () => {
         try {
-            const response = await fetch('/download/bulk/progress');
+            const response = await fetch('/api/downloads/bulk/progress');
             const progress = await response.json();
 
             if (progress.running && progress.current_month) {
@@ -1106,7 +1398,7 @@ async function importAllFiles() {
         // Show import progress modal
         showImportModal();
 
-        const response = await fetch('/import/all', {
+        const response = await fetch('/api/imports/rep', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1177,7 +1469,7 @@ function startImportProgressPolling() {
     // Poll every 2 seconds
     importPollingInterval = setInterval(async () => {
         try {
-            const response = await fetch('/import/progress');
+            const response = await fetch('/api/imports/progress');
             const progress = await response.json();
 
             updateImportProgressUI(progress);
@@ -1533,7 +1825,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Check download status
-        const response = await fetch('/download/status');
+        const response = await fetch('/api/downloads/status');
         const status = await response.json();
 
         if (status.running) {
@@ -1542,7 +1834,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Check for bulk download in progress
-        const bulkResponse = await fetch('/download/bulk/progress');
+        const bulkResponse = await fetch('/api/downloads/bulk/progress');
         const bulkProgress = await bulkResponse.json();
 
         if (bulkProgress.running && bulkProgress.status === 'running') {
@@ -1573,7 +1865,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     : '⚠️ Interrupted by server restart';
             }
             if (progressCountSpan) {
-                progressCountSpan.textContent = (parallelProgress.completed || 0) + ' / ' + (parallelProgress.total || 0) + ' files';
+                const completed = parallelProgress.completed || 0;
+                const skipped = parallelProgress.skipped || 0;
+                const total = parallelProgress.total || 0;
+                const processed = completed + skipped;
+
+                if (skipped > 0 || completed > 0) {
+                    progressCountSpan.textContent = `${processed} / ${total} files (${completed} new, ${skipped} skipped)`;
+                } else {
+                    progressCountSpan.textContent = `${processed} / ${total} files`;
+                }
             }
             if (cancelBtn) {
                 cancelBtn.textContent = '🔄 ล้างแล้วลองใหม่';
@@ -1586,7 +1887,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Check for import in progress
-        const importResponse = await fetch('/import/progress');
+        const importResponse = await fetch('/api/imports/progress');
         const importProgress = await importResponse.json();
 
         if (importProgress.running && importProgress.status === 'running') {
@@ -1594,6 +1895,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             showImportModal();
             startImportProgressPolling();
         }
+
+        // Populate year dropdowns with current year as default
+        populateYearDropdowns();
     } catch (error) {
         console.error('Error checking initial status:', error);
     }
@@ -1658,7 +1962,7 @@ async function startDownload() {
     }
 
     try {
-        const response = await fetch('/download/trigger', {
+        const response = await fetch('/api/downloads/single', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1845,11 +2149,72 @@ async function loadSmtFilesPage(page = 1, filterParams = null) {
                 paginationEl.classList.add('hidden');
             }
         } else {
-            showToast('Error loading SMT files: ' + data.error, 'error');
+            // Handle special error: No hospital code configured
+            if (data.error_code === 'NO_HOSPITAL_CODE') {
+                showSmtNoHospitalCodeWarning(data.error, data.redirect_url);
+            } else {
+                showToast('Error loading SMT files: ' + data.error, 'error');
+            }
         }
     } catch (error) {
         console.error('Error loading SMT files:', error);
-        showToast('Error loading SMT files', 'error');
+        // Check if error response has error_code
+        if (error.response) {
+            error.response.json().then(data => {
+                if (data.error_code === 'NO_HOSPITAL_CODE') {
+                    showSmtNoHospitalCodeWarning(data.error, data.redirect_url);
+                } else {
+                    showToast('Error loading SMT files', 'error');
+                }
+            }).catch(() => {
+                showToast('Error loading SMT files', 'error');
+            });
+        } else {
+            showToast('Error loading SMT files', 'error');
+        }
+    }
+}
+
+/**
+ * Show warning when hospital code is not configured
+ */
+function showSmtNoHospitalCodeWarning(message, redirectUrl) {
+    const tableContainer = document.getElementById('smt-files-table');
+    if (!tableContainer) return;
+
+    tableContainer.innerHTML = '';
+
+    const warningDiv = document.createElement('div');
+    warningDiv.className = 'text-center py-12';
+
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'text-6xl mb-4';
+    iconDiv.textContent = '⚠️';
+
+    const title = document.createElement('h3');
+    title.className = 'text-xl font-semibold text-gray-800 mb-2';
+    title.textContent = 'กรุณาตั้งค่า Hospital Code';
+
+    const desc = document.createElement('p');
+    desc.className = 'text-gray-600 mb-6';
+    desc.textContent = message || 'ต้องตั้งค่า Hospital Code ก่อนใช้งาน SMT Budget';
+
+    const link = document.createElement('a');
+    link.href = redirectUrl || '/settings/hospital';
+    link.className = 'inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors';
+    link.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> ไปตั้งค่า Hospital Code';
+
+    warningDiv.appendChild(iconDiv);
+    warningDiv.appendChild(title);
+    warningDiv.appendChild(desc);
+    warningDiv.appendChild(link);
+
+    tableContainer.appendChild(warningDiv);
+
+    // Also hide stats section
+    const statsSection = document.getElementById('smt-stats');
+    if (statsSection) {
+        statsSection.classList.add('hidden');
     }
 }
 

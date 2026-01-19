@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS download_history (
     INDEX idx_download_history_fiscal_year (fiscal_year),
     INDEX idx_download_history_downloaded (downloaded_at),
     INDEX idx_download_history_imported (imported),
-    UNIQUE INDEX idx_download_history_unique (download_type, document_no, scheme, rep_no)
+    -- Unique constraint on (download_type, filename) for UPSERT operations
+    UNIQUE INDEX idx_download_history_type_filename (download_type, filename)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 COMMENT='Track all downloaded files from NHSO systems';

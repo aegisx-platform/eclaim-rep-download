@@ -5,9 +5,9 @@ services:
     container_name: eclaim-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: eclaim
-      POSTGRES_PASSWORD: eclaim_password
-      POSTGRES_DB: eclaim_db
+      POSTGRES_USER: ${DB_USER:-eclaim}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?ERROR - DB_PASSWORD must be set in .env file}
+      POSTGRES_DB: ${DB_NAME:-eclaim_db}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -36,19 +36,19 @@ services:
       DB_TYPE: postgresql
       DB_HOST: db
       DB_PORT: 5432
-      DB_NAME: eclaim_db
-      DB_USER: eclaim
-      DB_PASSWORD: eclaim_password
+      DB_NAME: ${DB_NAME:-eclaim_db}
+      DB_USER: ${DB_USER:-eclaim}
+      DB_PASSWORD: ${DB_PASSWORD:?ERROR - DB_PASSWORD must be set in .env file}
 
       # Flask configuration
       FLASK_APP: app.py
       FLASK_ENV: ${FLASK_ENV:-production}
       TZ: ${TZ:-Asia/Bangkok}
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      SECRET_KEY: ${SECRET_KEY:?ERROR - SECRET_KEY must be set in .env file}
 
-      # E-Claim credentials (update these!)
-      ECLAIM_USERNAME: ${ECLAIM_USERNAME:-your_username}
-      ECLAIM_PASSWORD: ${ECLAIM_PASSWORD:-your_password}
+      # E-Claim credentials (REQUIRED - no defaults for security)
+      ECLAIM_USERNAME: ${ECLAIM_USERNAME:?ERROR - ECLAIM_USERNAME must be set in .env file with your NHSO username}
+      ECLAIM_PASSWORD: ${ECLAIM_PASSWORD:?ERROR - ECLAIM_PASSWORD must be set in .env file with your NHSO password}
     volumes:
       # Mount downloads directory for persistence
       - ./downloads:/app/downloads
@@ -80,8 +80,8 @@ services:
     container_name: eclaim-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@eclaim.local
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@eclaim.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?ERROR - PGADMIN_PASSWORD must be set in .env file for security}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
     volumes:

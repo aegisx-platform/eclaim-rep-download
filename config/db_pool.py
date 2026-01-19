@@ -129,11 +129,24 @@ class PooledConnection:
         try:
             if self._db_type == 'postgresql':
                 # Rollback any uncommitted transaction before returning to pool
+                # If rollback fails (e.g., transaction aborted), mark connection as bad
                 try:
                     self._conn.rollback()
-                except Exception:
-                    pass
-                self._pool.putconn(self._conn)
+                    # Return healthy connection to pool
+                    self._pool.putconn(self._conn)
+                except Exception as e:
+                    # Connection has error transaction - discard it instead of returning to pool
+                    logger.warning(f"Discarding connection with error transaction: {e}")
+                    try:
+                        # Close the actual connection instead of returning to pool
+                        self._conn.close()
+                    except Exception:
+                        pass
+                    # Inform pool that connection is bad (using close=True param)
+                    try:
+                        self._pool.putconn(self._conn, close=True)
+                    except Exception:
+                        pass
             elif self._db_type == 'mysql':
                 # self._pool is the SQLAlchemy Connection, close it to return to pool
                 self._pool.close()

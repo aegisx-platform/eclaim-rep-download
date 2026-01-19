@@ -1,0 +1,336 @@
+{% extends "settings/layout.html" %}
+
+{% block settings_content %}
+<!-- System Health -->
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-6 border border-emerald-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">System Health</h2>
+                <p class="text-gray-600">สถานะระบบและทรัพยากรการทำงาน</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" id="auto-refresh" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                    <span>Auto-refresh (30s)</span>
+                </label>
+                <button onclick="loadSystemHealth()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span>Refresh</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overall Status Alert -->
+    <div id="overall-status" class="hidden"></div>
+
+    <!-- Database Status (Large Card) -->
+    <div class="bg-white rounded-xl shadow-sm border">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800">Database Status</h3>
+                </div>
+            </div>
+        </div>
+        <div class="p-6">
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Type -->
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600 mb-1">Type</p>
+                    <p id="db-type" class="text-2xl font-bold text-gray-800">-</p>
+                </div>
+
+                <!-- Status -->
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-600 mb-1">Status</p>
+                    <p id="db-status-text" class="text-2xl font-bold text-green-600">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health Components Grid -->
+    <div class="grid md:grid-cols-3 gap-6">
+        <!-- Disk Space -->
+        <div class="bg-white rounded-xl shadow-sm border p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold text-gray-800">Disk Space</h3>
+                <div id="disk-badge" class="px-2 py-1 rounded text-xs font-medium">Loading...</div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p id="disk-message" class="text-sm text-gray-600">Checking...</p>
+                    <div id="disk-progress" class="mt-2 hidden">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="disk-progress-bar" class="bg-emerald-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Memory -->
+        <div class="bg-white rounded-xl shadow-sm border p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold text-gray-800">Memory</h3>
+                <div id="memory-badge" class="px-2 py-1 rounded text-xs font-medium">Loading...</div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p id="memory-message" class="text-sm text-gray-600">Checking...</p>
+                    <div id="memory-progress" class="mt-2 hidden">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="memory-progress-bar" class="bg-emerald-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Processes -->
+        <div class="bg-white rounded-xl shadow-sm border p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold text-gray-800">Processes</h3>
+                <div id="processes-badge" class="px-2 py-1 rounded text-xs font-medium">Loading...</div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p id="processes-message" class="text-sm text-gray-600">Checking...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jobs (24h) -->
+        <div class="bg-white rounded-xl shadow-sm border p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold text-gray-800">Jobs (24h)</h3>
+                <div id="jobs-badge" class="px-2 py-1 rounded text-xs font-medium">Loading...</div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p id="jobs-message" class="text-sm text-gray-600">Checking...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Downloaded Files -->
+        <div class="bg-white rounded-xl shadow-sm border p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold text-gray-800">Downloaded Files</h3>
+                <div id="files-badge" class="px-2 py-1 rounded text-xs font-medium">Loading...</div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p id="files-message" class="text-sm text-gray-600">Checking...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Last Updated -->
+    <div class="text-center text-sm text-gray-500">
+        Last updated: <span id="last-updated">-</span>
+    </div>
+</div>
+
+<script>
+let autoRefreshInterval = null;
+
+function getStatusBadgeClass(status) {
+    switch(status) {
+        case 'healthy':
+            return 'bg-green-100 text-green-700';
+        case 'warning':
+            return 'bg-yellow-100 text-yellow-700';
+        case 'critical':
+            return 'bg-red-100 text-red-700';
+        default:
+            return 'bg-gray-100 text-gray-700';
+    }
+}
+
+function getProgressBarClass(percent) {
+    if (percent > 90) return 'bg-red-600';
+    if (percent > 80) return 'bg-yellow-500';
+    return 'bg-emerald-600';
+}
+
+function createOverallStatusAlert(status, timestamp) {
+    const overallDiv = document.getElementById('overall-status');
+    overallDiv.textContent = '';
+
+    const isCritical = status === 'critical';
+    overallDiv.className = `p-4 rounded-lg border-l-4 ${
+        isCritical ? 'bg-red-50 border-red-400' : 'bg-yellow-50 border-yellow-400'
+    }`;
+
+    const container = document.createElement('div');
+    container.className = 'flex items-center gap-2';
+
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('class', `w-5 h-5 ${isCritical ? 'text-red-500' : 'text-yellow-500'}`);
+    icon.setAttribute('fill', 'currentColor');
+    icon.setAttribute('viewBox', '0 0 20 20');
+    const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    iconPath.setAttribute('fill-rule', 'evenodd');
+    iconPath.setAttribute('d', 'M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z');
+    iconPath.setAttribute('clip-rule', 'evenodd');
+    icon.appendChild(iconPath);
+
+    const text = document.createElement('span');
+    text.className = `font-medium ${isCritical ? 'text-red-700' : 'text-yellow-700'}`;
+    text.textContent = isCritical ? 'Warnings Detected' : 'System Warnings';
+
+    container.appendChild(icon);
+    container.appendChild(text);
+
+    const timeText = document.createElement('p');
+    timeText.className = `mt-1 text-sm ${isCritical ? 'text-red-600' : 'text-yellow-600'}`;
+    timeText.textContent = 'Updated: ' + new Date(timestamp).toLocaleString('th-TH');
+
+    overallDiv.appendChild(container);
+    overallDiv.appendChild(timeText);
+    overallDiv.classList.remove('hidden');
+}
+
+async function loadSystemHealth() {
+    try {
+        const response = await fetch('/api/system/health');
+        const data = await response.json();
+
+        if (data.success) {
+            // Overall Status
+            if (data.overall_status === 'critical' || data.overall_status === 'warning') {
+                createOverallStatusAlert(data.overall_status, data.timestamp);
+            } else {
+                document.getElementById('overall-status').classList.add('hidden');
+            }
+
+            // Database Status (Large Card)
+            const database = data.components.database;
+            if (database) {
+                document.getElementById('db-type').textContent = database.type || '-';
+                const statusText = document.getElementById('db-status-text');
+                statusText.textContent = database.status === 'healthy' ? 'Connected' : 'Disconnected';
+                statusText.className = 'text-2xl font-bold ' + (database.status === 'healthy' ? 'text-green-600' : 'text-red-600');
+            }
+
+            // Disk
+            const disk = data.components.disk;
+            updateComponent('disk', disk);
+            if (disk.used_percent !== undefined) {
+                document.getElementById('disk-progress').classList.remove('hidden');
+                const progressBar = document.getElementById('disk-progress-bar');
+                progressBar.style.width = disk.used_percent + '%';
+                progressBar.className = 'h-2 rounded-full transition-all ' + getProgressBarClass(disk.used_percent);
+            }
+
+            // Memory
+            const memory = data.components.memory;
+            updateComponent('memory', memory);
+            if (memory.used_percent !== undefined) {
+                document.getElementById('memory-progress').classList.remove('hidden');
+                const progressBar = document.getElementById('memory-progress-bar');
+                progressBar.style.width = memory.used_percent + '%';
+                progressBar.className = 'h-2 rounded-full transition-all ' + getProgressBarClass(memory.used_percent);
+            }
+
+            // Processes
+            updateComponent('processes', data.components.processes);
+
+            // Jobs
+            updateComponent('jobs', data.components.jobs);
+
+            // Files
+            updateComponent('files', data.components.files);
+
+            // Update timestamp
+            document.getElementById('last-updated').textContent = new Date().toLocaleString('th-TH');
+        }
+    } catch (error) {
+        console.error('Error loading system health:', error);
+        if (typeof showToast === 'function') {
+            showToast('Failed to load system health', 'error');
+        }
+    }
+}
+
+function updateComponent(name, component) {
+    const badge = document.getElementById(name + '-badge');
+    const message = document.getElementById(name + '-message');
+
+    if (component && component.status) {
+        badge.className = 'px-2 py-1 rounded text-xs font-medium ' + getStatusBadgeClass(component.status);
+        badge.textContent = component.status.toUpperCase();
+        message.textContent = component.message || 'OK';
+    }
+}
+
+function setupAutoRefresh() {
+    const checkbox = document.getElementById('auto-refresh');
+
+    if (checkbox.checked) {
+        autoRefreshInterval = setInterval(function() {
+            loadSystemHealth();
+        }, 30000); // 30 seconds
+    } else {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
+    }
+}
+
+// Load on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadSystemHealth();
+    setupAutoRefresh();
+
+    // Listen to auto-refresh toggle
+    document.getElementById('auto-refresh').addEventListener('change', setupAutoRefresh);
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+});
+</script>
+{% endblock %}

@@ -37,6 +37,413 @@
     </div>
     {% endif %}
 
+    {% if summary and performance_metrics %}
+    <!-- Claims Performance Dashboard -->
+
+    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg p-6 border border-blue-100">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex-1">
+                <div class="flex items-center gap-3">
+                    <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        Claims Performance Overview
+                    </h3>
+                    <button onclick="toggleSection('performance-guide')" class="group flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors" title="คลิกเพื่อดูคำอธิบาย">
+                        <svg class="w-4 h-4 text-blue-600 group-hover:text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mt-1">Key performance indicators for payment accuracy and efficiency</p>
+            </div>
+            <div class="text-xs text-gray-500">
+                {% if selected_fy %}
+                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-md font-medium">FY {{ selected_fy }}</span>
+                {% else %}
+                <span class="bg-gray-100 text-gray-800 px-2 py-1 rounded-md font-medium">All Time</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Collapsible Guide Section -->
+        <div id="performance-guide-content" class="hidden mb-6 p-4 bg-white rounded-lg border border-blue-200">
+            <h4 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                คำอธิบาย Metrics
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                <!-- Payment Accuracy -->
+                <div class="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xl">📊</span>
+                        <h5 class="font-semibold text-gray-800 text-xs">Payment Accuracy</h5>
+                    </div>
+                    <p class="text-xs text-gray-700 mb-2">% เดือนที่ได้รับเงินตรงตามที่เบิก (ส่วนต่าง &lt; 1%)</p>
+                    <div class="text-xs space-y-1 text-gray-600">
+                        <div>✅ <strong>≥80%</strong> = ดีมาก</div>
+                        <div>⚠️ <strong>60-79%</strong> = พอใช้</div>
+                        <div>❌ <strong>&lt;60%</strong> = ต่ำ</div>
+                    </div>
+                </div>
+
+                <!-- Payment Ratio -->
+                <div class="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xl">🎯</span>
+                        <h5 class="font-semibold text-gray-800 text-xs">Payment Ratio</h5>
+                    </div>
+                    <p class="text-xs text-gray-700 mb-2">อัตราส่วน SMT/REP (%)</p>
+                    <div class="text-xs space-y-1 text-gray-600">
+                        <div>✅ <strong>95-105%</strong> = ปกติ</div>
+                        <div>❌ <strong>&lt;95%</strong> = ได้น้อย</div>
+                        <div>⚠️ <strong>&gt;105%</strong> = ได้มาก</div>
+                    </div>
+                </div>
+
+                <!-- Underpayment -->
+                <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xl">⚠️</span>
+                        <h5 class="font-semibold text-gray-800 text-xs">Underpayment</h5>
+                    </div>
+                    <p class="text-xs text-gray-700 mb-2">% เดือนที่ได้น้อยกว่าเบิก</p>
+                    <div class="text-xs text-gray-600">
+                        <div>📌 ยิ่งต่ำยิ่งดี</div>
+                    </div>
+                </div>
+
+                <!-- Pending Payment -->
+                <div class="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xl">⏳</span>
+                        <h5 class="font-semibold text-gray-800 text-xs">Pending Payment</h5>
+                    </div>
+                    <p class="text-xs text-gray-700 mb-2">% เดือนที่รอรับเงิน</p>
+                    <div class="text-xs space-y-1 text-gray-600">
+                        <div>✅ <strong>&lt;10%</strong> = ดี</div>
+                        <div>⚠️ <strong>&gt;10%</strong> = สูง</div>
+                    </div>
+                </div>
+
+                <!-- Average Difference -->
+                <div class="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xl">💰</span>
+                        <h5 class="font-semibold text-gray-800 text-xs">Avg Difference</h5>
+                    </div>
+                    <p class="text-xs text-gray-700 mb-2">ส่วนต่างเฉลี่ยต่อเคลม</p>
+                    <div class="text-xs space-y-1 text-gray-600">
+                        <div>+ = ได้มากกว่า</div>
+                        <div>- = ได้น้อยกว่า</div>
+                    </div>
+                </div>
+
+                <!-- Top Month -->
+                <div class="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xl">⭐</span>
+                        <h5 class="font-semibold text-gray-800 text-xs">Top Month</h5>
+                    </div>
+                    <p class="text-xs text-gray-700 mb-2">เดือนที่เบิกสูงสุด</p>
+                    <div class="text-xs text-gray-600">
+                        <div>📌 ใช้อ้างอิง</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Metrics Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Payment Accuracy Rate -->
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="text-xs font-medium text-gray-500 uppercase">Payment Accuracy</span>
+                        </div>
+                        <div class="text-3xl font-bold text-gray-900">{{ "%.1f"|format(performance_metrics.payment_accuracy) }}%</div>
+                        <p class="text-xs text-gray-600 mt-1">{{ performance_metrics.matched_months }}/{{ performance_metrics.total_months }} months matched</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                        <span class="text-lg">📊</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Claim-to-Payment Ratio -->
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="text-xs font-medium text-gray-500 uppercase">Payment Ratio</span>
+                        </div>
+                        <div class="text-3xl font-bold {% if performance_metrics.claim_to_payment_ratio >= 95 %}text-green-600{% elif performance_metrics.claim_to_payment_ratio >= 90 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                            {{ "%.1f"|format(performance_metrics.claim_to_payment_ratio) }}%
+                        </div>
+                        <p class="text-xs text-gray-600 mt-1">SMT/REP amount ratio</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                        <span class="text-lg">🎯</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Underpayment Rate -->
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                            <span class="text-xs font-medium text-gray-500 uppercase">Underpayment</span>
+                        </div>
+                        <div class="text-3xl font-bold text-yellow-600">{{ "%.1f"|format(performance_metrics.underpayment_rate) }}%</div>
+                        <p class="text-xs text-gray-600 mt-1">{{ performance_metrics.underpaid_months }}/{{ performance_metrics.total_months }} months underpaid</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+                        <span class="text-lg">⚠️</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending Payment Rate -->
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="text-xs font-medium text-gray-500 uppercase">Pending Payment</span>
+                        </div>
+                        <div class="text-3xl font-bold text-orange-600">{{ "%.1f"|format(performance_metrics.pending_rate) }}%</div>
+                        <p class="text-xs text-gray-600 mt-1">{{ performance_metrics.pending_months }}/{{ performance_metrics.total_months }} months pending</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                        <span class="text-lg">⏳</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Average Difference per Claim -->
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                            </svg>
+                            <span class="text-xs font-medium text-gray-500 uppercase">Avg Difference</span>
+                        </div>
+                        <div class="text-3xl font-bold {% if performance_metrics.avg_difference >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                            {{ "{:+,.0f}".format(performance_metrics.avg_difference) }}
+                        </div>
+                        <p class="text-xs text-gray-600 mt-1">THB per claim (SMT-REP)</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+                        <span class="text-lg">💰</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Performing Month -->
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                            </svg>
+                            <span class="text-xs font-medium text-gray-500 uppercase">Top Month</span>
+                        </div>
+                        {% if performance_metrics.top_month %}
+                        <div class="text-xl font-bold text-indigo-600">{{ performance_metrics.top_month.month_display }}</div>
+                        <p class="text-xs text-gray-600 mt-1">{{ "{:,.0f}".format(performance_metrics.top_month.claim_total) }} THB</p>
+                        {% else %}
+                        <div class="text-xl font-bold text-gray-400">N/A</div>
+                        <p class="text-xs text-gray-600 mt-1">No data available</p>
+                        {% endif %}
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <span class="text-lg">⭐</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Quality & Missing Claims Alert -->
+        {% set dq = performance_metrics.data_quality %}
+        <div class="mt-6 p-5 rounded-xl border-2 {% if dq.alert_level == 'critical' %}bg-red-50 border-red-300{% elif dq.alert_level == 'warning' %}bg-yellow-50 border-yellow-300{% elif dq.alert_level == 'caution' %}bg-orange-50 border-orange-300{% else %}bg-green-50 border-green-300{% endif %}">
+            <div class="flex items-start gap-3">
+                <!-- Alert Icon -->
+                <div class="flex-shrink-0 mt-1">
+                    {% if dq.alert_level == 'critical' %}
+                    <div class="w-12 h-12 rounded-full bg-red-200 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    {% elif dq.alert_level == 'warning' %}
+                    <div class="w-12 h-12 rounded-full bg-yellow-200 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-yellow-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    {% elif dq.alert_level == 'caution' %}
+                    <div class="w-12 h-12 rounded-full bg-orange-200 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    {% else %}
+                    <div class="w-12 h-12 rounded-full bg-green-200 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Alert Content -->
+                <div class="flex-1">
+                    <h4 class="text-lg font-bold {% if dq.alert_level == 'critical' %}text-red-800{% elif dq.alert_level == 'warning' %}text-yellow-800{% elif dq.alert_level == 'caution' %}text-orange-800{% else %}text-green-800{% endif %} mb-2">
+                        {% if dq.alert_level == 'critical' %}
+                        🚨 Data Quality Alert: Critical - ข้อมูล REP ไม่สมบูรณ์มาก
+                        {% elif dq.alert_level == 'warning' %}
+                        ⚠️ Data Quality Alert: Warning - ข้อมูล REP ไม่สมบูรณ์
+                        {% elif dq.alert_level == 'caution' %}
+                        ⚡ Data Quality Alert: Caution - ข้อมูล REP ควรตรวจสอบ
+                        {% else %}
+                        ✅ Data Quality: Good - ข้อมูล REP สมบูรณ์ดี
+                        {% endif %}
+                    </h4>
+
+                    <!-- Coverage Bar -->
+                    <div class="mb-3">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm font-medium {% if dq.alert_level == 'critical' %}text-red-700{% elif dq.alert_level == 'warning' %}text-yellow-700{% elif dq.alert_level == 'caution' %}text-orange-700{% else %}text-green-700{% endif %}">
+                                REP Data Coverage
+                            </span>
+                            <span class="text-sm font-bold {% if dq.alert_level == 'critical' %}text-red-700{% elif dq.alert_level == 'warning' %}text-yellow-700{% elif dq.alert_level == 'caution' %}text-orange-700{% else %}text-green-700{% endif %}">
+                                {{ "%.1f"|format(dq.coverage_rate) }}%
+                            </span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="h-3 rounded-full {% if dq.alert_level == 'critical' %}bg-red-600{% elif dq.alert_level == 'warning' %}bg-yellow-500{% elif dq.alert_level == 'caution' %}bg-orange-500{% else %}bg-green-500{% endif %}" style="width: {{ dq.coverage_rate if dq.coverage_rate <= 100 else 100 }}%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Missing Claims Summary -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                        <div class="bg-white bg-opacity-70 rounded-lg p-3 border border-gray-200">
+                            <div class="text-xs text-gray-600 mb-1">Expected Claims</div>
+                            <div class="text-xl font-bold text-gray-900">{{ "{:,}".format(dq.expected_claims) }}</div>
+                            <div class="text-xs text-gray-500 mt-1">Based on SMT payments</div>
+                        </div>
+                        <div class="bg-white bg-opacity-70 rounded-lg p-3 border border-gray-200">
+                            <div class="text-xs text-gray-600 mb-1">Actual Claims (REP)</div>
+                            <div class="text-xl font-bold text-blue-600">{{ "{:,}".format(dq.actual_claims) }}</div>
+                            <div class="text-xs text-gray-500 mt-1">Currently in database</div>
+                        </div>
+                        <div class="bg-white bg-opacity-70 rounded-lg p-3 border {% if dq.alert_level == 'critical' %}border-red-300{% elif dq.alert_level == 'warning' %}border-yellow-300{% elif dq.alert_level == 'caution' %}border-orange-300{% else %}border-green-300{% endif %}">
+                            <div class="text-xs text-gray-600 mb-1">Missing Claims</div>
+                            <div class="text-xl font-bold {% if dq.alert_level == 'critical' %}text-red-700{% elif dq.alert_level == 'warning' %}text-yellow-700{% elif dq.alert_level == 'caution' %}text-orange-700{% else %}text-green-700{% endif %}">
+                                {{ "{:,}".format(dq.missing_claims) }}
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">Need to investigate</div>
+                        </div>
+                    </div>
+
+                    <!-- Missing Amount -->
+                    <div class="bg-white bg-opacity-70 rounded-lg p-3 border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-xs text-gray-600 mb-1">Estimated Missing Amount</div>
+                                <div class="text-2xl font-bold {% if dq.alert_level == 'critical' %}text-red-700{% elif dq.alert_level == 'warning' %}text-yellow-700{% elif dq.alert_level == 'caution' %}text-orange-700{% else %}text-green-700{% endif %}">
+                                    {{ "{:,.0f}".format(dq.missing_amount) }} THB
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">Average per claim: {{ "{:,.0f}".format(dq.avg_claim_amount) }} THB</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actionable Recommendations -->
+                    <div class="mt-3 p-3 bg-white bg-opacity-50 rounded-lg border border-gray-200">
+                        <h5 class="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                            </svg>
+                            Next Steps - สิ่งที่ควรทำ:
+                        </h5>
+                        <ul class="text-sm text-gray-700 space-y-1">
+                            {% if dq.alert_level == 'critical' %}
+                            <li>🔍 <strong>ตรวจสอบไฟล์ REP</strong> ที่ยังไม่ได้ Import เข้าระบบ (ประมาณ {{ "{:,}".format(dq.missing_claims) }} claims หาย)</li>
+                            <li>📅 ดูว่าเดือนไหนมีข้อมูลน้อยผิดปกติ จากตารางด้านล่าง</li>
+                            <li>💾 Download ไฟล์ E-Claim ย้อนหลังจาก NHSO และ Import เพิ่ม</li>
+                            <li>⚠️ ระวัง: ข้อมูลไม่ครบอาจทำให้วิเคราะห์ผิดพลาด</li>
+                            {% elif dq.alert_level == 'warning' %}
+                            <li>🔍 ตรวจสอบว่ามีไฟล์ REP ที่พลาดหรือไม่ (ขาดประมาณ {{ "{:,}".format(dq.missing_claims) }} claims)</li>
+                            <li>📊 เปรียบเทียบกับสถิติเดือนอื่นๆ เพื่อหาความผิดปกติ</li>
+                            <li>💡 พิจารณา Import ไฟล์เพิ่มเติมหากมี</li>
+                            {% elif dq.alert_level == 'caution' %}
+                            <li>✅ ข้อมูลค่อนข้างครบ แต่ยังขาดอีก {{ "{:,}".format(dq.missing_claims) }} claims</li>
+                            <li>🔎 ตรวจสอบเดือนที่มี Coverage ต่ำกว่าปกติ</li>
+                            <li>📈 ติดตามการ Import เป็นประจำ</li>
+                            {% else %}
+                            <li>✅ ข้อมูล REP ครบถ้วน สามารถนำไปวิเคราะห์ได้</li>
+                            <li>📊 ใช้ตัวเลขนี้วิเคราะห์ Performance ได้เลย</li>
+                            <li>🎯 รักษาระดับ Coverage ไว้ต่อไป</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Insights -->
+        <div class="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div class="text-sm text-blue-800">
+                    <strong>Performance Insights:</strong>
+                    {% if performance_metrics.payment_accuracy >= 80 %}
+                    <span class="text-green-700">Excellent accuracy rate!</span>
+                    {% elif performance_metrics.payment_accuracy >= 60 %}
+                    <span class="text-yellow-700">Good accuracy, but room for improvement.</span>
+                    {% else %}
+                    <span class="text-red-700">Low accuracy - investigate discrepancies.</span>
+                    {% endif %}
+
+                    {% if performance_metrics.claim_to_payment_ratio >= 95 and performance_metrics.claim_to_payment_ratio <= 105 %}
+                    Payment ratio is healthy.
+                    {% elif performance_metrics.claim_to_payment_ratio < 95 %}
+                    <span class="text-red-700">Receiving less than claimed - review underpayments.</span>
+                    {% else %}
+                    <span class="text-yellow-700">Receiving more than claimed - verify overpayments.</span>
+                    {% endif %}
+
+                    {% if performance_metrics.pending_rate > 10 %}
+                    <span class="text-orange-700">High pending rate - {{ performance_metrics.pending_months }} months awaiting payment.</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {% if summary %}
     <!-- Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -318,30 +725,103 @@
         </div>
     </div>
 
-    <!-- Legend -->
-    <div class="bg-white rounded-xl shadow-lg p-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">Legend</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-                <h4 class="font-medium text-gray-700 mb-2">Data Sources</h4>
-                <ul class="space-y-1 text-gray-600">
-                    <li><span class="text-blue-600 font-medium">REP (E-Claim)</span> - Reimbursement claims from NHSO E-Claim system</li>
-                    <li><span class="text-green-600 font-medium">SMT (Budget)</span> - Payment transfers from NHSO Smart Money Transfer</li>
-                </ul>
+    <!-- Help & Documentation Section -->
+    <div class="space-y-4">
+        <!-- Data Sources & Status Guide -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <button onclick="toggleSection('legend')" class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
+                        </svg>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-lg font-semibold text-gray-800">Legend & Status Guide</h3>
+                        <p class="text-sm text-gray-500">คำอธิบายแหล่งข้อมูลและสถานะต่างๆ</p>
+                    </div>
+                </div>
+                <svg id="legend-icon" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+            <div id="legend-content" class="hidden px-6 pb-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Data Sources -->
+                    <div>
+                        <h4 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                            </svg>
+                            Data Sources
+                        </h4>
+                        <div class="space-y-3">
+                            <div class="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-blue-600 font-semibold">REP</span>
+                                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">E-Claim</span>
+                                </div>
+                                <p class="text-sm text-gray-700">ข้อมูลการเบิกจ่ายจากระบบ E-Claim ของ สปสช.</p>
+                            </div>
+                            <div class="p-3 bg-green-50 rounded-lg border border-green-200">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-green-600 font-semibold">SMT</span>
+                                    <span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Budget</span>
+                                </div>
+                                <p class="text-sm text-gray-700">ข้อมูลการโอนเงินจริงจากระบบ Smart Money Transfer</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status Indicators -->
+                    <div>
+                        <h4 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Status Indicators
+                        </h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex items-start gap-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 flex-shrink-0">Matched</span>
+                                <span class="text-gray-700">ยอดเบิกและยอดที่ได้รับตรงกัน</span>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 flex-shrink-0">Overpaid</span>
+                                <span class="text-gray-700">ได้รับเงินมากกว่ายอดที่เบิก</span>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 flex-shrink-0">Underpaid</span>
+                                <span class="text-gray-700">ได้รับเงินน้อยกว่ายอดที่เบิก</span>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 flex-shrink-0">No SMT</span>
+                                <span class="text-gray-700">มีข้อมูล REP แต่ยังไม่มี SMT (รอรับเงิน)</span>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 flex-shrink-0">No REP</span>
+                                <span class="text-gray-700">มีข้อมูล SMT แต่ไม่มี REP</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Info -->
+                <div class="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="text-sm text-gray-700">
+                            <strong class="text-blue-800">หมายเหตุ:</strong>
+                            <span>ปีงบประมาณไทย (Fiscal Year) เริ่มตั้งแต่ 1 ตุลาคม - 30 กันยายน</span>
+                            <div class="text-xs text-gray-600 mt-1">
+                                ตัวอย่าง: FY 2568 = 1 ต.ค. 2567 - 30 ก.ย. 2568
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div>
-                <h4 class="font-medium text-gray-700 mb-2">Status Indicators</h4>
-                <ul class="space-y-1 text-gray-600">
-                    <li><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Matched</span> - Claim and payment amounts match</li>
-                    <li><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Overpaid</span> - Payment exceeds claim amount</li>
-                    <li><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Underpaid</span> - Payment less than claim amount</li>
-                    <li><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">No SMT</span> - REP claim without SMT payment</li>
-                    <li><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">No REP</span> - SMT payment without REP claim</li>
-                </ul>
-            </div>
-        </div>
-        <div class="mt-4 text-sm text-gray-500">
-            <strong>Note:</strong> Thai Fiscal Year runs from October 1 to September 30 (e.g., FY 2568 = Oct 2024 - Sep 2025)
         </div>
     </div>
 </div>
@@ -470,6 +950,23 @@ function changeFiscalYear(fy) {
 
 function refreshData() {
     window.location.reload();
+}
+
+function toggleSection(sectionId) {
+    const content = document.getElementById(sectionId + '-content');
+    const icon = document.getElementById(sectionId + '-icon');
+
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        if (icon) {
+            icon.style.transform = 'rotate(180deg)';
+        }
+    } else {
+        content.classList.add('hidden');
+        if (icon) {
+            icon.style.transform = 'rotate(0deg)';
+        }
+    }
 }
 
 // Initialize chart on page load

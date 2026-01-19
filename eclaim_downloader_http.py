@@ -14,9 +14,13 @@ from urllib.parse import urljoin, urlparse, parse_qs
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from utils.logging_config import setup_logger, safe_format_exception
 
 # Load environment variables
 load_dotenv()
+
+# Set up secure logging with credential masking
+logger = setup_logger('eclaim_downloader', enable_masking=True)
 
 # Job history tracking (optional - may not be available in all environments)
 job_history_manager = None
@@ -47,7 +51,7 @@ def stream_log(message: str, level: str = 'info'):
         pass  # Silently ignore log errors
 
 class EClaimDownloader:
-    def __init__(self, month=None, year=None, scheme='ucs', import_each=False, use_db_history=True):
+    def __init__(self, month=None, year=None, scheme='ucs', import_each=False):
         """
         Initialize E-Claim Downloader
 
@@ -57,16 +61,15 @@ class EClaimDownloader:
             scheme (str, optional): Insurance scheme code. Defaults to 'ucs'.
                 Valid schemes: ucs, ofc, sss, lgo, nhs, bkk, bmt, srt
             import_each (bool, optional): Import each file immediately after download. Defaults to False.
-            use_db_history (bool, optional): Use database for history tracking. Defaults to True.
+
+        Note: Download history is now always stored in database (no longer uses JSON files).
         """
         # Load credentials from settings file first, fallback to env vars
         self.username, self.password = self._load_credentials()
         self.download_dir = Path(os.getenv('DOWNLOAD_DIR', './downloads')) / 'rep'
-        self.tracking_file = Path('download_history.json')
         self.iteration_progress_file = Path('download_iteration_progress.json')
         self.import_each = import_each
         self.scheme = scheme
-        self.use_db_history = use_db_history
         self._history_db = None
 
         # Set month and year (default to current date in Buddhist Era)
@@ -95,8 +98,8 @@ class EClaimDownloader:
         # Create download directory
         self.download_dir.mkdir(parents=True, exist_ok=True)
 
-        # Load download history
-        self.download_history = self._load_history()
+        # Initialize database history (always use database)
+        self._init_history_db()
 
     def _update_iteration_progress(self, current_idx: int, total_files: int, current_file: str = None):
         """
@@ -167,35 +170,25 @@ class EClaimDownloader:
 
         return username, password
 
-    def _load_history(self):
-        """Load download history from JSON file"""
-        if self.tracking_file.exists():
-            with open(self.tracking_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return {
-            'last_run': None,
-            'downloads': []
-        }
-
-    def _save_history(self):
-        """Save download history to JSON file"""
-        with open(self.tracking_file, 'w', encoding='utf-8') as f:
-            json.dump(self.download_history, f, ensure_ascii=False, indent=2)
+    def _init_history_db(self):
+        """Initialize database history manager (always required)"""
+        try:
+            from utils.download_history_db import DownloadHistoryDB
+            self._history_db = DownloadHistoryDB()
+            self._history_db.connect()
+            stream_log("✓ Connected to download history database", 'info')
+        except Exception as e:
+            stream_log(f"✗ Failed to connect to history database: {e}", 'error')
+            raise Exception(
+                "Download history database unavailable!\n"
+                "Database is required for download tracking.\n"
+                f"Error: {e}"
+            )
 
     def _get_history_db(self):
         """Get database history manager instance"""
-        if not self.use_db_history:
-            return None
-
         if self._history_db is None:
-            try:
-                from utils.download_history_db import DownloadHistoryDB
-                self._history_db = DownloadHistoryDB()
-                self._history_db.connect()
-            except Exception as e:
-                stream_log(f"Warning: Could not connect to history DB: {e}", 'warning')
-                return None
-
+            self._init_history_db()
         return self._history_db
 
     def _is_already_downloaded(self, filename):
@@ -206,30 +199,15 @@ class EClaimDownloader:
         different files with unique filenames (includes timestamp).
         We also check scheme for extra safety.
 
-        First checks database (if enabled), then falls back to JSON history.
-        Failed downloads are NOT counted as downloaded (can be retried).
+        Checks database only. Failed downloads are NOT counted as downloaded (can be retried).
         """
-        # Try database first if enabled
-        if self.use_db_history:
+        try:
             db = self._get_history_db()
-            if db:
-                try:
-                    # Only check successful downloads (failed can be retried)
-                    return db.is_downloaded('rep', filename, check_file_exists=True)
-                except Exception as e:
-                    stream_log(f"Warning: DB check failed, falling back to JSON: {e}", 'warning')
-
-        # Fallback to JSON history
-        for d in self.download_history['downloads']:
-            if d['filename'] == filename:
-                # For legacy records without scheme, assume 'ucs'
-                record_scheme = d.get('scheme', 'ucs')
-                if record_scheme == self.scheme:
-                    # Also check if file exists
-                    file_path = d.get('file_path')
-                    if file_path and Path(file_path).exists():
-                        return True
-        return False
+            # Only check successful downloads (failed can be retried)
+            return db.is_downloaded('rep', filename, check_file_exists=True)
+        except Exception as e:
+            stream_log(f"Warning: Could not check download history: {e}", 'warning')
+            return False
 
     def _import_file(self, file_path, filename):
         """
@@ -424,47 +402,62 @@ class EClaimDownloader:
                     # Get file size
                     file_size = file_path.stat().st_size
 
-                    # Check if file is valid (not empty or too small)
-                    if file_size < 100:
-                        raise Exception(f"Downloaded file too small ({file_size} bytes)")
+                    # Handle 0-byte files (no data from NHSO)
+                    if file_size == 0:
+                        # Retry once for 0-byte files (might be network issue)
+                        if retry_count == 0:
+                            stream_log(f"[{idx}/{total_files}] ⚠ File is 0 bytes, retrying...", 'warning')
+                            file_path.unlink(missing_ok=True)  # Delete 0-byte file
+                            retry_count += 1
+                            continue
+                        else:
+                            # After retry, still 0 bytes = no data from NHSO
+                            stream_log(f"[{idx}/{total_files}] ℹ No data available from NHSO (0 bytes)", 'warning')
+                            file_path.unlink(missing_ok=True)  # Delete 0-byte file
 
-                    # Record download to JSON history
-                    download_record = {
-                        'filename': filename,
-                        'download_date': datetime.now().isoformat(),
-                        'file_path': str(file_path),
-                        'file_size': file_size,
-                        'url': url,
-                        'month': self.month,
-                        'year': self.year,
-                        'scheme': self.scheme
-                    }
-                    self.download_history['downloads'].append(download_record)
-
-                    # Record to database if enabled
-                    if self.use_db_history:
-                        try:
-                            db = self._get_history_db()
-                            if db:
+                            # Record as "no_data" in database
+                            try:
+                                db = self._get_history_db()
                                 db_record = {
                                     'filename': filename,
                                     'scheme': self.scheme,
                                     'fiscal_year': self.year,
                                     'service_month': self.month,
-                                    'file_size': file_size,
+                                    'file_size': 0,
                                     'file_path': str(file_path),
                                     'source_url': url,
                                 }
-                                db.record_download('rep', db_record, status='success')
-                        except Exception as db_error:
-                            stream_log(f"    Warning: Could not save to DB: {db_error}", 'warning')
+                                db.record_download('rep', db_record, status='no_data')
+                            except Exception as db_error:
+                                stream_log(f"    Warning: Could not save to DB: {db_error}", 'warning')
+
+                            skipped_count += 1
+                            success = True  # Mark as success to exit retry loop
+                            continue
+
+                    # Check if file is too small (but not 0)
+                    if file_size < 100:
+                        raise Exception(f"Downloaded file too small ({file_size} bytes)")
+
+                    # Record download to database
+                    try:
+                        db = self._get_history_db()
+                        db_record = {
+                            'filename': filename,
+                            'scheme': self.scheme,
+                            'fiscal_year': self.year,
+                            'service_month': self.month,
+                            'file_size': file_size,
+                            'file_path': str(file_path),
+                            'source_url': url,
+                        }
+                        db.record_download('rep', db_record, status='success')
+                    except Exception as db_error:
+                        stream_log(f"    Warning: Could not save to DB: {db_error}", 'warning')
 
                     downloaded_count += 1
                     stream_log(f"[{idx}/{total_files}] ✓ Downloaded: {filename} ({file_size:,} bytes)", 'success')
                     success = True
-
-                    # Save history after each download for real-time tracking
-                    self._save_history()
 
                     # Import immediately if flag is set
                     if self.import_each:
@@ -481,21 +474,19 @@ class EClaimDownloader:
                         stream_log(f"    Error: {last_error}", 'error')
 
                         # Record failed download to database for later retry
-                        if self.use_db_history:
-                            try:
-                                db = self._get_history_db()
-                                if db:
-                                    failed_record = {
-                                        'filename': filename,
-                                        'scheme': self.scheme,
-                                        'fiscal_year': self.year,
-                                        'service_month': self.month,
-                                        'source_url': url,
-                                    }
-                                    db.record_failed_download('rep', failed_record, last_error)
-                                    stream_log(f"    📝 Recorded for retry later", 'info')
-                            except Exception as db_error:
-                                stream_log(f"    Warning: Could not record failure: {db_error}", 'warning')
+                        try:
+                            db = self._get_history_db()
+                            failed_record = {
+                                'filename': filename,
+                                'scheme': self.scheme,
+                                'fiscal_year': self.year,
+                                'service_month': self.month,
+                                'source_url': url,
+                            }
+                            db.record_failed_download('rep', failed_record, last_error)
+                            stream_log(f"    📝 Recorded for retry later", 'info')
+                        except Exception as db_error:
+                            stream_log(f"    Warning: Could not record failure: {db_error}", 'warning')
 
                         error_count += 1
                     continue
@@ -559,12 +550,6 @@ class EClaimDownloader:
             # Download files
             downloaded, skipped, errors = self.download_files(download_links)
 
-            # Update last run time
-            self.download_history['last_run'] = datetime.now().isoformat()
-
-            # Save history
-            self._save_history()
-
             # Summary
             stream_log("="*60)
             stream_log("Download Summary", 'success')
@@ -596,8 +581,7 @@ class EClaimDownloader:
 
         except Exception as e:
             stream_log(f"✗ Error: {str(e)}", 'error')
-            import traceback
-            traceback.print_exc()
+            logger.error(safe_format_exception())
 
             # Mark job as failed
             if job_history_manager and job_id:

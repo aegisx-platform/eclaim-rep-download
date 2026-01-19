@@ -80,6 +80,19 @@ run_migrations() {
     fi
 }
 
+# Function to create default admin user
+create_default_admin() {
+    echo "[entrypoint] Checking for admin user..."
+
+    if python utils/create_default_admin.py; then
+        echo "[entrypoint] Admin user setup completed!"
+        return 0
+    else
+        echo "[entrypoint] WARNING: Admin user creation failed, but continuing..."
+        return 0  # Don't fail startup
+    fi
+}
+
 # Function to scan and register existing files
 scan_files() {
     echo "[entrypoint] Scanning and registering download files to database..."
@@ -115,10 +128,13 @@ main() {
     # Step 2: Run migrations
     run_migrations
 
-    # Step 3: Scan and register existing files
+    # Step 3: Create default admin user (if first installation)
+    create_default_admin
+
+    # Step 4: Scan and register existing files
     scan_files
 
-    # Step 4: Start the application
+    # Step 5: Start the application
     echo "[entrypoint] Starting Flask application..."
     exec "$@"
 }

@@ -707,6 +707,19 @@ class EClaimImporterV2:
         # Date columns that need parsing
         date_columns = ['dateadm', 'datedsc', 'service_date', 'inp_date']
 
+        # Numeric columns that need type conversion (to handle non-numeric values gracefully)
+        numeric_columns = [
+            'rw', 'adjrw', 'adjrw2', 'va', 'fs',
+            'invoice_total', 'invoice_other', 'invoice_central', 'copay',
+            'adjrate', 'late_ps', 'ccuf', 'adjrw_nhso', 'reimb_total',
+            'accidentinsurance', 'salary', 'net_reimb', 'hc_total', 'hc_paid',
+            'ae_total', 'ae_paid', 'inst_total', 'inst_paid',
+            'ip_total', 'ip_paid', 'dmis_total', 'dmis_paid',
+            'drug_total', 'opbkk_total', 'deny_total', 'deny_hc_total',
+            'deny_ae_total', 'deny_inst_total', 'deny_ip_total', 'deny_dmis_total',
+            'baserate_orig', 'baserate_add', 'baserate_total'
+        ]
+
         # String field max lengths (from schema)
         max_lengths = {
             'chk_refer': 1, 'chk_right': 1, 'chk_use_right': 1, 'chk': 1,
@@ -749,6 +762,13 @@ class EClaimImporterV2:
                                 parsed_date = pd.to_datetime(value, format='%d/%m/%Y', errors='coerce')
                             mapped[db_col] = parsed_date if not pd.isna(parsed_date) else None
                         except (ValueError, TypeError, AttributeError):
+                            mapped[db_col] = None
+                    # Handle numeric columns - convert to float, fallback to NULL
+                    elif db_col in numeric_columns:
+                        try:
+                            num_val = pd.to_numeric(value, errors='coerce')
+                            mapped[db_col] = num_val if not pd.isna(num_val) else None
+                        except (ValueError, TypeError):
                             mapped[db_col] = None
                     # Clean ID fields - remove .0 suffix from float conversion
                     elif db_col in ['tran_id', 'hn', 'an', 'pid']:
@@ -883,6 +903,29 @@ class EClaimImporterV2:
         # Date columns that need parsing
         date_columns = ['dateadm', 'datedsc', 'inp_date']
 
+        # Numeric columns that need type conversion (to handle non-numeric values gracefully)
+        # All columns with int/double/decimal/float types from database schema
+        numeric_columns = [
+            'seq', 'rw', 'adjrw2', 'adjrw_nhso', 'va', 'fs',
+            'claim_able', 'claim_request', 'claim_unable', 'claim_drg', 'claim_xdrg',
+            'claim_net', 'claim_central_reimb', 'copay', 'late_ps', 'ccuf',
+            'reimb_amt', 'accidentinsurance', 'salary_amt', 'reimb_diff_salary',
+            'hc_amt', 'ae_amt', 'inst', 'ip_amt', 'dmis_catinst', 'dmis_dm',
+            'dmis_dmicnt', 'dmis_dmidml', 'dmis_dmishd', 'dmis_llop', 'dmis_llrgc',
+            'dmis_llrgr', 'dmis_lp', 'dmis_paliative', 'dmis_pp', 'dmis_stroke_drug',
+            'dmisrc_amt', 'dmisrc_workload', 'drug', 'op_amt', 'opbkk_dent',
+            'opbkk_drug', 'opbkk_fs', 'opbkk_hc', 'opbkk_others', 'ophc', 'opinst',
+            'int_amt', 'reimb_nhso', 'reimb_agency',
+            'paid', 'pay_point', 'baserate_old', 'baserate_add', 'baserate_total',
+            'on_top_amt', 'pp_amt', 'total_service_amt', 'his_amount_diff',
+            'ae_carae', 'ae_caref', 'ae_caref_puc', 'ae_ip3sss', 'ae_ip7sss',
+            'ae_ipnb', 'ae_ipuc', 'ae_opae', 'cataract_amt', 'cataract_hosp',
+            'cataract_oth', 'ipaec', 'ipaer', 'ipbkk_inst', 'iphc', 'ipinrgc',
+            'ipinrgr', 'ipinspsn', 'ipprcc', 'ipprcc_puc', 'rcuhosc_amt',
+            'rcuhosc_workload', 'rcuhosr_amt', 'rcuhosr_workload', 'act_amt',
+            'inp_id', 'his_matched'
+        ]
+
         # String field max lengths (from schema)
         max_lengths = {
             'chk_refer': 1, 'chk_right': 1, 'chk_use_right': 1, 'chk': 1,
@@ -935,6 +978,13 @@ class EClaimImporterV2:
                             # Already a datetime-like object
                             mapped[db_col] = value
                         else:
+                            mapped[db_col] = None
+                    # Handle numeric columns - convert to float, fallback to NULL
+                    elif db_col in numeric_columns:
+                        try:
+                            num_val = pd.to_numeric(value, errors='coerce')
+                            mapped[db_col] = num_val if not pd.isna(num_val) else None
+                        except (ValueError, TypeError):
                             mapped[db_col] = None
                     # Clean ID fields - remove .0 suffix from float conversion
                     elif db_col in ['tran_id', 'hn', 'an', 'pid', 'rep_no', 'seq_no']:
@@ -1249,9 +1299,10 @@ class EClaimImporterV2:
                 df = df[df.iloc[:, 0].apply(lambda x: str(x).strip() != '' and str(x).strip() != 'nan')]
             elif file_type in ['OP', 'IP']:
                 # OP/IP UCS files: Use index-based mapping for complete column coverage
-                # Skip first 5 rows (report header) + 2 header rows + 1 empty row
-                # Header structure: row 5 = main header, row 6 = sub-header, row 7 = empty/units
-                df = pd.read_excel(filepath, engine='xlrd', header=None, skiprows=8)
+                # Skip first 5 rows (rows 0-4: report metadata/headers)
+                # Row 5: main header with column names (REP No., TRAN_ID, ..., VA, ...)
+                # Row 6 onwards: data rows
+                df = pd.read_excel(filepath, engine='xlrd', header=None, skiprows=5)
 
                 # Filter out empty rows (check column 2 which is TRAN_ID)
                 df = df[df.iloc[:, 2].notna()]
@@ -1266,6 +1317,26 @@ class EClaimImporterV2:
                     df = df.dropna(subset=['TRAN_ID'])
 
             total_records = len(df)
+
+            # Check license limits
+            try:
+                from utils.settings_manager import SettingsManager
+                settings_mgr = SettingsManager()
+                license_info = settings_mgr.get_license_info()
+
+                max_records = license_info.get('features', {}).get('max_records_per_import', 1000)
+
+                if total_records > max_records:
+                    original_count = total_records
+                    df = df.head(max_records)
+                    total_records = len(df)
+                    print(f"⚠️  License Limit: Importing {total_records} of {original_count} records (tier: {license_info.get('tier', 'trial')})")
+            except Exception as e:
+                # Default to trial limit on error
+                if total_records > 1000:
+                    print(f"⚠️  Trial Mode: Limiting import to 1,000 records ({total_records} found)")
+                    df = df.head(1000)
+                    total_records = len(df)
 
             # Import data based on file type
             if file_type == 'ORF' or 'ORF' in file_type:

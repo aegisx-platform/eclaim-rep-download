@@ -1,0 +1,403 @@
+{
+	"info": {
+		"_postman_id": "eclaim-external-api-v1",
+		"name": "E-Claim External API v1",
+		"description": "External API สำหรับให้ระบบ HIS เชื่อมต่อกับ E-Claim Revenue Intelligence System\n\n## Authentication\nใช้ API Key ผ่าน header:\n- X-API-Key: your_api_key_here\n- หรือ Authorization: Bearer your_api_key_here\n\n## Base URL\nแก้ไขที่ Collection Variables:\n- Local: http://localhost:5001/api/v1\n- Production: https://your-server.com/api/v1",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "ตรวจสอบสถานะ API (ไม่ต้อง authenticate)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Claims",
+			"item": [
+				{
+					"name": "Get Claims (with filters)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/claims?date_from=2025-12-01&date_to=2025-12-31&scheme=ucs&page=1&per_page=100",
+							"host": ["{{base_url}}"],
+							"path": ["claims"],
+							"query": [
+								{
+									"key": "date_from",
+									"value": "2025-12-01",
+									"description": "วันที่เริ่มต้น (YYYY-MM-DD)"
+								},
+								{
+									"key": "date_to",
+									"value": "2025-12-31",
+									"description": "วันที่สิ้นสุด (YYYY-MM-DD)"
+								},
+								{
+									"key": "scheme",
+									"value": "ucs",
+									"description": "รหัสสิทธิ (ucs, ofc, sss, lgo)"
+								},
+								{
+									"key": "hn",
+									"value": "",
+									"description": "HN ของผู้ป่วย",
+									"disabled": true
+								},
+								{
+									"key": "pid",
+									"value": "",
+									"description": "เลขบัตรประชาชน",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "per_page",
+									"value": "100",
+									"description": "จำนวนต่อหน้า (max: 1000)"
+								}
+							]
+						},
+						"description": "ดึงข้อมูล claims พร้อม filters"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Claim",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/claims/:tran_id",
+							"host": ["{{base_url}}"],
+							"path": ["claims", ":tran_id"],
+							"variable": [
+								{
+									"key": "tran_id",
+									"value": "1234567890",
+									"description": "TRAN_ID ของ claim"
+								}
+							]
+						},
+						"description": "ดึงข้อมูล claim รายการเดียว"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Claims Summary",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/claims/summary?date_from=2025-12-01&date_to=2025-12-31",
+							"host": ["{{base_url}}"],
+							"path": ["claims", "summary"],
+							"query": [
+								{
+									"key": "date_from",
+									"value": "2025-12-01",
+									"description": "วันที่เริ่มต้น (YYYY-MM-DD)"
+								},
+								{
+									"key": "date_to",
+									"value": "2025-12-31",
+									"description": "วันที่สิ้นสุด (YYYY-MM-DD)"
+								},
+								{
+									"key": "scheme",
+									"value": "",
+									"description": "รหัสสิทธิ (optional)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "สรุปข้อมูล claims (ยอดรวม, แยกตามสิทธิ)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Reconciliation",
+			"item": [
+				{
+					"name": "Match Claims (Reconcile)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"matches\": [\n    {\n      \"tran_id\": \"1234567890\",\n      \"his_vn\": \"6512000001\",\n      \"his_hn\": \"12345678\",\n      \"his_an\": \"65120001\",\n      \"his_admission_date\": \"2025-12-01\",\n      \"his_discharge_date\": \"2025-12-02\",\n      \"his_total_charge\": 5500.00\n    },\n    {\n      \"tran_id\": \"1234567891\",\n      \"his_vn\": \"6512000002\",\n      \"his_hn\": \"12345679\",\n      \"his_an\": \"65120002\",\n      \"his_admission_date\": \"2025-12-03\",\n      \"his_discharge_date\": \"2025-12-04\",\n      \"his_total_charge\": 3200.00\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/reconciliation/match",
+							"host": ["{{base_url}}"],
+							"path": ["reconciliation", "match"]
+						},
+						"description": "ส่งข้อมูลจาก HIS เพื่อกระทบยอดกับ E-Claim"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Reconciliation Status",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reconciliation/status?date_from=2025-12-01&date_to=2025-12-31",
+							"host": ["{{base_url}}"],
+							"path": ["reconciliation", "status"],
+							"query": [
+								{
+									"key": "date_from",
+									"value": "2025-12-01",
+									"description": "วันที่เริ่มต้น (optional)"
+								},
+								{
+									"key": "date_to",
+									"value": "2025-12-31",
+									"description": "วันที่สิ้นสุด (optional)"
+								}
+							]
+						},
+						"description": "ดูสถานะการกระทบยอด"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Imports",
+			"item": [
+				{
+					"name": "Get Import Status",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/imports/status",
+							"host": ["{{base_url}}"],
+							"path": ["imports", "status"]
+						},
+						"description": "ดูสถานะการ import ล่าสุด (REP, STM, SMT)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Import History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/imports/history?type=rep&page=1&per_page=50",
+							"host": ["{{base_url}}"],
+							"path": ["imports", "history"],
+							"query": [
+								{
+									"key": "type",
+									"value": "rep",
+									"description": "ประเภทไฟล์ (rep, stm, smt)"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "per_page",
+									"value": "50",
+									"description": "จำนวนต่อหน้า (max: 100)"
+								}
+							]
+						},
+						"description": "ประวัติการ import"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. Files",
+			"item": [
+				{
+					"name": "Get Files List",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/files?type=rep&status=completed&page=1&per_page=50",
+							"host": ["{{base_url}}"],
+							"path": ["files"],
+							"query": [
+								{
+									"key": "type",
+									"value": "rep",
+									"description": "ประเภท (rep, stm, smt)"
+								},
+								{
+									"key": "status",
+									"value": "completed",
+									"description": "สถานะ (completed, failed, processing)"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "per_page",
+									"value": "50"
+								}
+							]
+						},
+						"description": "รายการไฟล์ที่ import แล้ว"
+					},
+					"response": []
+				},
+				{
+					"name": "Get File Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/files/:file_id",
+							"host": ["{{base_url}}"],
+							"path": ["files", ":file_id"],
+							"variable": [
+								{
+									"key": "file_id",
+									"value": "123",
+									"description": "File ID"
+								}
+							]
+						},
+						"description": "รายละเอียดไฟล์"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "apikey",
+		"apikey": [
+			{
+				"key": "value",
+				"value": "{{api_key}}",
+				"type": "string"
+			},
+			{
+				"key": "key",
+				"value": "X-API-Key",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5001/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "api_key",
+			"value": "your_api_key_here",
+			"type": "string"
+		}
+	]
+}

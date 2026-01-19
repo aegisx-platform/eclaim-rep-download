@@ -11,7 +11,18 @@ import sys
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from config.database import get_db_connection, get_db_type
+from config.db_pool import get_connection, return_connection
+from config.database import get_db_config
+
+def get_db_type():
+    """Get the database type from environment or config"""
+    import os
+    return os.environ.get('DB_TYPE', 'postgresql')
+
+
+def get_db_connection():
+    """Get a database connection (wrapper for compatibility)"""
+    return get_connection()
 
 
 def parse_mysql_dump(file_path):

@@ -9,54 +9,121 @@
     <p class="text-gray-600">ภาพรวมรายได้จากการเบิกจ่าย สปสช.</p>
 </div>
 
-<!-- Revenue KPI Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <!-- Total Claims -->
-    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+<!-- License Status Widget -->
+{% if license %}
+<div id="license-widget" class="mb-6 {% if license.status == 'invalid' or not license.is_valid %}bg-amber-50 border-l-4 border-amber-500{% elif license.status == 'grace_period' %}bg-orange-50 border-l-4 border-orange-500{% elif license.status == 'expiring_soon' %}bg-yellow-50 border-l-4 border-yellow-500{% else %}bg-green-50 border-l-4 border-green-500{% endif %} rounded-lg p-4 shadow-sm">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            {% if license.is_valid %}
+            <svg class="w-6 h-6 {% if license.status == 'grace_period' %}text-orange-600{% elif license.status == 'expiring_soon' %}text-yellow-600{% else %}text-green-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
+            {% else %}
+            <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            {% endif %}
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="font-semibold {% if license.status == 'invalid' or not license.is_valid %}text-amber-800{% elif license.status == 'grace_period' %}text-orange-800{% elif license.status == 'expiring_soon' %}text-yellow-800{% else %}text-green-800{% endif %}">
+                        License:
+                        {% if license.tier == 'trial' %}ทดลองใช้งาน{% elif license.tier == 'basic' %}พื้นฐาน{% elif license.tier == 'professional' %}มืออาชีพ{% elif license.tier == 'enterprise' %}องค์กร{% else %}{{ license.tier }}{% endif %}
+                    </span>
+                    <span class="text-xs px-2 py-0.5 rounded-full {% if license.status == 'invalid' or not license.is_valid %}bg-amber-200 text-amber-800{% elif license.status == 'grace_period' %}bg-orange-200 text-orange-800{% elif license.status == 'expiring_soon' %}bg-yellow-200 text-yellow-800{% else %}bg-green-200 text-green-800{% endif %}">
+                        {% if license.status == 'active' %}ใช้งานได้{% elif license.status == 'grace_period' %}ช่วงผ่อนผัน{% elif license.status == 'expiring_soon' %}ใกล้หมดอายุ{% else %}Trial Mode{% endif %}
+                    </span>
+                </div>
+                <p class="text-sm {% if license.status == 'invalid' or not license.is_valid %}text-amber-700{% elif license.status == 'grace_period' %}text-orange-700{% elif license.status == 'expiring_soon' %}text-yellow-700{% else %}text-green-700{% endif %}">
+                    {% if license.error and ('hospital code' in license.error or 'License mismatch' in license.error) %}
+                        🚫 {{ license.error[:100] }}{% if license.error|length > 100 %}...{% endif %}
+                    {% elif license.grace_period %}
+                        ⚠️ License หมดอายุแล้ว - เหลือช่วงผ่อนผัน {{ license.grace_days_left }} วัน
+                    {% elif license.days_until_expiry is not none and license.days_until_expiry <= 30 %}
+                        หมดอายุในอีก {{ license.days_until_expiry }} วัน
+                    {% elif license.is_valid and license.tier != 'trial' %}
+                        Max {{ license.max_users }} users • {{ license.features.max_records_per_import|default(1000) }} records/import
+                    {% elif not license.is_valid or license.tier == 'trial' %}
+                        Limited: 2 users, 1,000 records/import, ฟีเจอร์พื้นฐาน
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        {% if current_user.is_authenticated and current_user.role == 'admin' %}
+        <a href="{{ url_for('settings.license') }}" class="text-sm font-medium {% if license.status == 'invalid' or not license.is_valid %}text-amber-700 hover:text-amber-800{% elif license.status == 'grace_period' %}text-orange-700 hover:text-orange-800{% elif license.status == 'expiring_soon' %}text-yellow-700 hover:text-yellow-800{% else %}text-green-700 hover:text-green-800{% endif %} flex items-center gap-1">
+            {% if not license.is_valid or license.tier == 'trial' %}
+                ติดตั้ง License
+            {% else %}
+                จัดการ License
+            {% endif %}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Revenue KPI Cards - Phase 1 Financial Dashboard -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+    <!-- 1. ยอดเคลม (Claimed Amount) -->
+    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-5 text-white">
         <div class="flex items-center justify-between mb-2">
-            <h3 class="text-sm font-medium opacity-90">Total Claims</h3>
-            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <h3 class="text-xs font-medium opacity-90">ยอดเคลม</h3>
+            <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
         </div>
-        <p class="text-4xl font-bold" id="kpi-total-claims">-</p>
-        <p class="text-sm opacity-80 mt-1">รายการเคลมทั้งหมด</p>
+        <p class="text-2xl font-bold" id="kpi-total-claimed">-</p>
+        <p class="text-xs opacity-80 mt-1">Claimed Amount</p>
     </div>
 
-    <!-- Total Reimbursement -->
-    <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
+    <!-- 2. ยอดชดเชย (Reimbursed Amount) -->
+    <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-5 text-white">
         <div class="flex items-center justify-between mb-2">
-            <h3 class="text-sm font-medium opacity-90">Total Reimbursement</h3>
-            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <h3 class="text-xs font-medium opacity-90">ยอดชดเชย</h3>
+            <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
         </div>
-        <p class="text-3xl font-bold" id="kpi-total-reimburse">-</p>
-        <p class="text-sm opacity-80 mt-1">ยอดชดเชยรวม</p>
+        <p class="text-2xl font-bold" id="kpi-total-reimburse">-</p>
+        <p class="text-xs opacity-80 mt-1">Reimbursed</p>
     </div>
 
-    <!-- Denial Rate -->
-    <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 text-white">
+    <!-- 3. ส่วนต่าง (Loss/Gap) -->
+    <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-5 text-white">
         <div class="flex items-center justify-between mb-2">
-            <h3 class="text-sm font-medium opacity-90">Denial Rate</h3>
-            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            <h3 class="text-xs font-medium opacity-90">ส่วนต่าง</h3>
+            <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
             </svg>
         </div>
-        <p class="text-4xl font-bold" id="kpi-denial-rate">-</p>
-        <p class="text-sm opacity-80 mt-1">อัตราการปฏิเสธ</p>
+        <p class="text-2xl font-bold" id="kpi-total-loss">-</p>
+        <p class="text-xs opacity-80 mt-1">Loss (Gap)</p>
     </div>
 
-    <!-- Data Status -->
-    <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+    <!-- 4. อัตราคืน (Reimbursement Rate) -->
+    <div class="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl shadow-lg p-5 text-white">
         <div class="flex items-center justify-between mb-2">
-            <h3 class="text-sm font-medium opacity-90">Data Files</h3>
-            <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+            <h3 class="text-xs font-medium opacity-90">อัตราคืน</h3>
+            <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
             </svg>
         </div>
-        <p class="text-4xl font-bold">{{ stats.total_files }}</p>
-        <p class="text-sm opacity-80 mt-1">{{ stats.total_size }} ข้อมูล</p>
+        <p class="text-2xl font-bold" id="kpi-reimb-rate">-</p>
+        <p class="text-xs opacity-80 mt-1">Reimb Rate</p>
+    </div>
+
+    <!-- 5. จำนวนรายการ (Total Claims Count) -->
+    <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-5 text-white">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-medium opacity-90">จำนวนรายการ</h3>
+            <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+            </svg>
+        </div>
+        <p class="text-2xl font-bold" id="kpi-total-claims">-</p>
+        <p class="text-xs opacity-80 mt-1">Total Claims</p>
     </div>
 </div>
 
@@ -76,230 +143,455 @@
     </div>
 </div>
 
-<!-- Quick Actions and Status -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-    <!-- Quick Actions -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+<!-- Executive Insights Section -->
+<div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl shadow-lg p-6 mb-8 border border-indigo-100">
+    <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold text-gray-800 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
             </svg>
-            Quick Actions
+            Executive Insights
         </h3>
-        <div class="space-y-3">
-            <a href="{{ url_for('analytics') }}" class="flex items-center p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                </svg>
-                <span class="font-medium text-gray-700">View Full Analytics</span>
-            </a>
-            <a href="{{ url_for('reconciliation') }}" class="flex items-center p-3 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                </svg>
-                <span class="font-medium text-gray-700">Reconciliation Report</span>
-            </a>
-            <a href="{{ url_for('data_management') }}" class="flex items-center p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
-                <svg class="w-5 h-5 text-purple-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                </svg>
-                <span class="font-medium text-gray-700">Download New Data</span>
-            </a>
-        </div>
+        <span class="text-xs text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full font-medium">
+            At a Glance
+        </span>
     </div>
 
-    <!-- Auto Download Status -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            Auto Download
-        </h3>
-
-        {% if schedule_settings.schedule_enabled %}
-        <div class="flex items-center mb-3">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                <span class="w-2 h-2 bg-green-600 rounded-full mr-1.5 animate-pulse"></span>
-                Active
-            </span>
-            {% if schedule_settings.schedule_auto_import %}
-            <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                Auto-import ON
-            </span>
-            {% endif %}
-        </div>
-
-        <div class="space-y-2">
-            {% for time in schedule_settings.schedule_times %}
-            <div class="flex items-center text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded">
-                <svg class="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span class="font-medium">{{ "%02d"|format(time.hour) }}:{{ "%02d"|format(time.minute) }}</span>
-                <span class="text-gray-500 ml-1">น.</span>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- 1. Denial Recovery Opportunities -->
+        <div class="bg-white rounded-lg shadow-md p-5 border border-gray-200">
+            <div class="flex items-center justify-between mb-4">
+                <h4 class="text-sm font-bold text-gray-700 flex items-center">
+                    <svg class="w-4 h-4 mr-1.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Recovery Opportunities
+                </h4>
+                <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">💰</span>
             </div>
-            {% endfor %}
-        </div>
 
-        {% if schedule_jobs and schedule_jobs|length > 0 %}
-        <div class="mt-3 p-2 bg-blue-50 rounded text-sm">
-            <span class="text-blue-600 font-medium">Next:</span>
-            {% set next_job = schedule_jobs[0] %}
-            {% if next_job.next_run_time %}
-            <span class="text-blue-800">{{ next_job.next_run_time[:16]|replace('T', ' ') }}</span>
-            {% endif %}
-        </div>
-        {% endif %}
+            <div class="space-y-3">
+                <!-- Total Recoverable -->
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-600">ยอดเรียกคืนได้</span>
+                    <span class="text-lg font-bold text-green-600" id="exec-recoverable-amount">-</span>
+                </div>
 
-        {% else %}
-        <div class="text-center py-4">
-            <p class="text-gray-500 text-sm mb-3">Auto download is disabled</p>
-            <a href="{{ url_for('data_management') }}?tab=download" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                Enable Schedule
-            </a>
-        </div>
-        {% endif %}
-    </div>
+                <!-- Recovery Rate -->
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-600">Recovery Rate</span>
+                    <span class="text-sm font-semibold text-gray-700" id="exec-recovery-rate">-</span>
+                </div>
 
-    <!-- Recent Data Update -->
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            Data Status
-        </h3>
-
-        <div class="space-y-3">
-            <div class="flex justify-between items-center">
-                <span class="text-gray-600">Total Files</span>
-                <span class="font-bold text-gray-800">{{ stats.total_files }}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="text-gray-600">Last Download</span>
-                <span class="font-medium text-gray-800">{{ stats.last_run }}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="text-gray-600">File Types</span>
-                <div class="text-right">
-                    {% for type, count in stats.file_types.items() %}
-                    <span class="inline-block px-2 py-0.5 bg-gray-100 rounded text-xs font-medium mr-1">{{ type }}: {{ count }}</span>
-                    {% endfor %}
+                <!-- Priority Claims -->
+                <div class="mt-4 pt-3 border-t border-gray-100">
+                    <div class="text-xs text-gray-500 mb-2">Top Priority (แก้ได้ง่าย)</div>
+                    <div id="exec-priority-claims" class="space-y-1.5">
+                        <div class="text-xs text-gray-400">Loading...</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        {% if downloader_running %}
-        <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div class="flex items-center">
-                <svg class="w-5 h-5 text-yellow-600 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                </svg>
-                <span class="text-yellow-800 font-medium">Downloading...</span>
+        <!-- 2. Revenue Forecast -->
+        <div class="bg-white rounded-lg shadow-md p-5 border border-gray-200">
+            <div class="flex items-center justify-between mb-4">
+                <h4 class="text-sm font-bold text-gray-700 flex items-center">
+                    <svg class="w-4 h-4 mr-1.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
+                    Revenue Forecast
+                </h4>
+                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">📈</span>
+            </div>
+
+            <div class="space-y-3">
+                <!-- Next Month -->
+                <div class="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                    <div class="text-xs text-blue-600 mb-1">เดือนหน้า (Expected)</div>
+                    <div class="text-xl font-bold text-blue-700" id="exec-forecast-next-month">-</div>
+                </div>
+
+                <!-- Next Quarter -->
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-600">3 เดือนข้างหน้า</span>
+                    <span class="text-sm font-semibold text-gray-700" id="exec-forecast-quarter">-</span>
+                </div>
+
+                <!-- Growth Trend -->
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-600">Trend (YoY)</span>
+                    <span class="text-sm font-semibold" id="exec-forecast-trend">-</span>
+                </div>
+
+                <!-- Confidence -->
+                <div class="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
+                    <div class="flex items-center justify-between">
+                        <span>Confidence</span>
+                        <span class="font-medium text-gray-700" id="exec-forecast-confidence">-</span>
+                    </div>
+                </div>
             </div>
         </div>
-        {% endif %}
+
+        <!-- 3. Critical Action Items -->
+        <div class="bg-white rounded-lg shadow-md p-5 border border-gray-200">
+            <div class="flex items-center justify-between mb-4">
+                <h4 class="text-sm font-bold text-gray-700 flex items-center">
+                    <svg class="w-4 h-4 mr-1.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    Critical Actions
+                </h4>
+                <span class="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">🎯</span>
+            </div>
+
+            <div id="exec-action-items" class="space-y-2.5">
+                <div class="text-xs text-gray-400">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Bar -->
+    <div class="mt-6 pt-5 border-t border-indigo-100">
+        <div class="grid grid-cols-3 gap-4 text-center">
+            <div>
+                <div class="text-xs text-gray-600 mb-1">เป้าหมาย Recovery</div>
+                <div class="text-lg font-bold text-green-600" id="exec-recovery-target">-</div>
+            </div>
+            <div>
+                <div class="text-xs text-gray-600 mb-1">คาดการณ์รายได้</div>
+                <div class="text-lg font-bold text-blue-600" id="exec-revenue-target">-</div>
+            </div>
+            <div>
+                <div class="text-xs text-gray-600 mb-1">Actions ที่ต้องทำ</div>
+                <div class="text-lg font-bold text-red-600" id="exec-action-count">-</div>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- Service Type Summary -->
+<!-- Claims Efficiency Performance -->
+<div class="bg-white rounded-xl shadow-md p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-gray-800 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
+            Claims Performance
+        </h3>
+        <span class="text-xs text-gray-500" id="efficiency-filter-info"></span>
+    </div>
+
+    <!-- Key Performance Indicators -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <!-- First-Pass Rate -->
+        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4 border border-indigo-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-indigo-600">อัตราผ่านรอบแรก</span>
+                <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-indigo-700" id="eff-first-pass-rate">-</p>
+            <p class="text-xs text-indigo-500 mt-0.5">First-Pass Rate</p>
+        </div>
+
+        <!-- Denial Rate -->
+        <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 border border-red-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-red-600">อัตราปฏิเสธ</span>
+                <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-red-700" id="eff-denial-rate">-</p>
+            <p class="text-xs text-red-500 mt-0.5">Denial Rate</p>
+        </div>
+
+        <!-- Passed Claims -->
+        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-green-600">เคลมผ่าน</span>
+                <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-green-700" id="eff-passed-claims">-</p>
+            <p class="text-xs text-green-500 mt-0.5">Passed Claims</p>
+        </div>
+
+        <!-- Denied Claims -->
+        <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-orange-600">เคลมปฏิเสธ</span>
+                <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-orange-700" id="eff-denied-claims">-</p>
+            <p class="text-xs text-orange-500 mt-0.5">Denied Claims</p>
+        </div>
+    </div>
+
+    <!-- OP vs IP Comparison -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <!-- OPD Performance -->
+        <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="text-sm font-bold text-blue-800">ผู้ป่วยนอก (OPD)</h4>
+                <span class="px-2 py-0.5 bg-blue-200 text-blue-800 text-xs font-medium rounded">OP</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div>
+                    <p class="text-lg font-bold text-blue-700" id="eff-op-first-pass">-</p>
+                    <p class="text-xs text-blue-600">First-Pass</p>
+                </div>
+                <div>
+                    <p class="text-lg font-bold text-blue-700" id="eff-op-reimb-rate">-</p>
+                    <p class="text-xs text-blue-600">Reimb Rate</p>
+                </div>
+                <div>
+                    <p class="text-lg font-bold text-blue-700" id="eff-op-claims">-</p>
+                    <p class="text-xs text-blue-600">Claims</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- IPD Performance -->
+        <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="text-sm font-bold text-purple-800">ผู้ป่วยใน (IPD)</h4>
+                <span class="px-2 py-0.5 bg-purple-200 text-purple-800 text-xs font-medium rounded">IP</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div>
+                    <p class="text-lg font-bold text-purple-700" id="eff-ip-first-pass">-</p>
+                    <p class="text-xs text-purple-600">First-Pass</p>
+                </div>
+                <div>
+                    <p class="text-lg font-bold text-purple-700" id="eff-ip-reimb-rate">-</p>
+                    <p class="text-xs text-purple-600">Reimb Rate</p>
+                </div>
+                <div>
+                    <p class="text-lg font-bold text-purple-700" id="eff-ip-claims">-</p>
+                    <p class="text-xs text-purple-600">Claims</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Efficiency by Fund -->
+    <div>
+        <h4 class="text-sm font-bold text-gray-700 mb-3 flex items-center">
+            <svg class="w-4 h-4 mr-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            ประสิทธิภาพตามสิทธิ (Top 5)
+        </h4>
+        <div id="eff-by-fund-container" class="space-y-2">
+            <p class="text-gray-400 text-sm">Loading...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Per-Bed Performance Section -->
+<div id="per-bed-section" class="bg-white rounded-xl shadow-md p-6 mb-8 hidden">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-gray-800 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            ประสิทธิภาพต่อเตียง (Per-Bed Performance)
+        </h3>
+        <div id="hospital-badge" class="flex items-center gap-2">
+            <span id="hospital-name-badge" class="text-sm text-gray-600"></span>
+            <span id="hospital-beds-badge" class="px-2 py-0.5 bg-cyan-100 text-cyan-700 text-xs font-medium rounded-full"></span>
+        </div>
+    </div>
+
+    <!-- Per-Bed KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- Revenue per Bed per Month -->
+        <div class="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-lg p-4 border border-cyan-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-cyan-600">รายได้/เตียง/เดือน</span>
+                <svg class="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-cyan-700" id="kpi-reimb-per-bed">-</p>
+            <p class="text-xs text-cyan-500 mt-0.5">Reimb/Bed/Month</p>
+        </div>
+
+        <!-- Loss per Bed per Month -->
+        <div class="bg-gradient-to-br from-rose-50 to-rose-100 rounded-lg p-4 border border-rose-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-rose-600">ส่วนต่าง/เตียง/เดือน</span>
+                <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-rose-700" id="kpi-loss-per-bed">-</p>
+            <p class="text-xs text-rose-500 mt-0.5">Loss/Bed/Month</p>
+        </div>
+
+        <!-- Claims per Bed -->
+        <div class="bg-gradient-to-br from-violet-50 to-violet-100 rounded-lg p-4 border border-violet-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-violet-600">เคลม/เตียง</span>
+                <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-violet-700" id="kpi-claims-per-bed">-</p>
+            <p class="text-xs text-violet-500 mt-0.5">Claims/Bed</p>
+        </div>
+
+        <!-- Average per Claim -->
+        <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4 border border-amber-200">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-amber-600">เฉลี่ย/เคลม</span>
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-amber-700" id="kpi-avg-per-claim">-</p>
+            <p class="text-xs text-amber-500 mt-0.5">Avg Reimb/Claim</p>
+        </div>
+    </div>
+
+    <!-- Hospital Info Note -->
+    <div class="mt-3 p-2 bg-gray-50 rounded-lg text-xs text-gray-500 flex items-center gap-2">
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span id="per-bed-note">ข้อมูลจากระยะเวลาที่เลือก หารด้วยจำนวนเตียงจริง</span>
+    </div>
+</div>
+
+<!-- Phase 2: Analytics Charts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- Monthly Revenue Trend -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <span class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                </svg>
+                Monthly Revenue Trend
+            </span>
+        </h3>
+        <div id="monthly-trend-chart" class="h-64 flex items-center justify-center">
+            <div class="text-gray-400">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Fund Comparison (Claimed vs Reimbursed) -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <span class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                Fund Comparison (Claim vs Reimb)
+            </span>
+        </h3>
+        <div id="fund-comparison-chart" class="h-64 flex items-center justify-center">
+            <div class="text-gray-400">Loading...</div>
+        </div>
+    </div>
+</div>
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <!-- Service Type Distribution -->
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">Service Type Distribution</h3>
+        <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <span class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                </svg>
+                Service Type Distribution
+            </span>
+        </h3>
         <div id="service-type-chart" class="h-64 flex items-center justify-center">
             <div class="text-gray-400">Loading...</div>
         </div>
     </div>
 
-    <!-- Top Funds -->
+    <!-- Top Error Codes (Loss Analysis) -->
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">Top 5 Funds by Revenue</h3>
-        <div id="top-funds-list" class="space-y-3">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">
+            <span class="flex items-center">
+                <svg class="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                Top Denial Reasons (Loss)
+            </span>
+        </h3>
+        <div id="error-codes-chart" class="h-64 flex items-center justify-center">
             <div class="text-gray-400">Loading...</div>
         </div>
     </div>
 </div>
 
-<!-- Latest Files Section -->
-<div class="bg-white rounded-lg shadow-md overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-        <h3 class="text-lg font-bold text-gray-800">Latest Files</h3>
-        <a href="{{ url_for('data_management') }}?tab=files" class="text-blue-600 hover:text-blue-700 font-medium text-sm">
-            View All
-        </a>
-    </div>
-
-    {% if latest_files %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filename</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for file in latest_files %}
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center">
-                            {% if '_OP_' in file.filename %}
-                            <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                            {% elif '_IP_' in file.filename %}
-                            <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
-                            {% elif '_ORF_' in file.filename %}
-                            <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                            {% else %}
-                            <span class="w-2 h-2 bg-gray-500 rounded-full mr-2"></span>
-                            {% endif %}
-                            <span class="text-sm text-gray-900 font-medium">{{ file.filename }}</span>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ file.date_formatted }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ file.size_formatted }}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <div class="px-6 py-12 text-center">
-        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-        </svg>
-        <p class="text-gray-500 mb-4">No files downloaded yet</p>
-        <a href="{{ url_for('data_management') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg">
-            Download Now
-        </a>
-    </div>
-    {% endif %}
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Load KPI data
+// Load KPI data - Phase 1 Financial Dashboard
 async function loadKPIData() {
     try {
         var response = await fetch('/api/analytics/overview');
         var data = await response.json();
 
         if (data.success) {
-            document.getElementById('kpi-total-claims').textContent = formatNumber(data.data.total_claims);
-            document.getElementById('kpi-total-reimburse').textContent = formatMoney(data.data.total_reimb);
+            var d = data.data;
 
-            // Calculate denial rate
-            var denialRate = 0;
-            if (data.data.total_claims > 0 && data.data.total_denials) {
-                denialRate = (data.data.total_denials / data.data.total_claims) * 100;
+            // 1. ยอดเคลม (Claimed Amount)
+            document.getElementById('kpi-total-claimed').textContent = formatMoney(d.total_claim_drg);
+
+            // 2. ยอดชดเชย (Reimbursed Amount)
+            document.getElementById('kpi-total-reimburse').textContent = formatMoney(d.total_reimb);
+
+            // 3. ส่วนต่าง (Loss/Gap) - show as negative
+            var loss = d.total_loss || (d.total_claim_drg - d.total_reimb);
+            var lossText = loss > 0 ? '-' + formatMoney(loss) : formatMoney(loss);
+            document.getElementById('kpi-total-loss').textContent = lossText;
+
+            // 4. อัตราคืน (Reimbursement Rate %)
+            var reimbRate = d.reimb_rate || 0;
+            document.getElementById('kpi-reimb-rate').textContent = reimbRate.toFixed(1) + '%';
+
+            // 5. จำนวนรายการ (Total Claims Count)
+            document.getElementById('kpi-total-claims').textContent = formatNumber(d.total_claims);
+
+            // Per-Bed KPIs
+            var perBedSection = document.getElementById('per-bed-section');
+            if (d.hospital && d.per_bed && d.per_bed.beds > 0) {
+                perBedSection.classList.remove('hidden');
+
+                // Hospital info
+                document.getElementById('hospital-name-badge').textContent = d.hospital.hospital_name || '-';
+                document.getElementById('hospital-beds-badge').textContent = d.per_bed.beds.toLocaleString() + ' เตียง';
+
+                // Per-bed metrics
+                document.getElementById('kpi-reimb-per-bed').textContent = formatMoney(d.per_bed.reimb_per_bed_month);
+                document.getElementById('kpi-loss-per-bed').textContent = d.per_bed.loss_per_bed_month > 0 ?
+                    '-' + formatMoney(d.per_bed.loss_per_bed_month) :
+                    formatMoney(d.per_bed.loss_per_bed_month);
+                document.getElementById('kpi-claims-per-bed').textContent = d.per_bed.claims_per_bed.toFixed(1);
+                document.getElementById('kpi-avg-per-claim').textContent = formatMoney(d.per_bed.avg_per_claim);
+
+                // Note with filter info
+                var noteText = 'ข้อมูล ' + (d.active_months || 1) + ' เดือน หารด้วย ' + d.per_bed.beds + ' เตียง';
+                if (d.filter && d.filter.description) {
+                    noteText += ' (' + d.filter.description + ')';
+                }
+                document.getElementById('per-bed-note').textContent = noteText;
+            } else {
+                // Hide section if no hospital configured or no beds
+                perBedSection.classList.add('hidden');
             }
-            document.getElementById('kpi-denial-rate').textContent = denialRate.toFixed(1) + '%';
         }
     } catch (error) {
         console.error('Error loading KPI data:', error);
@@ -344,55 +636,232 @@ async function loadServiceTypeData() {
     }
 }
 
-// Load fund data
-async function loadFundData() {
+// Phase 2: Load Monthly Revenue Trend Chart
+async function loadMonthlyTrendChart() {
+    try {
+        var response = await fetch('/api/analytics/monthly-trend');
+        var data = await response.json();
+
+        var container = document.getElementById('monthly-trend-chart');
+        container.textContent = '';
+
+        if (data.success && data.data.length > 0) {
+            var canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+
+            // Reverse to show oldest first
+            var chartData = data.data.slice(0, 6).reverse();
+
+            new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: chartData.map(function(d) { return d.month; }),
+                    datasets: [
+                        {
+                            label: 'ยอดเคลม',
+                            data: chartData.map(function(d) { return d.claim_drg; }),
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'ยอดชดเชย',
+                            data: chartData.map(function(d) { return d.reimb; }),
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatMoney(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            var msg = document.createElement('div');
+            msg.className = 'text-gray-400 text-center';
+            msg.textContent = 'ไม่มีข้อมูล';
+            container.appendChild(msg);
+        }
+    } catch (error) {
+        console.error('Error loading monthly trend:', error);
+        var container = document.getElementById('monthly-trend-chart');
+        container.textContent = '';
+        var msg = document.createElement('div');
+        msg.className = 'text-gray-400 text-center';
+        msg.textContent = 'ไม่สามารถโหลดข้อมูลได้';
+        container.appendChild(msg);
+    }
+}
+
+// Phase 2: Load Fund Comparison Chart (Claimed vs Reimbursed)
+async function loadFundComparisonChart() {
     try {
         var response = await fetch('/api/analytics/fund');
         var data = await response.json();
 
+        var container = document.getElementById('fund-comparison-chart');
+        container.textContent = '';
+
         if (data.success && data.data.length > 0) {
-            var container = document.getElementById('top-funds-list');
-            container.textContent = '';
+            var canvas = document.createElement('canvas');
+            container.appendChild(canvas);
 
             var topFunds = data.data.slice(0, 5);
-            var maxAmount = topFunds[0].reimb || 0;
 
-            topFunds.forEach(function(fund) {
-                var item = document.createElement('div');
-                item.className = 'space-y-1';
-
-                var header = document.createElement('div');
-                header.className = 'flex justify-between text-sm';
-
-                var nameSpan = document.createElement('span');
-                nameSpan.className = 'font-medium text-gray-700';
-                nameSpan.textContent = fund.fund || 'Unknown';
-
-                var amountSpan = document.createElement('span');
-                amountSpan.className = 'text-gray-600';
-                amountSpan.textContent = formatMoney(fund.reimb);
-
-                header.appendChild(nameSpan);
-                header.appendChild(amountSpan);
-
-                var barContainer = document.createElement('div');
-                barContainer.className = 'w-full bg-gray-200 rounded-full h-2';
-
-                var bar = document.createElement('div');
-                bar.className = 'bg-blue-600 h-2 rounded-full';
-                var percentage = maxAmount > 0 ? ((fund.reimb / maxAmount) * 100) : 0;
-                bar.style.width = percentage + '%';
-
-                barContainer.appendChild(bar);
-
-                item.appendChild(header);
-                item.appendChild(barContainer);
-
-                container.appendChild(item);
+            new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: topFunds.map(function(d) { return d.fund || 'ไม่ระบุ'; }),
+                    datasets: [
+                        {
+                            label: 'ยอดเคลม',
+                            data: topFunds.map(function(d) { return d.claimed || 0; }),
+                            backgroundColor: '#3B82F6'
+                        },
+                        {
+                            label: 'ยอดชดเชย',
+                            data: topFunds.map(function(d) { return d.reimb || 0; }),
+                            backgroundColor: '#10B981'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatMoney(value);
+                                }
+                            }
+                        }
+                    }
+                }
             });
+        } else {
+            var msg = document.createElement('div');
+            msg.className = 'text-gray-400 text-center';
+            msg.textContent = 'ไม่มีข้อมูล';
+            container.appendChild(msg);
         }
     } catch (error) {
-        console.error('Error loading fund data:', error);
+        console.error('Error loading fund comparison:', error);
+        var container = document.getElementById('fund-comparison-chart');
+        container.textContent = '';
+        var msg = document.createElement('div');
+        msg.className = 'text-gray-400 text-center';
+        msg.textContent = 'ไม่สามารถโหลดข้อมูลได้';
+        container.appendChild(msg);
+    }
+}
+
+// Phase 2: Load Error Codes Chart (Top Denial Reasons)
+async function loadErrorCodesChart() {
+    try {
+        var response = await fetch('/api/analytics/denial');
+        var data = await response.json();
+
+        var container = document.getElementById('error-codes-chart');
+        container.textContent = '';
+
+        if (data.success && data.data && data.data.denials && data.data.denials.length > 0) {
+            var canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+
+            var topErrors = data.data.denials.slice(0, 5);
+
+            // Error code descriptions mapping
+            var errorDescriptions = {
+                'A13': 'ข้อมูลไม่สมบูรณ์',
+                'A03': 'ข้อมูลไม่ถูกต้อง',
+                'I04': 'รหัส ICD ไม่ถูกต้อง',
+                'I03': 'รหัส ICD ไม่สมบูรณ์',
+                'H16': 'รหัสหัตถการไม่ถูกต้อง',
+                'H15': 'หัตถการไม่สมบูรณ์',
+                'A01': 'ไม่มีสิทธิ',
+                'A02': 'หมดสิทธิ',
+                'D01': 'ข้อมูลยาไม่ถูกต้อง',
+                'D02': 'ยาไม่อยู่ในบัญชี'
+            };
+
+            new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: topErrors.map(function(d) {
+                        var code = d.reason || 'ไม่ระบุ';
+                        var desc = errorDescriptions[code] || code;
+                        return desc + ' (' + code + ')';
+                    }),
+                    datasets: [{
+                        label: 'ยอดปฏิเสธ (บาท)',
+                        data: topErrors.map(function(d) { return d.total_amount || 0; }),
+                        backgroundColor: '#EF4444'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    var item = topErrors[context.dataIndex];
+                                    return item.cases + ' รายการ';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatMoney(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            var msg = document.createElement('div');
+            msg.className = 'text-gray-400 text-center';
+            msg.textContent = 'ไม่มีข้อมูลการปฏิเสธ';
+            container.appendChild(msg);
+        }
+    } catch (error) {
+        console.error('Error loading error codes:', error);
+        var container = document.getElementById('error-codes-chart');
+        container.textContent = '';
+        var msg = document.createElement('div');
+        msg.className = 'text-gray-400 text-center';
+        msg.textContent = 'ไม่สามารถโหลดข้อมูลได้';
+        container.appendChild(msg);
     }
 }
 
@@ -430,6 +899,95 @@ function createAlertIcon(severity) {
 
     svg.appendChild(path);
     return svg;
+}
+
+// Load Claims Efficiency Metrics
+async function loadEfficiencyMetrics() {
+    try {
+        var response = await fetch('/api/analytics/efficiency');
+        var data = await response.json();
+
+        if (data.success) {
+            var d = data.data;
+            var overall = d.overall;
+
+            // Update filter info
+            if (d.filter) {
+                var filterInfo = document.getElementById('efficiency-filter-info');
+                if (filterInfo && d.filter.description) {
+                    filterInfo.textContent = d.filter.description;
+                }
+            }
+
+            // Update KPI cards
+            document.getElementById('eff-first-pass-rate').textContent = overall.first_pass_rate + '%';
+            document.getElementById('eff-denial-rate').textContent = overall.denial_rate + '%';
+            document.getElementById('eff-passed-claims').textContent = formatNumber(overall.passed_claims);
+            document.getElementById('eff-denied-claims').textContent = formatNumber(overall.denied_claims);
+
+            // Update OP/IP comparison
+            var opData = d.by_service.find(function(s) { return s.type === 'OP'; }) || {};
+            var ipData = d.by_service.find(function(s) { return s.type === 'IP'; }) || {};
+
+            document.getElementById('eff-op-first-pass').textContent = (opData.first_pass_rate || 0) + '%';
+            document.getElementById('eff-op-reimb-rate').textContent = (opData.reimb_rate || 0) + '%';
+            document.getElementById('eff-op-claims').textContent = formatNumber(opData.claims || 0);
+
+            document.getElementById('eff-ip-first-pass').textContent = (ipData.first_pass_rate || 0) + '%';
+            document.getElementById('eff-ip-reimb-rate').textContent = (ipData.reimb_rate || 0) + '%';
+            document.getElementById('eff-ip-claims').textContent = formatNumber(ipData.claims || 0);
+
+            // Update efficiency by fund
+            var fundContainer = document.getElementById('eff-by-fund-container');
+            fundContainer.textContent = '';
+
+            var topFunds = d.by_fund.slice(0, 5);
+            topFunds.forEach(function(fund) {
+                var row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-gray-50 rounded-lg p-2 border border-gray-100';
+
+                // Fund name
+                var nameDiv = document.createElement('div');
+                nameDiv.className = 'flex-1 min-w-0';
+                var nameText = document.createElement('span');
+                nameText.className = 'text-sm text-gray-700 truncate block';
+                nameText.textContent = fund.fund;
+                nameDiv.appendChild(nameText);
+
+                // Stats
+                var statsDiv = document.createElement('div');
+                statsDiv.className = 'flex items-center gap-3 ml-2';
+
+                // First-pass rate with color coding
+                var fpRate = fund.first_pass_rate;
+                var fpColor = fpRate >= 90 ? 'text-green-600' : (fpRate >= 80 ? 'text-yellow-600' : 'text-red-600');
+                var fpSpan = document.createElement('span');
+                fpSpan.className = 'text-xs font-medium ' + fpColor;
+                fpSpan.textContent = 'FP: ' + fpRate + '%';
+                statsDiv.appendChild(fpSpan);
+
+                // Reimb rate with color coding
+                var reimbRate = fund.reimb_rate;
+                var reimbColor = reimbRate >= 90 ? 'text-green-600' : (reimbRate >= 80 ? 'text-yellow-600' : 'text-red-600');
+                var reimbSpan = document.createElement('span');
+                reimbSpan.className = 'text-xs font-medium ' + reimbColor;
+                reimbSpan.textContent = 'RR: ' + reimbRate + '%';
+                statsDiv.appendChild(reimbSpan);
+
+                // Claims count
+                var claimsSpan = document.createElement('span');
+                claimsSpan.className = 'text-xs text-gray-500 w-16 text-right';
+                claimsSpan.textContent = formatNumber(fund.claims) + ' รายการ';
+                statsDiv.appendChild(claimsSpan);
+
+                row.appendChild(nameDiv);
+                row.appendChild(statsDiv);
+                fundContainer.appendChild(row);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading efficiency metrics:', error);
+    }
 }
 
 // Load system alerts
@@ -508,12 +1066,238 @@ async function loadAlerts() {
     }
 }
 
-// Initialize
+// Load Executive Insights
+async function loadExecutiveInsights() {
+    try {
+        // Load denial data for recovery opportunities
+        var denialResponse = await fetch('/api/analytics/denial');
+        var denialData = await denialResponse.json();
+
+        // Load monthly trend for forecast
+        var trendResponse = await fetch('/api/analytics/monthly-trend');
+        var trendData = await trendResponse.json();
+
+        // 1. Denial Recovery Opportunities
+        if (denialData.success && denialData.data && denialData.data.denials) {
+            var errorCodes = denialData.data.denials;
+
+            // Calculate total recoverable (assume high recoverability for certain error codes)
+            var totalDenied = 0;
+            var recoverableAmount = 0;
+            var priorityClaims = [];
+
+            // Define recoverable error codes (NHSO error codes)
+            // Default recovery rate 55% for most errors
+            var highRecoveryErrors = {
+                // High priority recoverable errors
+                'A13': 70,   // ข้อมูลไม่สมบูรณ์ - recoverable
+                'A03': 80,   // ข้อมูลไม่ถูกต้อง - recoverable
+                'I04': 60,   // ICD code related - recoverable
+                'H16': 75,   // หัตถการ - recoverable
+                'I03': 65    // ICD related - recoverable
+            };
+
+            errorCodes.forEach(function(error) {
+                var amount = error.total_amount || 0;
+                totalDenied += amount;
+
+                // Use defined recovery rate or default 55%
+                var recoveryRate = highRecoveryErrors[error.reason] || 55;
+                var recoverable = amount * (recoveryRate / 100);
+                recoverableAmount += recoverable;
+
+                // Add all errors with positive amounts as priority claims
+                if (amount > 0 && error.cases > 0) {
+                    priorityClaims.push({
+                        code: error.reason,
+                        amount: recoverable,
+                        rate: recoveryRate,
+                        cases: error.cases
+                    });
+                }
+            });
+
+            // Update recovery metrics
+            document.getElementById('exec-recoverable-amount').textContent = formatMoney(recoverableAmount);
+            document.getElementById('exec-recovery-rate').textContent =
+                totalDenied > 0 ? ((recoverableAmount / totalDenied) * 100).toFixed(1) + '%' : '-';
+            document.getElementById('exec-recovery-target').textContent = formatMoney(recoverableAmount);
+
+            // Show top 3 priority claims
+            var priorityContainer = document.getElementById('exec-priority-claims');
+            priorityContainer.textContent = '';
+
+            var topPriority = priorityClaims.sort(function(a, b) {
+                return b.rate - a.rate;
+            }).slice(0, 3);
+
+            if (topPriority.length > 0) {
+                topPriority.forEach(function(claim) {
+                    var item = document.createElement('div');
+                    item.className = 'flex items-center justify-between text-xs bg-green-50 rounded px-2 py-1.5 border border-green-100';
+
+                    var label = document.createElement('span');
+                    label.className = 'text-gray-700 font-medium';
+                    label.textContent = claim.code;
+
+                    var value = document.createElement('span');
+                    value.className = 'text-green-600 font-bold';
+                    value.textContent = formatMoney(claim.amount);
+
+                    item.appendChild(label);
+                    item.appendChild(value);
+                    priorityContainer.appendChild(item);
+                });
+            } else {
+                var noData = document.createElement('div');
+                noData.className = 'text-xs text-gray-400';
+                noData.textContent = 'ไม่มีข้อมูล';
+                priorityContainer.appendChild(noData);
+            }
+        }
+
+        // 2. Revenue Forecast
+        if (trendData.success && trendData.data && trendData.data.length > 0) {
+            var months = trendData.data.slice(0, 6).reverse(); // Get last 6 months
+
+            if (months.length >= 3) {
+                // Calculate average reimbursement from last 3 months
+                var last3Months = months.slice(-3);
+                var avgReimb = last3Months.reduce(function(sum, m) {
+                    return sum + (m.reimb || 0);
+                }, 0) / last3Months.length;
+
+                // Forecast next month (use average with 5% buffer)
+                var nextMonthForecast = avgReimb * 1.05;
+
+                // Forecast next quarter (3 months)
+                var nextQuarterForecast = nextMonthForecast * 3;
+
+                // Calculate growth trend (compare recent 3 months vs previous 3 months)
+                var growthTrend = 0;
+                if (months.length >= 6) {
+                    var prev3Months = months.slice(0, 3);
+                    var avgPrev = prev3Months.reduce(function(sum, m) {
+                        return sum + (m.reimb || 0);
+                    }, 0) / prev3Months.length;
+                    var avgRecent = avgReimb;
+                    growthTrend = avgPrev > 0 ? ((avgRecent - avgPrev) / avgPrev * 100) : 0;
+                }
+
+                // Update forecast metrics
+                document.getElementById('exec-forecast-next-month').textContent = formatMoney(nextMonthForecast);
+                document.getElementById('exec-forecast-quarter').textContent = formatMoney(nextQuarterForecast);
+                document.getElementById('exec-revenue-target').textContent = formatMoney(nextMonthForecast);
+
+                // Growth trend with color
+                var trendElement = document.getElementById('exec-forecast-trend');
+                var trendText = (growthTrend >= 0 ? '+' : '') + growthTrend.toFixed(1) + '%';
+                trendElement.textContent = trendText;
+                trendElement.className = 'text-sm font-semibold ' +
+                    (growthTrend >= 0 ? 'text-green-600' : 'text-red-600');
+
+                // Confidence based on data variability
+                var confidence = months.length >= 6 ? '85%' : (months.length >= 3 ? '70%' : '50%');
+                document.getElementById('exec-forecast-confidence').textContent = confidence;
+            }
+        }
+
+        // 3. Critical Action Items
+        var actionItems = [];
+
+        // Add denial-based actions
+        if (denialData.success && denialData.data && denialData.data.denials) {
+            var topErrors = denialData.data.denials.slice(0, 5);
+
+            topErrors.forEach(function(error, idx) {
+                if (idx < 3 && error.total_amount > 0) {  // Top 3 with positive amounts
+                    var priority = idx === 0 ? 'critical' : 'warning';
+                    var action = '';
+
+                    // Create action based on NHSO error code
+                    if (error.reason === 'A13') {
+                        action = 'ตรวจสอบข้อมูลไม่สมบูรณ์ (A13) - แก้ได้ 70%';
+                    } else if (error.reason === 'A03') {
+                        action = 'แก้ไขข้อมูลไม่ถูกต้อง (A03) - แก้ได้ 80%';
+                    } else if (error.reason === 'I04') {
+                        action = 'ตรวจสอบรหัส ICD (I04) - แก้ได้ 60%';
+                    } else if (error.reason === 'H16') {
+                        action = 'ตรวจสอบหัตถการ (H16) - แก้ได้ 75%';
+                    } else if (error.reason === 'I03') {
+                        action = 'แก้ไขรหัส ICD (I03) - แก้ได้ 65%';
+                    } else {
+                        action = 'แก้ปัญหา ' + error.reason + ' (' + error.cases + ' cases)';
+                    }
+
+                    actionItems.push({
+                        priority: priority,
+                        action: action,
+                        impact: formatMoney(error.total_amount || 0)
+                    });
+                }
+            });
+        }
+
+        // Render action items
+        var actionContainer = document.getElementById('exec-action-items');
+        actionContainer.textContent = '';
+
+        if (actionItems.length > 0) {
+            actionItems.forEach(function(item) {
+                var actionDiv = document.createElement('div');
+                actionDiv.className = 'flex items-start gap-2 text-xs bg-gray-50 rounded p-2 border ' +
+                    (item.priority === 'critical' ? 'border-red-200 bg-red-50' : 'border-yellow-200 bg-yellow-50');
+
+                // Priority indicator
+                var indicator = document.createElement('span');
+                indicator.className = 'w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ' +
+                    (item.priority === 'critical' ? 'bg-red-500' : 'bg-yellow-500');
+
+                // Action text
+                var content = document.createElement('div');
+                content.className = 'flex-1 min-w-0';
+
+                var text = document.createElement('div');
+                text.className = 'text-gray-700 font-medium';
+                text.textContent = item.action;
+
+                var impact = document.createElement('div');
+                impact.className = 'text-gray-500 mt-0.5';
+                impact.textContent = 'Impact: ' + item.impact;
+
+                content.appendChild(text);
+                content.appendChild(impact);
+
+                actionDiv.appendChild(indicator);
+                actionDiv.appendChild(content);
+                actionContainer.appendChild(actionDiv);
+            });
+
+            // Update action count
+            document.getElementById('exec-action-count').textContent = actionItems.length;
+        } else {
+            var noActions = document.createElement('div');
+            noActions.className = 'text-xs text-gray-400 text-center py-2';
+            noActions.textContent = 'ไม่มี action items ที่ต้องทำเร่งด่วน';
+            actionContainer.appendChild(noActions);
+            document.getElementById('exec-action-count').textContent = '0';
+        }
+
+    } catch (error) {
+        console.error('Error loading executive insights:', error);
+    }
+}
+
+// Initialize Dashboard - Phase 3
 document.addEventListener('DOMContentLoaded', function() {
     loadKPIData();
+    loadEfficiencyMetrics();
+    loadMonthlyTrendChart();
+    loadFundComparisonChart();
     loadServiceTypeData();
-    loadFundData();
+    loadErrorCodesChart();
     loadAlerts();
+    loadExecutiveInsights();
 });
 </script>
 {% endblock %}

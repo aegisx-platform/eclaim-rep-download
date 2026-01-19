@@ -198,11 +198,7 @@ CREATE INDEX IF NOT EXISTS idx_opip_error_code ON claim_rep_opip_nhso_item(error
 CREATE INDEX IF NOT EXISTS idx_opip_scheme ON claim_rep_opip_nhso_item(scheme);
 CREATE INDEX IF NOT EXISTS idx_opip_reconcile ON claim_rep_opip_nhso_item(his_matched, reconcile_status);
 
--- Trigger for updated_at
-CREATE TRIGGER tr_opip_updated
-    BEFORE UPDATE ON claim_rep_opip_nhso_item
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+-- Note: No trigger for updated_at - table uses 'lastupdate' column managed by application
 
 -- ============================================================================
 -- 3. OP REFER TABLE
@@ -342,11 +338,7 @@ CREATE INDEX IF NOT EXISTS idx_orf_service_date ON claim_rep_orf_nhso_item(servi
 CREATE INDEX IF NOT EXISTS idx_orf_scheme ON claim_rep_orf_nhso_item(scheme);
 CREATE INDEX IF NOT EXISTS idx_orf_reconcile ON claim_rep_orf_nhso_item(his_matched, reconcile_status);
 
--- Trigger for updated_at
-CREATE TRIGGER tr_orf_updated
-    BEFORE UPDATE ON claim_rep_orf_nhso_item
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+-- Note: No trigger for updated_at - table uses 'lastupdate' column managed by application
 
 -- ============================================================================
 -- 4. VIEWS

@@ -1,0 +1,545 @@
+{% extends "settings/layout.html" %}
+{% block title %}Hospital Info - NHSO Revenue Intelligence{% endblock %}
+{% block settings_content %}
+<div class="bg-white rounded-xl shadow-sm border p-6">
+    <div class="mb-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Hospital Information</h3>
+        <p class="text-sm text-gray-600">ค้นหาและตั้งค่าข้อมูลโรงพยาบาลของคุณ</p>
+    </div>
+
+    <!-- Current Hospital Info (Always visible) -->
+    <div class="mb-8 p-5 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100">
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <label class="block text-sm font-medium text-indigo-900 mb-1">โรงพยาบาลปัจจุบัน</label>
+                <p id="current-hospital-display-name" class="text-lg font-bold text-gray-900">
+                    {% if settings.hospital_code %}
+                        <span class="animate-pulse">กำลังโหลด...</span>
+                    {% else %}
+                        ยังไม่ได้ตั้งค่า
+                    {% endif %}
+                </p>
+            </div>
+            {% if settings.hospital_code %}
+            <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">ใช้งาน</span>
+            {% else %}
+            <span class="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">ไม่ได้ตั้งค่า</span>
+            {% endif %}
+        </div>
+
+        <!-- Current Hospital Details (Loaded via JavaScript) -->
+        <div id="current-hospital-details" class="{% if not settings.hospital_code %}hidden{% endif %}">
+            <div class="grid md:grid-cols-3 gap-3 text-sm">
+                <div>
+                    <span class="text-gray-600">รหัส:</span>
+                    <span id="current-display-code" class="font-mono font-medium text-gray-900">{{ settings.hospital_code }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-600">ระดับ:</span>
+                    <span id="current-display-level" class="font-medium text-gray-900">-</span>
+                </div>
+                <div>
+                    <span class="text-gray-600">จำนวนเตียง:</span>
+                    <span id="current-display-beds" class="font-medium text-gray-900">-</span>
+                </div>
+            </div>
+            <div class="mt-2 text-xs text-gray-600">
+                <span id="current-display-location">-</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hospital Search Section -->
+    <div class="mb-8">
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+            ค้นหาโรงพยาบาล
+            <span class="text-gray-500 font-normal">(ชื่อ หรือ รหัส)</span>
+        </label>
+        <div class="relative">
+            <input
+                type="text"
+                id="hospital-search"
+                placeholder="พิมพ์ชื่อโรงพยาบาล หรือรหัส 5 หลัก (เช่น 10670, ศิริราช)"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                autocomplete="off"
+            >
+            <div class="absolute right-3 top-3">
+                <svg id="search-icon" class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <div id="search-spinner" class="hidden animate-spin w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+            </div>
+
+            <!-- Autocomplete Dropdown -->
+            <div id="autocomplete-results" class="hidden absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">💡 ค้นหาด้วยชื่อโรงพยาบาล รหัส 5 หลัก หรือจังหวัด</p>
+    </div>
+
+    <!-- Hospital Details Card (Hidden by default) -->
+    <div id="hospital-details" class="hidden">
+        <div class="border-t border-gray-200 pt-6 mb-6">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4">ข้อมูลโรงพยาบาลที่เลือก</h4>
+
+            <!-- Hospital Info Grid -->
+            <div class="grid md:grid-cols-2 gap-4 mb-6">
+                <!-- Basic Info -->
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase">ชื่อโรงพยาบาล</label>
+                        <p id="detail-name" class="text-sm font-medium text-gray-900 mt-1">-</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase">รหัส 5 หลัก (Vendor ID)</label>
+                        <p id="detail-hcode5" class="text-sm font-mono text-gray-900 mt-1">-</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase">รหัส 9 หลัก</label>
+                        <p id="detail-hcode9" class="text-sm font-mono text-gray-900 mt-1">-</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase">เลขใบอนุญาต</label>
+                        <p id="detail-license" class="text-sm font-mono text-gray-900 mt-1">-</p>
+                    </div>
+                </div>
+
+                <!-- Classification -->
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase">ประเภทองค์กร</label>
+                        <p id="detail-org-type" class="text-sm text-gray-900 mt-1">-</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase">ประเภทหน่วยบริการ</label>
+                        <p id="detail-service-type" class="text-sm text-gray-900 mt-1">-</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase">สังกัด</label>
+                        <p id="detail-affiliation" class="text-sm text-gray-900 mt-1">-</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase">ระดับโรงพยาบาล</label>
+                        <p id="detail-level" class="text-sm text-gray-900 mt-1">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Location & Stats -->
+            <div class="grid md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="text-xs font-medium text-gray-500 uppercase">ที่อยู่</label>
+                    <p id="detail-address" class="text-sm text-gray-900 mt-1">-</p>
+                    <div class="mt-2 flex gap-2 text-xs text-gray-600">
+                        <span id="detail-district">-</span>
+                        <span>•</span>
+                        <span id="detail-province">-</span>
+                        <span>•</span>
+                        <span id="detail-region">-</span>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase">จำนวนเตียง</label>
+                        <p id="detail-beds" class="text-sm text-gray-900 mt-1">-</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase">สถานะ</label>
+                        <p id="detail-status" class="text-sm text-gray-900 mt-1">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Button -->
+            <div class="flex items-center gap-3 pt-4 border-t">
+                <button
+                    id="save-hospital-btn"
+                    onclick="saveHospitalCode()"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    ใช้โรงพยาบาลนี้
+                </button>
+                <button
+                    onclick="clearSelection()"
+                    class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2.5 rounded-lg font-medium transition-colors">
+                    ยกเลิก
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Notification -->
+    <div id="alert-message" class="hidden mt-4 rounded-lg p-4 border-l-4" role="alert">
+        <div class="flex items-start gap-3">
+            <svg id="alert-icon" class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
+            <p id="alert-text" class="text-sm font-medium"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedHospital = null;
+let searchTimeout = null;
+
+// Load current hospital info on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const currentCode = '{{ settings.hospital_code or "" }}';
+    if (currentCode) {
+        loadCurrentHospitalInfo(currentCode);
+    }
+});
+
+// Hospital search with debounce
+document.getElementById('hospital-search').addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+
+    // Clear previous timeout
+    clearTimeout(searchTimeout);
+
+    // Hide results if query is too short
+    if (query.length < 2) {
+        document.getElementById('autocomplete-results').classList.add('hidden');
+        return;
+    }
+
+    // Show loading spinner
+    document.getElementById('search-icon').classList.add('hidden');
+    document.getElementById('search-spinner').classList.remove('hidden');
+
+    // Debounce search
+    searchTimeout = setTimeout(() => {
+        searchHospitals(query);
+    }, 300);
+});
+
+async function searchHospitals(query) {
+    try {
+        const response = await fetch(`/api/health-offices?search=${encodeURIComponent(query)}&limit=20`);
+        const data = await response.json();
+
+        // Hide spinner
+        document.getElementById('search-icon').classList.remove('hidden');
+        document.getElementById('search-spinner').classList.add('hidden');
+
+        if (data.success && data.offices && data.offices.length > 0) {
+            displayAutocompleteResults(data.offices);
+        } else {
+            displayNoResults();
+        }
+    } catch (error) {
+        console.error('Search error:', error);
+        document.getElementById('search-icon').classList.remove('hidden');
+        document.getElementById('search-spinner').classList.add('hidden');
+        displayNoResults();
+    }
+}
+
+function displayAutocompleteResults(offices) {
+    const resultsDiv = document.getElementById('autocomplete-results');
+    resultsDiv.classList.remove('hidden');
+    resultsDiv.textContent = ''; // Clear
+
+    offices.forEach(office => {
+        const div = document.createElement('div');
+        div.className = 'px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0';
+        div.onclick = () => selectHospital(office);
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-start justify-between';
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'flex-1';
+
+        const nameP = document.createElement('p');
+        nameP.className = 'font-medium text-gray-900';
+        nameP.textContent = office.name || '-';
+        infoDiv.appendChild(nameP);
+
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'flex gap-3 mt-1 text-xs text-gray-600';
+
+        const codeSpan = document.createElement('span');
+        codeSpan.className = 'font-mono';
+        codeSpan.textContent = office.hcode5 || '-';
+        metaDiv.appendChild(codeSpan);
+
+        if (office.hospital_level) {
+            const sep1 = document.createElement('span');
+            sep1.textContent = '•';
+            metaDiv.appendChild(sep1);
+
+            const levelSpan = document.createElement('span');
+            levelSpan.textContent = office.hospital_level;
+            metaDiv.appendChild(levelSpan);
+        }
+
+        if (office.province) {
+            const sep2 = document.createElement('span');
+            sep2.textContent = '•';
+            metaDiv.appendChild(sep2);
+
+            const provSpan = document.createElement('span');
+            provSpan.textContent = office.province;
+            metaDiv.appendChild(provSpan);
+        }
+
+        infoDiv.appendChild(metaDiv);
+        wrapper.appendChild(infoDiv);
+
+        if (office.actual_beds) {
+            const bedsSpan = document.createElement('span');
+            bedsSpan.className = 'text-xs bg-gray-100 px-2 py-1 rounded';
+            bedsSpan.textContent = `${office.actual_beds} เตียง`;
+            wrapper.appendChild(bedsSpan);
+        }
+
+        div.appendChild(wrapper);
+        resultsDiv.appendChild(div);
+    });
+}
+
+function displayNoResults() {
+    const resultsDiv = document.getElementById('autocomplete-results');
+    resultsDiv.classList.remove('hidden');
+    resultsDiv.textContent = '';
+
+    const div = document.createElement('div');
+    div.className = 'px-4 py-6 text-center text-gray-500';
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'w-12 h-12 mx-auto mb-2 text-gray-400');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('d', 'M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z');
+    svg.appendChild(path);
+
+    const p1 = document.createElement('p');
+    p1.className = 'text-sm';
+    p1.textContent = 'ไม่พบโรงพยาบาลที่ตรงกับคำค้นหา';
+
+    const p2 = document.createElement('p');
+    p2.className = 'text-xs mt-1';
+    p2.textContent = 'ลองใช้คำค้นหาอื่น หรือรหัส 5 หลัก';
+
+    div.appendChild(svg);
+    div.appendChild(p1);
+    div.appendChild(p2);
+    resultsDiv.appendChild(div);
+}
+
+function selectHospital(hospital) {
+    selectedHospital = hospital;
+
+    // Update search input
+    document.getElementById('hospital-search').value = hospital.name || '';
+
+    // Hide autocomplete
+    document.getElementById('autocomplete-results').classList.add('hidden');
+
+    // Show hospital details
+    document.getElementById('hospital-details').classList.remove('hidden');
+
+    // Fill hospital info
+    document.getElementById('detail-name').textContent = hospital.name || '-';
+    document.getElementById('detail-hcode5').textContent = hospital.hcode5 || '-';
+    document.getElementById('detail-hcode9').textContent = hospital.hcode9 || hospital.hcode9_new || '-';
+    document.getElementById('detail-license').textContent = hospital.license_no || '-';
+    document.getElementById('detail-org-type').textContent = hospital.org_type || '-';
+    document.getElementById('detail-service-type').textContent = hospital.service_type || '-';
+    document.getElementById('detail-affiliation').textContent = hospital.affiliation || '-';
+    document.getElementById('detail-level').textContent = hospital.hospital_level || '-';
+    document.getElementById('detail-address').textContent = hospital.address || '-';
+    document.getElementById('detail-district').textContent = hospital.district || '-';
+    document.getElementById('detail-province').textContent = hospital.province || '-';
+    document.getElementById('detail-region').textContent = hospital.health_region ? `เขต ${hospital.health_region}` : '-';
+    document.getElementById('detail-beds').textContent = hospital.actual_beds ? `${hospital.actual_beds} เตียง` : '-';
+    document.getElementById('detail-status').textContent = hospital.status || '-';
+
+    // Scroll to details
+    document.getElementById('hospital-details').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clearSelection() {
+    selectedHospital = null;
+    document.getElementById('hospital-search').value = '';
+    document.getElementById('hospital-details').classList.add('hidden');
+    document.getElementById('autocomplete-results').classList.add('hidden');
+}
+
+async function saveHospitalCode() {
+    if (!selectedHospital || !selectedHospital.hcode5) {
+        showAlert('error', 'กรุณาเลือกโรงพยาบาลก่อน');
+        return;
+    }
+
+    const saveBtn = document.getElementById('save-hospital-btn');
+    saveBtn.disabled = true;
+
+    // Clear button content
+    saveBtn.textContent = '';
+
+    // Create spinner
+    const spinner = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    spinner.setAttribute('class', 'animate-spin w-5 h-5 mr-2 inline');
+    spinner.setAttribute('fill', 'none');
+    spinner.setAttribute('viewBox', '0 0 24 24');
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('class', 'opacity-25');
+    circle.setAttribute('cx', '12');
+    circle.setAttribute('cy', '12');
+    circle.setAttribute('r', '10');
+    circle.setAttribute('stroke', 'currentColor');
+    circle.setAttribute('stroke-width', '4');
+    const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path2.setAttribute('class', 'opacity-75');
+    path2.setAttribute('fill', 'currentColor');
+    path2.setAttribute('d', 'M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z');
+    spinner.appendChild(circle);
+    spinner.appendChild(path2);
+
+    const text = document.createTextNode(' กำลังบันทึก...');
+    saveBtn.appendChild(spinner);
+    saveBtn.appendChild(text);
+
+    try {
+        const response = await fetch('/api/settings/hospital-code', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                hospital_code: selectedHospital.hcode5
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showAlert('success', `✅ บันทึกสำเร็จ - ${selectedHospital.name} (${selectedHospital.hcode5})`);
+
+            // Update current hospital display
+            document.getElementById('current-hospital-display-name').textContent = selectedHospital.name;
+            document.getElementById('current-display-code').textContent = selectedHospital.hcode5;
+            document.getElementById('current-display-level').textContent = selectedHospital.hospital_level || '-';
+            document.getElementById('current-display-beds').textContent = selectedHospital.actual_beds ? `${selectedHospital.actual_beds} เตียง` : '-';
+            document.getElementById('current-display-location').textContent = `${selectedHospital.district || ''} ${selectedHospital.province || ''} ${selectedHospital.health_region ? 'เขต ' + selectedHospital.health_region : ''}`.trim() || '-';
+
+            // Show current details
+            document.getElementById('current-hospital-details').classList.remove('hidden');
+
+            // Clear selection after 2 seconds
+            setTimeout(() => {
+                clearSelection();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 2000);
+        } else {
+            showAlert('error', `❌ เกิดข้อผิดพลาด: ${data.error || 'ไม่สามารถบันทึกได้'}`);
+        }
+    } catch (error) {
+        showAlert('error', `❌ เกิดข้อผิดพลาด: ${error.message}`);
+    } finally {
+        // Restore button
+        saveBtn.disabled = false;
+        saveBtn.textContent = '';
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'w-5 h-5');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        const checkPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        checkPath.setAttribute('stroke-linecap', 'round');
+        checkPath.setAttribute('stroke-linejoin', 'round');
+        checkPath.setAttribute('stroke-width', '2');
+        checkPath.setAttribute('d', 'M5 13l4 4L19 7');
+        svg.appendChild(checkPath);
+
+        const btnText = document.createTextNode(' ใช้โรงพยาบาลนี้');
+        saveBtn.appendChild(svg);
+        saveBtn.appendChild(btnText);
+    }
+}
+
+async function loadCurrentHospitalInfo(code) {
+    try {
+        const response = await fetch(`/api/health-offices/lookup/${code}`);
+        const data = await response.json();
+
+        if (data.success && data.data) {
+            const office = data.data;
+            document.getElementById('current-hospital-display-name').textContent = office.name || code;
+            document.getElementById('current-display-code').textContent = office.hcode5 || code;
+            document.getElementById('current-display-level').textContent = office.hospital_level || '-';
+            document.getElementById('current-display-beds').textContent = office.actual_beds ? `${office.actual_beds} เตียง` : '-';
+            document.getElementById('current-display-location').textContent = `${office.district || ''} ${office.province || ''} ${office.health_region ? 'เขต ' + office.health_region : ''}`.trim() || '-';
+            document.getElementById('current-hospital-details').classList.remove('hidden');
+        } else {
+            document.getElementById('current-hospital-display-name').textContent = code;
+        }
+    } catch (error) {
+        console.error('Failed to load hospital info:', error);
+        document.getElementById('current-hospital-display-name').textContent = code;
+    }
+}
+
+function showAlert(type, message) {
+    const alert = document.getElementById('alert-message');
+    const icon = document.getElementById('alert-icon');
+    const text = document.getElementById('alert-text');
+
+    // Reset classes
+    alert.className = 'mt-4 rounded-lg p-4 border-l-4';
+
+    // Clear icon
+    icon.textContent = '';
+
+    if (type === 'success') {
+        alert.classList.add('bg-green-50', 'border-green-500');
+        text.className = 'text-sm font-medium text-green-800';
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('d', 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z');
+        icon.appendChild(path);
+        icon.className = 'w-5 h-5 flex-shrink-0 text-green-600';
+    } else {
+        alert.classList.add('bg-red-50', 'border-red-500');
+        text.className = 'text-sm font-medium text-red-800';
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('d', 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z');
+        icon.appendChild(path);
+        icon.className = 'w-5 h-5 flex-shrink-0 text-red-600';
+    }
+
+    text.textContent = message;
+    alert.classList.remove('hidden');
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        alert.classList.add('hidden');
+    }, 5000);
+}
+
+// Close autocomplete when clicking outside
+document.addEventListener('click', function(e) {
+    const searchBox = document.getElementById('hospital-search');
+    const resultsDiv = document.getElementById('autocomplete-results');
+
+    if (!searchBox.contains(e.target) && !resultsDiv.contains(e.target)) {
+        resultsDiv.classList.add('hidden');
+    }
+});
+</script>
+{% endblock %}

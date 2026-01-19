@@ -21,6 +21,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent.parent / '.env')
 
+# Import secure logging utilities
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from utils.logging_config import setup_logger, safe_format_exception
+
+# Set up secure logging with credential masking
+logger = setup_logger('denial_model_trainer', enable_masking=True)
+
 import pandas as pd
 import numpy as np
 import joblib
@@ -341,8 +348,7 @@ def main():
 
     except Exception as e:
         logger.error(f"Training failed: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(safe_format_exception())
         return False
 
 

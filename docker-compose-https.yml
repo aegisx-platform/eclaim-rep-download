@@ -1,0 +1,108 @@
+# Docker Compose with HTTPS (nginx reverse proxy)
+# For production deployment with SSL/TLS
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: eclaim-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-eclaim_db}
+      POSTGRES_USER: ${DB_USER:-eclaim}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?ERROR - DB_PASSWORD must be set in .env file. Generate with: openssl rand -base64 32}
+      TZ: ${TZ:-Asia/Bangkok}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"  # Only accessible from localhost
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-eclaim}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
+
+  web:
+    image: ghcr.io/aegisx-platform/eclaim-rep-download:${VERSION:-latest}
+    container_name: eclaim-web
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Database
+      DB_TYPE: ${DB_TYPE:-postgresql}
+      DB_HOST: db
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-eclaim_db}
+      DB_USER: ${DB_USER:-eclaim}
+      DB_PASSWORD: ${DB_PASSWORD:?ERROR - DB_PASSWORD must be set in .env file}
+
+      # E-Claim Credentials (loaded from config/settings.json or .env)
+      ECLAIM_USERNAME: ${ECLAIM_USERNAME:-}
+      ECLAIM_PASSWORD: ${ECLAIM_PASSWORD:-}
+
+      # Flask
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:?ERROR - SECRET_KEY must be set in .env file. Generate with: python -c "import secrets; print(secrets.token_hex(32))"}
+
+      # Security (HTTPS mode)
+      WTF_CSRF_ENABLED: "true"
+      WTF_CSRF_SSL_STRICT: "true"  # Enforce HTTPS for CSRF cookies
+      SESSION_COOKIE_SECURE: "true"  # HTTPS-only session cookies
+      SESSION_COOKIE_HTTPONLY: "true"
+      SESSION_COOKIE_SAMESITE: "Lax"
+
+      # Timezone
+      TZ: ${TZ:-Asia/Bangkok}
+    volumes:
+      - ./downloads:/app/downloads
+      - ./logs:/app/logs
+      - ./config:/app/config
+      - ./database:/app/database
+    # No port exposure - nginx handles all traffic
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: eclaim-nginx
+    depends_on:
+      - web
+    ports:
+      - "80:80"    # HTTP (redirects to HTTPS)
+      - "443:443"  # HTTPS
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/html:/usr/share/nginx/html:ro
+      - ./certbot/www:/var/www/certbot:ro  # Let's Encrypt challenges
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
+
+volumes:
+  postgres_data:
+    driver: local

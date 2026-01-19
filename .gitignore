@@ -1,4 +1,5 @@
 .env
+.admin-credentials
 downloads/
 download_history.json
 stm_download_history.json
@@ -7,9 +8,13 @@ __pycache__/
 .pytest_cache/
 venv/
 config/settings.json
+config/license.json
+config/license_test_private.pem
+config/test_licenses.json
 logs/*.log
 *_progress.json
 *.backup
 exports/
 *.xlsx
 .DS_Store
+security-reports/

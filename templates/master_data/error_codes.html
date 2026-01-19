@@ -1,0 +1,201 @@
+{% extends "master_data/layout.html" %}
+
+{% block tab_content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h2 class="text-xl font-bold text-gray-800">NHSO Error Codes</h2>
+            <p class="text-sm text-gray-600 mt-1">รหัส Error และคำอธิบายจาก สปสช.</p>
+        </div>
+    </div>
+
+    <!-- Search -->
+    <div class="grid grid-cols-3 gap-4">
+        <div class="col-span-2">
+            <input
+                type="text"
+                id="search-input"
+                placeholder="ค้นหา รหัส Error หรือคำอธิบาย"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                oninput="debounceSearch()"
+            >
+        </div>
+        <select id="filter-category" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="loadData()">
+            <option value="">ทุกหมวดหมู่</option>
+        </select>
+    </div>
+
+    <!-- Data Table -->
+    <div class="bg-white border rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-32">Error Code</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase min-w-[300px]">คำอธิบาย</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">หมวดหมู่</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase min-w-[200px]">รายละเอียด</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body" class="divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>กำลังโหลดข้อมูล...</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="bg-gray-50 px-4 py-3 border-t flex items-center justify-between">
+            <div class="text-sm text-gray-700">
+                แสดง <span id="showing-start">0</span>-<span id="showing-end">0</span> จาก <span id="total-records">0</span> รายการ
+            </div>
+            <div class="flex gap-2">
+                <button id="prev-btn" onclick="previousPage()" class="px-3 py-1 bg-white border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                    ก่อนหน้า
+                </button>
+                <button id="next-btn" onclick="nextPage()" class="px-3 py-1 bg-white border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                    ถัดไป
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPage = 1;
+let perPage = 50;
+let totalRecords = 0;
+let searchTimeout;
+
+async function loadData() {
+    const search = document.getElementById('search-input').value;
+    const category = document.getElementById('filter-category').value;
+
+    const params = new URLSearchParams({
+        page: currentPage,
+        per_page: perPage,
+        ...(search && { search }),
+        ...(category && { category })
+    });
+
+    try {
+        const response = await fetch(`/api/master-data/error-codes?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+            totalRecords = data.total;
+            renderTable(data.data);
+            updatePagination();
+        }
+    } catch (error) {
+        console.error('Failed to load data:', error);
+        const tbody = document.getElementById('table-body');
+        tbody.textContent = '';
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 4;
+        td.className = 'px-4 py-8 text-center text-red-600';
+        td.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    }
+}
+
+function renderTable(items) {
+    const tbody = document.getElementById('table-body');
+    tbody.textContent = '';
+
+    if (items.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 4;
+        td.className = 'px-4 py-8 text-center text-gray-500';
+        td.textContent = 'ไม่พบข้อมูล';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+    }
+
+    items.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+
+        // error_code
+        const td1 = document.createElement('td');
+        td1.className = 'px-4 py-3 text-sm font-mono font-medium text-red-600';
+        td1.textContent = item.error_code || '-';
+        tr.appendChild(td1);
+
+        // error_message
+        const td2 = document.createElement('td');
+        td2.className = 'px-4 py-3 text-sm';
+        td2.textContent = item.error_message || '-';
+        tr.appendChild(td2);
+
+        // category
+        const td3 = document.createElement('td');
+        td3.className = 'px-4 py-3 text-sm';
+        const categorySpan = document.createElement('span');
+        categorySpan.className = 'px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800';
+        categorySpan.textContent = item.category || '-';
+        td3.appendChild(categorySpan);
+        tr.appendChild(td3);
+
+        // description
+        const td4 = document.createElement('td');
+        td4.className = 'px-4 py-3 text-sm text-gray-600';
+        td4.textContent = item.description || '-';
+        tr.appendChild(td4);
+
+        tbody.appendChild(tr);
+    });
+}
+
+function updatePagination() {
+    const start = (currentPage - 1) * perPage + 1;
+    const end = Math.min(currentPage * perPage, totalRecords);
+
+    document.getElementById('showing-start').textContent = start;
+    document.getElementById('showing-end').textContent = end;
+    document.getElementById('total-records').textContent = totalRecords.toLocaleString();
+
+    document.getElementById('prev-btn').disabled = currentPage === 1;
+    document.getElementById('next-btn').disabled = end >= totalRecords;
+}
+
+function previousPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        loadData();
+    }
+}
+
+function nextPage() {
+    if (currentPage * perPage < totalRecords) {
+        currentPage++;
+        loadData();
+    }
+}
+
+function debounceSearch() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        currentPage = 1;
+        loadData();
+    }, 300);
+}
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', loadData);
+</script>
+{% endblock %}

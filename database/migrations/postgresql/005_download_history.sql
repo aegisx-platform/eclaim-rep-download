@@ -33,6 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_download_history_scheme ON download_history(schem
 CREATE INDEX IF NOT EXISTS idx_download_history_fiscal_year ON download_history(fiscal_year);
 CREATE INDEX IF NOT EXISTS idx_download_history_downloaded ON download_history(downloaded_at);
 CREATE INDEX IF NOT EXISTS idx_download_history_imported ON download_history(imported);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_download_history_unique ON download_history(download_type, document_no, scheme, rep_no);
+-- Unique constraint on (download_type, filename) for UPSERT operations
+CREATE UNIQUE INDEX IF NOT EXISTS idx_download_history_type_filename ON download_history(download_type, filename);
 
 COMMENT ON TABLE download_history IS 'Track all downloaded files from NHSO systems';

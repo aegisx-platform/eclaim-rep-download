@@ -1,0 +1,710 @@
+openapi: 3.0.3
+info:
+  title: NHSO Revenue Intelligence
+  description: |
+    REST API for Hospital Information System (HIS) integration with E-Claim data.
+
+    ## Authentication
+    All endpoints (except `/health`) require API key authentication via `X-API-Key` header.
+
+    ## Getting Started
+    1. Generate API key from the admin panel
+    2. Include the API key in request headers: `X-API-Key: your-api-key`
+    3. Use the endpoints to fetch claims data and sync reconciliation
+
+    ## Rate Limits
+    - 100 requests per minute per API key
+    - 1000 requests per hour per API key
+
+    ## Data Sources
+    - **REP**: E-Claim reimbursement data (OP/IP claims)
+    - **STM**: Statement reconciliation data
+    - **SMT**: Smart Money Transfer budget data
+
+  version: 1.0.0
+  contact:
+    name: AEGIS-X Platform
+    url: https://github.com/aegisx-platform/eclaim-rep-download
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:5001/api/v1
+    description: Development server
+  - url: https://{hospital-domain}/api/v1
+    description: Production server
+    variables:
+      hospital-domain:
+        default: hospital.example.com
+        description: Your hospital's domain
+
+tags:
+  - name: Health
+    description: System health check
+  - name: Claims
+    description: E-Claim data operations
+  - name: Reconciliation
+    description: HIS reconciliation operations
+  - name: Imports
+    description: Import status tracking
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if API is healthy (no authentication required)
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "API is healthy"
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-12-31T23:59:59Z"
+
+  /claims:
+    get:
+      tags:
+        - Claims
+      summary: Get claims data
+      description: Retrieve claims data with optional filters and pagination
+      operationId: getClaims
+      parameters:
+        - name: date_from
+          in: query
+          required: true
+          description: Start date (inclusive)
+          schema:
+            type: string
+            format: date
+            example: "2025-12-01"
+        - name: date_to
+          in: query
+          required: true
+          description: End date (inclusive)
+          schema:
+            type: string
+            format: date
+            example: "2025-12-31"
+        - name: scheme
+          in: query
+          required: false
+          description: Scheme code filter
+          schema:
+            type: string
+            enum: [UCS, OFC, SSS, LGO]
+            example: "UCS"
+        - name: hn
+          in: query
+          required: false
+          description: Hospital number filter
+          schema:
+            type: string
+            example: "12345678"
+        - name: pid
+          in: query
+          required: false
+          description: Personal ID filter
+          schema:
+            type: string
+            example: "1234567890123"
+        - name: page
+          in: query
+          required: false
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: per_page
+          in: query
+          required: false
+          description: Items per page (max 1000)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+            example: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /claims/{tran_id}:
+    get:
+      tags:
+        - Claims
+      summary: Get single claim
+      description: Retrieve a single claim by TRAN_ID
+      operationId: getClaimById
+      parameters:
+        - name: tran_id
+          in: path
+          required: true
+          description: Transaction ID
+          schema:
+            type: string
+            example: "1234567890"
+      responses:
+        '200':
+          description: Claim found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Claim'
+        '404':
+          description: Claim not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                success: false
+                error: "Claim not found"
+                code: "NOT_FOUND"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /claims/summary:
+    get:
+      tags:
+        - Claims
+      summary: Get claims summary
+      description: Get summary statistics for claims in date range
+      operationId: getClaimsSummary
+      parameters:
+        - name: date_from
+          in: query
+          required: true
+          description: Start date (inclusive)
+          schema:
+            type: string
+            format: date
+            example: "2025-12-01"
+        - name: date_to
+          in: query
+          required: true
+          description: End date (inclusive)
+          schema:
+            type: string
+            format: date
+            example: "2025-12-31"
+      responses:
+        '200':
+          description: Summary statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ClaimsSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /reconciliation/match:
+    post:
+      tags:
+        - Reconciliation
+      summary: Match claims with HIS
+      description: |
+        Batch update claims with HIS reconciliation data.
+        This endpoint accepts an array of matches and updates the corresponding claims.
+      operationId: reconciliationMatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - matches
+              properties:
+                matches:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/ReconciliationMatch'
+            example:
+              matches:
+                - tran_id: "1234567890"
+                  his_vn: "6512000001"
+                  his_hn: "12345678"
+                  his_an: "65120001"
+                - tran_id: "1234567891"
+                  his_vn: "6512000002"
+                  his_hn: "12345679"
+                  his_an: "65120002"
+      responses:
+        '200':
+          description: Batch match completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      matched:
+                        type: integer
+                        description: Number of successfully matched claims
+                        example: 2
+                      failed:
+                        type: integer
+                        description: Number of failed matches
+                        example: 0
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MatchResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /reconciliation/status:
+    get:
+      tags:
+        - Reconciliation
+      summary: Get reconciliation status
+      description: Get overall reconciliation statistics
+      operationId: reconciliationStatus
+      parameters:
+        - name: date_from
+          in: query
+          required: false
+          description: Start date filter (optional)
+          schema:
+            type: string
+            format: date
+            example: "2025-12-01"
+        - name: date_to
+          in: query
+          required: false
+          description: End date filter (optional)
+          schema:
+            type: string
+            format: date
+            example: "2025-12-31"
+      responses:
+        '200':
+          description: Reconciliation status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ReconciliationStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /imports/status:
+    get:
+      tags:
+        - Imports
+      summary: Get import status
+      description: Get import status for all data types (REP, STM, SMT)
+      operationId: importsStatus
+      responses:
+        '200':
+          description: Import status for all file types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ImportsStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication. Generate from admin panel.
+
+  schemas:
+    Claim:
+      type: object
+      properties:
+        tran_id:
+          type: string
+          description: Transaction ID (unique identifier)
+          example: "1234567890"
+        file_id:
+          type: integer
+          description: Import file ID
+          example: 42
+        hn:
+          type: string
+          description: Hospital Number
+          example: "12345678"
+        pid:
+          type: string
+          description: Personal ID (13 digits)
+          example: "1234567890123"
+        dateadm:
+          type: string
+          format: date
+          description: Admission date
+          example: "2025-12-15"
+        datedsc:
+          type: string
+          format: date
+          description: Discharge date
+          example: "2025-12-16"
+        an:
+          type: string
+          description: Admission Number (for IP claims)
+          example: "65120001"
+          nullable: true
+        rep_no:
+          type: string
+          description: Reimbursement number
+          example: "UCS6512000001"
+        total_approve:
+          type: number
+          format: float
+          description: Total approved amount (THB)
+          example: 2500.00
+        hcode:
+          type: string
+          description: Hospital code (5 digits)
+          example: "10670"
+        hmain:
+          type: string
+          description: Main hospital code
+          example: "10670"
+        his_matched:
+          type: boolean
+          description: Whether matched with HIS
+          example: true
+          nullable: true
+        his_vn:
+          type: string
+          description: HIS Visit Number
+          example: "6512000001"
+          nullable: true
+        reconcile_status:
+          type: string
+          description: Reconciliation status
+          enum: [matched, unmatched, pending]
+          example: "matched"
+          nullable: true
+
+    ClaimsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Claim'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 100
+        total:
+          type: integer
+          example: 250
+        pages:
+          type: integer
+          example: 3
+
+    ClaimsSummary:
+      type: object
+      properties:
+        total_claims:
+          type: integer
+          description: Total number of claims
+          example: 1250
+        total_amount:
+          type: number
+          format: float
+          description: Total approved amount (THB)
+          example: 3125000.00
+        by_scheme:
+          type: object
+          description: Statistics by scheme
+          additionalProperties:
+            type: object
+            properties:
+              count:
+                type: integer
+                example: 800
+              amount:
+                type: number
+                format: float
+                example: 2000000.00
+          example:
+            UCS:
+              count: 800
+              amount: 2000000.00
+            OFC:
+              count: 300
+              amount: 750000.00
+            SSS:
+              count: 150
+              amount: 375000.00
+        reconciliation:
+          type: object
+          properties:
+            matched:
+              type: integer
+              description: Number of matched claims
+              example: 1100
+            unmatched:
+              type: integer
+              description: Number of unmatched claims
+              example: 150
+            match_rate:
+              type: number
+              format: float
+              description: Match rate (0-1)
+              example: 0.88
+
+    ReconciliationMatch:
+      type: object
+      required:
+        - tran_id
+      properties:
+        tran_id:
+          type: string
+          description: Transaction ID to match
+          example: "1234567890"
+        his_vn:
+          type: string
+          description: HIS Visit Number
+          example: "6512000001"
+        his_hn:
+          type: string
+          description: HIS Hospital Number
+          example: "12345678"
+        his_an:
+          type: string
+          description: HIS Admission Number
+          example: "65120001"
+
+    MatchResult:
+      type: object
+      properties:
+        tran_id:
+          type: string
+          example: "1234567890"
+        status:
+          type: string
+          enum: [matched, failed]
+          example: "matched"
+        his_vn:
+          type: string
+          example: "6512000001"
+          nullable: true
+        error:
+          type: string
+          description: Error message (if status=failed)
+          example: "TRAN_ID not found"
+          nullable: true
+
+    ReconciliationStatus:
+      type: object
+      properties:
+        total_records:
+          type: integer
+          description: Total number of claims
+          example: 1250
+        matched:
+          type: integer
+          description: Number of matched claims
+          example: 1100
+        unmatched:
+          type: integer
+          description: Number of unmatched claims
+          example: 150
+        match_rate:
+          type: number
+          format: float
+          description: Match rate (0-1)
+          example: 0.88
+        last_sync:
+          type: string
+          format: date-time
+          description: Last sync timestamp
+          example: "2025-12-31T23:59:59Z"
+
+    ImportsStatus:
+      type: object
+      properties:
+        rep:
+          $ref: '#/components/schemas/FileImportStatus'
+        stm:
+          $ref: '#/components/schemas/FileImportStatus'
+        smt:
+          $ref: '#/components/schemas/SMTStatus'
+
+    FileImportStatus:
+      type: object
+      properties:
+        total_files:
+          type: integer
+          description: Total number of files
+          example: 12
+        imported:
+          type: integer
+          description: Successfully imported files
+          example: 10
+        failed:
+          type: integer
+          description: Failed imports
+          example: 2
+        last_import:
+          type: string
+          format: date-time
+          description: Last import timestamp
+          example: "2025-12-31T23:59:59Z"
+          nullable: true
+
+    SMTStatus:
+      type: object
+      properties:
+        total_records:
+          type: integer
+          description: Total budget records
+          example: 120
+        total_amount:
+          type: number
+          format: float
+          description: Total budget amount (THB)
+          example: 50000000.00
+        last_sync:
+          type: string
+          format: date
+          description: Last sync date
+          example: "2025-12-31"
+          nullable: true
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "Invalid parameters"
+        code:
+          type: string
+          example: "INVALID_PARAMS"
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: "date_from and date_to are required"
+            code: "INVALID_PARAMS"
+
+    Unauthorized:
+      description: Authentication failed (invalid or missing API key)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: "Invalid API key"
+            code: "UNAUTHORIZED"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: "Internal server error"
+            code: "INTERNAL_ERROR"

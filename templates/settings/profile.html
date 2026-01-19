@@ -1,0 +1,257 @@
+{% extends "settings/layout.html" %}
+
+{% block settings_content %}
+<!-- User Profile -->
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-6 border border-indigo-100">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">User Profile</h2>
+        <p class="text-gray-600">จัดการข้อมูลผู้ใช้และเปลี่ยนรหัสผ่าน</p>
+    </div>
+
+    <!-- User Information Card -->
+    <div class="bg-white rounded-xl shadow-sm border p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+            </svg>
+            ข้อมูลผู้ใช้
+        </h3>
+
+        <div class="space-y-4">
+            <!-- Username -->
+            <div class="flex items-center justify-between py-3 border-b">
+                <div>
+                    <label class="text-sm text-gray-500">Username</label>
+                    <p class="text-gray-800 font-medium">{{ current_user.username }}</p>
+                </div>
+                <div class="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
+                    Active
+                </div>
+            </div>
+
+            <!-- Role -->
+            <div class="flex items-center justify-between py-3 border-b">
+                <div>
+                    <label class="text-sm text-gray-500">Role</label>
+                    <p class="text-gray-800 font-medium">
+                        {{ current_user.role|title }}
+                        {% if current_user.role == 'admin' %}
+                        <span class="ml-2 text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Administrator</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Email (if available) -->
+            {% if current_user.email %}
+            <div class="flex items-center justify-between py-3 border-b">
+                <div>
+                    <label class="text-sm text-gray-500">Email</label>
+                    <p class="text-gray-800 font-medium">{{ current_user.email }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Created At -->
+            {% if current_user.created_at %}
+            <div class="flex items-center justify-between py-3">
+                <div>
+                    <label class="text-sm text-gray-500">Member Since</label>
+                    <p class="text-gray-800 font-medium">{{ current_user.created_at.strftime('%d %B %Y') }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Change Password Card -->
+    <div class="bg-white rounded-xl shadow-sm border p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+            </svg>
+            เปลี่ยนรหัสผ่าน
+        </h3>
+
+        <!-- Alert Messages -->
+        <div id="password-alert" class="hidden mb-4"></div>
+
+        <!-- Password Change Form -->
+        <form id="change-password-form" class="space-y-4">
+            <!-- Current Password -->
+            <div>
+                <label for="current_password" class="block text-sm font-medium text-gray-700 mb-2">
+                    รหัสผ่านปัจจุบัน
+                </label>
+                <input type="password"
+                       id="current_password"
+                       name="current_password"
+                       required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="••••••••">
+            </div>
+
+            <!-- New Password -->
+            <div>
+                <label for="new_password" class="block text-sm font-medium text-gray-700 mb-2">
+                    รหัสผ่านใหม่
+                </label>
+                <input type="password"
+                       id="new_password"
+                       name="new_password"
+                       required
+                       minlength="6"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="••••••••">
+                <p class="mt-1 text-xs text-gray-500">รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร</p>
+            </div>
+
+            <!-- Confirm New Password -->
+            <div>
+                <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-2">
+                    ยืนยันรหัสผ่านใหม่
+                </label>
+                <input type="password"
+                       id="confirm_password"
+                       name="confirm_password"
+                       required
+                       minlength="6"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="••••••••">
+            </div>
+
+            <!-- Submit Button -->
+            <div class="flex items-center gap-3 pt-2">
+                <button type="submit"
+                        class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
+                    เปลี่ยนรหัสผ่าน
+                </button>
+                <button type="reset"
+                        class="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors">
+                    ยกเลิก
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Security Tips -->
+    <div class="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg">
+        <div class="flex">
+            <svg class="w-5 h-5 text-amber-400 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+            </svg>
+            <div class="text-sm text-amber-700">
+                <p class="font-medium mb-1">คำแนะนำด้านความปลอดภัย:</p>
+                <ul class="list-disc list-inside space-y-1">
+                    <li>ใช้รหัสผ่านที่แข็งแรงและไม่ซ้ำกับระบบอื่น</li>
+                    <li>เปลี่ยนรหัสผ่านเป็นประจำทุก 3-6 เดือน</li>
+                    <li>อย่าแชร์รหัสผ่านกับผู้อื่น</li>
+                    <li>ออกจากระบบเมื่อไม่ใช้งาน</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('change-password-form');
+    const alertDiv = document.getElementById('password-alert');
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const currentPassword = document.getElementById('current_password').value;
+        const newPassword = document.getElementById('new_password').value;
+        const confirmPassword = document.getElementById('confirm_password').value;
+
+        // Validate passwords match
+        if (newPassword !== confirmPassword) {
+            showAlert('รหัสผ่านใหม่และการยืนยันไม่ตรงกัน', 'error');
+            return;
+        }
+
+        // Validate password length
+        if (newPassword.length < 6) {
+            showAlert('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/user/change-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert('เปลี่ยนรหัสผ่านสำเร็จ', 'success');
+                form.reset();
+            } else {
+                showAlert(data.error || 'เกิดข้อผิดพลาด', 'error');
+            }
+        } catch (error) {
+            showAlert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์', 'error');
+        }
+    });
+
+    function showAlert(message, type) {
+        // Clear existing content
+        alertDiv.textContent = '';
+        alertDiv.classList.remove('hidden');
+
+        // Create alert structure using safe DOM methods
+        const alertBox = document.createElement('div');
+        const bgColor = type === 'success' ? 'bg-green-50 border-green-400 text-green-700' : 'bg-red-50 border-red-400 text-red-700';
+        alertBox.className = `border-l-4 ${bgColor} p-4 rounded-r-lg`;
+
+        const flexDiv = document.createElement('div');
+        flexDiv.className = 'flex';
+
+        // Create SVG icon
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'w-5 h-5 mr-3 flex-shrink-0');
+        svg.setAttribute('fill', 'currentColor');
+        svg.setAttribute('viewBox', '0 0 20 20');
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('fill-rule', 'evenodd');
+        path.setAttribute('clip-rule', 'evenodd');
+
+        if (type === 'success') {
+            path.setAttribute('d', 'M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z');
+        } else {
+            path.setAttribute('d', 'M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z');
+        }
+
+        svg.appendChild(path);
+
+        // Create message paragraph
+        const messagePara = document.createElement('p');
+        messagePara.className = 'text-sm font-medium';
+        messagePara.textContent = message;
+
+        // Assemble the alert
+        flexDiv.appendChild(svg);
+        flexDiv.appendChild(messagePara);
+        alertBox.appendChild(flexDiv);
+        alertDiv.appendChild(alertBox);
+
+        // Auto hide after 5 seconds for success messages
+        if (type === 'success') {
+            setTimeout(() => {
+                alertDiv.classList.add('hidden');
+            }, 5000);
+        }
+    }
+});
+</script>
+{% endblock %}

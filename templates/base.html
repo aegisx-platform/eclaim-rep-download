@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}NHSO Revenue Intelligence{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ url_for('static', filename='js/tailwind.min.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <!-- CSRF Protection for AJAX requests -->
+    <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -133,13 +136,49 @@
                         Benchmark
                     </a>
 
-                    <!-- Data Management -->
-                    <a href="{{ url_for('data_management') }}" class="px-4 py-2 rounded-lg font-medium transition-all {% if request.endpoint in ['data_management', 'files', 'download_config', 'settings', 'smt_budget'] %}bg-white/20 text-white{% else %}text-blue-100 hover:bg-white/10 hover:text-white{% endif %}">
-                        <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
-                        </svg>
-                        Data Management
-                    </a>
+
+                    <!-- Settings Dropdown -->
+                    <div class="relative settings-dropdown">
+                        <button onclick="toggleSettingsDropdown()" class="px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-1 {% if request.endpoint and (request.endpoint.startswith('settings.') or request.endpoint in ['data_management', 'master_data_management']) %}bg-white/20 text-white{% else %}text-blue-100 hover:bg-white/10 hover:text-white{% endif %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                            Settings
+                            <svg class="w-4 h-4 transition-transform" id="settings-dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Dropdown Menu -->
+                        <div id="settings-dropdown-menu" class="hidden absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
+                            <a href="{{ url_for('settings.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors {% if request.endpoint and request.endpoint.startswith('settings.') %}bg-blue-50 text-blue-700 font-medium{% endif %}">
+                                <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                </svg>
+                                Settings
+                            </a>
+                            <a href="{{ url_for('data_management') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors {% if request.endpoint == 'data_management' %}bg-blue-50 text-blue-700 font-medium{% endif %}">
+                                <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                                </svg>
+                                Data Management
+                            </a>
+                            <a href="{{ url_for('upload') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors {% if request.endpoint == 'upload' %}bg-blue-50 text-blue-700 font-medium{% endif %}">
+                                <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                </svg>
+                                Manual Upload
+                            </a>
+                            <a href="{{ url_for('master_data_management') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors {% if request.endpoint == 'master_data_management' %}bg-blue-50 text-blue-700 font-medium{% endif %}">
+                                <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                </svg>
+                                Master Data
+                            </a>
+                        </div>
+                    </div>
 
                     <!-- Alerts Bell -->
                     <div class="relative ml-2" id="alerts-container">
@@ -172,6 +211,24 @@
         </div>
     </nav>
 
+    <!-- Seed Initialization Banner -->
+    <div id="seed-init-banner" class="hidden bg-amber-50 border-b border-amber-200">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <span class="text-amber-800 font-medium">System setup incomplete.</span>
+                    <span class="text-amber-700 text-sm">Please initialize seed data before using the system.</span>
+                </div>
+                <a href="{{ url_for('setup') }}" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                    Go to Setup
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content -->
     <main class="container mx-auto px-4 py-8">
         {% block content %}{% endblock %}
@@ -200,5 +257,45 @@
 
     <!-- Scripts -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <!-- Settings Dropdown Script -->
+    <script>
+        function toggleSettingsDropdown() {
+            const menu = document.getElementById('settings-dropdown-menu');
+            const arrow = document.getElementById('settings-dropdown-arrow');
+            menu.classList.toggle('hidden');
+            arrow.classList.toggle('rotate-180');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.querySelector('.settings-dropdown');
+            const menu = document.getElementById('settings-dropdown-menu');
+            if (dropdown && !dropdown.contains(event.target)) {
+                menu.classList.add('hidden');
+                document.getElementById('settings-dropdown-arrow').classList.remove('rotate-180');
+            }
+        });
+    </script>
+
+    <!-- Seed Status Check Script -->
+    <script>
+        // Check seed status on page load and show banner if needed
+        document.addEventListener('DOMContentLoaded', function() {
+            // Skip check on setup page
+            if (window.location.pathname === '/setup') return;
+
+            fetch('/api/system/seed-status')
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success && data.needs_initialization) {
+                        document.getElementById('seed-init-banner').classList.remove('hidden');
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error checking seed status:', error);
+                });
+        });
+    </script>
 </body>
 </html>

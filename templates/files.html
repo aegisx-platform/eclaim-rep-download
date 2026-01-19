@@ -10,16 +10,44 @@
             <h2 class="text-3xl font-bold text-gray-800 mb-2">Downloaded Files</h2>
             <p class="text-gray-600">รายการไฟล์ทั้งหมดที่ download จากระบบ e-claim</p>
         </div>
-        <!-- Month/Year Filter -->
-        <div class="flex items-center gap-3">
-            <label class="text-sm text-gray-700 font-medium">Filter by:</label>
-            <select id="month-filter" onchange="updateFilter()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                {% for date in available_dates %}
-                <option value="{{ date.month }},{{ date.year }}" {% if date.month == filter_month and date.year == filter_year %}selected{% endif %}>
-                    {{ date.label }} ({{ date.count }} files)
-                </option>
-                {% endfor %}
-            </select>
+        <!-- Advanced Filters -->
+        <div class="flex flex-col gap-3">
+            <!-- Row 1: Type and Date Range -->
+            <div class="flex items-center gap-3">
+                <label class="text-sm text-gray-700 font-medium whitespace-nowrap">Filter by:</label>
+                <select id="type-filter" onchange="applyFilters()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="" {% if not filter_type %}selected{% endif %}>All Types</option>
+                    <option value="rep" {% if filter_type == 'rep' %}selected{% endif %}>REP (Reimbursement)</option>
+                    <option value="stm" {% if filter_type == 'stm' %}selected{% endif %}>STM (Statement)</option>
+                    <option value="smt" {% if filter_type == 'smt' %}selected{% endif %}>SMT (Budget)</option>
+                </select>
+
+                <span class="text-sm text-gray-700">From:</span>
+                <input type="date" id="date-from" value="{{ filter_date_from or '' }}"
+                       class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+
+                <span class="text-sm text-gray-700">To:</span>
+                <input type="date" id="date-to" value="{{ filter_date_to or '' }}"
+                       class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <!-- Row 2: Search and Apply Button -->
+            <div class="flex items-center gap-3">
+                <input type="text" id="filename-search" placeholder="Search filename..." value="{{ filter_search or '' }}"
+                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <button onclick="applyFilters()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                    </svg>
+                    Apply Filter
+                </button>
+                <button onclick="clearFilters()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    Clear
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -68,7 +96,7 @@
                 <p class="text-sm text-gray-600">Enable schedule in settings for automatic downloads</p>
             </div>
         </div>
-        <a href="{{ url_for('settings') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+        <a href="{{ url_for('data_management') }}?tab=download" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
             Configure →
         </a>
     </div>
@@ -249,6 +277,12 @@
                             Import
                         </button>
                         {% endif %}
+                        <button onclick="reDownloadFile('{{ file.filename }}')" class="inline-flex items-center text-green-600 hover:text-green-900" title="Re-download this file">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            Re-download
+                        </button>
                         <a href="{{ url_for('download_file', filename=file.filename) }}" class="inline-flex items-center text-blue-600 hover:text-blue-900">
                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -370,11 +404,53 @@
 </div>
 
 <script>
-// Month/Year filter update
-function updateFilter() {
-    const select = document.getElementById('month-filter');
-    const [month, year] = select.value.split(',');
-    window.location.href = `?month=${month}&year=${year}&page=1`;
+// Apply filters (date range, type, search)
+function applyFilters() {
+    const typeSelect = document.getElementById('type-filter');
+    const dateFrom = document.getElementById('date-from');
+    const dateTo = document.getElementById('date-to');
+    const searchInput = document.getElementById('filename-search');
+
+    const type = typeSelect.value;
+    const from = dateFrom.value;
+    const to = dateTo.value;
+    const search = searchInput.value.trim();
+
+    // Build query string
+    let params = new URLSearchParams();
+    params.set('page', '1');
+
+    if (type) {
+        params.set('type', type);
+    }
+    if (from) {
+        params.set('date_from', from);
+    }
+    if (to) {
+        params.set('date_to', to);
+    }
+    if (search) {
+        params.set('search', search);
+    }
+
+    window.location.href = `?${params.toString()}`;
 }
+
+// Clear all filters
+function clearFilters() {
+    window.location.href = '/files';
+}
+
+// Support Enter key on search input
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('filename-search');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                applyFilters();
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

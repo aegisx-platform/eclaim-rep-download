@@ -1,0 +1,456 @@
+{% extends "settings/layout.html" %}
+
+{% block settings_content %}
+<!-- User Management -->
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-6 border border-indigo-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">User Management</h2>
+                <p class="text-gray-600">จัดการผู้ใช้งานระบบ</p>
+            </div>
+            <button onclick="openAddUserModal()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                เพิ่มผู้ใช้ใหม่
+            </button>
+        </div>
+    </div>
+
+    <!-- Alert Messages -->
+    <div id="alert-container" class="hidden"></div>
+
+    <!-- Users Table -->
+    <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Full Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for user in users %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ user.username }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-500">{{ user.email or '-' }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-500">{{ user.full_name or '-' }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                {% if user.role == 'admin' %}bg-purple-100 text-purple-800
+                                {% elif user.role == 'user' %}bg-blue-100 text-blue-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ user.role }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                {% if user.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% if user.last_login_at %}
+                                {{ user.last_login_at.strftime('%d/%m/%Y %H:%M') }}
+                            {% else %}
+                                Never
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div class="flex items-center justify-end gap-2">
+                                <!-- Edit Button -->
+                                <button onclick='editUser({{ user | tojson }})'
+                                        class="text-blue-600 hover:text-blue-900"
+                                        title="Edit User">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+
+                                <!-- Toggle Status Button -->
+                                {% if user.id != current_user.id %}
+                                <button onclick="toggleUserStatus({{ user.id }}, '{{ user.username }}')"
+                                        class="{% if user.is_active %}text-amber-600 hover:text-amber-900{% else %}text-green-600 hover:text-green-900{% endif %}"
+                                        title="{% if user.is_active %}Deactivate{% else %}Activate{% endif %}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        {% if user.is_active %}
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                                        {% else %}
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        {% endif %}
+                                    </svg>
+                                </button>
+                                {% endif %}
+
+                                <!-- Reset Password Button -->
+                                <button onclick="openResetPasswordModal({{ user.id }}, '{{ user.username }}')"
+                                        class="text-indigo-600 hover:text-indigo-900"
+                                        title="Reset Password">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                                    </svg>
+                                </button>
+
+                                <!-- Delete Button -->
+                                {% if user.id != current_user.id %}
+                                <button onclick="deleteUser({{ user.id }}, '{{ user.username }}')"
+                                        class="text-red-600 hover:text-red-900"
+                                        title="Delete User">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                            ไม่พบผู้ใช้ในระบบ
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit User Modal -->
+<div id="user-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-lg bg-white">
+        <div class="mb-4">
+            <h3 id="modal-title" class="text-lg font-semibold text-gray-900">เพิ่มผู้ใช้ใหม่</h3>
+        </div>
+
+        <form id="user-form" class="space-y-4">
+            <input type="hidden" id="user-id" name="user_id">
+
+            <!-- Username -->
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                <input type="text" id="username" name="username" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+
+            <!-- Email -->
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                <input type="email" id="email" name="email" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+
+            <!-- Full Name -->
+            <div>
+                <label for="full_name" class="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล</label>
+                <input type="text" id="full_name" name="full_name"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+
+            <!-- Role -->
+            <div>
+                <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Role *</label>
+                <select id="role" name="role" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                    <option value="analyst">Analyst</option>
+                    <option value="viewer">Viewer</option>
+                </select>
+            </div>
+
+            <!-- Password (only for new user) -->
+            <div id="password-field">
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+                <input type="password" id="password" name="password"
+                       minlength="6"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <p class="mt-1 text-xs text-gray-500">รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร</p>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="button" onclick="closeUserModal()"
+                        class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors">
+                    ยกเลิก
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
+                    บันทึก
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="reset-password-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-lg bg-white">
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">รีเซ็ตรหัสผ่าน</h3>
+            <p class="text-sm text-gray-600 mt-1">รีเซ็ตรหัสผ่านสำหรับ: <span id="reset-username" class="font-medium"></span></p>
+        </div>
+
+        <form id="reset-password-form" class="space-y-4">
+            <input type="hidden" id="reset-user-id" name="user_id">
+
+            <!-- New Password -->
+            <div>
+                <label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่านใหม่ *</label>
+                <input type="password" id="new-password" name="new_password" required
+                       minlength="6"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <p class="mt-1 text-xs text-gray-500">รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร</p>
+            </div>
+
+            <!-- Require Change Password -->
+            <div class="flex items-center">
+                <input type="checkbox" id="require-change" name="require_change" checked
+                       class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                <label for="require-change" class="ml-2 text-sm text-gray-700">
+                    บังคับให้เปลี่ยนรหัสผ่านเมื่อ login ครั้งถัดไป
+                </label>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="button" onclick="closeResetPasswordModal()"
+                        class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors">
+                    ยกเลิก
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
+                    รีเซ็ตรหัสผ่าน
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let isEditMode = false;
+
+// Add User Modal
+function openAddUserModal() {
+    isEditMode = false;
+    document.getElementById('modal-title').textContent = 'เพิ่มผู้ใช้ใหม่';
+    document.getElementById('user-form').reset();
+    document.getElementById('user-id').value = '';
+    document.getElementById('username').readOnly = false;
+    document.getElementById('password-field').classList.remove('hidden');
+    document.getElementById('password').required = true;
+    document.getElementById('user-modal').classList.remove('hidden');
+}
+
+function editUser(user) {
+    isEditMode = true;
+    document.getElementById('modal-title').textContent = 'แก้ไขข้อมูลผู้ใช้';
+    document.getElementById('user-id').value = user.id;
+    document.getElementById('username').value = user.username;
+    document.getElementById('username').readOnly = true;
+    document.getElementById('email').value = user.email || '';
+    document.getElementById('full_name').value = user.full_name || '';
+    document.getElementById('role').value = user.role;
+    document.getElementById('password-field').classList.add('hidden');
+    document.getElementById('password').required = false;
+    document.getElementById('user-modal').classList.remove('hidden');
+}
+
+function closeUserModal() {
+    document.getElementById('user-modal').classList.add('hidden');
+}
+
+// Reset Password Modal
+function openResetPasswordModal(userId, username) {
+    document.getElementById('reset-user-id').value = userId;
+    document.getElementById('reset-username').textContent = username;
+    document.getElementById('reset-password-form').reset();
+    document.getElementById('reset-password-modal').classList.remove('hidden');
+}
+
+function closeResetPasswordModal() {
+    document.getElementById('reset-password-modal').classList.add('hidden');
+}
+
+// User Form Submit
+document.getElementById('user-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+    const data = {
+        username: formData.get('username'),
+        email: formData.get('email'),
+        full_name: formData.get('full_name'),
+        role: formData.get('role')
+    };
+
+    if (!isEditMode) {
+        data.password = formData.get('password');
+    }
+
+    const userId = formData.get('user_id');
+    const url = isEditMode ? `/api/users/${userId}` : '/api/users';
+    const method = isEditMode ? 'PUT' : 'POST';
+
+    try {
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showAlert(result.message || 'บันทึกสำเร็จ', 'success');
+            closeUserModal();
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showAlert(result.error || 'เกิดข้อผิดพลาด', 'error');
+        }
+    } catch (error) {
+        showAlert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์', 'error');
+    }
+});
+
+// Reset Password Form Submit
+document.getElementById('reset-password-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+    const userId = formData.get('user_id');
+    const data = {
+        new_password: formData.get('new_password'),
+        require_change: formData.get('require_change') === 'on'
+    };
+
+    try {
+        const response = await fetch(`/api/users/${userId}/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showAlert('รีเซ็ตรหัสผ่านสำเร็จ', 'success');
+            closeResetPasswordModal();
+        } else {
+            showAlert(result.error || 'เกิดข้อผิดพลาด', 'error');
+        }
+    } catch (error) {
+        showAlert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์', 'error');
+    }
+});
+
+// Toggle User Status
+async function toggleUserStatus(userId, username) {
+    if (!confirm(`คุณต้องการเปลี่ยนสถานะของผู้ใช้ ${username} หรือไม่?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/users/${userId}/toggle-status`, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showAlert('เปลี่ยนสถานะสำเร็จ', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showAlert(result.error || 'เกิดข้อผิดพลาด', 'error');
+        }
+    } catch (error) {
+        showAlert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์', 'error');
+    }
+}
+
+// Delete User
+async function deleteUser(userId, username) {
+    if (!confirm(`คุณต้องการลบผู้ใช้ ${username} หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/users/${userId}`, {
+            method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showAlert('ลบผู้ใช้สำเร็จ', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showAlert(result.error || 'เกิดข้อผิดพลาด', 'error');
+        }
+    } catch (error) {
+        showAlert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์', 'error');
+    }
+}
+
+// Show Alert
+function showAlert(message, type) {
+    const container = document.getElementById('alert-container');
+    container.classList.remove('hidden');
+
+    const alertBox = document.createElement('div');
+    const bgColor = type === 'success' ? 'bg-green-50 border-green-400 text-green-700' : 'bg-red-50 border-red-400 text-red-700';
+    alertBox.className = `border-l-4 ${bgColor} p-4 rounded-r-lg mb-4`;
+
+    const flexDiv = document.createElement('div');
+    flexDiv.className = 'flex';
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'w-5 h-5 mr-3 flex-shrink-0');
+    svg.setAttribute('fill', 'currentColor');
+    svg.setAttribute('viewBox', '0 0 20 20');
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('fill-rule', 'evenodd');
+    path.setAttribute('clip-rule', 'evenodd');
+
+    if (type === 'success') {
+        path.setAttribute('d', 'M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z');
+    } else {
+        path.setAttribute('d', 'M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z');
+    }
+
+    svg.appendChild(path);
+
+    const messagePara = document.createElement('p');
+    messagePara.className = 'text-sm font-medium';
+    messagePara.textContent = message;
+
+    flexDiv.appendChild(svg);
+    flexDiv.appendChild(messagePara);
+    alertBox.appendChild(flexDiv);
+    container.textContent = '';
+    container.appendChild(alertBox);
+
+    if (type === 'success') {
+        setTimeout(() => {
+            container.classList.add('hidden');
+        }, 3000);
+    }
+}
+</script>
+{% endblock %}

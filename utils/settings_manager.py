@@ -25,6 +25,8 @@ class SettingsManager:
             'eclaim_credentials': [],  # List of {"username": "", "password": "", "note": "", "enabled": true}
             'download_dir': 'downloads',
             'auto_import_default': False,
+            # Global Hospital Settings
+            'hospital_code': '',  # 5-digit hospital/vendor code (used for SMT and per-bed KPIs)
             # Unified schedule settings (applies to all data types)
             'schedule_enabled': False,
             'schedule_times': [],
@@ -33,12 +35,12 @@ class SettingsManager:
             'schedule_type_rep': True,   # Download REP files in schedule
             'schedule_type_stm': False,  # Download Statement files in schedule
             'schedule_type_smt': False,  # Download SMT Budget in schedule
-            'schedule_smt_vendor_id': '', # Vendor ID for SMT schedule (uses smt_vendor_id if empty)
+            'schedule_smt_vendor_id': '', # Vendor ID for SMT schedule (uses hospital_code if empty)
             # Insurance scheme settings
             'enabled_schemes': ['ucs', 'ofc', 'sss', 'lgo'],  # Default 4 main schemes
             # SMT Budget settings
             'smt_enabled': False,
-            'smt_vendor_id': '',
+            'smt_vendor_id': '',  # Legacy field - prefer hospital_code
             'smt_schedule_enabled': False,
             'smt_schedule_times': [],
             'smt_auto_save_db': True
@@ -331,10 +333,10 @@ class SettingsManager:
             schedule_smt_vendor_id, schedule_parallel_download, schedule_parallel_workers
         """
         settings = self.load_settings()
-        # For SMT vendor ID, fallback to smt_vendor_id from SMT settings if not set
+        # For SMT vendor ID, use schedule_smt_vendor_id first, then hospital_code
         smt_vendor = settings.get('schedule_smt_vendor_id', '')
         if not smt_vendor:
-            smt_vendor = settings.get('smt_vendor_id', '')
+            smt_vendor = self.get_hospital_code()
 
         return {
             'schedule_enabled': settings.get('schedule_enabled', False),
@@ -352,7 +354,8 @@ class SettingsManager:
     def update_schedule_settings(self, enabled: bool, times: list, auto_import: bool,
                                    type_rep: bool = True, type_stm: bool = False,
                                    type_smt: bool = False, smt_vendor_id: str = '',
-                                   parallel_download: bool = False, parallel_workers: int = 3) -> bool:
+                                   parallel_download: bool = False, parallel_workers: int = 3,
+                                   rep_schemes: list = None) -> bool:
         """
         Update unified schedule settings
 
@@ -366,6 +369,7 @@ class SettingsManager:
             smt_vendor_id: Vendor ID for SMT schedule
             parallel_download: Whether to use parallel download for REP files
             parallel_workers: Number of parallel workers (2-5)
+            rep_schemes: List of REP schemes to download (e.g., ['ucs', 'ofc', 'sss', 'lgo'])
 
         Returns:
             True if successful
@@ -380,6 +384,11 @@ class SettingsManager:
         settings['schedule_smt_vendor_id'] = smt_vendor_id
         settings['schedule_parallel_download'] = parallel_download
         settings['schedule_parallel_workers'] = min(max(int(parallel_workers), 2), 5)  # Clamp 2-5
+
+        # Update rep_schemes if provided
+        if rep_schemes is not None:
+            settings['schedule_schemes'] = rep_schemes
+
         return self.save_settings(settings)
 
     def get_smt_settings(self) -> Dict:
@@ -481,6 +490,40 @@ class SettingsManager:
         settings = self.load_settings()
         return settings.get(key, default)
 
+    # ===== Hospital Settings =====
+
+    def get_hospital_code(self) -> str:
+        """
+        Get the global hospital code.
+        Falls back to smt_vendor_id for backward compatibility.
+
+        Returns:
+            Hospital code (5-digit string) or empty string
+        """
+        settings = self.load_settings()
+        hospital_code = settings.get('hospital_code', '').strip()
+        if hospital_code:
+            return hospital_code
+        # Fallback to legacy smt_vendor_id
+        return settings.get('smt_vendor_id', '').strip()
+
+    def set_hospital_code(self, hospital_code: str) -> bool:
+        """
+        Set the global hospital code.
+        Also updates smt_vendor_id for backward compatibility.
+
+        Args:
+            hospital_code: 5-digit hospital/vendor code
+
+        Returns:
+            True if successful
+        """
+        settings = self.load_settings()
+        settings['hospital_code'] = hospital_code.strip()
+        # Also update smt_vendor_id for backward compatibility
+        settings['smt_vendor_id'] = hospital_code.strip()
+        return self.save_settings(settings)
+
     # ===== STM (Statement) Schedule Settings =====
 
     def get_stm_schedule_settings(self) -> Dict:
@@ -557,3 +600,105 @@ class SettingsManager:
         settings = self.load_settings()
         settings['schedule_schemes'] = schemes
         return self.save_settings(settings)
+
+    # ===== License Settings =====
+
+    def get_license_info(self) -> Dict:
+        """
+        Get license information from license checker
+
+        Returns:
+            Dict with license status, tier, features, expiration, etc.
+        """
+        try:
+            from utils.license_checker import get_license_checker
+            checker = get_license_checker()
+            return checker.get_license_info()
+        except Exception as e:
+            return {
+                'is_valid': False,
+                'status': 'error',
+                'error': str(e),
+                'tier': 'trial',
+                'features': {},
+                'days_until_expiry': None,
+                'grace_period': False,
+                'grace_days_left': 0,
+                'max_users': None,
+                'expires_at': None,
+                'issued_at': None,
+                'license_key': None,
+                'license_type': 'trial',
+                'hospital_code': None,
+                'hospital_name': None,
+                'custom_limits': {}
+            }
+
+    def install_license(self, license_key: str, license_token: str, public_key: str) -> Tuple[bool, str]:
+        """
+        Install a new license
+
+        Args:
+            license_key: License key
+            license_token: JWT license token
+            public_key: RSA public key (PEM format)
+
+        Returns:
+            (success, message)
+        """
+        try:
+            from utils.license_checker import get_license_checker
+            checker = get_license_checker()
+
+            # Save license
+            if not checker.save_license(license_key, license_token, public_key):
+                return False, "Failed to save license file"
+
+            # Verify it works
+            is_valid, payload, error = checker.verify_license()
+            if not is_valid:
+                # Remove invalid license
+                checker.remove_license()
+                return False, f"License verification failed: {error}"
+
+            return True, "License installed successfully"
+
+        except Exception as e:
+            return False, f"Error installing license: {str(e)}"
+
+    def remove_license(self) -> Tuple[bool, str]:
+        """
+        Remove installed license
+
+        Returns:
+            (success, message)
+        """
+        try:
+            from utils.license_checker import get_license_checker
+            checker = get_license_checker()
+
+            if checker.remove_license():
+                return True, "License removed successfully"
+            else:
+                return False, "Failed to remove license"
+
+        except Exception as e:
+            return False, f"Error removing license: {str(e)}"
+
+    def check_feature_access(self, feature: str) -> bool:
+        """
+        Check if current license allows access to a feature
+
+        Args:
+            feature: Feature name
+
+        Returns:
+            True if feature is accessible
+        """
+        try:
+            from utils.license_checker import get_license_checker
+            checker = get_license_checker()
+            return checker.check_feature_access(feature)
+        except Exception:
+            # Default to trial mode on error
+            return False

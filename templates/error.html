@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ error_title or 'Error' }} - E-Claim System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-red-50 to-orange-100 min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-2xl px-4">
+        <!-- Error Card -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-red-600 to-orange-600 p-8 text-center">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full mb-4">
+                    <i class="fas fa-exclamation-triangle text-4xl text-red-600"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-white mb-2">
+                    {{ error_title or 'เกิดข้อผิดพลาด' }}
+                </h1>
+                <p class="text-red-100">E-Claim System</p>
+            </div>
+
+            <!-- Error Message -->
+            <div class="p-8">
+                <!-- Main Error Message -->
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r">
+                    <div class="flex items-start">
+                        <i class="fas fa-exclamation-circle text-red-500 mt-1 mr-3 flex-shrink-0"></i>
+                        <div>
+                            <p class="font-semibold text-red-800 mb-2">{{ error_message or 'เกิดข้อผิดพลาดบางอย่าง' }}</p>
+                            {% if error_details %}
+                            <p class="text-sm text-red-700">{{ error_details }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Suggestion -->
+                {% if suggestion %}
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r">
+                    <div class="flex items-start">
+                        <i class="fas fa-lightbulb text-blue-500 mt-1 mr-3 flex-shrink-0"></i>
+                        <div>
+                            <p class="font-semibold text-blue-800 mb-1">คำแนะนำ</p>
+                            <p class="text-sm text-blue-700">{{ suggestion }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Common Solutions -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <h3 class="font-semibold text-gray-900 mb-3 flex items-center">
+                        <i class="fas fa-tools text-gray-600 mr-2"></i>
+                        วิธีแก้ไขทั่วไป:
+                    </h3>
+                    <ul class="text-sm text-gray-700 space-y-2">
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mt-1 mr-2 flex-shrink-0"></i>
+                            <span>รีเฟรชหน้าเว็บ (กด F5 หรือ Ctrl+R)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mt-1 mr-2 flex-shrink-0"></i>
+                            <span>ล้าง Cache ของเบราว์เซอร์</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mt-1 mr-2 flex-shrink-0"></i>
+                            <span>ออกจากระบบแล้วเข้าสู่ระบบใหม่</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mt-1 mr-2 flex-shrink-0"></i>
+                            <span>ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button
+                        onclick="window.location.reload()"
+                        class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center justify-center"
+                    >
+                        <i class="fas fa-sync-alt mr-2"></i>รีเฟรชหน้าเว็บ
+                    </button>
+
+                    {% if current_user.is_authenticated %}
+                    <a
+                        href="{{ url_for('dashboard') }}"
+                        class="flex-1 bg-gray-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-700 transition-all flex items-center justify-center"
+                    >
+                        <i class="fas fa-home mr-2"></i>กลับหน้าหลัก
+                    </a>
+                    {% else %}
+                    <a
+                        href="{{ url_for('login') }}"
+                        class="flex-1 bg-gray-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-700 transition-all flex items-center justify-center"
+                    >
+                        <i class="fas fa-sign-in-alt mr-2"></i>เข้าสู่ระบบ
+                    </a>
+                    {% endif %}
+
+                    <button
+                        onclick="window.history.back()"
+                        class="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 transition-all flex items-center justify-center"
+                    >
+                        <i class="fas fa-arrow-left mr-2"></i>ย้อนกลับ
+                    </button>
+                </div>
+
+                <!-- Technical Details (Development Only) -->
+                {% if config.get('FLASK_ENV') == 'development' and error_details %}
+                <div class="mt-6 pt-6 border-t border-gray-200">
+                    <details class="text-sm">
+                        <summary class="cursor-pointer text-gray-600 hover:text-gray-900 font-semibold">
+                            <i class="fas fa-code mr-2"></i>รายละเอียดทางเทคนิค (Development Mode)
+                        </summary>
+                        <pre class="mt-3 p-4 bg-gray-900 text-green-400 rounded-lg overflow-x-auto text-xs">{{ error_details }}</pre>
+                    </details>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-gray-50 px-8 py-4 text-center text-xs text-gray-500">
+                <p>หากปัญหายังคงเกิดขึ้น กรุณาติดต่อผู้ดูแลระบบ</p>
+                <p class="mt-1">E-Claim REP Download System v3.2.0</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
