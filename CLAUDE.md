@@ -141,6 +141,103 @@ docker-compose exec db psql -U eclaim -d eclaim_db -c "SELECT COUNT(*) FROM clai
    - Optional auto-import after download
    - Background execution with process isolation
 
+### v4.0.0 Blueprint Architecture
+
+**Major architectural refactoring introduced in v4.0.0:**
+
+#### Modular Blueprint Structure
+The application now uses **12 domain-separated Flask blueprints** instead of a monolithic app.py file:
+
+**Blueprint Organization:**
+```
+routes/
+├── Domain Blueprints (Core business logic)
+│   ├── analytics_api.py (53 routes) - Analytics, reporting, predictions
+│   ├── downloads_api.py (35 routes) - Download management & history
+│   ├── imports_api.py (19 routes) - Import operations for all file types
+│   └── files_api.py (15 routes) - File management operations
+│
+├── Data Source Blueprints (Data-specific operations)
+│   ├── rep_api.py (4 routes) - REP data operations
+│   ├── stm_api.py (6 routes) - Statement data operations
+│   └── smt_api.py (6 routes) - SMT budget operations
+│
+├── Utility Blueprints (Supporting services)
+│   ├── master_data_api.py (17 routes) - Reference data management
+│   ├── benchmark_api.py (7 routes) - Hospital benchmarking
+│   ├── jobs_api.py (3 routes) - Background job tracking
+│   ├── alerts_api.py (7 routes) - System notifications
+│   └── system_api.py (5 routes) - System health monitoring
+│
+└── External Integration Blueprints
+    ├── external_api.py (7 routes) - HIS integration API
+    ├── settings.py (15 routes) - Settings API
+    ├── settings_pages.py (8 routes) - Settings UI pages
+    └── api_keys_management.py (6 routes) - API key management
+```
+
+#### Key Metrics
+- **app.py**: Reduced from 13,657 lines → 2,266 lines (83.4% reduction)
+- **Total routes extracted**: 184 API routes into blueprints
+- **Remaining in app.py**: 38 core routes (authentication, page rendering, file serving, setup)
+- **Total blueprints**: 12 domain-separated modules
+
+#### Benefits
+- ✅ **Improved Maintainability**: Each blueprint has a single, well-defined responsibility
+- ✅ **Better Scalability**: Easy to add new features without affecting core app
+- ✅ **Enhanced Team Collaboration**: Multiple developers can work on different blueprints
+- ✅ **Easier Testing**: Each blueprint can be tested independently
+- ✅ **Better Code Navigation**: Find routes by domain instead of searching monolithic file
+- ✅ **Reduced Merge Conflicts**: Changes are isolated to specific blueprints
+
+#### Manager Sharing Pattern
+Blueprints access shared managers via `current_app.config`:
+
+```python
+# In app.py - Manager initialization
+app.config['downloader_runner'] = downloader_runner
+app.config['settings_manager'] = settings_manager
+app.config['UNIFIED_IMPORT_RUNNER'] = unified_import_runner
+
+# In blueprint - Manager access
+from flask import current_app
+
+def my_route():
+    downloader = current_app.config['downloader_runner']
+    # Use manager...
+```
+
+#### Blueprint Registration
+All blueprints are registered in app.py:
+
+```python
+# Domain blueprints
+app.register_blueprint(analytics_api_bp)
+app.register_blueprint(downloads_api_bp)
+app.register_blueprint(imports_api_bp)
+app.register_blueprint(files_api_bp)
+
+# Data source blueprints
+app.register_blueprint(rep_api_bp)
+app.register_blueprint(stm_api_bp)
+app.register_blueprint(smt_api_bp)
+
+# Utility blueprints
+app.register_blueprint(master_data_api_bp)
+app.register_blueprint(benchmark_api_bp)
+app.register_blueprint(jobs_api_bp)
+app.register_blueprint(alerts_api_bp)
+app.register_blueprint(system_api_bp)
+
+# External integration
+app.register_blueprint(external_api_bp)
+app.register_blueprint(settings_api_bp)
+app.register_blueprint(settings_pages_bp)
+app.register_blueprint(api_keys_mgmt_bp)
+```
+
+**See `docs/technical/ARCHITECTURE.md` for complete architecture documentation.**
+
 ### API Route Structure
 
 The API follows a consistent RESTful naming convention with resources grouped by domain:

@@ -44,6 +44,7 @@ Installation, integration, and development guides.
 
 | Document | Description | Audience |
 |----------|-------------|----------|
+| [**🆕 Architecture**](technical/ARCHITECTURE.md) | **v4.0.0 Blueprint architecture, system design** | **Architects, senior developers** |
 | [Installation Guide](technical/INSTALLATION.md) | Docker deployment, database setup | IT administrators, DevOps |
 | [HIS Integration](technical/HIS_INTEGRATION.md) | REST API guide, integration patterns | Software developers, integrators |
 | [Database Schema](technical/DATABASE.md) | Schema design, migrations, seed data | Database administrators |
@@ -51,6 +52,7 @@ Installation, integration, and development guides.
 | [Troubleshooting](technical/TROUBLESHOOTING.md) | Common issues and solutions | Support teams, IT staff |
 
 **Quick Links:**
+- [**🆕 v4.0.0 Architecture**](technical/ARCHITECTURE.md) - **Modular blueprint structure, 83.4% code reduction**
 - [Quick Start Installation](technical/INSTALLATION.md#quick-start)
 - [API Endpoints](technical/HIS_INTEGRATION.md#core-api-endpoints)
 - [Database Migration](technical/DATABASE.md#migration-system)

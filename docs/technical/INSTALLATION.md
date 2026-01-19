@@ -1,6 +1,6 @@
 # Installation Guide
 
-คู่มือการติดตั้ง NHSO Revenue Intelligence v3.1.0
+คู่มือการติดตั้ง NHSO Revenue Intelligence v4.0.0
 
 ---
 
@@ -288,7 +288,7 @@ docker compose up -d
 
 แก้ไข `.env`:
 ```env
-VERSION=v3.1.0
+VERSION=v4.0.0
 ```
 
 แล้ว:

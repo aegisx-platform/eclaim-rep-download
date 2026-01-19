@@ -39,8 +39,8 @@ If you find this project helpful, consider buying me a coffee!
 
 **NHSO Revenue Intelligence** (เดิมชื่อ E-Claim Downloader) เป็นระบบวิเคราะห์รายได้จากการเบิกจ่าย สปสช. สำหรับโรงพยาบาล ครอบคลุมตั้งแต่การ download ข้อมูล E-Claim, import เข้าฐานข้อมูล, วิเคราะห์รายได้, จนถึงกระทบยอดกับข้อมูล SMT Budget
 
-**Version:** v3.2.0
-**Last Updated:** 2026-01-17
+**Version:** v4.0.0
+**Last Updated:** 2026-01-19
 
 ### Data Sources
 
@@ -294,36 +294,114 @@ NHSO Revenue Intelligence
 
 ## Project Structure
 
+### v4.0.0 Architecture
+
 ```
 eclaim-rep-download/
-├── app.py                          # Flask web application
-├── eclaim_downloader_http.py       # HTTP downloader
-├── eclaim_import.py                # CLI import tool
-├── docker-compose*.yml             # Docker configurations
-├── config/                         # Configuration files
-├── database/                       # Database schemas
-│   ├── schema-postgresql-merged.sql
-│   └── schema-mysql-merged.sql
-├── docs/                           # Documentation
-├── utils/                          # Utility modules
-│   ├── eclaim/                     # E-Claim modules
-│   │   ├── parser.py
-│   │   └── importer_v2.py
-│   ├── smt/                        # SMT Budget modules
-│   ├── history_manager.py
-│   ├── file_manager.py
-│   ├── downloader_runner.py
-│   ├── import_runner.py
-│   ├── scheduler.py
-│   └── settings_manager.py
-├── templates/                      # HTML templates
+├── app.py                          # Flask application (2,266 lines - 83.4% smaller!)
+│                                   # Core routes only: auth, pages, setup
+├── routes/                         # 🆕 Modular Blueprint Architecture (12 blueprints)
+│   ├── analytics_api.py            # Analytics & reporting (53 routes)
+│   ├── downloads_api.py            # Download management (35 routes)
+│   ├── imports_api.py              # Import operations (19 routes)
+│   ├── master_data_api.py          # Master data management (17 routes)
+│   ├── files_api.py                # File operations (15 routes)
+│   ├── benchmark_api.py            # Hospital benchmarking (7 routes)
+│   ├── alerts_api.py               # System notifications (7 routes)
+│   ├── smt_api.py                  # SMT budget operations (6 routes)
+│   ├── stm_api.py                  # Statement operations (6 routes)
+│   ├── system_api.py               # System health (5 routes)
+│   ├── rep_api.py                  # REP data operations (4 routes)
+│   ├── jobs_api.py                 # Background jobs (3 routes)
+│   ├── external_api.py             # HIS integration API (7 routes)
+│   ├── settings.py                 # Settings API (15 routes)
+│   ├── settings_pages.py           # Settings pages (8 routes)
+│   └── api_keys_management.py      # API key management (6 routes)
+│
+├── utils/                          # Business logic & managers
+│   ├── eclaim/                     # E-Claim processing
+│   │   ├── parser.py               # Excel parser
+│   │   └── importer_v2.py          # Database importer
+│   ├── download_manager/           # Download orchestration
+│   │   ├── manager.py              # Download manager v2
+│   │   ├── session.py              # Session management
+│   │   └── parallel_bridge.py      # Parallel downloads
+│   ├── history_manager.py          # Download history
+│   ├── file_manager.py             # File operations
+│   ├── downloader_runner.py        # Download runner
+│   ├── import_runner.py            # Import runner
+│   ├── unified_import_runner.py    # Unified import (REP/STM/SMT)
+│   ├── stm_import_runner.py        # STM-specific import
+│   ├── scheduler.py                # APScheduler
+│   ├── settings_manager.py         # Settings CRUD
+│   ├── job_history_manager.py      # Job tracking
+│   ├── alert_manager.py            # Alert system
+│   ├── license_checker.py          # License validation
+│   └── auth.py                     # Authentication
+│
+├── config/                         # Configuration
+│   ├── database.py                 # DB configuration
+│   ├── db_pool.py                  # Connection pooling
+│   └── settings.json               # User settings (not in git)
+│
+├── database/                       # Database
+│   ├── migrations/                 # Migration system
+│   │   ├── postgresql/             # PostgreSQL migrations
+│   │   └── mysql/                  # MySQL migrations
+│   ├── seeds/                      # Seed data
+│   │   ├── postgresql/
+│   │   └── mysql/
+│   └── migrate.py                  # Migration runner
+│
+├── templates/                      # Jinja2 templates
 │   ├── base.html                   # Base layout
-│   ├── dashboard.html              # Revenue Dashboard
-│   ├── analytics.html              # Analytics Dashboard
-│   ├── reconciliation.html         # Reconciliation
-│   └── data_management.html        # Combined Data Management
-└── static/                         # CSS & JavaScript
+│   ├── dashboard.html              # Revenue dashboard
+│   ├── data_analysis.html          # Analytics page
+│   ├── data_management.html        # Data management (all-in-one)
+│   ├── benchmark.html              # Hospital benchmarking
+│   ├── settings/                   # Settings pages
+│   │   ├── index.html
+│   │   ├── hospital.html
+│   │   ├── credentials.html
+│   │   ├── license.html
+│   │   └── users.html
+│   └── master_data/                # Master data pages
+│
+├── static/                         # Frontend assets
+│   ├── js/                         # JavaScript
+│   │   ├── app.js                  # Main application
+│   │   ├── csrf.js                 # CSRF protection
+│   │   └── upload-multiple.js      # File upload
+│   └── swagger/                    # API documentation
+│       └── openapi.yaml            # OpenAPI 3.0 spec
+│
+├── docs/                           # Documentation
+│   ├── technical/                  # Technical docs
+│   │   ├── ARCHITECTURE.md         # 🆕 System architecture
+│   │   ├── API_DOCUMENTATION.md
+│   │   └── DATABASE_SCHEMA.md
+│   ├── business/                   # Business docs
+│   │   ├── LICENSE_MANAGEMENT.md
+│   │   └── VALUE_PROPOSITION.md
+│   └── INSTALLATION_GUIDE.md       # Installation guide
+│
+├── docker-compose.yml              # PostgreSQL stack
+├── docker-compose-mysql.yml        # MySQL stack
+├── docker-compose-https.yml        # 🆕 HTTPS with nginx
+├── Dockerfile                      # Container image
+└── VERSION                         # Version: 4.0.0
 ```
+
+### Key Improvements in v4.0.0
+
+✅ **83.4% Code Reduction** - app.py: 13,657 → 2,266 lines
+✅ **12 Modular Blueprints** - Clear separation of concerns
+✅ **184 Routes Extracted** - Domain-separated API routes
+✅ **Better Maintainability** - Each blueprint has single responsibility
+✅ **Easier Testing** - Independent blueprint testing
+✅ **Team Collaboration** - Multiple developers, fewer conflicts
+
+See **[Architecture Documentation](docs/technical/ARCHITECTURE.md)** for details.
 
 ---
 
