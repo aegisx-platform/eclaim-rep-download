@@ -1,5 +1,24 @@
 # ✨ Features
 
+## 🏗️ v4.0.0 Architecture (January 2026)
+
+- ✅ **Modular Blueprint Structure** - 12 domain-separated Flask blueprints
+- ✅ **83.4% Code Reduction** - app.py reduced from 13,657 lines → 2,266 lines
+- ✅ **184 API Routes Extracted** - Organized by business domain
+- ✅ **Improved Maintainability** - Each blueprint has single, well-defined responsibility
+- ✅ **Better Scalability** - Easy to add features without affecting core app
+- ✅ **Enhanced Team Collaboration** - Multiple developers can work independently
+- ✅ **Independent Testing** - Each blueprint testable in isolation
+- ✅ **Better Code Navigation** - Find routes by domain instead of searching monolithic file
+- ✅ **Reduced Merge Conflicts** - Changes isolated to specific blueprints
+- ✅ **Manager Sharing Pattern** - Blueprints access shared managers via `current_app.config`
+
+**Blueprint Organization:**
+- 4 **Domain Blueprints**: Analytics, Downloads, Imports, Files
+- 3 **Data Source Blueprints**: REP, STM, SMT operations
+- 5 **Utility Blueprints**: Master Data, Benchmark, Jobs, Alerts, System
+- 4 **External Integration**: API, Settings, API Keys
+
 ## 🌐 Web UI Dashboard
 
 - ✅ **Dashboard** - สถิติไฟล์ที่ download พร้อม charts

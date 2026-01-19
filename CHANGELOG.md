@@ -7,6 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-01-19
+
+### Major Architectural Refactoring 🎉
+
+This release introduces a complete architectural overhaul with **modular blueprint structure**, resulting in **83.4% code reduction** in the main application file and significantly improved maintainability.
+
+### Added
+
+#### Modular Blueprint Architecture
+- **12 domain-separated blueprints** for API routes:
+  - `routes/analytics_api.py` (53 routes) - Analytics and reporting
+  - `routes/downloads_api.py` (35 routes) - Download management
+  - `routes/imports_api.py` (19 routes) - Import operations
+  - `routes/master_data_api.py` (17 routes) - Master data management
+  - `routes/files_api.py` (15 routes) - File operations
+  - `routes/benchmark_api.py` (7 routes) - Hospital benchmarking
+  - `routes/alerts_api.py` (7 routes) - System notifications
+  - `routes/smt_api.py` (6 routes) - SMT budget operations
+  - `routes/stm_api.py` (6 routes) - Statement operations
+  - `routes/system_api.py` (5 routes) - System health monitoring
+  - `routes/rep_api.py` (4 routes) - REP data operations
+  - `routes/jobs_api.py` (3 routes) - Background job tracking
+
+#### Documentation
+- **NEW:** `docs/technical/ARCHITECTURE.md` - Complete architecture documentation
+- Updated all documentation to reflect new structure
+- Added blueprint-specific documentation
+
+### Changed
+
+#### Code Organization
+- **app.py**: Reduced from 13,657 lines to 2,266 lines (83.4% reduction)
+- **184 API routes** extracted into domain-separated blueprints
+- **38 core routes** remain in app.py (authentication, page rendering, file serving, setup)
+- Clear separation of concerns by domain
+
+#### Benefits
+- **Improved Maintainability**: Each blueprint has a single, well-defined responsibility
+- **Better Scalability**: Easy to add new features without affecting core app
+- **Enhanced Team Collaboration**: Multiple developers can work on different blueprints simultaneously
+- **Easier Testing**: Each blueprint can be tested independently
+- **Better Code Navigation**: Find routes by domain instead of searching through monolithic file
+- **Reduced Merge Conflicts**: Changes are isolated to specific blueprints
+
+### Technical Details
+
+#### Blueprint Categories
+1. **Domain Blueprints**: Core business logic (analytics, downloads, imports, files)
+2. **Data Source Blueprints**: Data-specific operations (REP, STM, SMT)
+3. **Utility Blueprints**: Supporting services (master data, benchmark, jobs, alerts, system)
+4. **External Integration**: API integration (external API, settings, API keys)
+
+#### Manager Sharing Pattern
+- Blueprints access shared managers via `current_app.config`
+- Connection pooling for database access
+- Centralized configuration management
+
+### Migration Notes
+
+#### Backward Compatibility
+- ✅ **No breaking changes** to API contracts
+- ✅ All existing endpoints preserved
+- ✅ Legacy route aliases maintained
+- ✅ Direct upgrade path from v3.x
+
+#### Upgrade Steps
+```bash
+# Pull new version
+docker pull ghcr.io/aegisx-platform/eclaim-rep-download:4.0.0
+
+# Restart services
+docker-compose down
+docker-compose up -d
+```
+
+No configuration changes required. All existing integrations continue to work.
+
+### Statistics
+- **Total commits**: 33 commits across 3 phases
+- **Lines removed**: 11,391 lines from app.py
+- **Blueprints created**: 12 modular blueprints
+- **Routes extracted**: 184 API routes
+- **Code reduction**: 83.4% in main application file
+
+### Commit History Summary
+
+**Phase 1: Large API Routes**
+- Analytics API extraction (53 routes)
+- Downloads API extraction (20 routes)
+- Imports API extraction (10 routes)
+- Files API extraction (15 routes)
+
+**Phase 2: Data Source Blueprints**
+- REP API extraction (4 routes)
+- STM API extraction (6 routes)
+- SMT API extraction (6 routes)
+
+**Phase 3: Utility Blueprints**
+- Master Data API extraction (17 routes)
+- Benchmark API extraction (7 routes)
+- Jobs API extraction (3 routes)
+- Alerts API extraction (7 routes)
+- System API extraction (5 routes)
+
+### Breaking Changes
+None. This release is fully backward compatible.
+
+### Deprecations
+None.
+
+---
+
 ## [3.1.0] - 2026-01-15
 
 ### Added
