@@ -393,7 +393,7 @@ app.config['history_manager'] = history_manager
 app.config['stm_history_manager'] = stm_history_manager
 app.config['file_manager'] = file_manager
 app.config['FILE_MANAGER'] = file_manager  # Alias for backward compatibility
-app.config['UNIFIED_IMPORT_RUNNER'] = import_runner
+app.config['UNIFIED_IMPORT_RUNNER'] = unified_import_runner
 app.config['import_runner'] = import_runner
 app.config['stm_import_runner'] = stm_import_runner
 
