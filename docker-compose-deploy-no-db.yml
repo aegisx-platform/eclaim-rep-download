@@ -21,7 +21,6 @@ services:
     volumes:
       - ./downloads:/app/downloads
       - ./logs:/app/logs
-      - ./config/settings.json:/app/config/settings.json:rw
     ports:
       - "${WEB_PORT:-5001}:5001"
     dns:
