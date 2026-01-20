@@ -25,7 +25,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY . .
 
 # Create necessary directories with proper permissions
-RUN mkdir -p logs downloads config backups && \
+# Note: config/ already exists from COPY, so we don't create it
+RUN mkdir -p logs downloads backups && \
     chmod -R 755 /app
 
 # Set permissions for scripts
