@@ -8,6 +8,49 @@ E-Claim Downloader & Data Import System - A Flask-based web application that aut
 
 ## Commands
 
+### Production Deployment
+
+For production installation with permission handling, HTTPS setup, security hardening, and backup strategies, see **[docs/PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md)**.
+
+**Quick Production Install:**
+```bash
+# PostgreSQL (recommended)
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
+
+# MySQL
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --mysql
+
+# External Database
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --no-db
+```
+
+**Common Production Issues:**
+
+**Permission Denied:**
+```bash
+# Solution 1: Install in home directory
+cd ~
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
+
+# Solution 2: Use sudo (review script first!)
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
+less install.sh  # REVIEW!
+sudo bash install.sh --dir /app_data/nhso-revenue
+sudo chown -R $USER:$USER /app_data/nhso-revenue
+rm install.sh
+
+# Solution 3: Git clone and copy config
+cd ~
+git clone https://github.com/aegisx-platform/eclaim-rep-download.git
+sudo mkdir -p /app_data/nhso-revenue
+sudo cp ~/eclaim-rep-download/docker-compose-deploy.yml /app_data/nhso-revenue/docker-compose.yml
+cd /app_data/nhso-revenue
+sudo chown -R $USER:$USER .
+# Create .env and start
+```
+
+See **[Permission Issues Guide](docs/PRODUCTION_DEPLOYMENT.md#permission-issues)** for complete solutions.
+
 ### Development
 
 ```bash
