@@ -36,7 +36,7 @@ services:
     volumes:
       - ./downloads:/app/downloads
       - ./logs:/app/logs
-      - ./config:/app/config
+      - ./config/settings.json:/app/config/settings.json:rw
     ports:
       - "${WEB_PORT:-5001}:5001"
     depends_on:
