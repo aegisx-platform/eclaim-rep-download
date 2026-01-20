@@ -28,7 +28,7 @@ services:
       # Mount logs directory
       - ./logs:/app/logs
       # Mount config directory for settings
-      - ./config:/app/config
+      - ./config/settings.json:/app/config/settings.json:rw
       # Mount download history
       - ./download_history.json:/app/download_history.json
     ports:
