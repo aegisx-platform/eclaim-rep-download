@@ -64,7 +64,6 @@ services:
     volumes:
       - ./downloads:/app/downloads
       - ./logs:/app/logs
-      - ./config/settings.json:/app/config/settings.json:rw
       - ./database:/app/database
     # No port exposure - nginx handles all traffic
     healthcheck:
