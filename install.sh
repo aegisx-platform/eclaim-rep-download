@@ -112,50 +112,51 @@ echo -e "${GREEN}✓ Docker daemon running${NC}"
 # Create directory with permission check
 echo -e "${YELLOW}[2/7] Creating installation directory...${NC}"
 
-# Skip permission check if running as root (sudo)
-if [ "$EUID" -eq 0 ]; then
-    # Running as root/sudo - create directory directly
-    mkdir -p "$INSTALL_DIR"
-    cd "$INSTALL_DIR"
-    echo -e "${GREEN}✓ Created: $(pwd) ${YELLOW}(using sudo)${NC}"
+# Try to create directory - if it fails, show solutions
+if mkdir -p "$INSTALL_DIR" 2>/dev/null && cd "$INSTALL_DIR" 2>/dev/null; then
+    # Success - directory created
+    if [ "$EUID" -eq 0 ] || [ "$(id -u)" -eq 0 ]; then
+        echo -e "${GREEN}✓ Created: $(pwd) ${YELLOW}(using sudo)${NC}"
+        echo -e "${YELLOW}⚠️  After installation, run:${NC}"
+        echo -e "   ${BLUE}sudo chown -R \$SUDO_USER:\$SUDO_USER $FULL_PATH${NC}"
+        echo -e "   ${BLUE}sudo usermod -aG docker \$SUDO_USER${NC}"
+        echo -e "   ${BLUE}# Then logout and login${NC}"
+    else
+        echo -e "${GREEN}✓ Created: $(pwd)${NC}"
+    fi
 else
-    # Not running as root - check permission first
-    # Create parent directory if needed
-    PARENT_DIR=$(dirname "$INSTALL_DIR")
-    if [ ! -d "$PARENT_DIR" ]; then
-        mkdir -p "$PARENT_DIR" 2>/dev/null || {
-            echo -e "${RED}Error: Cannot create parent directory '$PARENT_DIR'${NC}"
-            echo -e "${YELLOW}Use sudo or install in home directory${NC}"
-            exit 1
-        }
-    fi
-
-    # Test write permission
-    if ! touch "$PARENT_DIR/.test_write" &> /dev/null; then
-        echo -e "${RED}Error: Permission denied to create directory '$INSTALL_DIR'${NC}"
-        echo ""
-        echo -e "${YELLOW}Solutions:${NC}"
-        echo ""
-        echo -e "${BLUE}1. Install in your home directory (แนะนำ):${NC}"
-        echo "   cd ~"
-        echo "   curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash"
-        echo ""
-        echo -e "${BLUE}2. Use sudo (for system directories):${NC}"
-        echo "   curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh"
-        echo "   sudo bash install.sh --dir $FULL_PATH"
-        echo "   sudo chown -R \$USER:\$USER $FULL_PATH"
-        echo "   rm install.sh"
-        echo ""
-        echo -e "${YELLOW}⚠️  Production Deployment Guide:${NC}"
-        echo "   https://github.com/aegisx-platform/eclaim-rep-download/blob/main/docs/PRODUCTION_DEPLOYMENT.md"
-        echo ""
-        exit 1
-    fi
-    rm -f "$PARENT_DIR/.test_write"
-
-    mkdir -p "$INSTALL_DIR"
-    cd "$INSTALL_DIR"
-    echo -e "${GREEN}✓ Created: $(pwd)${NC}"
+    # Failed - show solutions
+    echo -e "${RED}Error: Permission denied to create directory '$INSTALL_DIR'${NC}"
+    echo ""
+    echo -e "${YELLOW}กรณีไม่มี Permission → เลือก 1 ใน 3 วิธี:${NC}"
+    echo ""
+    echo -e "${BLUE}1. Install ที่ Home Directory (แนะนำที่สุด):${NC}"
+    echo "   cd ~"
+    echo "   curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash"
+    echo ""
+    echo -e "${BLUE}2. ใช้ sudo (3 ขั้นตอน):${NC}"
+    echo "   # ขั้นตอนที่ 1: Download"
+    echo "   cd ~ && curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh"
+    echo ""
+    echo "   # ขั้นตอนที่ 2: Run sudo"
+    echo "   sudo bash install.sh --dir $FULL_PATH"
+    echo ""
+    echo "   # ขั้นตอนที่ 3: Fix Permission (สำคัญมาก!)"
+    echo "   sudo chown -R \$USER:\$USER $FULL_PATH"
+    echo "   sudo usermod -aG docker \$USER"
+    echo "   exit  # ออกแล้ว SSH เข้ามาใหม่"
+    echo ""
+    echo -e "${BLUE}3. Manual Setup:${NC}"
+    echo "   sudo mkdir -p $FULL_PATH && cd $FULL_PATH"
+    echo "   sudo curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/docker-compose-deploy.yml -o docker-compose.yml"
+    echo "   sudo mkdir -p downloads/{rep,stm,smt} logs config"
+    echo "   sudo chown -R \$USER:\$USER ."
+    echo "   # สร้าง .env แล้ว: docker compose pull && docker compose up -d"
+    echo ""
+    echo -e "${YELLOW}📚 คู่มือเต็ม:${NC}"
+    echo "   https://github.com/aegisx-platform/eclaim-rep-download/blob/main/docs/PRODUCTION_DEPLOYMENT.md#permission-issues"
+    echo ""
+    exit 1
 fi
 
 # Download docker-compose
@@ -272,6 +273,30 @@ echo -e "${GREEN}╔════════════════════
 echo -e "${GREEN}║              Installation Complete!                       ║${NC}"
 echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
 echo ""
+
+# Show sudo warning if running as root
+if [ "$EUID" -eq 0 ] || [ "$(id -u)" -eq 0 ]; then
+    echo -e "${YELLOW}⚠️  คุณใช้ sudo ติดตั้ง - ต้องทำขั้นตอนนี้ก่อนใช้งาน:${NC}"
+    echo ""
+    REAL_USER="${SUDO_USER:-$USER}"
+    echo -e "${BLUE}# 1. Fix file ownership${NC}"
+    echo -e "   sudo chown -R $REAL_USER:$REAL_USER $FULL_PATH"
+    echo ""
+    echo -e "${BLUE}# 2. Add user to docker group${NC}"
+    echo -e "   sudo usermod -aG docker $REAL_USER"
+    echo ""
+    echo -e "${BLUE}# 3. Logout and login again (สำคัญ!)${NC}"
+    echo -e "   exit"
+    echo -e "   # แล้ว SSH เข้ามาใหม่"
+    echo ""
+    echo -e "${BLUE}# 4. Verify${NC}"
+    echo -e "   cd $FULL_PATH"
+    echo -e "   docker compose ps  # ต้องรันได้โดยไม่ต้อง sudo"
+    echo ""
+    echo -e "${RED}❗ ถ้าไม่ทำขั้นตอนข้างบน จะใช้งานไม่ได้${NC}"
+    echo ""
+fi
+
 echo -e "🌐 เข้าใช้งาน: ${BLUE}http://localhost:5001${NC}"
 echo ""
 
