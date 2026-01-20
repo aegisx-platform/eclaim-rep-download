@@ -40,7 +40,7 @@ If you find this project helpful, consider buying me a coffee!
 **NHSO Revenue Intelligence** (เดิมชื่อ E-Claim Downloader) เป็นระบบวิเคราะห์รายได้จากการเบิกจ่าย สปสช. สำหรับโรงพยาบาล ครอบคลุมตั้งแต่การ download ข้อมูล E-Claim, import เข้าฐานข้อมูล, วิเคราะห์รายได้, จนถึงกระทบยอดกับข้อมูล SMT Budget
 
 **Version:** v4.0.0
-**Last Updated:** 2026-01-19
+**Last Updated:** 2026-01-20
 
 ### Data Sources
 
@@ -132,7 +132,15 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 - 🏥 **[ตั้งค่ารหัสโรงพยาบาล](http://localhost:5001/setup)** - จำเป็นสำหรับ SMT Budget และ Per-Bed KPIs
 - 🔑 **ตั้งค่า NHSO Credentials** (ถ้าต้องการดาวน์โหลดไฟล์)
 
-📚 **ดูคู่มือเต็ม:** [docs/INSTALLATION_GUIDE.md](docs/INSTALLATION_GUIDE.md)
+---
+
+📚 **Documentation:**
+- **For Development/Testing:** [Installation Guide](docs/INSTALLATION_GUIDE.md)
+- **For Production Server:** [Production Deployment Guide](docs/PRODUCTION_DEPLOYMENT.md) ⭐
+
+> ⚠️ **Production Server:** ถ้าติดตั้งบน production server ให้อ่าน [Production Deployment Guide](docs/PRODUCTION_DEPLOYMENT.md) ก่อน สำหรับ security hardening, HTTPS setup, backup strategies, และการแก้ปัญหา permission issues
+
+---
 
 **Installation Flow:**
 ```
@@ -149,7 +157,7 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 → Ready! Go to /setup to configure Hospital Code
 ```
 
-**Options:**
+**Installation Options:**
 ```bash
 # MySQL instead of PostgreSQL
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --mysql
@@ -160,6 +168,50 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 # Custom directory
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --dir my-nhso
 ```
+
+---
+
+### Common Installation Issues
+
+#### Permission Denied Error
+
+**Symptom:**
+```
+mkdir: cannot create directory 'nhso-revenue': Permission denied
+```
+
+**Quick Solutions:**
+
+**1. Install in Home Directory (แนะนำ):**
+```bash
+cd ~
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
+```
+
+**2. Use sudo (Review script first!):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
+less install.sh  # REVIEW CODE FIRST!
+sudo bash install.sh --dir /app_data/nhso-revenue
+sudo chown -R $USER:$USER /app_data/nhso-revenue
+rm install.sh
+```
+
+**3. Git Clone Method (Safest for Production):**
+```bash
+cd ~
+git clone https://github.com/aegisx-platform/eclaim-rep-download.git
+sudo mkdir -p /app_data/nhso-revenue
+sudo cp ~/eclaim-rep-download/docker-compose-deploy.yml /app_data/nhso-revenue/docker-compose.yml
+cd /app_data/nhso-revenue
+sudo mkdir -p downloads/{rep,stm,smt} logs config
+sudo chown -R $USER:$USER .
+# Create .env and run docker compose up -d
+```
+
+📚 **Complete Solutions:** [Production Deployment Guide - Permission Issues](docs/PRODUCTION_DEPLOYMENT.md#permission-issues)
+
+---
 
 ### Manual Docker Deployment
 
@@ -232,7 +284,13 @@ NHSO Revenue Intelligence
 
 ## Documentation
 
-### Getting Started
+### Production Deployment (สำหรับ Production Server)
+- **[Production Deployment Guide](docs/PRODUCTION_DEPLOYMENT.md)** - **Production installation, security, backup, monitoring**
+- **[HTTPS Setup](docs/PRODUCTION_DEPLOYMENT.md#https-setup)** - SSL/TLS with Let's Encrypt
+- **[Permission Issues](docs/PRODUCTION_DEPLOYMENT.md#permission-issues)** - Fix "Permission Denied" errors
+- **[Backup & Recovery](docs/PRODUCTION_DEPLOYMENT.md#backup--recovery)** - Database backup strategies
+
+### Getting Started (สำหรับผู้ใช้ทั่วไป)
 - **[Installation Guide](docs/INSTALLATION_GUIDE.md)** - Complete installation & verification (PostgreSQL & MySQL)
 - **[Testing Checklist](docs/TESTING_CHECKLIST.md)** - Step-by-step testing guide
 - **[Configuration Guide](docs/CONFIGURATION.md)** - System configuration
@@ -242,7 +300,7 @@ NHSO Revenue Intelligence
 - **[Hospital Analytics Guide](docs/HOSPITAL_ANALYTICS_GUIDE.md)** - คู่มือวิเคราะห์การเบิกเคลม
 - **[Analytics Roadmap](docs/ANALYTICS_ROADMAP.md)** - แผนพัฒนา Analytics
 
-### Technical Documentation
+### Technical Documentation (สำหรับ Developer)
 - **[Features Documentation](docs/FEATURES.md)** - All features detail
 - **[Database Guide](docs/DATABASE.md)** - Schema & HIS reconciliation
 - **[Analytics Guide](docs/ANALYTICS.md)** - Analytics dashboard guide
@@ -502,4 +560,4 @@ This software is **legal** when used correctly with authorized credentials and f
 
 **Made with love by [aegisx platform](https://github.com/aegisx-platform)**
 
-**Last Updated:** 2026-01-17 | **Version:** v3.2.0
+**Last Updated:** 2026-01-20 | **Version:** v4.0.0

@@ -91,7 +91,7 @@ echo ""
 echo ""
 
 # NOW start the actual installation
-echo -e "${YELLOW}[1/5] Checking requirements...${NC}"
+echo -e "${YELLOW}[1/7] Checking requirements...${NC}"
 if ! command -v docker &> /dev/null; then
     echo -e "${RED}Error: Docker is not installed${NC}"
     echo "Please install Docker: https://docs.docker.com/get-docker/"
@@ -99,14 +99,52 @@ if ! command -v docker &> /dev/null; then
 fi
 echo -e "${GREEN}✓ Docker found${NC}"
 
-# Create directory
-echo -e "${YELLOW}[2/5] Creating installation directory...${NC}"
+# Check Docker daemon
+if ! docker ps &> /dev/null; then
+    echo -e "${RED}Error: Cannot connect to Docker daemon${NC}"
+    echo "Please start Docker or add user to docker group:"
+    echo "  sudo usermod -aG docker \$USER"
+    echo "  (then log out and log back in)"
+    exit 1
+fi
+echo -e "${GREEN}✓ Docker daemon running${NC}"
+
+# Create directory with permission check
+echo -e "${YELLOW}[2/7] Creating installation directory...${NC}"
+
+# Test write permission first
+if ! touch "$INSTALL_DIR/.test_write" &> /dev/null; then
+    echo -e "${RED}Error: Permission denied to create directory '$INSTALL_DIR'${NC}"
+    echo ""
+    echo -e "${YELLOW}Solutions:${NC}"
+    echo ""
+    echo -e "${BLUE}1. Install in your home directory (แนะนำ):${NC}"
+    echo "   cd ~"
+    echo "   curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash"
+    echo ""
+    echo -e "${BLUE}2. Use custom directory:${NC}"
+    echo "   mkdir -p ~/projects/nhso"
+    echo "   cd ~/projects/nhso"
+    echo "   curl -fsSL ... | bash -s -- --dir ."
+    echo ""
+    echo -e "${BLUE}3. Use sudo (ถ้าจำเป็น):${NC}"
+    echo "   curl -fsSL ... -o install.sh"
+    echo "   sudo bash install.sh --dir $FULL_PATH"
+    echo "   rm install.sh"
+    echo ""
+    echo -e "${YELLOW}⚠️  Production Deployment Guide:${NC}"
+    echo "   https://github.com/aegisx-platform/eclaim-rep-download/blob/main/docs/PRODUCTION_DEPLOYMENT.md"
+    echo ""
+    exit 1
+fi
+rm -f "$INSTALL_DIR/.test_write"
+
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 echo -e "${GREEN}✓ Created: $(pwd)${NC}"
 
 # Download docker-compose
-echo -e "${YELLOW}[3/5] Downloading configuration...${NC}"
+echo -e "${YELLOW}[3/7] Downloading configuration...${NC}"
 
 case $DB_TYPE in
     postgresql) COMPOSE_FILE="docker-compose-deploy.yml" ;;
@@ -122,7 +160,7 @@ mkdir -p downloads/{rep,stm,smt} logs config
 echo -e "${GREEN}✓ Created directories${NC}"
 
 # Create .env
-echo -e "${YELLOW}[4/5] Configuring credentials...${NC}"
+echo -e "${YELLOW}[4/7] Configuring credentials...${NC}"
 echo ""
 echo -e "${BLUE}กรุณาใส่ข้อมูลเข้าสู่ระบบ E-Claim:${NC}"
 echo ""
@@ -164,7 +202,7 @@ fi
 echo -e "${GREEN}✓ Created .env${NC}"
 
 # Start services
-echo -e "${YELLOW}[5/7] Starting services...${NC}"
+echo -e "${YELLOW}[5/7] Pulling Docker images...${NC}"
 echo ""
 
 if docker compose version &> /dev/null 2>&1; then
