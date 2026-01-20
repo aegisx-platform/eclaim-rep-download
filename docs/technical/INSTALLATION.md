@@ -68,16 +68,25 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 ถ้าต้องการติดตั้งใน directory ที่ต้องใช้ sudo:
 
 ```bash
-# วิธีที่ 1: sudo ทั้งหมด
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh)"
-
-# วิธีที่ 2: download แล้ว sudo run
+# วิธีที่ 1: Download และ review ก่อน (แนะนำ)
+cd ~
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
-sudo bash install.sh
-rm install.sh
+less install.sh  # Review script
+sudo bash install.sh --dir /app_data/nhso-revenue
+
+# หลังติดตั้ง script จะแสดงขั้นตอนต่อไป:
+# 1. Fix ownership: sudo chown -R $USER:$USER /app_data/nhso-revenue
+# 2. Add to docker group: sudo usermod -aG docker $USER
+# 3. Logout and login again
+
+# วิธีที่ 2: One-liner (ไม่แนะนำ - ยากต่อการ review)
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh)"
 ```
 
-> ⚠️ **หมายเหตุ:** `sudo curl ... | bash` จะไม่ทำงาน เพราะ sudo ใช้กับ curl อย่างเดียว
+> ⚠️ **หมายเหตุ:**
+> - `sudo curl ... | bash` จะไม่ทำงาน เพราะ sudo ใช้กับ curl อย่างเดียว
+> - install.sh จะแสดงขั้นตอนหลังติดตั้งให้ทำ (fix ownership, docker group, logout/login)
+> - **ต้อง** ทำตามที่ script บอกก่อนใช้งาน มิฉะนั้นจะใช้ docker ไม่ได้
 
 ### ตัวอย่างการติดตั้ง
 

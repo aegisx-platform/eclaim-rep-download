@@ -155,9 +155,11 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 
 ---
 
-### Solution 3: Use sudo with install.sh (Step-by-Step)
+### Solution 3: Use sudo with install.sh (Automated)
 
 **⚠️ WARNING:** Use sudo ONLY when necessary. Review script thoroughly before running.
+
+**✅ install.sh จะติดตั้งให้ครบ แล้วแสดงขั้นตอนต่อไปให้ทำเอง - ไม่ต้องเดา**
 
 #### Step 1: Download and Review Script
 
@@ -190,17 +192,7 @@ sudo curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-dow
 less install.sh
 ```
 
-#### Step 2: Prepare Credentials
-
-**Important:** When running with sudo, you'll be prompted for credentials. Prepare them beforehand.
-
-```bash
-# Have ready:
-# - ECLAIM_USERNAME (your citizen ID)
-# - ECLAIM_PASSWORD (your NHSO password)
-```
-
-#### Step 3: Run Installation with sudo
+#### Step 2: Run Installation with sudo
 
 ```bash
 # Run install with sudo
@@ -209,78 +201,68 @@ sudo bash install.sh --dir /app_data/nhso-revenue
 # When prompted, enter:
 # ECLAIM_USERNAME: [your_citizen_id]
 # ECLAIM_PASSWORD: [your_password]
+
+# Wait for installation to complete...
 ```
 
-**What happens:**
-1. Creates `/app_data/nhso-revenue` (owned by root)
-2. Downloads docker-compose-deploy.yml
-3. Creates directories: `downloads/`, `logs/`, `config/`
-4. Creates `.env` file with your credentials
-5. Pulls pre-built image: `ghcr.io/aegisx-platform/eclaim-rep-download:latest`
-6. Starts services
-7. Imports seed data
+**What happens (Automatic):**
+1. ✅ Creates `/app_data/nhso-revenue` with proper permissions
+2. ✅ Downloads docker-compose-deploy.yml
+3. ✅ Creates directories: `downloads/`, `logs/`, `config/`
+4. ✅ Creates `.env` file with your credentials
+5. ✅ Pulls pre-built image: `ghcr.io/aegisx-platform/eclaim-rep-download:latest`
+6. ✅ Starts services (Docker containers)
+7. ✅ Imports seed data (9,247 hospitals + 312 error codes)
+8. ✅ **Shows post-installation checklist** 👇
 
-#### Step 4: Fix File Ownership (CRITICAL!)
+#### Step 3: Follow Post-Installation Instructions
 
-After installation, all files are owned by root. **You MUST change ownership:**
+**After installation completes, the script will show:**
+
+```
+⚠️  คุณใช้ sudo ติดตั้ง - ต้องทำขั้นตอนนี้ก่อนใช้งาน:
+
+# 1. Fix file ownership
+   sudo chown -R $USER:$USER /app_data/nhso-revenue
+
+# 2. Add user to docker group
+   sudo usermod -aG docker $USER
+
+# 3. Logout and login again (สำคัญ!)
+   exit
+   # แล้ว SSH เข้ามาใหม่
+
+# 4. Verify
+   cd /app_data/nhso-revenue
+   docker compose ps  # ต้องรันได้โดยไม่ต้อง sudo
+
+❗ ถ้าไม่ทำขั้นตอนข้างบน จะใช้งานไม่ได้
+```
+
+**แค่ copy-paste คำสั่งที่ script แสดงให้:**
 
 ```bash
-# Change ownership to current user
+# 1. Fix ownership
 sudo chown -R $USER:$USER /app_data/nhso-revenue
 
-# Verify ownership
-ls -la /app_data/nhso-revenue
-# Should show: drwxr-xr-x user user
-```
-
-#### Step 5: Add User to Docker Group
-
-```bash
-# Check if user is in docker group
-groups
-
-# If 'docker' is not listed, add user to docker group
+# 2. Add to docker group
 sudo usermod -aG docker $USER
 
-# Verify (should show 'docker' in the list)
-groups $USER
-```
+# 3. Logout and login (IMPORTANT!)
+exit
+# Then SSH back in
 
-#### Step 6: Apply Group Changes
-
-**IMPORTANT:** Group changes require logout/login or newgrp
-
-```bash
-# Option 1: Log out and log back in (RECOMMENDED)
-# - Exit SSH session
-# - Log in again
-
-# Option 2: Use newgrp (temporary)
-newgrp docker
-
-# Option 3: Restart shell
-exec su -l $USER
-```
-
-#### Step 7: Verify Installation
-
-```bash
-# Go to installation directory
+# 4. Verify installation
 cd /app_data/nhso-revenue
-
-# Check services (should work WITHOUT sudo now)
-docker compose ps
-
-# Check web UI
-curl http://localhost:5001/api/system/health
-
-# View logs
-docker compose logs -f web
+docker compose ps  # Should work without sudo
+curl http://localhost:5001/api/system/health  # Should return {"status": "healthy"}
 ```
 
 #### Troubleshooting After sudo Install
 
-**Problem: "curl: (23) Failure writing output to destination"**
+> **💡 Good News:** install.sh จะบอกวิธีแก้ปัญหาทั้งหมดให้อัตโนมัติ - แค่ทำตามที่ script แสดง
+
+**Problem: "curl: (23) Failure writing output to destination" (ก่อนรัน install.sh)**
 
 ```bash
 # This means you don't have write permission in current directory
@@ -293,34 +275,41 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 sudo curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
 ```
 
-**Problem: "permission denied" when running docker**
+**Problem: "permission denied" when running docker (หลัง install)**
 
 ```bash
+# install.sh จะบอกให้ทำขั้นตอนนี้แล้ว แต่ถ้าลืมทำ:
+
 # Check docker group membership
 groups
 
-# If 'docker' not listed, log out and log back in
+# If 'docker' not listed:
+sudo usermod -aG docker $USER
+
+# MUST logout and login for changes to take effect
 exit
 # Then SSH again
 ```
 
-**Problem: Files owned by root**
+**Problem: Files owned by root (หลัง install)**
 
 ```bash
+# install.sh จะบอกให้ทำขั้นตอนนี้แล้ว:
+
 # Fix ownership
 sudo chown -R $USER:$USER /app_data/nhso-revenue
 
-# Check .env permissions (should be 600)
-ls -la /app_data/nhso-revenue/.env
-# If not, fix it:
-chmod 600 /app_data/nhso-revenue/.env
+# Verify
+ls -la /app_data/nhso-revenue
+# Should show your username, not root
 ```
 
 **Problem: Cannot edit .env file**
 
 ```bash
-# Take ownership
+# Take ownership (install.sh บอกให้ทำแล้ว)
 sudo chown $USER:$USER /app_data/nhso-revenue/.env
+chmod 600 /app_data/nhso-revenue/.env
 
 # Edit normally
 nano /app_data/nhso-revenue/.env

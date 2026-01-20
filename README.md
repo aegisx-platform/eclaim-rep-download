@@ -195,6 +195,8 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 
 ### วิธีที่ 2: ใช้ sudo (สำหรับ /app_data, /opt, /var)
 
+**✅ install.sh จะติดตั้งอัตโนมัติ และแสดงวิธีแก้ permission ให้เอง**
+
 #### ขั้นตอน 3 ขั้นตอน:
 
 **1. Download และ Review:**
@@ -208,20 +210,30 @@ less install.sh  # REVIEW!
 ```bash
 sudo bash install.sh --dir /app_data/nhso-revenue
 # กรอก username/password
+# Script จะติดตั้งครบทุกอย่าง (Docker, Database, Seed Data)
+# หลังเสร็จ จะแสดงขั้นตอนต่อไปให้ทำ 👇
 ```
 
-**3. Fix Permission (สำคัญ!):**
+**3. Fix Permission (สำคัญ! - Script จะบอกให้ทำ):**
 ```bash
-# เปลี่ยน owner
+# Script จะแสดงคำสั่งนี้ให้ copy-paste:
+
+# 1. Fix file ownership
 sudo chown -R $USER:$USER /app_data/nhso-revenue
 
-# เพิ่ม user เข้า docker group
+# 2. Add user to docker group
 sudo usermod -aG docker $USER
 
-# **ต้อง logout/login**
+# 3. Logout and login again (สำคัญ!)
 exit
 # SSH เข้ามาใหม่
+
+# 4. Verify
+cd /app_data/nhso-revenue
+docker compose ps  # ต้องรันได้โดยไม่ต้อง sudo
 ```
+
+> **💡 เคล็ดลับ:** install.sh จะติดตั้งให้ครบทุกอย่าง แล้วแสดง checklist ให้ทำหลังติดตั้ง - แค่ copy-paste ตามที่บอก
 
 ---
 
