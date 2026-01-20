@@ -172,7 +172,7 @@ curl -fsSL "${GITHUB_RAW}/${COMPOSE_FILE}" -o docker-compose.yml
 echo -e "${GREEN}✓ Downloaded docker-compose.yml (${DB_TYPE})${NC}"
 
 # Create directories
-mkdir -p downloads/{rep,stm,smt} logs config
+mkdir -p downloads/{rep,stm,smt} logs data
 echo -e "${GREEN}✓ Created directories${NC}"
 
 # Create .env

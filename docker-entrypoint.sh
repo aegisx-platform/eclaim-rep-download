@@ -10,6 +10,20 @@ echo "DB_PORT: ${DB_PORT:-5432}"
 echo "DB_NAME: ${DB_NAME:-eclaim_db}"
 echo "============================================"
 
+# Function to migrate settings from old location
+migrate_settings() {
+    if [ -f "config/settings.json" ] && [ ! -f "data/settings.json" ]; then
+        echo "[entrypoint] Migrating settings.json to data/ directory..."
+        mkdir -p data
+        cp config/settings.json data/settings.json
+        echo "[entrypoint] Settings migrated successfully"
+    elif [ -f "data/settings.json" ]; then
+        echo "[entrypoint] Settings already in data/ directory"
+    else
+        echo "[entrypoint] No existing settings found, will be created on first run"
+    fi
+}
+
 # Function to wait for database
 wait_for_db() {
     echo "[entrypoint] Waiting for database to be ready..."
@@ -119,6 +133,9 @@ print('[entrypoint] File scanning completed!')
 
 # Main startup sequence
 main() {
+    # Step 0: Migrate settings if needed
+    migrate_settings
+
     # Step 1: Wait for database
     if ! wait_for_db; then
         echo "[entrypoint] Cannot connect to database, exiting."

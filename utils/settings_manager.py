@@ -4,6 +4,7 @@ Settings Manager - Manage application settings
 """
 
 import json
+import os
 import random
 from pathlib import Path
 from typing import Dict, Optional, List, Tuple
@@ -12,9 +13,25 @@ from typing import Dict, Optional, List, Tuple
 class SettingsManager:
     """Manage application settings"""
 
-    def __init__(self, settings_file='config/settings.json'):
+    def __init__(self, settings_file=None):
+        if settings_file is None:
+            # Check environment variable first
+            settings_file = os.environ.get('SETTINGS_FILE')
+
+            if settings_file is None:
+                # Default to new location, fallback to old for backward compat
+                new_path = Path('data/settings.json')
+                old_path = Path('config/settings.json')
+
+                if new_path.exists():
+                    settings_file = new_path
+                elif old_path.exists():
+                    settings_file = old_path
+                else:
+                    settings_file = new_path  # New installation uses new path
+
         self.settings_file = Path(settings_file)
-        self.settings_file.parent.mkdir(exist_ok=True)
+        self.settings_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Default settings
         self.default_settings = {

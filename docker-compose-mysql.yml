@@ -56,6 +56,8 @@ services:
       - ./downloads:/app/downloads
       # Mount logs directory
       - ./logs:/app/logs
+      # Mount data directory for settings persistence
+      - ./data:/app/data
       # Mount source code for development (hot reload)
       - .:/app
     ports:
