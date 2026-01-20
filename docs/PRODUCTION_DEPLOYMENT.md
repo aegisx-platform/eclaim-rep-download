@@ -161,15 +161,33 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 
 #### Step 1: Download and Review Script
 
+**Important:** If you're in a directory without write permission (like `/app_data`), download to home directory first.
+
 ```bash
+# Go to home directory (where you have write permission)
+cd ~
+
 # Download install script
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
+
+# If curl fails with "Failure writing output to destination":
+# You don't have permission to write in current directory
+# Use: cd ~ (go to home directory)
 
 # Review code thoroughly (CRITICAL!)
 less install.sh
 
 # Check for suspicious commands
 grep -E "rm -rf|curl.*\||eval" install.sh
+```
+
+**Alternative: Download with sudo (if needed)**
+```bash
+# If you must download in system directory
+sudo curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
+
+# Review
+less install.sh
 ```
 
 #### Step 2: Prepare Credentials
@@ -261,6 +279,19 @@ docker compose logs -f web
 ```
 
 #### Troubleshooting After sudo Install
+
+**Problem: "curl: (23) Failure writing output to destination"**
+
+```bash
+# This means you don't have write permission in current directory
+
+# Solution: Download to home directory instead
+cd ~
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
+
+# OR: Use sudo curl
+sudo curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
+```
 
 **Problem: "permission denied" when running docker**
 
