@@ -155,52 +155,230 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 
 ---
 
-### Solution 3: Use sudo (Review Script First!)
+### Solution 3: Use sudo with install.sh (Step-by-Step)
 
-**⚠️ WARNING:** Only use sudo when necessary and **review script before running**
+**⚠️ WARNING:** Use sudo ONLY when necessary. Review script thoroughly before running.
+
+#### Step 1: Download and Review Script
 
 ```bash
-# Method 1: Download and review first (RECOMMENDED)
+# Download install script
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
-less install.sh  # REVIEW THOROUGHLY
-sudo bash install.sh --dir /app_data/nhso-revenue
-rm install.sh
 
-# Method 2: sudo bash -c
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh)"
+# Review code thoroughly (CRITICAL!)
+less install.sh
 
-# ❌ WRONG: This won't work
-sudo curl -fsSL ... | bash  # sudo only applies to curl
+# Check for suspicious commands
+grep -E "rm -rf|curl.*\||eval" install.sh
 ```
 
-**After using sudo, fix permissions:**
+#### Step 2: Prepare Credentials
+
+**Important:** When running with sudo, you'll be prompted for credentials. Prepare them beforehand.
+
 ```bash
+# Have ready:
+# - ECLAIM_USERNAME (your citizen ID)
+# - ECLAIM_PASSWORD (your NHSO password)
+```
+
+#### Step 3: Run Installation with sudo
+
+```bash
+# Run install with sudo
+sudo bash install.sh --dir /app_data/nhso-revenue
+
+# When prompted, enter:
+# ECLAIM_USERNAME: [your_citizen_id]
+# ECLAIM_PASSWORD: [your_password]
+```
+
+**What happens:**
+1. Creates `/app_data/nhso-revenue` (owned by root)
+2. Downloads docker-compose-deploy.yml
+3. Creates directories: `downloads/`, `logs/`, `config/`
+4. Creates `.env` file with your credentials
+5. Pulls pre-built image: `ghcr.io/aegisx-platform/eclaim-rep-download:latest`
+6. Starts services
+7. Imports seed data
+
+#### Step 4: Fix File Ownership (CRITICAL!)
+
+After installation, all files are owned by root. **You MUST change ownership:**
+
+```bash
+# Change ownership to current user
 sudo chown -R $USER:$USER /app_data/nhso-revenue
+
+# Verify ownership
+ls -la /app_data/nhso-revenue
+# Should show: drwxr-xr-x user user
+```
+
+#### Step 5: Add User to Docker Group
+
+```bash
+# Check if user is in docker group
+groups
+
+# If 'docker' is not listed, add user to docker group
 sudo usermod -aG docker $USER
-# Log out and log back in
+
+# Verify (should show 'docker' in the list)
+groups $USER
+```
+
+#### Step 6: Apply Group Changes
+
+**IMPORTANT:** Group changes require logout/login or newgrp
+
+```bash
+# Option 1: Log out and log back in (RECOMMENDED)
+# - Exit SSH session
+# - Log in again
+
+# Option 2: Use newgrp (temporary)
+newgrp docker
+
+# Option 3: Restart shell
+exec su -l $USER
+```
+
+#### Step 7: Verify Installation
+
+```bash
+# Go to installation directory
+cd /app_data/nhso-revenue
+
+# Check services (should work WITHOUT sudo now)
+docker compose ps
+
+# Check web UI
+curl http://localhost:5001/api/system/health
+
+# View logs
+docker compose logs -f web
+```
+
+#### Troubleshooting After sudo Install
+
+**Problem: "permission denied" when running docker**
+
+```bash
+# Check docker group membership
+groups
+
+# If 'docker' not listed, log out and log back in
+exit
+# Then SSH again
+```
+
+**Problem: Files owned by root**
+
+```bash
+# Fix ownership
+sudo chown -R $USER:$USER /app_data/nhso-revenue
+
+# Check .env permissions (should be 600)
+ls -la /app_data/nhso-revenue/.env
+# If not, fix it:
+chmod 600 /app_data/nhso-revenue/.env
+```
+
+**Problem: Cannot edit .env file**
+
+```bash
+# Take ownership
+sudo chown $USER:$USER /app_data/nhso-revenue/.env
+
+# Edit normally
+nano /app_data/nhso-revenue/.env
 ```
 
 ---
 
-### Solution 4: Manual Setup in System Directory
+#### Alternative: sudo bash -c (One-liner)
 
-**Uses pre-built image from ghcr.io:**
+**⚠️ Less safe - harder to review:**
 
 ```bash
-# 1. Create directory with sudo
+# This downloads and runs in one command
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh)"
+
+# Still need to fix ownership after:
+sudo chown -R $USER:$USER ~/nhso-revenue
+sudo usermod -aG docker $USER
+# Log out and log back in
+```
+
+**❌ WRONG - This won't work:**
+```bash
+sudo curl -fsSL ... | bash  # sudo only applies to curl, not bash
+```
+
+---
+
+### Solution 4: Manual Setup in System Directory (Step-by-Step)
+
+**Best for:** Full control over every step, security-conscious deployments
+
+**Uses pre-built image:** `ghcr.io/aegisx-platform/eclaim-rep-download:latest`
+
+#### Step 1: Create Directory Structure
+
+```bash
+# Create directory with sudo
 sudo mkdir -p /app_data/nhso-revenue
-cd /app_data/nhso-revenue
 
-# 2. Download docker-compose-deploy.yml
-sudo curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/docker-compose-deploy.yml -o docker-compose.yml
+# Create subdirectories
+sudo mkdir -p /app_data/nhso-revenue/downloads/{rep,stm,smt}
+sudo mkdir -p /app_data/nhso-revenue/logs
+sudo mkdir -p /app_data/nhso-revenue/config
+```
 
-# 3. Create subdirectories
-sudo mkdir -p downloads/{rep,stm,smt} logs config
+#### Step 2: Download docker-compose File
 
-# 4. Fix ownership
+```bash
+# Download docker-compose-deploy.yml
+sudo curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/docker-compose-deploy.yml \
+  -o /app_data/nhso-revenue/docker-compose.yml
+
+# Verify download
+cat /app_data/nhso-revenue/docker-compose.yml | head -20
+```
+
+#### Step 3: Fix Ownership (BEFORE creating .env)
+
+```bash
+# Change ownership to current user
 sudo chown -R $USER:$USER /app_data/nhso-revenue
 
-# 5. Create .env
+# Verify
+ls -la /app_data/nhso-revenue
+# Should show: drwxr-xr-x user user
+```
+
+#### Step 4: Add User to Docker Group
+
+```bash
+# Check current groups
+groups
+
+# If 'docker' not in the list, add user
+sudo usermod -aG docker $USER
+
+# Log out and log back in for changes to take effect
+exit
+# Then SSH/login again
+```
+
+#### Step 5: Create .env File
+
+```bash
+# Go to installation directory
+cd /app_data/nhso-revenue
+
+# Create .env file
 cat > .env << 'EOF'
 ECLAIM_USERNAME=your_username
 ECLAIM_PASSWORD=your_password
@@ -208,20 +386,103 @@ VERSION=latest
 WEB_PORT=5001
 EOF
 
-# 6. Edit credentials
-nano .env
+# Secure .env file
+chmod 600 .env
 
-# 7. Pull pre-built image and start
+# Edit with your actual credentials
+nano .env
+```
+
+#### Step 6: Pull Image and Start Services
+
+```bash
+# Pull pre-built image
 docker compose pull
+
+# Verify image
+docker images | grep eclaim-rep-download
+# Should show: ghcr.io/aegisx-platform/eclaim-rep-download
+
+# Start services
 docker compose up -d
 
-# 8. Import seed data
+# Check status
+docker compose ps
+```
+
+#### Step 7: Wait for Initialization
+
+```bash
+# Watch logs
+docker compose logs -f web
+
+# Wait for this message:
+# "[entrypoint] Starting Flask application..."
+
+# Press Ctrl+C to exit logs
+```
+
+#### Step 8: Import Seed Data
+
+```bash
+# Import dimension tables
 docker compose exec web python database/migrate.py --seed
+
+# Import health offices (9,247 hospitals)
 docker compose exec web python database/seeds/health_offices_importer.py
+
+# Import NHSO error codes
 docker compose exec web python database/seeds/nhso_error_codes_importer.py
 ```
 
-**Image used:** `ghcr.io/aegisx-platform/eclaim-rep-download:latest`
+#### Step 9: Verify Installation
+
+```bash
+# Check web UI
+curl http://localhost:5001/api/system/health
+
+# Open in browser
+# http://localhost:5001
+
+# Go to setup page
+# http://localhost:5001/setup
+```
+
+#### Troubleshooting Manual Setup
+
+**Problem: "Permission denied" on docker compose**
+
+```bash
+# Verify user is in docker group
+groups
+
+# If not, add and re-login
+sudo usermod -aG docker $USER
+exit  # Log out
+# Log back in
+```
+
+**Problem: Cannot write to /app_data/nhso-revenue**
+
+```bash
+# Check ownership
+ls -la /app_data/nhso-revenue
+
+# Should be owned by your user, not root
+# If owned by root, fix it:
+sudo chown -R $USER:$USER /app_data/nhso-revenue
+```
+
+**Problem: .env file has wrong permissions**
+
+```bash
+# Check permissions
+ls -la /app_data/nhso-revenue/.env
+
+# Should be: -rw------- (600)
+# Fix if needed:
+chmod 600 /app_data/nhso-revenue/.env
+```
 
 ---
 
