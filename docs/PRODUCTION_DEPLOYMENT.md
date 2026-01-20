@@ -506,6 +506,96 @@ chmod 600 /app_data/nhso-revenue/.env
 
 ---
 
+### Solution 5: Manual Setup for External Database (--no-db mode)
+
+**Best for:** Using external/existing database, no need for database container
+
+**Uses:** Pre-built image + external database connection
+
+#### Quick Setup (Copy-Paste)
+
+```bash
+# 1. Create directory and fix ownership immediately
+sudo mkdir -p /app_data/nhso-revenue && cd /app_data/nhso-revenue
+sudo mkdir -p downloads/{rep,stm,smt} logs config
+sudo chown -R $USER:$USER .
+
+# 2. Download docker-compose for no-db mode
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/docker-compose-deploy-no-db.yml -o docker-compose.yml
+
+# 3. Create .env file
+cat > .env << 'EOF'
+# NHSO Revenue Intelligence
+ECLAIM_USERNAME=your_username
+ECLAIM_PASSWORD=your_password
+
+# Docker Image Version
+VERSION=latest
+WEB_PORT=5001
+
+# External Database Connection (แก้ไขให้ตรงกับ database ของคุณ)
+DB_TYPE=postgresql
+DB_HOST=your_db_host
+DB_PORT=5432
+DB_NAME=eclaim_db
+DB_USER=eclaim
+DB_PASSWORD=your_db_password
+EOF
+
+# 4. Edit .env with your actual values
+nano .env
+# แก้ไข: ECLAIM_USERNAME, ECLAIM_PASSWORD
+# และ: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+
+# 5. Secure .env file
+chmod 600 .env
+
+# 6. Add to docker group (if not already)
+sudo usermod -aG docker $USER
+# Logout and login for this to take effect
+
+# 7. Pull image and start
+docker compose pull
+docker compose up -d
+
+# 8. Check logs
+docker compose logs -f web
+```
+
+#### Verify Installation
+
+```bash
+# Check services
+docker compose ps
+
+# Check web health
+curl http://localhost:5001/api/system/health
+
+# Check database connection
+docker compose logs web | grep -i "database"
+```
+
+#### External Database Requirements
+
+Your external database must:
+- ✅ Have schema initialized (run migrations)
+- ✅ Allow connections from Docker container
+- ✅ Have correct credentials in `.env`
+
+**Initialize schema on external database:**
+```bash
+# If using external PostgreSQL
+psql -h your_db_host -U eclaim -d eclaim_db < database/schema-postgresql-merged.sql
+
+# If using external MySQL
+mysql -h your_db_host -u eclaim -p eclaim_db < database/schema-mysql-merged.sql
+
+# Or run migrations from container
+docker compose exec web python database/migrate.py
+```
+
+---
+
 ### Common Permission Scenarios
 
 | Scenario | Directory | Solution |
