@@ -26,6 +26,12 @@ migrate_settings() {
 
 # Function to wait for database
 wait_for_db() {
+    # Skip database check if DB_TYPE is none
+    if [ "$DB_TYPE" = "none" ]; then
+        echo "[entrypoint] DB_TYPE=none, skipping database check"
+        return 0
+    fi
+
     echo "[entrypoint] Waiting for database to be ready..."
 
     local max_retries=30
@@ -83,6 +89,12 @@ except Exception as e:
 
 # Function to run migrations
 run_migrations() {
+    # Skip migrations if DB_TYPE is none
+    if [ "$DB_TYPE" = "none" ]; then
+        echo "[entrypoint] DB_TYPE=none, skipping migrations"
+        return 0
+    fi
+
     echo "[entrypoint] Running database migrations..."
 
     if python database/migrate.py; then
@@ -96,6 +108,12 @@ run_migrations() {
 
 # Function to create default admin user
 create_default_admin() {
+    # Skip admin creation if DB_TYPE is none
+    if [ "$DB_TYPE" = "none" ]; then
+        echo "[entrypoint] DB_TYPE=none, skipping admin user creation"
+        return 0
+    fi
+
     echo "[entrypoint] Checking for admin user..."
 
     if python utils/create_default_admin.py; then
@@ -109,6 +127,12 @@ create_default_admin() {
 
 # Function to scan and register existing files
 scan_files() {
+    # Skip file scanning if DB_TYPE is none
+    if [ "$DB_TYPE" = "none" ]; then
+        echo "[entrypoint] DB_TYPE=none, skipping file scanning"
+        return 0
+    fi
+
     echo "[entrypoint] Scanning and registering download files to database..."
 
     python -c "
