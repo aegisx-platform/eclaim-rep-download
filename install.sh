@@ -112,36 +112,51 @@ echo -e "${GREEN}✓ Docker daemon running${NC}"
 # Create directory with permission check
 echo -e "${YELLOW}[2/7] Creating installation directory...${NC}"
 
-# Test write permission first
-if ! touch "$INSTALL_DIR/.test_write" &> /dev/null; then
-    echo -e "${RED}Error: Permission denied to create directory '$INSTALL_DIR'${NC}"
-    echo ""
-    echo -e "${YELLOW}Solutions:${NC}"
-    echo ""
-    echo -e "${BLUE}1. Install in your home directory (แนะนำ):${NC}"
-    echo "   cd ~"
-    echo "   curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash"
-    echo ""
-    echo -e "${BLUE}2. Use custom directory:${NC}"
-    echo "   mkdir -p ~/projects/nhso"
-    echo "   cd ~/projects/nhso"
-    echo "   curl -fsSL ... | bash -s -- --dir ."
-    echo ""
-    echo -e "${BLUE}3. Use sudo (ถ้าจำเป็น):${NC}"
-    echo "   curl -fsSL ... -o install.sh"
-    echo "   sudo bash install.sh --dir $FULL_PATH"
-    echo "   rm install.sh"
-    echo ""
-    echo -e "${YELLOW}⚠️  Production Deployment Guide:${NC}"
-    echo "   https://github.com/aegisx-platform/eclaim-rep-download/blob/main/docs/PRODUCTION_DEPLOYMENT.md"
-    echo ""
-    exit 1
-fi
-rm -f "$INSTALL_DIR/.test_write"
+# Skip permission check if running as root (sudo)
+if [ "$EUID" -eq 0 ]; then
+    # Running as root/sudo - create directory directly
+    mkdir -p "$INSTALL_DIR"
+    cd "$INSTALL_DIR"
+    echo -e "${GREEN}✓ Created: $(pwd) ${YELLOW}(using sudo)${NC}"
+else
+    # Not running as root - check permission first
+    # Create parent directory if needed
+    PARENT_DIR=$(dirname "$INSTALL_DIR")
+    if [ ! -d "$PARENT_DIR" ]; then
+        mkdir -p "$PARENT_DIR" 2>/dev/null || {
+            echo -e "${RED}Error: Cannot create parent directory '$PARENT_DIR'${NC}"
+            echo -e "${YELLOW}Use sudo or install in home directory${NC}"
+            exit 1
+        }
+    fi
 
-mkdir -p "$INSTALL_DIR"
-cd "$INSTALL_DIR"
-echo -e "${GREEN}✓ Created: $(pwd)${NC}"
+    # Test write permission
+    if ! touch "$PARENT_DIR/.test_write" &> /dev/null; then
+        echo -e "${RED}Error: Permission denied to create directory '$INSTALL_DIR'${NC}"
+        echo ""
+        echo -e "${YELLOW}Solutions:${NC}"
+        echo ""
+        echo -e "${BLUE}1. Install in your home directory (แนะนำ):${NC}"
+        echo "   cd ~"
+        echo "   curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash"
+        echo ""
+        echo -e "${BLUE}2. Use sudo (for system directories):${NC}"
+        echo "   curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh"
+        echo "   sudo bash install.sh --dir $FULL_PATH"
+        echo "   sudo chown -R \$USER:\$USER $FULL_PATH"
+        echo "   rm install.sh"
+        echo ""
+        echo -e "${YELLOW}⚠️  Production Deployment Guide:${NC}"
+        echo "   https://github.com/aegisx-platform/eclaim-rep-download/blob/main/docs/PRODUCTION_DEPLOYMENT.md"
+        echo ""
+        exit 1
+    fi
+    rm -f "$PARENT_DIR/.test_write"
+
+    mkdir -p "$INSTALL_DIR"
+    cd "$INSTALL_DIR"
+    echo -e "${GREEN}✓ Created: $(pwd)${NC}"
+fi
 
 # Download docker-compose
 echo -e "${YELLOW}[3/7] Downloading configuration...${NC}"

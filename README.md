@@ -180,33 +180,74 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 mkdir: cannot create directory 'nhso-revenue': Permission denied
 ```
 
-**Quick Solutions:**
+## 🔧 กรณีไม่มี Permission → ทำตาม 3 ขั้นตอนนี้
 
-**1. Install in Home Directory (แนะนำ):**
+### วิธีที่ 1: Install ที่ Home (แนะนำ - ง่ายที่สุด)
+
 ```bash
 cd ~
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
 ```
 
-**2. Use sudo (Review script first!):**
-```bash
-curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
-less install.sh  # REVIEW CODE FIRST!
-sudo bash install.sh --dir /app_data/nhso-revenue
-sudo chown -R $USER:$USER /app_data/nhso-revenue
-rm install.sh
-```
+✅ ไม่ต้องใช้ sudo, ไม่มีปัญหา permission
 
-**3. Git Clone Method (Safest for Production):**
+---
+
+### วิธีที่ 2: ใช้ sudo (สำหรับ /app_data, /opt, /var)
+
+#### ขั้นตอน 3 ขั้นตอน:
+
+**1. Download และ Review:**
 ```bash
 cd ~
-git clone https://github.com/aegisx-platform/eclaim-rep-download.git
-sudo mkdir -p /app_data/nhso-revenue
-sudo cp ~/eclaim-rep-download/docker-compose-deploy.yml /app_data/nhso-revenue/docker-compose.yml
-cd /app_data/nhso-revenue
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh -o install.sh
+less install.sh  # REVIEW!
+```
+
+**2. Run ด้วย sudo:**
+```bash
+sudo bash install.sh --dir /app_data/nhso-revenue
+# กรอก username/password
+```
+
+**3. Fix Permission (สำคัญ!):**
+```bash
+# เปลี่ยน owner
+sudo chown -R $USER:$USER /app_data/nhso-revenue
+
+# เพิ่ม user เข้า docker group
+sudo usermod -aG docker $USER
+
+# **ต้อง logout/login**
+exit
+# SSH เข้ามาใหม่
+```
+
+---
+
+### วิธีที่ 3: Manual Setup (Full Control)
+
+```bash
+# 1. Create
+sudo mkdir -p /app_data/nhso-revenue && cd /app_data/nhso-revenue
+
+# 2. Download compose
+sudo curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/docker-compose-deploy.yml -o docker-compose.yml
+
+# 3. Setup
 sudo mkdir -p downloads/{rep,stm,smt} logs config
 sudo chown -R $USER:$USER .
-# Create .env and run docker compose up -d
+
+# 4. Create .env
+cat > .env << 'EOF'
+ECLAIM_USERNAME=your_username
+ECLAIM_PASSWORD=your_password
+VERSION=latest
+EOF
+nano .env
+
+# 5. Start
+docker compose pull && docker compose up -d
 ```
 
 📚 **Complete Solutions:** [Production Deployment Guide - Permission Issues](docs/PRODUCTION_DEPLOYMENT.md#permission-issues)
