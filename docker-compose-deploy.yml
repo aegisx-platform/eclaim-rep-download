@@ -31,6 +31,7 @@ services:
       DB_NAME: eclaim_db
       DB_USER: eclaim
       DB_PASSWORD: eclaim_password
+      SECRET_KEY: ${SECRET_KEY:-please-change-this-secret-key-in-production}
       FLASK_ENV: production
       TZ: Asia/Bangkok
     volumes:
