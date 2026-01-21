@@ -127,23 +127,34 @@ def create_admin_user(username, password):
 
 
 def save_credentials(username, password):
-    """Save credentials to file for reference."""
+    """
+    Save credentials to file for reference.
+
+    Follows industry standard pattern (similar to GitLab, Jenkins):
+    - Simple text file with credentials
+    - Restrictive permissions (600)
+    - Clear expiry notice
+    - Security instructions
+    """
+    from datetime import datetime, timedelta
+
     creds_file = Path(__file__).parent.parent / '.admin-credentials'
+    created_at = datetime.now()
+    expires_at = created_at + timedelta(days=7)
 
     with open(creds_file, 'w') as f:
-        f.write("=" * 60 + "\n")
-        f.write("E-CLAIM SYSTEM - ADMIN CREDENTIALS\n")
-        f.write("=" * 60 + "\n\n")
+        f.write(f"# Initial Admin Credentials\n")
+        f.write(f"# Created: {created_at.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"# NOTE: This file will be auto-deleted after 7 days ({expires_at.strftime('%Y-%m-%d')})\n\n")
         f.write(f"Username: {username}\n")
         f.write(f"Password: {password}\n\n")
-        f.write("IMPORTANT:\n")
-        f.write("- These credentials are unique to this installation\n")
-        f.write("- Change password after first login\n")
-        f.write("- Delete this file after noting credentials\n")
-        f.write("- Never commit this file to version control\n")
-        f.write("\n" + "=" * 60 + "\n")
+        f.write(f"# Security Instructions:\n")
+        f.write(f"# 1. Save these credentials to a secure password manager\n")
+        f.write(f"# 2. Login and change your password immediately\n")
+        f.write(f"# 3. Delete this file after saving credentials: rm .admin-credentials\n")
+        f.write(f"# 4. Never commit this file to version control\n")
 
-    # Set restrictive permissions (owner read/write only)
+    # Set restrictive permissions (owner read/write only) - standard practice
     os.chmod(creds_file, 0o600)
 
 

@@ -220,7 +220,12 @@ main() {
     # Step 5: Scan and register existing files
     scan_files
 
-    # Step 6: Start the application
+    # Step 6: Cleanup expired credentials (if any)
+    if [ -f "utils/cleanup_expired_credentials.py" ]; then
+        python utils/cleanup_expired_credentials.py 2>/dev/null || true
+    fi
+
+    # Step 7: Start the application
     echo "[entrypoint] Starting Flask application..."
     exec "$@"
 }
