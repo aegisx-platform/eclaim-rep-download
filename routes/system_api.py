@@ -449,8 +449,12 @@ def run_seed_initialization():
             if result.returncode != 0:
                 raise Exception(f"Error codes seed failed: {result.stderr}")
 
+            # Parse record count from output
+            match = re.search(r'Imported[:\s]+(\d+)', result.stdout)
+            records = int(match.group(1)) if match else 0
+
             seed_progress['tasks'][2]['status'] = 'completed'
-            seed_progress['tasks'][2]['records'] = 200  # Approximate
+            seed_progress['tasks'][2]['records'] = records
             seed_progress['completed'] = 3
 
             seed_progress['current_task'] = None
