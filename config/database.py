@@ -24,7 +24,9 @@ DB_CONFIG = {
         'database': os.getenv('DB_NAME', 'eclaim_db'),
         'user': os.getenv('DB_USER', 'root'),
         'password': os.getenv('DB_PASSWORD', ''),
-        'charset': 'utf8mb4'
+        'charset': 'utf8mb4',
+        'use_unicode': True,
+        'collation': 'utf8mb4_unicode_ci'
     }
 }
 

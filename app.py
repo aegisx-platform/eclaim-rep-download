@@ -201,6 +201,10 @@ if not secret_key:
     secret_key = 'dev-only-secret-key-do-not-use-in-production'
 app.config['SECRET_KEY'] = secret_key
 
+# JSON encoding configuration - disable ASCII-only encoding for Thai characters
+app.config['JSON_AS_ASCII'] = False
+app.config['JSON_SORT_KEYS'] = False
+
 # CSRF Protection Configuration
 app.config['WTF_CSRF_ENABLED'] = True
 app.config['WTF_CSRF_TIME_LIMIT'] = None  # No time limit (rely on session expiry)
