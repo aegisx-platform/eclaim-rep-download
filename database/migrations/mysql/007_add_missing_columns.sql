@@ -34,8 +34,21 @@ ALTER TABLE claim_rep_opip_nhso_item ADD COLUMN deny_count VARCHAR(20) DEFAULT N
 ALTER TABLE claim_rep_opip_nhso_item ADD COLUMN audit_result VARCHAR(100) DEFAULT NULL;
 
 -- Update file_type check constraint to include new fund types
--- Drop the old constraint if it exists
-ALTER TABLE eclaim_imported_files DROP CONSTRAINT IF EXISTS chk_file_type;
+-- MySQL syntax: DROP CHECK requires constraint name, cannot use IF EXISTS
+-- We'll try to drop it, ignore error if it doesn't exist
+SET @constraint_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_NAME = 'chk_file_type'
+    AND TABLE_NAME = 'eclaim_imported_files'
+    AND TABLE_SCHEMA = DATABASE());
+
+SET @drop_sql = IF(@constraint_exists > 0,
+    'ALTER TABLE eclaim_imported_files DROP CHECK chk_file_type',
+    'SELECT 1');
+PREPARE stmt FROM @drop_sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Add the new constraint
 ALTER TABLE eclaim_imported_files ADD CONSTRAINT chk_file_type CHECK (file_type IN (
     'OP', 'IP',
     'OPLGO', 'IPLGO',
