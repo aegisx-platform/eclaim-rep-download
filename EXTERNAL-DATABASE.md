@@ -1,10 +1,18 @@
 # การเชื่อมต่อกับ Database ภายนอก
 
-เมื่อต้องการเชื่อมต่อ Application Container กับ Database ที่อยู่บน Host Machine หรือ External Server
+เมื่อต้องการเชื่อมต่อ Application Container กับ Database ที่อยู่บน Host Machine, LAN หรือ External Server
 
-## วิธีมาตรฐาน (แนะนำ)
+## วิธีมาตรฐาน (Host Network Mode - แนะนำ)
 
-### 1. ใช้ docker-compose-deploy-no-db.yml
+`docker-compose-deploy-no-db.yml` ใช้ **Host Network Mode** เป็นค่าเริ่มต้น
+
+**ข้อดี:**
+- ✅ Container ใช้ network stack ของ host โดยตรง
+- ✅ เชื่อมต่อ `localhost` หรือ IP ใดๆ ในเครือข่ายได้เลย
+- ✅ ไม่มี network overhead หรือ NAT
+- ✅ ไม่ต้องกังวลเรื่อง Docker network isolation
+
+### การใช้งาน
 
 ```bash
 # 1. Copy example config
@@ -13,32 +21,46 @@ cp .env.external-db.example .env
 # 2. แก้ไข .env
 nano .env
 
-# 3. ตั้งค่า DB_HOST (เลือก 1 วิธี)
-DB_HOST=host.docker.internal           # สำหรับ Database บน Host (Linux/Mac/Windows)
+# 3. ตั้งค่า DB_HOST (ใช้ IP หรือ hostname ตรงๆ)
+DB_HOST=localhost              # Database บน host (same server)
 # หรือ
-DB_HOST=172.17.0.1                     # Docker bridge gateway (Linux)
+DB_HOST=192.168.0.218          # Database บน LAN
 # หรือ
-DB_HOST=192.168.1.100                  # Host IP address
+DB_HOST=10.0.1.100             # Database บนเครือข่ายภายใน
+# หรือ
+DB_HOST=db.example.com         # Database hostname
 
 # 4. Start container
 docker-compose -f docker-compose-deploy-no-db.yml up -d
 
 # 5. Check logs
 docker-compose -f docker-compose-deploy-no-db.yml logs -f web
+
+# 6. เข้าใช้งาน
+# Web UI: http://localhost:5001
 ```
 
-## การทำงานของ extra_hosts
+## การทำงานของ Host Network Mode
 
-Docker Compose จะเพิ่ม entry ใน `/etc/hosts` ของ container:
+Container ไม่มี network namespace แยก จะใช้ network interface ของ host โดยตรง:
 
+```bash
+# เข้า container shell
+docker-compose exec web bash
+
+# เช็ค network - จะเหมือนกับ host เลย
+ip addr show
+# จะเห็น network interfaces เดียวกับ host
+
+# Ping/Connect ทำงานเหมือนอยู่บน host
+ping 192.168.0.218
+nc -zv 192.168.0.218 3306
 ```
-# ภายใน container
-cat /etc/hosts
-# จะมี:
-# 172.17.0.1    host.docker.internal
-```
 
-ทำให้สามารถใช้ `host.docker.internal` แทน IP address ได้
+**หมายเหตุ:** เมื่อใช้ host network mode:
+- ไม่สามารถใช้ `ports:` mapping ได้ (ไม่จำเป็นแล้ว)
+- Application จะ bind กับ port บน host โดยตรง
+- ใช้ `localhost:5001` เข้าถึงได้เลย
 
 ## การตรวจสอบการเชื่อมต่อ
 
