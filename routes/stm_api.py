@@ -11,6 +11,7 @@ This blueprint handles all STM (Statement) data source specific endpoints:
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required
 import humanize
+import os
 from pathlib import Path
 from datetime import datetime
 import subprocess
@@ -93,15 +94,16 @@ def trigger_stm_download():
             log_file.parent.mkdir(exist_ok=True)
 
             try:
+                app_root = os.environ.get('APP_ROOT', str(Path(__file__).parent.parent))
                 with open(log_file, 'w') as f:
-                    result = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
+                    result = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=app_root)
 
                 # Auto-import if enabled
                 import_results = None
                 if auto_import:
                     import_log_file = Path('logs') / f"stm_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
                     with open(import_log_file, 'w') as f:
-                        subprocess.run(['python3', 'stm_import.py', 'downloads/stm/'], stdout=f, stderr=subprocess.STDOUT)
+                        subprocess.run(['python3', 'stm_import.py', 'downloads/stm/'], stdout=f, stderr=subprocess.STDOUT, cwd=app_root)
 
                 # Complete job
                 if job_id:

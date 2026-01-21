@@ -13,7 +13,7 @@ services:
       MYSQL_PASSWORD: eclaim_password
     volumes:
       - db_data:/var/lib/mysql
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --log-bin-trust-function-creators=1
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
       interval: 10s
@@ -33,16 +33,20 @@ services:
       DB_NAME: eclaim_db
       DB_USER: eclaim
       DB_PASSWORD: eclaim_password
+      SECRET_KEY: ${SECRET_KEY:-please-change-this-secret-key-in-production}
       FLASK_ENV: production
       TZ: Asia/Bangkok
     volumes:
       - ./downloads:/app/downloads
       - ./logs:/app/logs
+      - ./data:/app/data
     ports:
       - "${WEB_PORT:-5001}:5001"
     depends_on:
       db:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     dns:
       - 8.8.8.8
       - 8.8.4.4

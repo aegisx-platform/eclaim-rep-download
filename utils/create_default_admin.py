@@ -127,23 +127,34 @@ def create_admin_user(username, password):
 
 
 def save_credentials(username, password):
-    """Save credentials to file for reference."""
+    """
+    Save credentials to file for reference.
+
+    Follows industry standard pattern (similar to GitLab, Jenkins):
+    - Simple text file with credentials
+    - Restrictive permissions (600)
+    - Clear expiry notice
+    - Security instructions
+    """
+    from datetime import datetime, timedelta
+
     creds_file = Path(__file__).parent.parent / '.admin-credentials'
+    created_at = datetime.now()
+    expires_at = created_at + timedelta(days=7)
 
     with open(creds_file, 'w') as f:
-        f.write("=" * 60 + "\n")
-        f.write("E-CLAIM SYSTEM - ADMIN CREDENTIALS\n")
-        f.write("=" * 60 + "\n\n")
+        f.write(f"# Initial Admin Credentials\n")
+        f.write(f"# Created: {created_at.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"# NOTE: This file will be auto-deleted after 7 days ({expires_at.strftime('%Y-%m-%d')})\n\n")
         f.write(f"Username: {username}\n")
         f.write(f"Password: {password}\n\n")
-        f.write("IMPORTANT:\n")
-        f.write("- These credentials are unique to this installation\n")
-        f.write("- Change password after first login\n")
-        f.write("- Delete this file after noting credentials\n")
-        f.write("- Never commit this file to version control\n")
-        f.write("\n" + "=" * 60 + "\n")
+        f.write(f"# Security Instructions:\n")
+        f.write(f"# 1. Save these credentials to a secure password manager\n")
+        f.write(f"# 2. Login and change your password immediately\n")
+        f.write(f"# 3. Delete this file after saving credentials: rm .admin-credentials\n")
+        f.write(f"# 4. Never commit this file to version control\n")
 
-    # Set restrictive permissions (owner read/write only)
+    # Set restrictive permissions (owner read/write only) - standard practice
     os.chmod(creds_file, 0o600)
 
 
@@ -175,17 +186,17 @@ def main():
     save_credentials(username, password)
 
     # Display credentials (THIS IS THE ONLY TIME THEY'LL BE SHOWN)
-    print("\n" + "!" * 60)
-    print("!  DEFAULT ADMIN CREDENTIALS CREATED")
-    print("!" * 60)
-    print(f"!\n!  Username: {username}")
-    print(f"!  Password: {password}")
-    print("!\n!  IMPORTANT:")
-    print("!  - Write down these credentials NOW")
-    print("!  - Credentials also saved to: .admin-credentials")
-    print("!  - Change password after first login")
-    print("!  - These are unique to this installation")
-    print("!\n" + "!" * 60 + "\n")
+    print("\n" + "-" * 60)
+    print("Initial Admin Credentials")
+    print("-" * 60)
+    print(f"Username: {username}")
+    print(f"Password: {password}")
+    print("-" * 60)
+    print("IMPORTANT: Save these credentials now!")
+    print("  - Credentials also saved to: .admin-credentials")
+    print("  - Login and change your password immediately")
+    print("  - Delete .admin-credentials after saving to password manager")
+    print("-" * 60 + "\n")
 
     print("[create_admin] ✓ Admin user created successfully!")
     print("=" * 60 + "\n")

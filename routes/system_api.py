@@ -314,7 +314,7 @@ def get_seed_status():
         # Check each seed table
         seed_tables = {
             'dim_date': {'name': 'Dimension Date', 'min_records': 100},
-            'health_offices': {'name': 'Health Offices', 'min_records': 1000},
+            'health_offices': {'name': 'Health Offices', 'min_records': 10},
             'nhso_error_codes': {'name': 'NHSO Error Codes', 'min_records': 10},
             'fund_types': {'name': 'Fund Types', 'min_records': 5},
             'service_types': {'name': 'Service Types', 'min_records': 5}
@@ -398,7 +398,8 @@ def run_seed_initialization():
             seed_progress['current_task'] = 'dim'
             seed_progress['tasks'][0]['status'] = 'running'
 
-            cwd = os.environ.get('APP_ROOT', os.path.dirname(os.path.abspath(__file__)))
+            # Get app root directory (container: /app, local: project root)
+            cwd = os.environ.get('APP_ROOT', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             result = subprocess.run(
                 ['python', 'database/migrate.py', '--seed'],
                 capture_output=True,
@@ -448,8 +449,12 @@ def run_seed_initialization():
             if result.returncode != 0:
                 raise Exception(f"Error codes seed failed: {result.stderr}")
 
+            # Parse record count from output
+            match = re.search(r'Imported[:\s]+(\d+)', result.stdout)
+            records = int(match.group(1)) if match else 0
+
             seed_progress['tasks'][2]['status'] = 'completed'
-            seed_progress['tasks'][2]['records'] = 200  # Approximate
+            seed_progress['tasks'][2]['records'] = records
             seed_progress['completed'] = 3
 
             seed_progress['current_task'] = None

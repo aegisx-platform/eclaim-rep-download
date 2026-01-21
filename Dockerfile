@@ -26,7 +26,8 @@ COPY . .
 
 # Create necessary directories with proper permissions
 # Note: config/ already exists from COPY, so we don't create it
-RUN mkdir -p logs downloads backups && \
+# data/ is for user settings persistence (settings.json will be stored here)
+RUN mkdir -p logs downloads backups data && \
     chmod -R 755 /app
 
 # Set permissions for scripts
@@ -40,6 +41,7 @@ EXPOSE 5001
 ENV FLASK_APP=app.py
 ENV PYTHONUNBUFFERED=1
 ENV TZ=Asia/Bangkok
+ENV APP_ROOT=/app
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

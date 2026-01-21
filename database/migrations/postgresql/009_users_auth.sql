@@ -84,10 +84,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     expires_at TIMESTAMP,
 
     -- Status
-    is_active BOOLEAN DEFAULT TRUE,
-
-    -- Indexes
-    CONSTRAINT user_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    is_active BOOLEAN DEFAULT TRUE
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
@@ -108,9 +105,7 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     expires_at TIMESTAMP NOT NULL,
     used_at TIMESTAMP,
 
-    ip_address VARCHAR(45),
-
-    CONSTRAINT password_reset_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ip_address VARCHAR(45)
 );
 
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
@@ -273,20 +268,13 @@ $$ LANGUAGE plpgsql;
 -- =============================================================================
 -- DEFAULT ADMIN USER
 -- =============================================================================
--- Create default admin user (password: admin - MUST BE CHANGED)
--- Password hash is bcrypt of 'admin'
+-- Admin user is created automatically by create_default_admin.py with:
+-- - Random username (admin_XXXXXXXX)
+-- - Random secure password (16 chars)
+-- - Credentials saved to .admin-credentials file
+-- This ensures each installation has unique credentials for security.
 
-INSERT INTO users (username, email, password_hash, full_name, role, must_change_password)
-VALUES (
-    'admin',
-    'admin@eclaim.local',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYqXfj0cG1i',  -- bcrypt('admin')
-    'System Administrator',
-    'admin',
-    TRUE  -- Force password change on first login
-)
-ON CONFLICT (username) DO NOTHING;
-
+-- No default user inserted here - handled by entrypoint script
 -- =============================================================================
 -- COMMENTS
 -- =============================================================================

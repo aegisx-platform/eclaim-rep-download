@@ -189,17 +189,25 @@ def main():
     elif os.path.exists(default_path):
         file_path = default_path
     else:
-        # Check in seeds directory
-        seeds_path = os.path.join(os.path.dirname(__file__), 'fdh-error-code.sql')
-        if os.path.exists(seeds_path):
-            file_path = seeds_path
-        else:
-            print("❌ Error: Please provide path to fdh-error-code.sql")
-            print(f"Usage: python {sys.argv[0]} <path_to_sql_file>")
-            print(f"\nDefault locations checked:")
-            print(f"  - {default_path}")
-            print(f"  - {seeds_path}")
-            sys.exit(1)
+        # Check in seeds directory for both possible filenames
+        seeds_paths = [
+            os.path.join(os.path.dirname(__file__), 'nhso_error_codes.sql'),
+            os.path.join(os.path.dirname(__file__), 'fdh-error-code.sql'),
+        ]
+
+        file_path = None
+        for p in seeds_paths:
+            if os.path.exists(p):
+                file_path = p
+                break
+
+        if not file_path:
+            print("⚠️  WARNING: NHSO error codes SQL file not found - skipping error codes seed")
+            print(f"To import NHSO error codes:")
+            print(f"1. Place fdh-error-code.sql or nhso_error_codes.sql in: database/seeds/")
+            print(f"2. Run: python database/seeds/nhso_error_codes_importer.py")
+            print("Imported: 0")  # For regex parsing in system_api.py
+            sys.exit(0)  # Exit success to allow other seeds to continue
 
     print(f"📂 Reading: {file_path}")
 

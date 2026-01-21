@@ -1,12 +1,17 @@
 # NHSO Revenue Intelligence - No Database Container (Connect to External DB)
 # ติดตั้งผ่าน: curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --no-db
 # ต้องระบุ DB_TYPE, DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD ใน .env
+#
+# Default: ใช้ Host Network Mode (แนะนำสำหรับ external database)
+# Container จะใช้ network stack ของ host โดยตรง เชื่อม LAN/external IP ได้ทุก IP
+# Web UI: http://localhost:5001
 
 services:
   web:
     image: ghcr.io/aegisx-platform/eclaim-rep-download:${VERSION:-latest}
     container_name: nhso-web
     restart: unless-stopped
+    network_mode: "host"
     environment:
       ECLAIM_USERNAME: ${ECLAIM_USERNAME}
       ECLAIM_PASSWORD: ${ECLAIM_PASSWORD}
@@ -16,13 +21,10 @@ services:
       DB_NAME: ${DB_NAME:-eclaim_db}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY}
       FLASK_ENV: production
       TZ: Asia/Bangkok
     volumes:
       - ./downloads:/app/downloads
       - ./logs:/app/logs
-    ports:
-      - "${WEB_PORT:-5001}:5001"
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
+      - ./data:/app/data

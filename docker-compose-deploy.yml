@@ -31,16 +31,20 @@ services:
       DB_NAME: eclaim_db
       DB_USER: eclaim
       DB_PASSWORD: eclaim_password
+      SECRET_KEY: ${SECRET_KEY:-please-change-this-secret-key-in-production}
       FLASK_ENV: production
       TZ: Asia/Bangkok
     volumes:
       - ./downloads:/app/downloads
       - ./logs:/app/logs
+      - ./data:/app/data
     ports:
       - "${WEB_PORT:-5001}:5001"
     depends_on:
       db:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     dns:
       - 8.8.8.8
       - 8.8.4.4
