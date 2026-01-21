@@ -229,16 +229,11 @@ DELIMITER ;
 -- =============================================================================
 -- DEFAULT ADMIN USER
 -- =============================================================================
--- Create default admin user (password: admin - MUST BE CHANGED)
--- Password hash is bcrypt of 'admin'
+-- Admin user is created automatically by create_default_admin.py with:
+-- - Random username (admin_XXXXXXXX)
+-- - Random secure password (16 chars)
+-- - Credentials saved to .admin-credentials file
+-- This ensures each installation has unique credentials for security.
 
-INSERT INTO users (username, email, password_hash, full_name, role, must_change_password)
-VALUES (
-    'admin',
-    'admin@eclaim.local',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYqXfj0cG1i',
-    'System Administrator',
-    'admin',
-    TRUE
-)
-ON DUPLICATE KEY UPDATE id=id;
+-- No default user inserted here - handled by entrypoint script
+-- =============================================================================
