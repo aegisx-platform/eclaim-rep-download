@@ -84,10 +84,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     expires_at TIMESTAMP,
 
     -- Status
-    is_active BOOLEAN DEFAULT TRUE,
-
-    -- Indexes
-    CONSTRAINT user_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    is_active BOOLEAN DEFAULT TRUE
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
@@ -108,9 +105,7 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     expires_at TIMESTAMP NOT NULL,
     used_at TIMESTAMP,
 
-    ip_address VARCHAR(45),
-
-    CONSTRAINT password_reset_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ip_address VARCHAR(45)
 );
 
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
