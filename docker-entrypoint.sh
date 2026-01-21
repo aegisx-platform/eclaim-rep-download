@@ -200,6 +200,23 @@ main() {
     # Step 4: Create default admin user (if first installation)
     create_default_admin
 
+    # Display credentials file location if exists
+    if [ -f ".admin-credentials" ]; then
+        echo ""
+        echo "============================================"
+        echo "📋 ADMIN CREDENTIALS READY"
+        echo "============================================"
+        echo "Your admin credentials have been saved to:"
+        echo "  → .admin-credentials"
+        echo ""
+        echo "To view credentials:"
+        echo "  cat .admin-credentials"
+        echo ""
+        echo "Or check logs above for username/password"
+        echo "============================================"
+        echo ""
+    fi
+
     # Step 5: Scan and register existing files
     scan_files
 
