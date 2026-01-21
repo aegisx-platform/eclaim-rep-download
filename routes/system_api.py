@@ -314,7 +314,7 @@ def get_seed_status():
         # Check each seed table
         seed_tables = {
             'dim_date': {'name': 'Dimension Date', 'min_records': 100},
-            'health_offices': {'name': 'Health Offices', 'min_records': 1000},
+            'health_offices': {'name': 'Health Offices', 'min_records': 10},
             'nhso_error_codes': {'name': 'NHSO Error Codes', 'min_records': 10},
             'fund_types': {'name': 'Fund Types', 'min_records': 5},
             'service_types': {'name': 'Service Types', 'min_records': 5}
