@@ -131,6 +131,7 @@ class ImportRunner:
                 stdout=log_f,
                 stderr=subprocess.STDOUT,
                 text=True,
+                cwd=os.environ.get('APP_ROOT', str(Path(__file__).parent.parent)),
                 start_new_session=True  # Detach from parent
             )
 
@@ -198,6 +199,7 @@ class ImportRunner:
                 stdout=log_f,
                 stderr=subprocess.STDOUT,
                 text=True,
+                cwd=os.environ.get('APP_ROOT', str(Path(__file__).parent.parent)),
                 start_new_session=True  # Detach from parent
             )
 
