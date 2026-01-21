@@ -1,6 +1,13 @@
 # NHSO Revenue Intelligence - No Database Container (Connect to External DB)
 # ติดตั้งผ่าน: curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --no-db
 # ต้องระบุ DB_TYPE, DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD ใน .env
+#
+# สำหรับ Database บน Host Machine:
+#   DB_HOST=host.docker.internal (Linux/Mac/Windows)
+#
+# หรือใช้ IP Address:
+#   DB_HOST=172.17.0.1 (Docker bridge gateway - Linux)
+#   DB_HOST=192.168.x.x (Host IP address)
 
 services:
   web:
@@ -24,6 +31,8 @@ services:
       - ./data:/app/data
     ports:
       - "${WEB_PORT:-5001}:5001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     dns:
       - 8.8.8.8
       - 8.8.4.4
