@@ -41,6 +41,7 @@ EXPOSE 5001
 ENV FLASK_APP=app.py
 ENV PYTHONUNBUFFERED=1
 ENV TZ=Asia/Bangkok
+ENV APP_ROOT=/app
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

@@ -398,7 +398,8 @@ def run_seed_initialization():
             seed_progress['current_task'] = 'dim'
             seed_progress['tasks'][0]['status'] = 'running'
 
-            cwd = os.environ.get('APP_ROOT', os.path.dirname(os.path.abspath(__file__)))
+            # Get app root directory (container: /app, local: project root)
+            cwd = os.environ.get('APP_ROOT', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             result = subprocess.run(
                 ['python', 'database/migrate.py', '--seed'],
                 capture_output=True,
