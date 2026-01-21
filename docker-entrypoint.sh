@@ -10,6 +10,31 @@ echo "DB_PORT: ${DB_PORT:-5432}"
 echo "DB_NAME: ${DB_NAME:-eclaim_db}"
 echo "============================================"
 
+# Function to generate SECRET_KEY if not set
+generate_secret_key() {
+    # Check if SECRET_KEY is not set or is using default value
+    if [ -z "$SECRET_KEY" ] || [ "$SECRET_KEY" = "please-change-this-secret-key-in-production" ]; then
+        echo "[entrypoint] SECRET_KEY not set or using default, generating new one..."
+
+        # Generate random SECRET_KEY
+        NEW_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+
+        # Export for current session
+        export SECRET_KEY="$NEW_SECRET_KEY"
+
+        # Save to credentials file
+        echo "" >> .admin-credentials
+        echo "# Generated SECRET_KEY ($(date '+%Y-%m-%d %H:%M:%S'))" >> .admin-credentials
+        echo "SECRET_KEY=$NEW_SECRET_KEY" >> .admin-credentials
+
+        echo "[entrypoint] ✓ Generated new SECRET_KEY and saved to .admin-credentials"
+        echo "[entrypoint] IMPORTANT: Add this to your .env file for persistence:"
+        echo "[entrypoint] SECRET_KEY=$NEW_SECRET_KEY"
+    else
+        echo "[entrypoint] SECRET_KEY already configured"
+    fi
+}
+
 # Function to migrate settings from old location
 migrate_settings() {
     if [ -f "config/settings.json" ] && [ ! -f "data/settings.json" ]; then
@@ -157,25 +182,28 @@ print('[entrypoint] File scanning completed!')
 
 # Main startup sequence
 main() {
-    # Step 0: Migrate settings if needed
+    # Step 0: Generate SECRET_KEY if needed
+    generate_secret_key
+
+    # Step 1: Migrate settings if needed
     migrate_settings
 
-    # Step 1: Wait for database
+    # Step 2: Wait for database
     if ! wait_for_db; then
         echo "[entrypoint] Cannot connect to database, exiting."
         exit 1
     fi
 
-    # Step 2: Run migrations
+    # Step 3: Run migrations
     run_migrations
 
-    # Step 3: Create default admin user (if first installation)
+    # Step 4: Create default admin user (if first installation)
     create_default_admin
 
-    # Step 4: Scan and register existing files
+    # Step 5: Scan and register existing files
     scan_files
 
-    # Step 5: Start the application
+    # Step 6: Start the application
     echo "[entrypoint] Starting Flask application..."
     exec "$@"
 }
