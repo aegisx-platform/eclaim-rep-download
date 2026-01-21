@@ -464,10 +464,13 @@ def main():
                 break
 
         if not excel_path:
-            print("[seed] ERROR: health_office.xlsx not found")
-            print("[seed] Please provide path: python health_offices_importer.py /path/to/file.xlsx")
-            print("[seed] Or place file in: database/seeds/data/health_office.xlsx")
-            sys.exit(1)
+            print("[seed] WARNING: health_office.xlsx not found - skipping health offices seed")
+            print("[seed] To import health offices data:")
+            print("[seed] 1. Download health_office.xlsx from your data source")
+            print("[seed] 2. Place it in: database/seeds/data/health_office.xlsx")
+            print("[seed] 3. Run: python database/seeds/health_offices_importer.py")
+            print("[seed] Imported: 0")  # For regex parsing in system_api.py
+            sys.exit(0)  # Exit success to allow other seeds to continue
 
     if not Path(excel_path).exists():
         print(f"[seed] ERROR: File not found: {excel_path}")
