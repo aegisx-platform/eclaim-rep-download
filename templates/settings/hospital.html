@@ -224,8 +224,8 @@ async function searchHospitals(query) {
         document.getElementById('search-icon').classList.remove('hidden');
         document.getElementById('search-spinner').classList.add('hidden');
 
-        if (data.success && data.offices && data.offices.length > 0) {
-            displayAutocompleteResults(data.offices);
+        if (data.success && data.data && data.data.length > 0) {
+            displayAutocompleteResults(data.data);
         } else {
             displayNoResults();
         }
