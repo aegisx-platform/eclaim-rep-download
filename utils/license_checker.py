@@ -33,10 +33,24 @@ class LicenseChecker:
 
     # License tiers and their features
     TIER_FEATURES = {
+        'free': {
+            'max_users': 9999,
+            'max_records_per_import': 9999999,
+            'smt_budget': True,          # ✅ SMT ใช้ได้ (ฟรี)
+            'rep_access': False,          # ❌ REP download/import ห้าม
+            'stm_access': False,          # ❌ STM download/import ห้าม
+            'analytics_advanced': False,
+            'reconciliation': False,
+            'api_access': False,
+            'priority_support': False,
+            'custom_reports': False
+        },
         'trial': {
             'max_users': 2,
             'max_records_per_import': 1000,
             'smt_budget': False,
+            'rep_access': False,
+            'stm_access': False,
             'analytics_advanced': False,
             'reconciliation': False,
             'api_access': False,
@@ -47,6 +61,8 @@ class LicenseChecker:
             'max_users': 5,
             'max_records_per_import': 50000,
             'smt_budget': True,
+            'rep_access': True,
+            'stm_access': True,
             'analytics_advanced': False,
             'reconciliation': True,
             'api_access': False,
@@ -57,6 +73,8 @@ class LicenseChecker:
             'max_users': 20,
             'max_records_per_import': 500000,
             'smt_budget': True,
+            'rep_access': True,
+            'stm_access': True,
             'analytics_advanced': True,
             'reconciliation': True,
             'api_access': True,
@@ -67,6 +85,8 @@ class LicenseChecker:
             'max_users': 9999,  # Unlimited
             'max_records_per_import': 9999999,  # Unlimited
             'smt_budget': True,
+            'rep_access': True,           # ✅ REP download/import ได้
+            'stm_access': True,           # ✅ STM download/import ได้
             'analytics_advanced': True,
             'reconciliation': True,
             'api_access': True,
@@ -235,12 +255,13 @@ class LicenseChecker:
         is_valid, payload, error = self.verify_license()
 
         if not is_valid:
+            # No license or invalid → Free tier (SMT only)
             return {
                 'is_valid': False,
-                'status': 'invalid',
+                'status': 'free',
                 'error': error,
-                'tier': 'trial',
-                'features': self.TIER_FEATURES['trial'],
+                'tier': 'free',
+                'features': self.TIER_FEATURES['free'],
                 'days_until_expiry': None,
                 'grace_period': False,
                 'grace_days_left': 0,
@@ -248,7 +269,7 @@ class LicenseChecker:
                 'expires_at': None,
                 'issued_at': None,
                 'license_key': None,
-                'license_type': 'trial',
+                'license_type': 'free',
                 'hospital_code': None,
                 'hospital_name': None,
                 'custom_limits': {}
@@ -291,18 +312,18 @@ class LicenseChecker:
         Get current license state for access control
 
         States:
-        - 'active': License valid, all features available
-        - 'grace_period': License expired but within grace period, downloads blocked
-        - 'read_only': License expired beyond grace period or invalid, downloads blocked
+        - 'active': License valid, all features available (REP, STM, SMT)
+        - 'grace_period': License expired but within grace period, REP/STM blocked
+        - 'free': No license or invalid, SMT only (REP/STM blocked)
 
         Returns:
-            License state string ('active', 'grace_period', or 'read_only')
+            License state string ('active', 'grace_period', or 'free')
         """
         is_valid, payload, error = self.verify_license()
 
-        # If verification failed completely (expired beyond grace or invalid)
+        # If verification failed completely (no license or invalid)
         if not is_valid:
-            return 'read_only'
+            return 'free'
 
         # Check if in grace period
         if payload.get('_grace_period', False):
