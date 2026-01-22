@@ -69,49 +69,100 @@ def generate_license_token(private_key_pem, tier='professional', hospital_code='
         (license_key, license_token)
     """
 
-    # Tier features
+    # Tier features (must match license_checker.py)
     tier_features = {
-        'trial': {
-            'max_users': 2,
-            'max_records_per_import': 1000,
-            'smt_budget': False,
+        'free': {
+            'tier_name': 'Free',
+            'price_per_year': 0,
+            'max_users': 9999,
+            'max_records_per_import': 9999999,
+            'data_retention_years': 999,
+            'smt_budget': True,
+            'rep_access': False,
+            'stm_access': False,
+            'view_reports': True,
+            'export_reports': True,
+            'analytics_basic': True,
             'analytics_advanced': False,
             'reconciliation': False,
             'api_access': False,
+            'custom_reports': False,
+            'scheduled_downloads': False,
+            'white_label': False,
             'priority_support': False,
-            'custom_reports': False
+            'dedicated_support': False,
+            'custom_development': False,
+            'sla_guarantee': False
         },
         'basic': {
-            'max_users': 5,
-            'max_records_per_import': 50000,
+            'tier_name': 'Basic',
+            'price_per_year': 10000,
+            'max_users': 10,
+            'max_records_per_import': 9999999,
+            'data_retention_years': 3,
             'smt_budget': True,
+            'rep_access': True,
+            'stm_access': True,
+            'view_reports': True,
+            'export_reports': True,
+            'analytics_basic': True,
             'analytics_advanced': False,
-            'reconciliation': True,
+            'reconciliation': False,
             'api_access': False,
+            'custom_reports': False,
+            'scheduled_downloads': True,
+            'white_label': False,
             'priority_support': False,
-            'custom_reports': False
+            'dedicated_support': False,
+            'custom_development': False,
+            'sla_guarantee': False
         },
         'professional': {
-            'max_users': 20,
-            'max_records_per_import': 500000,
+            'tier_name': 'Professional',
+            'price_per_year': 30000,
+            'max_users': 50,
+            'max_records_per_import': 9999999,
+            'data_retention_years': 5,
             'smt_budget': True,
+            'rep_access': True,
+            'stm_access': True,
+            'view_reports': True,
+            'export_reports': True,
+            'analytics_basic': True,
             'analytics_advanced': True,
             'reconciliation': True,
             'api_access': True,
+            'custom_reports': True,
+            'scheduled_downloads': True,
+            'white_label': False,
             'priority_support': True,
-            'custom_reports': True
+            'dedicated_support': False,
+            'custom_development': False,
+            'sla_guarantee': False
         },
         'enterprise': {
+            'tier_name': 'Enterprise',
+            'price_per_year': 100000,
             'max_users': 9999,
             'max_records_per_import': 9999999,
+            'data_retention_years': 999,
             'smt_budget': True,
+            'rep_access': True,
+            'stm_access': True,
+            'view_reports': True,
+            'export_reports': True,
+            'analytics_basic': True,
             'analytics_advanced': True,
             'reconciliation': True,
             'api_access': True,
-            'priority_support': True,
             'custom_reports': True,
+            'scheduled_downloads': True,
             'white_label': True,
-            'dedicated_support': True
+            'priority_support': True,
+            'dedicated_support': True,
+            'custom_development': True,
+            'sla_guarantee': True,
+            'multi_site': True
         }
     }
 
@@ -126,7 +177,7 @@ def generate_license_token(private_key_pem, tier='professional', hospital_code='
         'hospital_name': hospital_name,
         'tier': tier,
         'license_type': 'perpetual' if days_valid is None else 'subscription',
-        'features': tier_features.get(tier, tier_features['trial']),
+        'features': tier_features.get(tier, tier_features['free']),
         'iat': int(now.timestamp()),
         'max_users': tier_features.get(tier, {}).get('max_users', 2),
         'limits': {
@@ -177,33 +228,36 @@ def main():
 
     print("🎫 Generating test licenses...\n")
 
-    # 1. Trial License (30 days)
-    print("1️⃣  Trial License (30 days)")
+    # 1. Free License (Perpetual - SMT only)
+    print("1️⃣  Free License (Perpetual)")
     key, token = generate_license_token(
         private_key,
-        tier='trial',
+        tier='free',
         hospital_code='10001',
-        hospital_name='โรงพยาบาลทดลอง',
-        days_valid=30
+        hospital_name='โรงพยาบาลทดสอบ',
+        days_valid=None  # Perpetual
     )
-    licenses['trial'] = {
+    licenses['free'] = {
         'license_key': key,
         'license_token': token,
         'public_key': public_key,
-        'tier': 'trial',
-        'expires': '30 days from now'
+        'tier': 'free',
+        'price': '0 บาท',
+        'expires': 'Never (Perpetual)'
     }
     print(f"   License Key: {key}")
-    print(f"   Tier: Trial (2 users, 1,000 records/import)")
-    print(f"   Expires: 30 days from now\n")
+    print(f"   Tier: Free (0 บาท/year)")
+    print(f"   Features: SMT Budget only, View Reports (read-only)")
+    print(f"   Limits: Unlimited users, Unlimited retention")
+    print(f"   Expires: Never (Perpetual)\n")
 
-    # 2. Basic License (1 year)
+    # 2. Basic License (1 year - 10,000 บาท)
     print("2️⃣  Basic License (1 year)")
     key, token = generate_license_token(
         private_key,
         tier='basic',
         hospital_code='10670',
-        hospital_name='โรงพยาบาลศิริราช',
+        hospital_name='โรงพยาบาลขอนแก่น',
         days_valid=365
     )
     licenses['basic'] = {
@@ -211,19 +265,22 @@ def main():
         'license_token': token,
         'public_key': public_key,
         'tier': 'basic',
+        'price': '10,000 บาท/year',
         'expires': '1 year from now'
     }
     print(f"   License Key: {key}")
-    print(f"   Tier: Basic (5 users, 50,000 records/import)")
+    print(f"   Tier: Basic (10,000 บาท/year)")
+    print(f"   Features: REP + STM + SMT, Basic Analytics, Auto Download")
+    print(f"   Limits: 10 users, 3 years retention")
     print(f"   Expires: 1 year from now\n")
 
-    # 3. Professional License (1 year)
+    # 3. Professional License (1 year - 30,000 บาท)
     print("3️⃣  Professional License (1 year)")
     key, token = generate_license_token(
         private_key,
         tier='professional',
         hospital_code='10670',
-        hospital_name='โรงพยาบาลศิริราช',
+        hospital_name='โรงพยาบาลขอนแก่น',
         days_valid=365
     )
     licenses['professional'] = {
@@ -231,39 +288,45 @@ def main():
         'license_token': token,
         'public_key': public_key,
         'tier': 'professional',
+        'price': '30,000 บาท/year',
         'expires': '1 year from now'
     }
     print(f"   License Key: {key}")
-    print(f"   Tier: Professional (20 users, 500,000 records/import)")
+    print(f"   Tier: Professional (30,000 บาท/year)")
+    print(f"   Features: Advanced Analytics, HIS Reconciliation, API Access")
+    print(f"   Limits: 50 users, 5 years retention")
     print(f"   Expires: 1 year from now\n")
 
-    # 4. Enterprise License (Perpetual)
-    print("4️⃣  Enterprise License (Perpetual)")
+    # 4. Enterprise License (1 year - 100,000 บาท)
+    print("4️⃣  Enterprise License (1 year)")
     key, token = generate_license_token(
         private_key,
         tier='enterprise',
         hospital_code='10670',
-        hospital_name='โรงพยาบาลศิริราช',
-        days_valid=None  # Perpetual
+        hospital_name='โรงพยาบาลขอนแก่น',
+        days_valid=365
     )
     licenses['enterprise'] = {
         'license_key': key,
         'license_token': token,
         'public_key': public_key,
         'tier': 'enterprise',
-        'expires': 'Never (Perpetual)'
+        'price': '100,000 บาท/year',
+        'expires': '1 year from now'
     }
     print(f"   License Key: {key}")
-    print(f"   Tier: Enterprise (Unlimited users & records)")
-    print(f"   Expires: Never (Perpetual)\n")
+    print(f"   Tier: Enterprise (100,000 บาท/year)")
+    print(f"   Features: White Label, Dedicated Support, Custom Development")
+    print(f"   Limits: Unlimited users, Unlimited retention")
+    print(f"   Expires: 1 year from now\n")
 
-    # 5. Expiring Soon License (15 days)
+    # 5. Expiring Soon License (15 days - for testing warning)
     print("5️⃣  Expiring Soon License (15 days - for testing warning)")
     key, token = generate_license_token(
         private_key,
         tier='professional',
         hospital_code='10670',
-        hospital_name='โรงพยาบาลศิริราช',
+        hospital_name='โรงพยาบาลขอนแก่น',
         days_valid=15
     )
     licenses['expiring_soon'] = {
@@ -271,6 +334,7 @@ def main():
         'license_token': token,
         'public_key': public_key,
         'tier': 'professional',
+        'price': '30,000 บาท/year',
         'expires': '15 days from now'
     }
     print(f"   License Key: {key}")
@@ -283,7 +347,7 @@ def main():
         private_key,
         tier='professional',
         hospital_code='10670',
-        hospital_name='โรงพยาบาลศิริราช',
+        hospital_name='โรงพยาบาลขอนแก่น',
         days_valid=-5  # Already expired
     )
     licenses['expired'] = {
@@ -291,11 +355,12 @@ def main():
         'license_token': token,
         'public_key': public_key,
         'tier': 'professional',
+        'price': '30,000 บาท/year',
         'expires': '5 days ago (Grace period active)'
     }
     print(f"   License Key: {key}")
     print(f"   Tier: Professional")
-    print(f"   Expires: 5 days ago (Grace period - 2 days left)\n")
+    print(f"   Expires: 5 days ago (Grace period - 90 days left)\n")
 
     # Save all licenses to JSON file
     output_file = 'config/test_licenses.json'
@@ -312,6 +377,12 @@ def main():
     print("2. Go to 'Install / Update License' section")
     print("3. Copy the license_key, license_token, and public_key from test_licenses.json")
     print("4. Paste into the form and click 'Install License'")
+    print()
+    print("💰 Pricing Tiers:")
+    print("   • Free: 0 บาท - SMT only, read-only reports")
+    print("   • Basic: 10,000 บาท/year - REP + STM + SMT, 10 users")
+    print("   • Professional: 30,000 บาท/year - Advanced analytics, API, 50 users")
+    print("   • Enterprise: 100,000 บาท/year - White label, unlimited users")
     print()
     print("💡 Try different tiers to test feature restrictions!")
     print()

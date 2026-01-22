@@ -34,66 +34,97 @@ class LicenseChecker:
     # License tiers and their features
     TIER_FEATURES = {
         'free': {
-            'max_users': 9999,
-            'max_records_per_import': 9999999,
-            'smt_budget': True,          # ✅ SMT ใช้ได้ (ฟรี)
-            'rep_access': False,          # ❌ REP download/import ห้าม
-            'stm_access': False,          # ❌ STM download/import ห้าม
-            'analytics_advanced': False,
-            'reconciliation': False,
-            'api_access': False,
+            'tier_name': 'Free',
+            'price_per_year': 0,
+            'max_users': 9999,                     # Unlimited
+            'max_records_per_import': 9999999,     # Unlimited
+            'data_retention_years': 999,           # Unlimited
+            'smt_budget': True,                    # ✅ SMT Budget (Download/Import/Analytics)
+            'rep_access': False,                   # ❌ REP (E-Claim) blocked
+            'stm_access': False,                   # ❌ STM (Statement) blocked
+            'view_reports': True,                  # ✅ View all reports (read-only)
+            'export_reports': True,                # ✅ Export to Excel/PDF
+            'analytics_basic': True,               # ✅ Basic analytics (SMT only)
+            'analytics_advanced': False,           # ❌ No forecasting, prediction
+            'reconciliation': False,               # ❌ No HIS reconciliation
+            'api_access': False,                   # ❌ No API
+            'custom_reports': False,               # ❌ No custom report builder
+            'scheduled_downloads': False,          # ❌ No automation
+            'white_label': False,
             'priority_support': False,
-            'custom_reports': False
-        },
-        'trial': {
-            'max_users': 2,
-            'max_records_per_import': 1000,
-            'smt_budget': False,
-            'rep_access': False,
-            'stm_access': False,
-            'analytics_advanced': False,
-            'reconciliation': False,
-            'api_access': False,
-            'priority_support': False,
-            'custom_reports': False
+            'dedicated_support': False,
+            'custom_development': False,
+            'sla_guarantee': False
         },
         'basic': {
-            'max_users': 5,
-            'max_records_per_import': 50000,
-            'smt_budget': True,
-            'rep_access': True,
-            'stm_access': True,
-            'analytics_advanced': False,
-            'reconciliation': True,
-            'api_access': False,
+            'tier_name': 'Basic',
+            'price_per_year': 10000,
+            'max_users': 10,
+            'max_records_per_import': 9999999,
+            'data_retention_years': 3,
+            'smt_budget': True,                    # ✅ SMT Budget
+            'rep_access': True,                    # ✅ REP (E-Claim) download/import
+            'stm_access': True,                    # ✅ STM (Statement) download/import
+            'view_reports': True,
+            'export_reports': True,
+            'analytics_basic': True,               # ✅ Summary, Trends, Denial analysis
+            'analytics_advanced': False,           # ❌ No AI/ML features
+            'reconciliation': False,               # ❌ No HIS reconciliation
+            'api_access': False,                   # ❌ No API
+            'custom_reports': False,               # ❌ No custom report builder
+            'scheduled_downloads': True,           # ✅ Auto download
+            'white_label': False,
             'priority_support': False,
-            'custom_reports': False
+            'dedicated_support': False,
+            'custom_development': False,
+            'sla_guarantee': False
         },
         'professional': {
-            'max_users': 20,
-            'max_records_per_import': 500000,
+            'tier_name': 'Professional',
+            'price_per_year': 30000,
+            'max_users': 50,
+            'max_records_per_import': 9999999,
+            'data_retention_years': 5,
             'smt_budget': True,
             'rep_access': True,
             'stm_access': True,
-            'analytics_advanced': True,
-            'reconciliation': True,
-            'api_access': True,
-            'priority_support': True,
-            'custom_reports': True
+            'view_reports': True,
+            'export_reports': True,
+            'analytics_basic': True,
+            'analytics_advanced': True,            # ✅ Forecasting, Prediction, DRG optimization
+            'reconciliation': True,                # ✅ HIS reconciliation
+            'api_access': True,                    # ✅ REST API + Webhook
+            'custom_reports': True,                # ✅ Custom report builder
+            'scheduled_downloads': True,
+            'white_label': False,
+            'priority_support': True,              # ✅ Email + Phone (1 day response)
+            'dedicated_support': False,
+            'custom_development': False,
+            'sla_guarantee': False
         },
         'enterprise': {
-            'max_users': 9999,  # Unlimited
-            'max_records_per_import': 9999999,  # Unlimited
+            'tier_name': 'Enterprise',
+            'price_per_year': 100000,
+            'max_users': 9999,                     # Unlimited
+            'max_records_per_import': 9999999,     # Unlimited
+            'data_retention_years': 999,           # Unlimited
             'smt_budget': True,
-            'rep_access': True,           # ✅ REP download/import ได้
-            'stm_access': True,           # ✅ STM download/import ได้
+            'rep_access': True,
+            'stm_access': True,
+            'view_reports': True,
+            'export_reports': True,
+            'analytics_basic': True,
             'analytics_advanced': True,
             'reconciliation': True,
             'api_access': True,
-            'priority_support': True,
             'custom_reports': True,
-            'white_label': True,
-            'dedicated_support': True
+            'scheduled_downloads': True,
+            'white_label': True,                   # ✅ Custom branding
+            'priority_support': True,
+            'dedicated_support': True,             # ✅ Dedicated account manager
+            'custom_development': True,            # ✅ 40 hours/year
+            'sla_guarantee': True,                 # ✅ 99.5% uptime
+            'multi_site': True                     # ✅ Multi-site support
         }
     }
 
