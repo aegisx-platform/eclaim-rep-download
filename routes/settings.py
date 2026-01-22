@@ -336,7 +336,10 @@ def install_license():
         data = request.get_json()
         license_key = data.get('license_key', '').strip()
         license_token = data.get('license_token', '').strip()
-        public_key = data.get('public_key', '').strip()
+        public_key_raw = data.get('public_key', '').strip()
+
+        # Clean public key: trim whitespace from each line (fix PEM format issues from copy-paste)
+        public_key = '\n'.join(line.strip() for line in public_key_raw.splitlines())
 
         if not license_key:
             return jsonify({'success': False, 'error': 'License key is required'}), 400
