@@ -42,7 +42,7 @@ def generate_rsa_keypair():
     return private_pem, public_pem
 
 
-def generate_license_key(prefix='ECLAIM'):
+def generate_license_key(prefix='AEGISX'):
     """Generate a license key"""
     import random
     import string
