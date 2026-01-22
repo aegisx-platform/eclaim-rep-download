@@ -118,7 +118,8 @@ def generate_license_token(private_key_pem, tier='professional', hospital_code='
     license_key = generate_license_key()
 
     # Build JWT payload
-    now = datetime.utcnow()
+    from datetime import timezone
+    now = datetime.now(timezone.utc)
     payload = {
         'license_key': license_key,
         'hospital_code': hospital_code,
@@ -153,7 +154,7 @@ def generate_license_token(private_key_pem, tier='professional', hospital_code='
 
 def main():
     print("=" * 70)
-    print("🔐 NHSO Revenue Intelligence - Test License Generator")
+    print("🔐 Revenue Intelligence System - Test License Generator")
     print("=" * 70)
     print()
 
