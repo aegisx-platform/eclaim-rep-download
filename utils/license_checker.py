@@ -59,7 +59,7 @@ class LicenseChecker:
         'basic': {
             'tier_name': 'Basic',
             'price_per_year': 10000,
-            'max_users': 10,
+            'max_users': 9999,
             'max_records_per_import': 9999999,
             'data_retention_years': 3,
             'smt_budget': True,                    # ✅ SMT Budget
@@ -82,7 +82,7 @@ class LicenseChecker:
         'professional': {
             'tier_name': 'Professional',
             'price_per_year': 30000,
-            'max_users': 50,
+            'max_users': 9999,
             'max_records_per_import': 9999999,
             'data_retention_years': 5,
             'smt_budget': True,

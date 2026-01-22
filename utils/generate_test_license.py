@@ -97,7 +97,7 @@ def generate_license_token(private_key_pem, tier='professional', hospital_code='
         'basic': {
             'tier_name': 'Basic',
             'price_per_year': 10000,
-            'max_users': 10,
+            'max_users': 9999,
             'max_records_per_import': 9999999,
             'data_retention_years': 3,
             'smt_budget': True,
@@ -120,7 +120,7 @@ def generate_license_token(private_key_pem, tier='professional', hospital_code='
         'professional': {
             'tier_name': 'Professional',
             'price_per_year': 30000,
-            'max_users': 50,
+            'max_users': 9999,
             'max_records_per_import': 9999999,
             'data_retention_years': 5,
             'smt_budget': True,
@@ -271,7 +271,7 @@ def main():
     print(f"   License Key: {key}")
     print(f"   Tier: Basic (10,000 บาท/year)")
     print(f"   Features: REP + STM + SMT, Basic Analytics, Auto Download")
-    print(f"   Limits: 10 users, 3 years retention")
+    print(f"   Limits: Unlimited users, 3 years retention")
     print(f"   Expires: 1 year from now\n")
 
     # 3. Professional License (1 year - 30,000 บาท)
@@ -294,7 +294,7 @@ def main():
     print(f"   License Key: {key}")
     print(f"   Tier: Professional (30,000 บาท/year)")
     print(f"   Features: Advanced Analytics, HIS Reconciliation, API Access")
-    print(f"   Limits: 50 users, 5 years retention")
+    print(f"   Limits: Unlimited users, 5 years retention")
     print(f"   Expires: 1 year from now\n")
 
     # 4. Enterprise License (1 year - 100,000 บาท)
@@ -316,7 +316,7 @@ def main():
     }
     print(f"   License Key: {key}")
     print(f"   Tier: Enterprise (100,000 บาท/year)")
-    print(f"   Features: White Label, Dedicated Support, Custom Development")
+    print(f"   Features: White Label, Dedicated Support, Custom Development, On-site Installation")
     print(f"   Limits: Unlimited users, Unlimited retention")
     print(f"   Expires: 1 year from now\n")
 
@@ -379,10 +379,10 @@ def main():
     print("4. Paste into the form and click 'Install License'")
     print()
     print("💰 Pricing Tiers:")
-    print("   • Free: 0 บาท - SMT only, read-only reports")
-    print("   • Basic: 10,000 บาท/year - REP + STM + SMT, 10 users")
-    print("   • Professional: 30,000 บาท/year - Advanced analytics, API, 50 users")
-    print("   • Enterprise: 100,000 บาท/year - White label, unlimited users")
+    print("   • Free: 0 บาท - SMT only, read-only reports, unlimited users")
+    print("   • Basic: 10,000 บาท/year - REP + STM + SMT, unlimited users")
+    print("   • Professional: 30,000 บาท/year - Advanced analytics, API, unlimited users")
+    print("   • Enterprise: 100,000 บาท/year - White label, on-site install, unlimited users")
     print()
     print("💡 Try different tiers to test feature restrictions!")
     print()
