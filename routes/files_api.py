@@ -140,7 +140,11 @@ def list_files_by_type():
 
     except Exception as e:
         current_app.logger.error(safe_format_exception())
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการอ่านรายการไฟล์',
+            'error_detail': str(e)
+        }), 500
 
 
 @files_api_bp.route('/api/files/scan', methods=['POST'])
@@ -197,7 +201,11 @@ def scan_files_to_history():
 
     except Exception as e:
         current_app.logger.error(safe_format_exception())
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการสแกนไฟล์',
+            'error_detail': str(e)
+        }), 500
 
 
 @files_api_bp.route('/api/files/upload', methods=['POST'])
@@ -325,7 +333,11 @@ def upload_file():
 
     except Exception as e:
         current_app.logger.error(safe_format_exception())
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการอัพโหลดไฟล์',
+            'error_detail': str(e)
+        }), 500
 
 
 @files_api_bp.route('/api/files/update-status', methods=['GET'])
@@ -455,7 +467,11 @@ def get_files_update_status():
 
     except Exception as e:
         current_app.logger.error(safe_format_exception())
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการตรวจสอบสถานะไฟล์',
+            'error_detail': str(e)
+        }), 500
 
 
 # ==================== REP File Routes ====================
@@ -580,7 +596,11 @@ def re_download_file(filename):
 
     except Exception as e:
         current_app.logger.error(safe_format_exception())
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์ใหม่',
+            'error_detail': str(e)
+        }), 500
 
 
 @files_api_bp.route('/api/rep/clear-files', methods=['POST'])
@@ -613,7 +633,11 @@ def clear_rep_files():
 
     except Exception as e:
         current_app.logger.error(f"Error clearing REP files: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการลบไฟล์ REP',
+            'error_detail': str(e)
+        }), 500
 
 
 # ==================== STM File Routes ====================
@@ -645,7 +669,12 @@ def list_stm_files():
         })
 
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        current_app.logger.error(f"Error listing STM files: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการอ่านรายการไฟล์ STM',
+            'error_detail': str(e)
+        }), 500
 
 
 @files_api_bp.route('/api/files/stm/<filename>', methods=['DELETE'])
@@ -676,7 +705,12 @@ def delete_stm_file(filename):
         return jsonify({'success': True, 'message': f'Deleted {filename}'})
 
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        current_app.logger.error(f"Error deleting STM file: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการลบไฟล์ STM',
+            'error_detail': str(e)
+        }), 500
 
 
 # ==================== SMT File Routes ====================
@@ -809,7 +843,11 @@ def api_smt_files():
 
     except Exception as e:
         current_app.logger.error(safe_format_exception())
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการอ่านรายการไฟล์ SMT Budget',
+            'error_detail': str(e)
+        }), 500
 
 
 @files_api_bp.route('/api/files/smt/<path:filename>', methods=['DELETE'])
@@ -841,7 +879,12 @@ def api_smt_delete_file(filename):
         })
 
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        current_app.logger.error(f"Error deleting SMT file: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการลบไฟล์ SMT Budget',
+            'error_detail': str(e)
+        }), 500
 
 
 @files_api_bp.route('/api/smt/clear-files', methods=['POST'])
@@ -875,4 +918,9 @@ def api_smt_clear_files():
         })
 
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        current_app.logger.error(f"Error clearing SMT files: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'เกิดข้อผิดพลาดในการลบไฟล์ SMT Budget ทั้งหมด',
+            'error_detail': str(e)
+        }), 500
