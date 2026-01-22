@@ -755,6 +755,12 @@ def setup():
     return render_template('setup.html')
 
 
+@app.route('/pricing')
+def pricing():
+    """Pricing comparison page - Public page showing all tier features and pricing"""
+    return render_template('pricing.html')
+
+
 @app.route('/settings/hospital')
 @login_required
 def hospital_settings():
