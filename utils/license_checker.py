@@ -115,7 +115,7 @@ class LicenseChecker:
         Save license to file
 
         Args:
-            license_key: License key (e.g., AEGISX-A1B2C3D4-E5F6G7H8)
+            license_key: License key (e.g., REVINT-A1B2C3D4-E5F6G7H8)
             license_token: JWT license token
             public_key: RSA public key (PEM format)
 
