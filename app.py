@@ -225,6 +225,13 @@ else:
     app.config['SESSION_COOKIE_SECURE'] = False
     logger.warning("HTTP mode - Cookies not secured (development only)")
 
+# Session Lifetime Configuration
+# Default: 8 hours (28800 seconds), configurable via SESSION_LIFETIME_HOURS env var
+from datetime import timedelta
+session_hours = int(os.environ.get('SESSION_LIFETIME_HOURS', 8))
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=session_hours)
+logger.info(f"Session lifetime configured: {session_hours} hours")
+
 app.config['WTF_CSRF_CHECK_DEFAULT'] = True  # Enable CSRF protection by default
 
 # Initialize CSRF Protection
@@ -268,6 +275,13 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'กรุณาเข้าสู่ระบบก่อนใช้งาน'
 login_manager.login_message_category = 'info'
+
+# Make session permanent to use PERMANENT_SESSION_LIFETIME
+@app.before_request
+def make_session_permanent():
+    """Set session as permanent to respect PERMANENT_SESSION_LIFETIME config"""
+    from flask import session
+    session.permanent = True
 
 # Initialize Bcrypt
 bcrypt = Bcrypt(app)
