@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required
 from werkzeug.utils import secure_filename
 from pathlib import Path
+from utils.license_middleware import require_rep_stm_access
 
 # Create blueprint
 imports_api_bp = Blueprint('imports_api', __name__)
@@ -15,6 +16,7 @@ imports_api_bp = Blueprint('imports_api', __name__)
 
 @imports_api_bp.route('/api/imports/rep/<filename>', methods=['POST'])
 @imports_api_bp.route('/import/file/<filename>', methods=['POST'])  # Legacy alias
+@require_rep_stm_access
 def import_file(filename):
     """Import single REP file to database"""
     try:
@@ -42,6 +44,7 @@ def import_file(filename):
 
 @imports_api_bp.route('/api/imports/rep', methods=['POST'])
 @imports_api_bp.route('/import/all', methods=['POST'])  # Legacy alias
+@require_rep_stm_access
 def import_all_files():
     """Import all REP files that haven't been imported yet"""
     try:
@@ -94,6 +97,7 @@ def cancel_import():
 
 @imports_api_bp.route('/api/imports/stm/<filename>', methods=['POST'])
 @imports_api_bp.route('/api/stm/import/<filename>', methods=['POST'])  # Legacy alias
+@require_rep_stm_access
 def import_stm_file_route(filename):
     """Import a single Statement file"""
     try:
@@ -123,6 +127,7 @@ def import_stm_file_route(filename):
 
 @imports_api_bp.route('/api/imports/stm', methods=['POST'])
 @imports_api_bp.route('/api/stm/import-all', methods=['POST'])  # Legacy alias
+@require_rep_stm_access
 def import_all_stm_files():
     """Import all pending Statement files (background process)"""
     try:

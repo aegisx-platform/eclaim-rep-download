@@ -262,8 +262,8 @@ class LicenseChecker:
                     payload['_grace_period_days'] = grace_period_days
 
             # Add tier features to payload
-            tier = payload.get('tier', 'trial')
-            payload['_features'] = self.TIER_FEATURES.get(tier, self.TIER_FEATURES['trial'])
+            tier = payload.get('tier', 'free')
+            payload['_features'] = self.TIER_FEATURES.get(tier, self.TIER_FEATURES['free'])
 
             return True, payload, None
 
@@ -324,8 +324,8 @@ class LicenseChecker:
             'is_valid': True,
             'status': status,
             'license_key': payload.get('license_key'),
-            'tier': payload.get('tier', 'trial'),
-            'license_type': payload.get('license_type', 'trial'),
+            'tier': payload.get('tier', 'free'),
+            'license_type': payload.get('license_type', 'free'),
             'hospital_code': payload.get('hospital_code'),
             'hospital_name': payload.get('hospital_name'),
             'features': payload.get('_features', {}),
@@ -376,8 +376,8 @@ class LicenseChecker:
         info = self.get_license_info()
 
         if not info['is_valid']:
-            # Trial mode - limited features
-            return self.TIER_FEATURES['trial'].get(feature, False)
+            # Free tier - limited features (SMT only)
+            return self.TIER_FEATURES['free'].get(feature, False)
 
         features = info.get('features', {})
         return features.get(feature, False)
@@ -409,7 +409,7 @@ class LicenseChecker:
     def get_tier_name(self, tier: str) -> str:
         """Get localized tier name"""
         tier_names = {
-            'trial': 'ทดลองใช้งาน',
+            'free': 'ฟรี',
             'basic': 'พื้นฐาน',
             'professional': 'มืออาชีพ',
             'enterprise': 'องค์กร'

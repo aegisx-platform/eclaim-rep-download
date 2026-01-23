@@ -18,6 +18,7 @@ import subprocess
 import threading
 import re
 from config.db_pool import get_connection as get_pooled_connection
+from utils.license_middleware import require_rep_stm_access
 
 # Create blueprint
 stm_api_bp = Blueprint('stm_api', __name__)
@@ -37,6 +38,7 @@ def get_db_connection():
 
 @stm_api_bp.route('/api/stm/download', methods=['POST'])
 @login_required
+@require_rep_stm_access
 def trigger_stm_download():
     """Trigger STM (Statement) download with optional auto-import"""
     try:
