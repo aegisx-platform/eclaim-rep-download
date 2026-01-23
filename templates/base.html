@@ -12,6 +12,7 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 min-h-screen">
+    {% block navigation %}
     <!-- Navigation -->
     <nav class="bg-gradient-to-r from-blue-700 to-blue-900 shadow-lg">
         <div class="container mx-auto px-4">
@@ -217,6 +218,7 @@
             </div>
         </div>
     </nav>
+    {% endblock navigation %}
 
     <!-- Seed Initialization Banner -->
     <div id="seed-init-banner" class="hidden bg-amber-50 border-b border-amber-200">

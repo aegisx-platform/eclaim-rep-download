@@ -1,34 +1,12 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แผนการใช้งานและราคา - Revenue Intelligence System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-</head>
-<body class="bg-gray-50">
+{% extends "base.html" %}
 
-<!-- Simple Header -->
-<header class="bg-white shadow-sm sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-        <div class="flex items-center gap-3">
-            <div class="bg-gradient-to-br from-blue-600 to-blue-800 p-2 rounded-lg">
-                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                </svg>
-            </div>
-            <div>
-                <div class="text-xl font-bold text-gray-800">Revenue Intelligence System</div>
-                <p class="text-xs text-gray-500">Powered by AegisX Platform</p>
-            </div>
-        </div>
-        <a href="/login" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
-            เข้าสู่ระบบ
-        </a>
-    </div>
-</header>
+{% block title %}แผนการใช้งานและราคา - Revenue Intelligence System{% endblock %}
 
+{# Override navigation block to hide menu #}
+{% block navigation %}
+{% endblock navigation %}
+
+{% block content %}
 <!-- Pricing Header -->
 <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-16 px-4 mb-8">
     <div class="max-w-7xl mx-auto text-center">
@@ -530,13 +508,4 @@
     </div>
 </div>
 
-<!-- Footer -->
-<footer class="bg-gray-800 text-white py-8 mt-16">
-    <div class="max-w-7xl mx-auto px-4 text-center">
-        <p class="text-gray-400">Revenue Intelligence System © 2026 | Powered by AegisX Platform</p>
-        <p class="text-gray-500 text-sm mt-2">ระบบวิเคราะห์รายได้สำหรับโรงพยาบาล</p>
-    </div>
-</footer>
-
-</body>
-</html>
+{% endblock %}
