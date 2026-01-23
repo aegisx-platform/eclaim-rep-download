@@ -136,7 +136,7 @@ def manage_credential(username):
             return jsonify({'success': False, 'error': 'Failed to update credential'}), 500
 
     elif request.method == 'DELETE':
-        success = settings_manager.delete_credential(username)
+        success = settings_manager.remove_credential(username)
         if success:
             return jsonify({'success': True, 'message': 'Credential deleted successfully'})
         else:
@@ -155,7 +155,7 @@ def bulk_credentials():
     if action == 'delete':
         success_count = 0
         for username in usernames:
-            if settings_manager.delete_credential(username):
+            if settings_manager.remove_credential(username):
                 success_count += 1
 
         return jsonify({
@@ -225,13 +225,46 @@ def test_connection():
 def hospital_code():
     """Get or set hospital code (HCODE)"""
     if request.method == 'GET':
+        # Priority 1: Get from license if available
+        from utils.license_checker import get_license_checker
+        license_checker = get_license_checker()
+        license_info = license_checker.get_license_info()
+
+        license_hcode = license_info.get('hospital_code')
+        if license_hcode:
+            # Hospital code comes from license (read-only)
+            return jsonify({
+                'success': True,
+                'hospital_code': license_hcode,
+                'hospital_name': license_info.get('hospital_name'),
+                'source': 'license',
+                'editable': False,
+                'message': 'รหัสโรงพยาบาลมาจาก License (ไม่สามารถแก้ไขได้)'
+            })
+
+        # Priority 2: Get from settings (editable)
         code = settings_manager.get_hospital_code()
         return jsonify({
             'success': True,
-            'hospital_code': code
+            'hospital_code': code,
+            'source': 'settings',
+            'editable': True,
+            'message': 'รหัสโรงพยาบาลจากการตั้งค่า (สามารถแก้ไขได้)' if code else None
         })
 
     elif request.method == 'POST':
+        # Check if hospital code is locked by license
+        from utils.license_checker import get_license_checker
+        license_checker = get_license_checker()
+        license_info = license_checker.get_license_info()
+
+        if license_info.get('hospital_code'):
+            return jsonify({
+                'success': False,
+                'error': 'รหัสโรงพยาบาลมาจาก License และไม่สามารถแก้ไขได้',
+                'message': 'หากต้องการเปลี่ยนรหัสโรงพยาบาล กรุณาติดต่อผู้ให้บริการเพื่อออก License ใหม่'
+            }), 403
+
         data = request.get_json()
         code = data.get('hospital_code', '').strip()
 

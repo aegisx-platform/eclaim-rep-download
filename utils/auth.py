@@ -891,6 +891,13 @@ def require_role(*roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
+                # Check if this is an API request - return JSON instead of HTML
+                if request.path.startswith('/api/'):
+                    return jsonify({
+                        'success': False,
+                        'error': 'unauthorized',
+                        'message': 'Authentication required'
+                    }), 401
                 abort(401)
 
             if not current_user.has_role(*roles):
@@ -903,6 +910,15 @@ def require_role(*roles):
                     status='denied',
                     error_message=f'Insufficient permissions. Required: {roles}, Has: {current_user.role}'
                 )
+
+                # Check if this is an API request - return JSON instead of HTML
+                if request.path.startswith('/api/'):
+                    return jsonify({
+                        'success': False,
+                        'error': 'forbidden',
+                        'message': f'คุณไม่มีสิทธิ์เข้าถึงฟีเจอร์นี้ (ต้องการสิทธิ์: {", ".join(roles)})'
+                    }), 403
+
                 abort(403)  # Forbidden
 
             return f(*args, **kwargs)

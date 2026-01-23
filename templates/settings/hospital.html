@@ -186,10 +186,7 @@ let searchTimeout = null;
 
 // Load current hospital info on page load
 document.addEventListener('DOMContentLoaded', function() {
-    const currentCode = '{{ settings.hospital_code or "" }}';
-    if (currentCode) {
-        loadCurrentHospitalInfo(currentCode);
-    }
+    checkHospitalCodeSource();
 });
 
 // Hospital search with debounce
@@ -465,6 +462,88 @@ async function saveHospitalCode() {
         const btnText = document.createTextNode(' ใช้โรงพยาบาลนี้');
         saveBtn.appendChild(svg);
         saveBtn.appendChild(btnText);
+    }
+}
+
+async function checkHospitalCodeSource() {
+    try {
+        const response = await fetch('/api/settings/hospital-code');
+        const data = await response.json();
+
+        if (data.success && data.hospital_code) {
+            const isFromLicense = data.source === 'license';
+            const code = data.hospital_code;
+
+            // Update UI based on source
+            if (isFromLicense) {
+                // Show license badge
+                const statusBadge = document.querySelector('.bg-green-100, .bg-gray-100');
+                if (statusBadge) {
+                    statusBadge.className = 'px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full';
+                    statusBadge.textContent = '🔐 จาก License';
+                }
+
+                // Add read-only message
+                const currentInfoDiv = document.querySelector('.bg-gradient-to-r');
+                const readonlyMsg = document.createElement('p');
+                readonlyMsg.className = 'text-xs text-indigo-600 mt-2 font-medium';
+                readonlyMsg.textContent = '🔒 รหัสโรงพยาบาลนี้มาจาก License และไม่สามารถแก้ไขได้';
+                currentInfoDiv.appendChild(readonlyMsg);
+
+                // Disable search section
+                const searchInput = document.getElementById('hospital-search');
+                searchInput.disabled = true;
+                searchInput.placeholder = 'รหัสโรงพยาบาลถูกกำหนดโดย License (ไม่สามารถแก้ไขได้)';
+                searchInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+
+                // Hide search section with message
+                const searchSection = searchInput.closest('.mb-8');
+                const lockMsg = document.createElement('div');
+                lockMsg.className = 'p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 mb-6';
+
+                const flexDiv = document.createElement('div');
+                flexDiv.className = 'flex items-start gap-2';
+
+                const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                icon.setAttribute('class', 'w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5');
+                icon.setAttribute('fill', 'none');
+                icon.setAttribute('stroke', 'currentColor');
+                icon.setAttribute('viewBox', '0 0 24 24');
+                const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                iconPath.setAttribute('stroke-linecap', 'round');
+                iconPath.setAttribute('stroke-linejoin', 'round');
+                iconPath.setAttribute('stroke-width', '2');
+                iconPath.setAttribute('d', 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z');
+                icon.appendChild(iconPath);
+
+                const textDiv = document.createElement('div');
+                const title = document.createElement('p');
+                title.className = 'font-medium';
+                title.textContent = 'รหัสโรงพยาบาลถูกกำหนดโดย License';
+                const subtitle = document.createElement('p');
+                subtitle.className = 'text-xs mt-1';
+                subtitle.textContent = 'หากต้องการเปลี่ยนรหัสโรงพยาบาล กรุณาติดต่อผู้ให้บริการเพื่อออก License ใหม่';
+                textDiv.appendChild(title);
+                textDiv.appendChild(subtitle);
+
+                flexDiv.appendChild(icon);
+                flexDiv.appendChild(textDiv);
+                lockMsg.appendChild(flexDiv);
+
+                searchSection.parentNode.insertBefore(lockMsg, searchSection);
+                searchSection.style.display = 'none';
+            }
+
+            // Load hospital info
+            loadCurrentHospitalInfo(code);
+        }
+    } catch (error) {
+        console.error('Failed to check hospital code source:', error);
+        // Fallback to old behavior
+        const currentCode = '{{ settings.hospital_code or "" }}';
+        if (currentCode) {
+            loadCurrentHospitalInfo(currentCode);
+        }
     }
 }
 

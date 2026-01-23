@@ -693,9 +693,49 @@ async function loadDefaultHospital() {
             }
 
             await loadHospitalYears();
-        } else {
-            showNoDataState();
+            return;
         }
+
+        // Priority 3: Get default from Hospital Settings (Hospital Code or License)
+        try {
+            var hcodeResponse = await fetch('/api/settings/hospital-code');
+            var hcodeResult = await hcodeResponse.json();
+
+            if (hcodeResult.success && hcodeResult.hospital_code) {
+                currentVendorId = hcodeResult.hospital_code;
+
+                // Use hospital name from API if available (from license or database)
+                var hospitalName = hcodeResult.hospital_name;
+
+                // If no name in API response, fetch from database
+                if (!hospitalName) {
+                    try {
+                        var hospResponse = await fetch('/api/settings/hospital-info');
+                        var hospResult = await hospResponse.json();
+                        if (hospResult.success && hospResult.hospital) {
+                            hospitalName = hospResult.hospital.hname;
+                        }
+                    } catch (hospErr) {
+                        console.log('Could not fetch hospital info:', hospErr);
+                    }
+                }
+
+                if (hospitalName) {
+                    document.getElementById('search-hospital').value = hospitalName;
+                    // Save to localStorage for future visits
+                    localStorage.setItem('my_hospital_vendor', currentVendorId);
+                    localStorage.setItem('my_hospital_name', hospitalName);
+                }
+
+                await loadHospitalYears();
+                return;
+            }
+        } catch (hcodeErr) {
+            console.log('Could not fetch hospital code:', hcodeErr);
+        }
+
+        // No default hospital found - show empty state
+        showNoDataState();
     } catch (e) {
         console.error('Error loading default hospital:', e);
         showNoDataState();
