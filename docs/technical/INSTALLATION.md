@@ -1,6 +1,6 @@
 # Installation Guide
 
-คู่มือการติดตั้ง NHSO Revenue Intelligence v4.0.0
+คู่มือการติดตั้ง Revenue Intelligence System v4.0.0
 
 ---
 
@@ -94,7 +94,7 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/aegisx-platform/ecl
 $ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash
 
 ╔═══════════════════════════════════════════════════════════╗
-║        NHSO Revenue Intelligence - Quick Install          ║
+║        Revenue Intelligence System - Quick Install          ║
 ╚═══════════════════════════════════════════════════════════╝
 
 การติดตั้ง:

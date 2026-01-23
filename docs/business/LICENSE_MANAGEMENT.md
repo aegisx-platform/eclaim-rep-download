@@ -1,6 +1,6 @@
 # License Management System
 
-> ระบบจัดการ License สำหรับ NHSO Revenue Intelligence
+> ระบบจัดการ License สำหรับ Revenue Intelligence System
 
 ## Table of Contents
 
@@ -958,7 +958,7 @@ pyarmor obfuscate utils/license_manager.py
 
 ## Summary & Recommendations
 
-### แนวทางที่แนะนำสำหรับ NHSO Revenue Intelligence:
+### แนวทางที่แนะนำสำหรับ Revenue Intelligence System:
 
 ✅ **License Model:** Hybrid (Perpetual + Subscription)
 - โรงพยาบาลรัฐ: Perpetual

@@ -1,6 +1,6 @@
-# NHSO Revenue Intelligence
+# Revenue Intelligence System
 
-> ระบบวิเคราะห์รายได้จากการเบิกจ่าย สปสช. - Hospital Revenue Analytics for NHSO E-Claim Reimbursements
+> ระบบวิเคราะห์รายได้จากการเบิกจ่าย สปสช. สำหรับโรงพยาบาล - Hospital Revenue Analytics & E-Claim Management System
 
 ![Dashboard](screenshots/dashboard.jpeg)
 
@@ -37,7 +37,7 @@ If you find this project helpful, consider buying me a coffee!
 
 ## Overview
 
-**NHSO Revenue Intelligence** (เดิมชื่อ E-Claim Downloader) เป็นระบบวิเคราะห์รายได้จากการเบิกจ่าย สปสช. สำหรับโรงพยาบาล ครอบคลุมตั้งแต่การ download ข้อมูล E-Claim, import เข้าฐานข้อมูล, วิเคราะห์รายได้, จนถึงกระทบยอดกับข้อมูล SMT Budget
+**Revenue Intelligence System** (เดิมชื่อ E-Claim Downloader) เป็นระบบวิเคราะห์รายได้จากการเบิกจ่าย สปสช. สำหรับโรงพยาบาล ครอบคลุมตั้งแต่การ download ข้อมูล E-Claim, import เข้าฐานข้อมูล, วิเคราะห์รายได้, จนถึงกระทบยอดกับข้อมูล SMT Budget
 
 **Version:** v4.0.0
 **Last Updated:** 2026-01-20
@@ -321,7 +321,7 @@ make seed-all
 ## Navigation Structure
 
 ```
-NHSO Revenue Intelligence
+Revenue Intelligence System
 ├── Setup              - 🏥 Hospital Code + Database + Configuration
 ├── Dashboard          - Revenue KPIs + Per-Bed Performance
 ├── Analytics          - Detailed Charts & Analysis

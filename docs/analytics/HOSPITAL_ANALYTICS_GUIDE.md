@@ -22,7 +22,7 @@
 
 ### วัตถุประสงค์หลัก
 
-ระบบ NHSO Revenue Intelligence ช่วยโรงพยาบาลในการ:
+ระบบ Revenue Intelligence System ช่วยโรงพยาบาลในการ:
 
 | เป้าหมาย | รายละเอียด |
 |----------|-----------|
@@ -311,4 +311,4 @@
 
 *Document Version: 3.0.0*
 *Last Updated: 2026-01-11*
-*System: NHSO Revenue Intelligence*
+*System: Revenue Intelligence System*

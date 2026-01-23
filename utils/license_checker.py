@@ -22,7 +22,7 @@ def get_settings_manager():
 
 class LicenseChecker:
     """
-    Client-side license verification for NHSO Revenue Intelligence
+    Client-side license verification for Revenue Intelligence System
 
     Features:
     - Offline validation using RSA public key

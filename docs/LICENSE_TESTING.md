@@ -1,6 +1,6 @@
 # License Testing Guide
 
-คู่มือการทดสอบระบบ License สำหรับ NHSO Revenue Intelligence
+คู่มือการทดสอบระบบ License สำหรับ Revenue Intelligence System
 
 ## 📋 Table of Contents
 - [Quick Start](#quick-start)

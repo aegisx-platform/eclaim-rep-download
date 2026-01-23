@@ -1,6 +1,6 @@
 # Production Deployment Guide
 
-คู่มือการติดตั้งและ deploy ระบบ NHSO Revenue Intelligence สำหรับ production environment
+คู่มือการติดตั้งและ deploy ระบบ Revenue Intelligence System สำหรับ production environment
 
 > ⚠️ **PRODUCTION ใช้ PRE-BUILT DOCKER IMAGES เท่านั้น**
 > - ดึง images จาก `ghcr.io/aegisx-platform/eclaim-rep-download`
@@ -525,7 +525,7 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 
 # 3. Create .env file
 cat > .env << 'EOF'
-# NHSO Revenue Intelligence
+# Revenue Intelligence System
 ECLAIM_USERNAME=your_username
 ECLAIM_PASSWORD=your_password
 
