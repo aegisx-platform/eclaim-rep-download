@@ -408,17 +408,17 @@ def install_license():
 def remove_license():
     """Remove installed license"""
     try:
-        success = settings_manager.remove_license()
+        success, message = settings_manager.remove_license()
 
         if success:
             return jsonify({
                 'success': True,
-                'message': 'License removed successfully'
+                'message': message
             })
         else:
             return jsonify({
                 'success': False,
-                'error': 'Failed to remove license'
+                'error': message
             }), 500
 
     except Exception as e:
