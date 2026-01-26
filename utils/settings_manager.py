@@ -541,6 +541,38 @@ class SettingsManager:
         settings['smt_vendor_id'] = hospital_code.strip()
         return self.save_settings(settings)
 
+    def _sync_hospital_code_from_license(self, license_hospital_code: str, license_hospital_name: str = None) -> bool:
+        """
+        Sync hospital code from license to settings.
+        This ensures settings always reflect the license's hospital code.
+
+        Args:
+            license_hospital_code: Hospital code from license payload
+            license_hospital_name: Hospital name from license payload (optional, for logging)
+
+        Returns:
+            True if sync was performed, False if no sync needed
+        """
+        if not license_hospital_code:
+            return False
+
+        license_hospital_code = license_hospital_code.strip()
+        if not license_hospital_code:
+            return False
+
+        current_code = self.get_hospital_code()
+
+        # Only update if different
+        if current_code != license_hospital_code:
+            hospital_display = f"{license_hospital_code}"
+            if license_hospital_name:
+                hospital_display = f"{license_hospital_name} ({license_hospital_code})"
+
+            print(f"[License Sync] Updating hospital code from settings '{current_code}' to license '{hospital_display}'")
+            return self.set_hospital_code(license_hospital_code)
+
+        return False  # No update needed, already in sync
+
     # ===== STM (Statement) Schedule Settings =====
 
     def get_stm_schedule_settings(self) -> Dict:
@@ -622,7 +654,8 @@ class SettingsManager:
 
     def get_license_info(self) -> Dict:
         """
-        Get license information from license checker
+        Get license information from license checker.
+        Also syncs hospital code from license to settings if license is valid.
 
         Returns:
             Dict with license status, tier, features, expiration, etc.
@@ -630,7 +663,16 @@ class SettingsManager:
         try:
             from utils.license_checker import get_license_checker
             checker = get_license_checker()
-            return checker.get_license_info()
+            license_info = checker.get_license_info()
+
+            # Case 2: Sync hospital code from license to settings when reading
+            if license_info.get('is_valid') and license_info.get('hospital_code'):
+                self._sync_hospital_code_from_license(
+                    license_info.get('hospital_code'),
+                    license_info.get('hospital_name')
+                )
+
+            return license_info
         except Exception as e:
             return {
                 'is_valid': False,
@@ -677,6 +719,12 @@ class SettingsManager:
                 # Remove invalid license
                 checker.remove_license()
                 return False, f"License verification failed: {error}"
+
+            # Case 1: Sync hospital code from license to settings after successful install
+            license_hospital_code = payload.get('hospital_code', '').strip()
+            license_hospital_name = payload.get('hospital_name', '')
+            if license_hospital_code:
+                self._sync_hospital_code_from_license(license_hospital_code, license_hospital_name)
 
             return True, "License installed successfully"
 
