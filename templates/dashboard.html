@@ -9,61 +9,6 @@
     <p class="text-gray-600">ภาพรวมรายได้จากการเบิกจ่าย สปสช.</p>
 </div>
 
-<!-- License Status Widget -->
-{% if license %}
-<div id="license-widget" class="mb-6 {% if license.status == 'invalid' or not license.is_valid %}bg-amber-50 border-l-4 border-amber-500{% elif license.status == 'grace_period' %}bg-orange-50 border-l-4 border-orange-500{% elif license.status == 'expiring_soon' %}bg-yellow-50 border-l-4 border-yellow-500{% else %}bg-green-50 border-l-4 border-green-500{% endif %} rounded-lg p-4 shadow-sm">
-    <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            {% if license.is_valid %}
-            <svg class="w-6 h-6 {% if license.status == 'grace_period' %}text-orange-600{% elif license.status == 'expiring_soon' %}text-yellow-600{% else %}text-green-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-            </svg>
-            {% else %}
-            <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-            </svg>
-            {% endif %}
-            <div>
-                <div class="flex items-center gap-2">
-                    <span class="font-semibold {% if license.status == 'invalid' or not license.is_valid %}text-amber-800{% elif license.status == 'grace_period' %}text-orange-800{% elif license.status == 'expiring_soon' %}text-yellow-800{% else %}text-green-800{% endif %}">
-                        License:
-                        {% if license.tier == 'trial' %}ทดลองใช้งาน{% elif license.tier == 'basic' %}พื้นฐาน{% elif license.tier == 'professional' %}มืออาชีพ{% elif license.tier == 'enterprise' %}องค์กร{% else %}{{ license.tier }}{% endif %}
-                    </span>
-                    <span class="text-xs px-2 py-0.5 rounded-full {% if license.status == 'invalid' or not license.is_valid %}bg-amber-200 text-amber-800{% elif license.status == 'grace_period' %}bg-orange-200 text-orange-800{% elif license.status == 'expiring_soon' %}bg-yellow-200 text-yellow-800{% else %}bg-green-200 text-green-800{% endif %}">
-                        {% if license.status == 'active' %}ใช้งานได้{% elif license.status == 'grace_period' %}ช่วงผ่อนผัน{% elif license.status == 'expiring_soon' %}ใกล้หมดอายุ{% else %}Trial Mode{% endif %}
-                    </span>
-                </div>
-                <p class="text-sm {% if license.status == 'invalid' or not license.is_valid %}text-amber-700{% elif license.status == 'grace_period' %}text-orange-700{% elif license.status == 'expiring_soon' %}text-yellow-700{% else %}text-green-700{% endif %}">
-                    {% if license.error and ('hospital code' in license.error or 'License mismatch' in license.error) %}
-                        🚫 {{ license.error[:100] }}{% if license.error|length > 100 %}...{% endif %}
-                    {% elif license.grace_period %}
-                        ⚠️ License หมดอายุแล้ว - เหลือช่วงผ่อนผัน {{ license.grace_days_left }} วัน
-                    {% elif license.days_until_expiry is not none and license.days_until_expiry <= 30 %}
-                        หมดอายุในอีก {{ license.days_until_expiry }} วัน
-                    {% elif license.is_valid and license.tier != 'trial' %}
-                        Max {{ license.max_users }} users • {{ license.features.max_records_per_import|default(1000) }} records/import
-                    {% elif not license.is_valid or license.tier == 'trial' %}
-                        Limited: 2 users, 1,000 records/import, ฟีเจอร์พื้นฐาน
-                    {% endif %}
-                </p>
-            </div>
-        </div>
-        {% if current_user.is_authenticated and current_user.role == 'admin' %}
-        <a href="{{ url_for('settings.license') }}" class="text-sm font-medium {% if license.status == 'invalid' or not license.is_valid %}text-amber-700 hover:text-amber-800{% elif license.status == 'grace_period' %}text-orange-700 hover:text-orange-800{% elif license.status == 'expiring_soon' %}text-yellow-700 hover:text-yellow-800{% else %}text-green-700 hover:text-green-800{% endif %} flex items-center gap-1">
-            {% if not license.is_valid or license.tier == 'trial' %}
-                ติดตั้ง License
-            {% else %}
-                จัดการ License
-            {% endif %}
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
-        </a>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
-
 <!-- Revenue KPI Cards - Phase 1 Financial Dashboard -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
     <!-- 1. ยอดเคลม (Claimed Amount) -->
