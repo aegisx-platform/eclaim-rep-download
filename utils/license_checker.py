@@ -184,7 +184,7 @@ class LicenseChecker:
         except Exception:
             return 'unknown'
 
-    def _notify_server_activation(self, license_data: Dict) -> bool:
+    def _notify_server_activation(self, license_data: Dict) -> Tuple[bool, str]:
         """
         Notify license server that license has been activated
 
@@ -192,7 +192,7 @@ class LicenseChecker:
             license_data: License data dict with license_key, hospital_code etc.
 
         Returns:
-            True if notification was sent successfully
+            Tuple of (success: bool, message: str)
         """
         try:
             url = f"{self.license_server_url}/api/license/activate"
@@ -209,20 +209,28 @@ class LicenseChecker:
 
             if response.status_code == 200:
                 logger.info(f"✅ License activation reported to server")
-                return True
+                return True, "Activation recorded"
+            elif response.status_code == 401:
+                # Invalid license key - not found in server database
+                logger.warning(f"⚠️ License key not found on server")
+                return False, "License key not recognized by server"
+            elif response.status_code == 403:
+                # License has been revoked
+                logger.warning(f"⚠️ License has been revoked")
+                return False, "License has been revoked by administrator"
             else:
                 logger.warning(f"⚠️ Failed to report activation: {response.status_code}")
-                return False
+                return True, "Activation recorded (server response unexpected)"
 
         except requests.exceptions.RequestException as e:
             # Don't fail license installation if server is unreachable
             logger.warning(f"⚠️ Could not notify license server: {e}")
-            return False
+            return True, "Activation recorded (server unreachable)"
         except Exception as e:
             logger.warning(f"⚠️ Error notifying license server: {e}")
-            return False
+            return True, "Activation recorded (notification error)"
 
-    def _notify_server_deactivation(self, license_key: str, reason: str = 'user_removed') -> bool:
+    def _notify_server_deactivation(self, license_key: str, reason: str = 'user_removed') -> Tuple[bool, str]:
         """
         Notify license server that license has been deactivated/removed
 
@@ -231,7 +239,7 @@ class LicenseChecker:
             reason: Reason for deactivation
 
         Returns:
-            True if notification was sent successfully
+            Tuple of (success: bool, message: str)
         """
         try:
             url = f"{self.license_server_url}/api/license/deactivate"
@@ -246,17 +254,20 @@ class LicenseChecker:
 
             if response.status_code == 200:
                 logger.info(f"✅ License deactivation reported to server")
-                return True
+                return True, "Deactivation recorded"
+            elif response.status_code == 401:
+                logger.warning(f"⚠️ License key not found on server")
+                return True, "Deactivation recorded (license not found on server)"
             else:
                 logger.warning(f"⚠️ Failed to report deactivation: {response.status_code}")
-                return False
+                return True, "Deactivation recorded (server response unexpected)"
 
         except requests.exceptions.RequestException as e:
             logger.warning(f"⚠️ Could not notify license server: {e}")
-            return False
+            return True, "Deactivation recorded (server unreachable)"
         except Exception as e:
             logger.warning(f"⚠️ Error notifying license server: {e}")
-            return False
+            return True, "Deactivation recorded (notification error)"
 
     def _decrypt_lic_file(self, encrypted_data: bytes) -> str:
         """
@@ -462,7 +473,14 @@ class LicenseChecker:
                 'license_key': license_package.get('license_key'),
                 '_metadata': metadata
             }
-            self._notify_server_activation(activation_data)
+            activation_success, activation_msg = self._notify_server_activation(activation_data)
+
+            # If server says license is invalid or revoked, reject the installation
+            if not activation_success:
+                # Remove the installed file since server rejected it
+                if self.license_lic_file.exists():
+                    self.license_lic_file.unlink()
+                return False, f"License rejected by server: {activation_msg}"
 
             return True, f"License installed successfully for {hospital_name} (Tier: {tier}, Expires: {expiry_date})"
 
