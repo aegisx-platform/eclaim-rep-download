@@ -13,6 +13,9 @@ import jwt
 import json
 import base64
 import hashlib
+import socket
+import requests
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Optional, Tuple
@@ -21,6 +24,8 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 from cryptography.fernet import Fernet, InvalidToken
+
+logger = logging.getLogger(__name__)
 
 
 # Lazy import to avoid circular dependency
@@ -151,6 +156,107 @@ class LicenseChecker:
             'LICENSE_ENCRYPTION_KEY',
             'aegisx-license-master-key-change-in-production'
         )
+
+        # License server URL for activation notifications
+        self.license_server_url = os.getenv(
+            'LICENSE_SERVER_URL',
+            'https://license.aegisx.co.th'
+        )
+
+        # App info for activation tracking
+        self.app_name = 'eclaim-rep-download'
+        self.app_version = self._get_app_version()
+
+    def _get_app_version(self) -> str:
+        """Get app version from VERSION file"""
+        try:
+            version_file = Path(__file__).parent.parent / 'VERSION'
+            if version_file.exists():
+                return version_file.read_text().strip()
+        except Exception:
+            pass
+        return 'unknown'
+
+    def _get_hostname(self) -> str:
+        """Get machine hostname"""
+        try:
+            return socket.gethostname()
+        except Exception:
+            return 'unknown'
+
+    def _notify_server_activation(self, license_data: Dict) -> bool:
+        """
+        Notify license server that license has been activated
+
+        Args:
+            license_data: License data dict with license_key, hospital_code etc.
+
+        Returns:
+            True if notification was sent successfully
+        """
+        try:
+            url = f"{self.license_server_url}/api/license/activate"
+
+            payload = {
+                'license_key': license_data.get('license_key'),
+                'hospital_code': license_data.get('_metadata', {}).get('hospital_code') or license_data.get('hospital_code'),
+                'hostname': self._get_hostname(),
+                'app_name': self.app_name,
+                'app_version': self.app_version
+            }
+
+            response = requests.post(url, json=payload, timeout=10)
+
+            if response.status_code == 200:
+                logger.info(f"✅ License activation reported to server")
+                return True
+            else:
+                logger.warning(f"⚠️ Failed to report activation: {response.status_code}")
+                return False
+
+        except requests.exceptions.RequestException as e:
+            # Don't fail license installation if server is unreachable
+            logger.warning(f"⚠️ Could not notify license server: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"⚠️ Error notifying license server: {e}")
+            return False
+
+    def _notify_server_deactivation(self, license_key: str, reason: str = 'user_removed') -> bool:
+        """
+        Notify license server that license has been deactivated/removed
+
+        Args:
+            license_key: License key being removed
+            reason: Reason for deactivation
+
+        Returns:
+            True if notification was sent successfully
+        """
+        try:
+            url = f"{self.license_server_url}/api/license/deactivate"
+
+            payload = {
+                'license_key': license_key,
+                'hostname': self._get_hostname(),
+                'reason': reason
+            }
+
+            response = requests.post(url, json=payload, timeout=10)
+
+            if response.status_code == 200:
+                logger.info(f"✅ License deactivation reported to server")
+                return True
+            else:
+                logger.warning(f"⚠️ Failed to report deactivation: {response.status_code}")
+                return False
+
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"⚠️ Could not notify license server: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"⚠️ Error notifying license server: {e}")
+            return False
 
     def _decrypt_lic_file(self, encrypted_data: bytes) -> str:
         """
@@ -350,6 +456,13 @@ class LicenseChecker:
             hospital_name = metadata.get('hospital_name', 'Unknown')
             tier = metadata.get('tier', 'unknown')
             expiry_date = metadata.get('expiry_date', 'Unknown')
+
+            # Notify license server about activation
+            activation_data = {
+                'license_key': license_package.get('license_key'),
+                '_metadata': metadata
+            }
+            self._notify_server_activation(activation_data)
 
             return True, f"License installed successfully for {hospital_name} (Tier: {tier}, Expires: {expiry_date})"
 
@@ -607,6 +720,12 @@ class LicenseChecker:
             True if successful
         """
         try:
+            # Get license key before removing for deactivation notification
+            license_key = None
+            current_license = self.load_license()
+            if current_license:
+                license_key = current_license.get('license_key')
+
             # Remove .lic file
             if self.license_lic_file.exists():
                 self.license_lic_file.unlink()
@@ -618,6 +737,10 @@ class LicenseChecker:
             # Clear cache
             self._cached_license = None
             self._cache_time = None
+
+            # Notify license server about deactivation
+            if license_key:
+                self._notify_server_deactivation(license_key, reason='user_removed')
 
             return True
         except Exception as e:
