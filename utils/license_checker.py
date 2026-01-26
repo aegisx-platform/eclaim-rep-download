@@ -2,15 +2,25 @@
 """
 License Checker - Offline JWT license validation
 Implements client-side license verification using RS256 public key
+
+Supports:
+- JSON format (legacy): config/license.json
+- Encrypted .lic format (new): config/license.lic from AegisX License Server
 """
 
+import os
 import jwt
 import json
+import base64
+import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
+from cryptography.fernet import Fernet, InvalidToken
 
 
 # Lazy import to avoid circular dependency
@@ -130,14 +140,96 @@ class LicenseChecker:
 
     def __init__(self, license_file='config/license.json'):
         self.license_file = Path(license_file)
+        self.license_lic_file = Path('config/license.lic')  # New encrypted format
         self.license_file.parent.mkdir(exist_ok=True)
         self._cached_license = None
         self._cache_time = None
         self._cache_ttl = 3600  # Cache for 1 hour
 
+        # Encryption key for .lic files (must match license server)
+        self.encryption_key = os.getenv(
+            'LICENSE_ENCRYPTION_KEY',
+            'aegisx-license-master-key-change-in-production'
+        )
+
+    def _decrypt_lic_file(self, encrypted_data: bytes) -> str:
+        """
+        Decrypt .lic file data using Fernet
+
+        Args:
+            encrypted_data: Encrypted bytes from .lic file
+
+        Returns:
+            str: Decrypted JSON string
+        """
+        # Generate encryption key from master key (same as license server)
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=b'aegisx-license-salt',  # Fixed salt for consistency
+            iterations=100000,
+            backend=default_backend()
+        )
+        key = base64.urlsafe_b64encode(kdf.derive(self.encryption_key.encode()))
+
+        # Decrypt
+        fernet = Fernet(key)
+        decrypted = fernet.decrypt(encrypted_data)
+
+        return decrypted.decode()
+
+    def _load_lic_file(self) -> Optional[Dict]:
+        """
+        Load and decrypt .lic file from license server
+
+        Returns:
+            License dict compatible with old format, or None if not found/invalid
+        """
+        if not self.license_lic_file.exists():
+            return None
+
+        try:
+            # Read encrypted file
+            with open(self.license_lic_file, 'rb') as f:
+                encrypted_data = f.read()
+
+            # Decrypt
+            json_data = self._decrypt_lic_file(encrypted_data)
+
+            # Parse JSON
+            license_package = json.loads(json_data)
+
+            # Convert to compatible format
+            license_data = {
+                'license_key': license_package.get('license_key'),
+                'license_token': license_package.get('license_token'),
+                'public_key': license_package.get('public_key'),
+                'installed_at': license_package.get('metadata', {}).get('created_at'),
+                # Additional metadata from .lic file
+                '_metadata': license_package.get('metadata', {}),
+                '_version': license_package.get('version', '1.0'),
+                '_signature': license_package.get('signature')
+            }
+
+            return license_data
+
+        except InvalidToken:
+            print("Error: Invalid encryption key for .lic file")
+            return None
+        except json.JSONDecodeError as e:
+            print(f"Error: Corrupted .lic file - {e}")
+            return None
+        except Exception as e:
+            print(f"Error loading .lic file: {e}")
+            return None
+
     def load_license(self) -> Optional[Dict]:
         """
         Load license from file with caching
+
+        Tries in order:
+        1. Encrypted .lic file (new format from AegisX License Server)
+        2. JSON file (legacy format)
 
         Returns:
             License dict or None if not found
@@ -148,6 +240,14 @@ class LicenseChecker:
             if age < self._cache_ttl:
                 return self._cached_license
 
+        # Try .lic file first (new encrypted format)
+        license_data = self._load_lic_file()
+        if license_data:
+            self._cached_license = license_data
+            self._cache_time = datetime.now()
+            return license_data
+
+        # Fall back to JSON file (legacy format)
         if not self.license_file.exists():
             return None
 
@@ -163,7 +263,7 @@ class LicenseChecker:
 
     def save_license(self, license_key: str, license_token: str, public_key: str) -> bool:
         """
-        Save license to file
+        Save license to file (legacy JSON format)
 
         Args:
             license_key: License key (e.g., REVINT-A1B2C3D4-E5F6G7H8)
@@ -192,6 +292,69 @@ class LicenseChecker:
         except Exception as e:
             print(f"Error saving license: {e}")
             return False
+
+    def install_license_file(self, lic_file_path: str) -> Tuple[bool, str]:
+        """
+        Install license from .lic file (encrypted format from AegisX License Server)
+
+        Args:
+            lic_file_path: Path to the .lic file to import
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        import shutil
+
+        try:
+            source_path = Path(lic_file_path)
+
+            if not source_path.exists():
+                return False, f"File not found: {lic_file_path}"
+
+            if not source_path.suffix.lower() == '.lic':
+                return False, "Invalid file format. Expected .lic file"
+
+            # Try to read and validate the file first
+            with open(source_path, 'rb') as f:
+                encrypted_data = f.read()
+
+            # Try to decrypt to validate
+            try:
+                json_data = self._decrypt_lic_file(encrypted_data)
+                license_package = json.loads(json_data)
+
+                # Validate required fields
+                if not license_package.get('license_token'):
+                    return False, "Invalid license file: missing license token"
+                if not license_package.get('public_key'):
+                    return False, "Invalid license file: missing public key"
+
+            except InvalidToken:
+                return False, "Cannot decrypt license file. Please check LICENSE_ENCRYPTION_KEY in your .env"
+            except json.JSONDecodeError:
+                return False, "Invalid license file format"
+
+            # Copy file to config directory
+            shutil.copy2(source_path, self.license_lic_file)
+
+            # Remove old JSON license if exists (prefer .lic format)
+            if self.license_file.exists():
+                self.license_file.unlink()
+
+            # Clear cache
+            self._cached_license = None
+            self._cache_time = None
+
+            # Get license info
+            metadata = license_package.get('metadata', {})
+            hospital_name = metadata.get('hospital_name', 'Unknown')
+            tier = metadata.get('tier', 'unknown')
+            expiry_date = metadata.get('expiry_date', 'Unknown')
+
+            return True, f"License installed successfully for {hospital_name} (Tier: {tier}, Expires: {expiry_date})"
+
+        except Exception as e:
+            return False, f"Error installing license: {str(e)}"
 
     def verify_license(self) -> Tuple[bool, Dict, Optional[str]]:
         """
@@ -438,12 +601,17 @@ class LicenseChecker:
 
     def remove_license(self) -> bool:
         """
-        Remove installed license
+        Remove installed license (both .lic and .json formats)
 
         Returns:
             True if successful
         """
         try:
+            # Remove .lic file
+            if self.license_lic_file.exists():
+                self.license_lic_file.unlink()
+
+            # Remove JSON file
             if self.license_file.exists():
                 self.license_file.unlink()
 

@@ -87,11 +87,66 @@
         </div>
     </div>
 
-    <!-- Install New License -->
+    <!-- Upload License File (.lic) - Recommended -->
+    <div class="bg-white rounded-xl shadow-sm border mb-6">
+        <div class="p-6 border-b">
+            <div class="flex items-center gap-3">
+                <h2 class="text-lg font-semibold text-gray-800">Upload License File</h2>
+                <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Recommended</span>
+            </div>
+            <p class="text-sm text-gray-500 mt-1">อัปโหลดไฟล์ .lic ที่ได้รับจาก AegisX License Server</p>
+        </div>
+        <div class="p-6">
+            <form id="upload-license-form" onsubmit="uploadLicenseFile(event)">
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-400 transition-colors" id="drop-zone">
+                    <input type="file" id="license-file-input" accept=".lic" class="hidden" onchange="handleFileSelect(this)">
+                    <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <p class="text-gray-600 mb-2">ลากไฟล์มาวางที่นี่ หรือ</p>
+                    <button type="button" onclick="document.getElementById('license-file-input').click()" class="text-indigo-600 hover:text-indigo-700 font-medium">
+                        เลือกไฟล์
+                    </button>
+                    <p class="text-xs text-gray-500 mt-2">รองรับไฟล์ .lic เท่านั้น</p>
+                </div>
+                <div id="selected-file-info" class="hidden mt-4 p-4 bg-indigo-50 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <div>
+                                <p id="selected-file-name" class="font-medium text-gray-800">-</p>
+                                <p id="selected-file-size" class="text-xs text-gray-500">-</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="clearFileSelection()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <button type="submit" id="upload-btn" disabled class="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                        </svg>
+                        <span id="upload-btn-text">Install License</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Manual Install (Legacy) -->
     <div class="bg-white rounded-xl shadow-sm border mb-6">
         <div class="p-6 border-b">
             <div class="flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-gray-800">Install / Update License</h2>
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-800">Manual Install (Legacy)</h2>
+                    <p class="text-sm text-gray-500">สำหรับ license แบบเดิมที่ต้องกรอก Key, Token, Public Key</p>
+                </div>
                 <button onclick="toggleInstallForm()" id="toggle-install-btn" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
                     Show Form
                 </button>
@@ -196,7 +251,121 @@
     // Load license info on page load
     document.addEventListener('DOMContentLoaded', function() {
         loadLicenseInfo();
+        setupDragAndDrop();
     });
+
+    // File upload functions
+    function setupDragAndDrop() {
+        const dropZone = document.getElementById('drop-zone');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('border-indigo-500', 'bg-indigo-50');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('border-indigo-500', 'bg-indigo-50');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', handleDrop, false);
+    }
+
+    function handleDrop(e) {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const fileInput = document.getElementById('license-file-input');
+            fileInput.files = files;
+            handleFileSelect(fileInput);
+        }
+    }
+
+    function handleFileSelect(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        if (!file.name.toLowerCase().endsWith('.lic')) {
+            showAlert('error', 'Invalid File', 'Please select a .lic license file');
+            input.value = '';
+            return;
+        }
+
+        document.getElementById('selected-file-info').classList.remove('hidden');
+        document.getElementById('selected-file-name').textContent = file.name;
+        document.getElementById('selected-file-size').textContent = formatFileSize(file.size);
+        document.getElementById('upload-btn').disabled = false;
+    }
+
+    function clearFileSelection() {
+        document.getElementById('license-file-input').value = '';
+        document.getElementById('selected-file-info').classList.add('hidden');
+        document.getElementById('upload-btn').disabled = true;
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    async function uploadLicenseFile(event) {
+        event.preventDefault();
+
+        const fileInput = document.getElementById('license-file-input');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            showAlert('warning', 'No File Selected', 'Please select a .lic license file');
+            return;
+        }
+
+        const uploadBtn = document.getElementById('upload-btn');
+        const uploadBtnText = document.getElementById('upload-btn-text');
+
+        uploadBtn.disabled = true;
+        uploadBtnText.textContent = 'Installing...';
+
+        const formData = new FormData();
+        formData.append('license_file', file);
+
+        try {
+            const response = await fetch('/api/settings/license/upload', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert('success', 'License Installed!', data.message);
+                clearFileSelection();
+                loadLicenseInfo();
+            } else {
+                showAlert('error', 'Installation Failed', data.error || 'Failed to install license');
+            }
+        } catch (error) {
+            showAlert('error', 'Error', 'Failed to upload license: ' + error.message);
+        } finally {
+            uploadBtn.disabled = false;
+            uploadBtnText.textContent = 'Install License';
+        }
+    }
 
     async function loadLicenseInfo() {
         try {

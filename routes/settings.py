@@ -402,6 +402,63 @@ def install_license():
         }), 500
 
 
+@settings_api_bp.route('/api/settings/license/upload', methods=['POST'])
+@login_required
+@require_admin
+def upload_license_file():
+    """Upload and install .lic license file from AegisX License Server"""
+    try:
+        if 'license_file' not in request.files:
+            return jsonify({'success': False, 'error': 'No license file uploaded'}), 400
+
+        file = request.files['license_file']
+
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+
+        if not file.filename.lower().endswith('.lic'):
+            return jsonify({'success': False, 'error': 'Invalid file format. Please upload a .lic file'}), 400
+
+        # Save to temp location first
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.lic') as tmp:
+            file.save(tmp.name)
+            temp_path = tmp.name
+
+        try:
+            # Install the license file
+            from utils.license_checker import get_license_checker
+            license_checker = get_license_checker()
+            success, message = license_checker.install_license_file(temp_path)
+
+            if success:
+                # Clear settings manager cache too
+                settings_manager.clear_license_cache()
+
+                return jsonify({
+                    'success': True,
+                    'message': message
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': message
+                }), 400
+
+        finally:
+            # Clean up temp file
+            import os
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+    except Exception as e:
+        logger.error(f"Error uploading license file: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @settings_api_bp.route('/api/settings/license', methods=['DELETE'])
 @login_required
 @require_admin

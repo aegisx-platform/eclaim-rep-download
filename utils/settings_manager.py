@@ -750,6 +750,16 @@ class SettingsManager:
         except Exception as e:
             return False, f"Error removing license: {str(e)}"
 
+    def clear_license_cache(self):
+        """Clear license checker cache after installing new license"""
+        try:
+            from utils.license_checker import get_license_checker
+            checker = get_license_checker()
+            checker._cached_license = None
+            checker._cache_time = None
+        except Exception:
+            pass
+
     def check_feature_access(self, feature: str) -> bool:
         """
         Check if current license allows access to a feature
