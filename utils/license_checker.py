@@ -482,7 +482,18 @@ class LicenseChecker:
                     self.license_lic_file.unlink()
                 return False, f"License rejected by server: {activation_msg}"
 
-            return True, f"License installed successfully for {hospital_name} (Tier: {tier}, Expires: {expiry_date})"
+            # Build success message with activation status
+            base_msg = f"License installed successfully for {hospital_name} (Tier: {tier}, Expires: {expiry_date})"
+
+            # Add activation status to message
+            if "server unreachable" in activation_msg.lower():
+                activation_status = "Activation: Offline (server unreachable)"
+            elif "recorded" in activation_msg.lower():
+                activation_status = "Activation: Recorded successfully"
+            else:
+                activation_status = f"Activation: {activation_msg}"
+
+            return True, f"{base_msg}. {activation_status}"
 
         except Exception as e:
             return False, f"Error installing license: {str(e)}"

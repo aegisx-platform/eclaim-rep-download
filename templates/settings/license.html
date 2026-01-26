@@ -153,6 +153,7 @@
         // Set content
         titleEl.textContent = title;
         messageEl.textContent = message;
+        messageEl.style.whiteSpace = 'pre-wrap';  // Preserve newlines
 
         // Reset classes
         alert.className = 'mb-6 rounded-lg p-4 shadow-md border-l-4';
@@ -304,7 +305,34 @@
             const data = await response.json();
 
             if (data.success) {
-                showAlert('success', 'License Installed!', data.message);
+                // Parse the message to show activation status separately
+                const message = data.message || '';
+                let mainMsg = message;
+                let activationStatus = '';
+
+                // Extract activation status if present
+                if (message.includes('Activation:')) {
+                    const parts = message.split('Activation:');
+                    mainMsg = parts[0].trim().replace(/\.$/, '');
+                    activationStatus = parts[1] ? parts[1].trim() : '';
+                }
+
+                // Build display message
+                let displayMsg = mainMsg;
+                if (activationStatus) {
+                    // Determine activation icon
+                    let statusIcon = '';
+                    if (activationStatus.toLowerCase().includes('recorded') || activationStatus.toLowerCase().includes('success')) {
+                        statusIcon = '✅';
+                    } else if (activationStatus.toLowerCase().includes('offline') || activationStatus.toLowerCase().includes('unreachable')) {
+                        statusIcon = '⚠️';
+                    } else {
+                        statusIcon = 'ℹ️';
+                    }
+                    displayMsg += '\n\n' + statusIcon + ' Server Activation: ' + activationStatus;
+                }
+
+                showAlert('success', 'License Installed!', displayMsg);
                 clearFileSelection();
                 loadLicenseInfo();
             } else {
