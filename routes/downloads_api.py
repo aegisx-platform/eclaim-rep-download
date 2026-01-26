@@ -242,13 +242,55 @@ def trigger_bulk_download():
 @downloads_api_bp.route('/api/downloads/bulk/progress')
 @downloads_api_bp.route('/download/bulk/progress')  # Legacy alias
 def bulk_progress():
-    """Get real-time bulk download progress"""
+    """Get real-time bulk download progress from DownloadManager v2"""
     try:
-        downloader_runner = app.config.get('downloader_runner')
-        progress = downloader_runner.get_bulk_progress()
-        return jsonify(progress)
+        from utils.download_manager.parallel_bridge import get_parallel_bridge
+
+        bridge = get_parallel_bridge()
+        active_sessions = bridge.get_active_sessions()
+
+        # Find REP session (bulk download is REP)
+        rep_sessions = [s for s in active_sessions if s.source_type == 'rep']
+
+        if not rep_sessions:
+            # No active REP download - return legacy format for UI compatibility
+            return jsonify({
+                'running': False,
+                'status': 'idle',
+                'message': 'No active download'
+            })
+
+        # Get progress for the most recent active session
+        session = rep_sessions[0]
+        progress = bridge.get_progress(session.id)
+
+        if progress:
+            # Add extra fields for UI compatibility
+            progress['current_month'] = {
+                'month': session.service_month,
+                'year': session.fiscal_year
+            }
+            progress['completed_months'] = 1 if progress.get('status') == 'completed' else 0
+            progress['total_months'] = 1
+
+            # For iteration tracking (used by UI)
+            progress['iteration_current_idx'] = progress.get('processed', 0)
+            progress['iteration_total_files'] = progress.get('total', 0)
+            progress['completed_iterations'] = progress.get('processed', 0)
+            progress['total_iterations'] = progress.get('total', 0)
+            progress['current_files'] = progress.get('iteration_current_idx', 0)
+
+            return jsonify(progress)
+        else:
+            return jsonify({
+                'running': True,
+                'status': 'downloading',
+                'session_id': session.id,
+                'message': 'Fetching progress...'
+            })
 
     except Exception as e:
+        app.logger.error(f"Error getting bulk progress: {e}", exc_info=True)
         return jsonify({'running': False, 'error': str(e)}), 500
 
 
