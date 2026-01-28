@@ -301,6 +301,11 @@ logger.info(f"Security headers configured ({security_mode} mode)")
 app.register_blueprint(settings_api_bp)  # API routes
 logger.info("✓ Settings API blueprint registered")
 
+# Exempt file upload endpoints from CSRF (protected by login_required + require_admin)
+# File uploads with FormData can have CSRF token issues in some browsers
+from routes.settings import upload_license_file
+csrf.exempt(upload_license_file)
+
 app.register_blueprint(settings_pages_bp)  # Page routes
 logger.info("✓ Settings Pages blueprint registered")
 
