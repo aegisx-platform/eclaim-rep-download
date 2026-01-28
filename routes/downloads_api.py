@@ -408,6 +408,10 @@ def trigger_parallel_download():
                 )
 
                 # Auto import if enabled - only import files that were just downloaded
+                app.logger.info(f"[AUTO-IMPORT] Check: auto_import={auto_import}, completed={result.get('completed', 0)}")
+                app.logger.info(f"[AUTO-IMPORT] Result keys: {result.keys() if result else 'None'}")
+                app.logger.info(f"[AUTO-IMPORT] Results array length: {len(result.get('results', []))}")
+
                 if auto_import and result.get('completed', 0) > 0:
                     from utils.eclaim.importer_v2 import import_eclaim_file
                     from config.database import get_db_config, DB_TYPE
@@ -418,10 +422,15 @@ def trigger_parallel_download():
                     download_dir = Path('downloads/rep')
                     downloaded_files = []
                     for r in result.get('results', []):
+                        app.logger.info(f"[AUTO-IMPORT] File result: {r.get('filename')}, success={r.get('success')}, skipped={r.get('skipped')}")
                         if r.get('success') and not r.get('skipped'):
                             filepath = download_dir / r['filename']
                             if filepath.exists():
                                 downloaded_files.append(str(filepath))
+                            else:
+                                app.logger.warning(f"[AUTO-IMPORT] File not found: {filepath}")
+
+                    app.logger.info(f"[AUTO-IMPORT] Found {len(downloaded_files)} files to import")
 
                     if downloaded_files:
                         log_streamer.write_log(f"\n📥 Auto-import: Starting import of {len(downloaded_files)} files...", 'info', 'import')

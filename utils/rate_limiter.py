@@ -316,8 +316,8 @@ rate_limiter = RateLimiter(use_database=False)
 
 # Convenience decorators for common limits
 def limit_login(f):
-    """Rate limit for login endpoint: 5 requests per 5 minutes."""
-    return rate_limiter.limit(requests=5, window=300, per='ip')(f)
+    """Rate limit for login endpoint: 30 requests per minute (relaxed for development)."""
+    return rate_limiter.limit(requests=30, window=60, per='ip')(f)
 
 
 def limit_api(f):
