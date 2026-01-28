@@ -237,6 +237,14 @@ session_hours = int(os.environ.get('SESSION_LIFETIME_HOURS', 8))
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=session_hours)
 logger.info(f"Session lifetime configured: {session_hours} hours")
 
+# Remember Me Cookie Duration
+# Default: 30 days, configurable via REMEMBER_COOKIE_DAYS env var
+remember_days = int(os.environ.get('REMEMBER_COOKIE_DAYS', 30))
+app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=remember_days)
+app.config['REMEMBER_COOKIE_SECURE'] = is_https  # Only send over HTTPS in production
+app.config['REMEMBER_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
+logger.info(f"Remember me cookie duration: {remember_days} days")
+
 app.config['WTF_CSRF_CHECK_DEFAULT'] = True  # Enable CSRF protection by default
 
 # Initialize CSRF Protection
