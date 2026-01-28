@@ -151,17 +151,11 @@ class LicenseChecker:
         self._cache_time = None
         self._cache_ttl = 3600  # Cache for 1 hour
 
-        # Encryption key for .lic files (must match license server)
-        self.encryption_key = os.getenv(
-            'LICENSE_ENCRYPTION_KEY',
-            'aegisx-license-master-key-change-in-production'
-        )
+        # Encryption key for .lic files (hardcoded - must match license server)
+        self.encryption_key = 'aegisx-license-master-key-change-in-production'
 
-        # License server URL for activation notifications
-        self.license_server_url = os.getenv(
-            'LICENSE_SERVER_URL',
-            'https://license.aegisx.co.th'
-        )
+        # License server URL for activation notifications (hardcoded for production)
+        self.license_server_url = 'https://license.aegisxplatform.com'
 
         # App info for activation tracking
         self.app_name = 'eclaim-rep-download'

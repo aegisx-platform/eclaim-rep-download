@@ -24,8 +24,6 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       FLASK_ENV: production
       TZ: Asia/Bangkok
-      LICENSE_SERVER_URL: ${LICENSE_SERVER_URL:-http://localhost:5002}
-      LICENSE_ENCRYPTION_KEY: ${LICENSE_ENCRYPTION_KEY:-aegisx-license-master-key-change-in-production}
     volumes:
       - ./downloads:/app/downloads
       - ./logs:/app/logs
