@@ -775,8 +775,8 @@ def index():
             # 2. Hospital code not configured
             if health_count < 1000 or not hospital_code:
                 return redirect(url_for('setup'))
-    except:
-        pass
+    except Exception as e:
+        app.logger.warning(f"Setup check failed: {e}")
 
     return redirect(url_for('dashboard'))
 
@@ -1022,7 +1022,7 @@ def files():
                 try:
                     dt = datetime.fromisoformat(download_date)
                     file_date_str = dt.strftime('%Y-%m-%d')
-                except:
+                except (ValueError, TypeError):
                     file_date_str = None
             else:
                 file_date_str = None
@@ -1555,8 +1555,10 @@ def number_format_filter(value):
 
 
 @app.route('/api/clear-all', methods=['POST'])
+@login_required
+@require_admin
 def clear_all_data():
-    """Clear all data: files, history, and database (DANGER!)"""
+    """Clear all data: files, history, and database (DANGER!) - Admin only"""
     try:
         # 1. Delete all files in downloads subdirectories
         deleted_files = 0

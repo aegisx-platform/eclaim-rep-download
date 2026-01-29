@@ -76,7 +76,8 @@ class DownloadHistoryDB:
             db_config = get_db_config()
 
         self.db_config = db_config
-        self.db_type = db_type or os.getenv('DB_TYPE', 'postgresql')
+        from config.database import DB_TYPE
+        self.db_type = db_type or DB_TYPE
         self.conn = None
         self.cursor = None
         self._connected = False

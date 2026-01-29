@@ -11,8 +11,6 @@ Supports:
 import os
 import jwt
 import json
-import base64
-import hashlib
 import socket
 import requests
 import logging
@@ -20,10 +18,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
-from cryptography.fernet import Fernet, InvalidToken
 
 logger = logging.getLogger(__name__)
 
@@ -145,14 +140,11 @@ class LicenseChecker:
 
     def __init__(self, license_file='config/license.json'):
         self.license_file = Path(license_file)
-        self.license_lic_file = Path('config/license.lic')  # New encrypted format
+        self.license_lic_file = Path('config/license.lic')  # JWT RS256 format
         self.license_file.parent.mkdir(exist_ok=True)
         self._cached_license = None
         self._cache_time = None
         self._cache_ttl = 3600  # Cache for 1 hour
-
-        # Encryption key for .lic files (hardcoded - must match license server)
-        self.encryption_key = 'aegisx-license-master-key-change-in-production'
 
         # License server URL for activation notifications (hardcoded for production)
         self.license_server_url = 'https://license.aegisxplatform.com'
@@ -263,35 +255,17 @@ class LicenseChecker:
             logger.warning(f"⚠️ Error notifying license server: {e}")
             return True, "Deactivation recorded (notification error)"
 
-    def _decrypt_lic_file(self, encrypted_data: bytes) -> str:
-        """
-        Decrypt .lic file data using Fernet
-
-        Args:
-            encrypted_data: Encrypted bytes from .lic file
-
-        Returns:
-            str: Decrypted JSON string
-        """
-        # Generate encryption key from master key (same as license server)
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=b'aegisx-license-salt',  # Fixed salt for consistency
-            iterations=100000,
-            backend=default_backend()
-        )
-        key = base64.urlsafe_b64encode(kdf.derive(self.encryption_key.encode()))
-
-        # Decrypt
-        fernet = Fernet(key)
-        decrypted = fernet.decrypt(encrypted_data)
-
-        return decrypted.decode()
-
     def _load_lic_file(self) -> Optional[Dict]:
         """
-        Load and decrypt .lic file from license server
+        Load .lic file (plain JSON with JWT RS256 token)
+
+        The .lic file contains:
+        - license_token: JWT signed with RS256 (private key on server)
+        - public_key: RSA public key to verify JWT signature
+        - metadata: License information
+
+        Security: JWT signature prevents tampering. Public key can be safely distributed.
+        Only the license server with private key can create valid licenses.
 
         Returns:
             License dict compatible with old format, or None if not found/invalid
@@ -300,15 +274,20 @@ class LicenseChecker:
             return None
 
         try:
-            # Read encrypted file
-            with open(self.license_lic_file, 'rb') as f:
-                encrypted_data = f.read()
-
-            # Decrypt
-            json_data = self._decrypt_lic_file(encrypted_data)
+            # Read plain JSON file
+            with open(self.license_lic_file, 'r', encoding='utf-8') as f:
+                json_data = f.read()
 
             # Parse JSON
             license_package = json.loads(json_data)
+
+            # Validate required fields
+            if not license_package.get('license_token'):
+                logger.error("Invalid license file: missing license_token")
+                return None
+            if not license_package.get('public_key'):
+                logger.error("Invalid license file: missing public_key")
+                return None
 
             # Convert to compatible format
             license_data = {
@@ -318,20 +297,19 @@ class LicenseChecker:
                 'installed_at': license_package.get('metadata', {}).get('created_at'),
                 # Additional metadata from .lic file
                 '_metadata': license_package.get('metadata', {}),
-                '_version': license_package.get('version', '1.0'),
-                '_signature': license_package.get('signature')
+                '_version': license_package.get('version', '2.0'),
+                '_format': license_package.get('format', 'jwt-rs256'),
+                '_checksum': license_package.get('checksum')
             }
 
+            logger.info(f"✅ License loaded: {license_data.get('license_key')}")
             return license_data
 
-        except InvalidToken:
-            print("Error: Invalid encryption key for .lic file")
-            return None
         except json.JSONDecodeError as e:
-            print(f"Error: Corrupted .lic file - {e}")
+            logger.error(f"Error: Invalid JSON in .lic file - {e}")
             return None
         except Exception as e:
-            print(f"Error loading .lic file: {e}")
+            logger.error(f"Error loading .lic file: {e}")
             return None
 
     def load_license(self) -> Optional[Dict]:
@@ -406,7 +384,12 @@ class LicenseChecker:
 
     def install_license_file(self, lic_file_path: str) -> Tuple[bool, str]:
         """
-        Install license from .lic file (encrypted format from AegisX License Server)
+        Install license from .lic file (JWT RS256 format from AegisX License Server)
+
+        The .lic file is plain JSON containing:
+        - license_token: JWT signed with RS256
+        - public_key: RSA public key to verify signature
+        - metadata: License information
 
         Args:
             lic_file_path: Path to the .lic file to import
@@ -425,13 +408,11 @@ class LicenseChecker:
             if not source_path.suffix.lower() == '.lic':
                 return False, "Invalid file format. Expected .lic file"
 
-            # Try to read and validate the file first
-            with open(source_path, 'rb') as f:
-                encrypted_data = f.read()
-
-            # Try to decrypt to validate
+            # Read and validate the file
             try:
-                json_data = self._decrypt_lic_file(encrypted_data)
+                with open(source_path, 'r', encoding='utf-8') as f:
+                    json_data = f.read()
+
                 license_package = json.loads(json_data)
 
                 # Validate required fields
@@ -440,10 +421,33 @@ class LicenseChecker:
                 if not license_package.get('public_key'):
                     return False, "Invalid license file: missing public key"
 
-            except InvalidToken:
-                return False, "Cannot decrypt license file. Please check LICENSE_ENCRYPTION_KEY in your .env"
+                # Verify JWT signature with embedded public key
+                public_key_pem = license_package.get('public_key')
+                license_token = license_package.get('license_token')
+
+                public_key = serialization.load_pem_public_key(
+                    public_key_pem.encode('utf-8'),
+                    backend=default_backend()
+                )
+
+                # Decode and verify JWT
+                payload = jwt.decode(
+                    license_token,
+                    public_key,
+                    algorithms=['RS256']
+                )
+
+                logger.info(f"✅ License signature verified for: {payload.get('license_key')}")
+
             except json.JSONDecodeError:
-                return False, "Invalid license file format"
+                return False, "Invalid license file format (not valid JSON)"
+            except jwt.InvalidSignatureError:
+                return False, "Invalid license signature - file may be tampered or from unknown source"
+            except jwt.ExpiredSignatureError:
+                # Allow installation of expired license (will show in UI)
+                logger.warning("⚠️ License has expired but will be installed")
+            except Exception as e:
+                return False, f"License verification failed: {str(e)}"
 
             # Copy file to config directory
             shutil.copy2(source_path, self.license_lic_file)

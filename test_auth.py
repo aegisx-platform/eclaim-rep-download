@@ -370,7 +370,7 @@ def main():
     # Cleanup
     try:
         cleanup()
-    except:
+    except Exception:
         pass
 
     # Summary

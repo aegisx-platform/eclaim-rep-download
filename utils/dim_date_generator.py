@@ -14,13 +14,10 @@ import logging
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config.database import get_db_config
+from config.database import get_db_config, DB_TYPE
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-# Database type
-DB_TYPE = os.getenv('DB_TYPE', 'mysql').lower()
 
 
 class DimDateGenerator:

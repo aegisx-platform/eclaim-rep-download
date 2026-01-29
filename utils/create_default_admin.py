@@ -88,7 +88,7 @@ def check_users_exist():
         print(f"[create_admin] Error checking users: {e}")
         try:
             conn.close()
-        except:
+        except Exception:
             pass
         return False
 
@@ -121,7 +121,7 @@ def create_admin_user(username, password):
         try:
             conn.rollback()
             conn.close()
-        except:
+        except Exception:
             pass
         return False
 
@@ -185,17 +185,19 @@ def main():
     # Save credentials
     save_credentials(username, password)
 
-    # Display credentials (THIS IS THE ONLY TIME THEY'LL BE SHOWN)
+    # Display credentials location (password not shown in logs for security)
     print("\n" + "-" * 60)
-    print("Initial Admin Credentials")
+    print("Initial Admin Credentials Created")
     print("-" * 60)
     print(f"Username: {username}")
-    print(f"Password: {password}")
+    print(f"Password: [SAVED TO FILE - not shown in logs]")
     print("-" * 60)
-    print("IMPORTANT: Save these credentials now!")
-    print("  - Credentials also saved to: .admin-credentials")
+    print("IMPORTANT: View credentials in file:")
+    print("  cat .admin-credentials")
+    print("")
+    print("Then:")
     print("  - Login and change your password immediately")
-    print("  - Delete .admin-credentials after saving to password manager")
+    print("  - Delete the file: rm .admin-credentials")
     print("-" * 60 + "\n")
 
     print("[create_admin] ✓ Admin user created successfully!")

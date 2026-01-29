@@ -46,12 +46,20 @@
                             <p id="license-key-display" class="text-sm text-gray-600">-</p>
                         </div>
                     </div>
-                    <button onclick="removeLicense()" id="remove-license-btn" class="hidden text-red-600 hover:text-red-700 text-sm font-medium flex items-center gap-1">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                        Remove License
-                    </button>
+                    <div class="flex items-center gap-3">
+                        <a href="#" onclick="verifyOnPortal()" id="verify-license-btn" class="hidden text-indigo-600 hover:text-indigo-700 text-sm font-medium flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            </svg>
+                            Verify on Portal
+                        </a>
+                        <button onclick="removeLicense()" id="remove-license-btn" class="hidden text-red-600 hover:text-red-700 text-sm font-medium flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            Remove License
+                        </button>
+                    </div>
                 </div>
 
                 <!-- License Details Grid -->
@@ -143,6 +151,12 @@
     <!-- Tier Comparison (truncated for brevity - same as before) -->
 
 <script>
+    // License Portal URL - from environment variable (set in .env)
+    const LICENSE_PORTAL_URL = '{{ license_portal_url }}';
+
+    // Store current license data for verification
+    let currentLicenseData = null;
+
     // Alert notification functions
     function showAlert(type, title, message) {
         const alert = document.getElementById('alert-notification');
@@ -379,9 +393,33 @@
         return svg;
     }
 
+    // Open license portal for verification
+    function verifyOnPortal() {
+        if (!currentLicenseData) {
+            showAlert('warning', 'No License', 'ไม่มี License ที่จะ verify');
+            return;
+        }
+
+        // Build URL with license data for auto-lookup
+        const licenseKey = currentLicenseData.license_key || '';
+        const hospitalCode = currentLicenseData.hospital_code || '';
+
+        let portalUrl = LICENSE_PORTAL_URL;
+        if (licenseKey && hospitalCode) {
+            // Pass parameters for auto-lookup
+            portalUrl += `?license_key=${encodeURIComponent(licenseKey)}&hospital_code=${encodeURIComponent(hospitalCode)}`;
+        }
+
+        // Open portal in new tab
+        window.open(portalUrl, '_blank');
+    }
+
     function displayLicenseInfo(license) {
         document.getElementById('license-loading').classList.add('hidden');
         document.getElementById('license-info').classList.remove('hidden');
+
+        // Store license data for verification
+        currentLicenseData = license;
 
         const isValid = license.is_valid;
         const tier = license.tier || 'trial';
@@ -499,9 +537,10 @@
             featuresList.appendChild(div);
         });
 
-        // Show remove button if license is installed
+        // Show remove button and verify button if license is installed
         if (isValid || license.license_key) {
             document.getElementById('remove-license-btn').classList.remove('hidden');
+            document.getElementById('verify-license-btn').classList.remove('hidden');
         }
     }
 
@@ -535,6 +574,8 @@
         featuresList.appendChild(p);
 
         document.getElementById('remove-license-btn').classList.add('hidden');
+        document.getElementById('verify-license-btn').classList.add('hidden');
+        currentLicenseData = null;
     }
 
     async function removeLicense() {

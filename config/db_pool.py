@@ -23,8 +23,9 @@ _pool_lock = threading.Lock()
 
 
 def _get_db_type():
-    """Get database type from environment"""
-    return os.getenv('DB_TYPE', 'postgresql')
+    """Get database type from config"""
+    from config.database import DB_TYPE
+    return DB_TYPE
 
 
 def _create_postgresql_pool():

@@ -60,7 +60,8 @@ METADATA_PATH = MODEL_DIR / 'model_metadata.json'
 def get_db_connection():
     """Get database connection based on config"""
     db_config = get_db_config()
-    db_type = os.getenv('DB_TYPE', 'postgresql')
+    from config.database import DB_TYPE
+    db_type = DB_TYPE
 
     # Use localhost when running outside Docker (db hostname is for Docker network)
     host = db_config['host']
