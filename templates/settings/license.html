@@ -151,10 +151,8 @@
     <!-- Tier Comparison (truncated for brevity - same as before) -->
 
 <script>
-    // License Portal URL - detect environment
-    const LICENSE_PORTAL_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:5002/portal'  // Development
-        : 'https://license.aegisxplatform.com/portal';  // Production
+    // License Portal URL - from environment variable (set in .env)
+    const LICENSE_PORTAL_URL = '{{ license_portal_url }}';
 
     // Store current license data for verification
     let currentLicenseData = null;
@@ -402,8 +400,18 @@
             return;
         }
 
+        // Build URL with license data for auto-lookup
+        const licenseKey = currentLicenseData.license_key || '';
+        const hospitalCode = currentLicenseData.hospital_code || '';
+
+        let portalUrl = LICENSE_PORTAL_URL;
+        if (licenseKey && hospitalCode) {
+            // Pass parameters for auto-lookup
+            portalUrl += `?license_key=${encodeURIComponent(licenseKey)}&hospital_code=${encodeURIComponent(hospitalCode)}`;
+        }
+
         // Open portal in new tab
-        window.open(LICENSE_PORTAL_URL, '_blank');
+        window.open(portalUrl, '_blank');
     }
 
     function displayLicenseInfo(license) {

@@ -51,7 +51,13 @@ def credentials():
 @require_admin
 def license():
     """License management page - Admin only"""
-    return render_template('settings/license.html')
+    # Get license portal URL from environment
+    # Default: auto-detect based on FLASK_ENV
+    flask_env = os.getenv('FLASK_ENV', 'production')
+    default_portal_url = 'http://localhost:5002/portal' if flask_env == 'development' else 'https://license.aegisxplatform.com/portal'
+    license_portal_url = os.getenv('LICENSE_PORTAL_URL', default_portal_url)
+
+    return render_template('settings/license.html', license_portal_url=license_portal_url)
 
 
 # Schedule route disabled - use Data Management page instead
