@@ -487,7 +487,7 @@ class EClaimImporterV2:
             db_type: Database type ('postgresql' or 'mysql')
         """
         self.db_config = db_config
-        self.db_type = db_type or os.getenv('DB_TYPE', 'mysql')
+        self.db_type = db_type or os.getenv('DB_TYPE', 'postgresql')
         self.conn = None
         self.cursor = None
 

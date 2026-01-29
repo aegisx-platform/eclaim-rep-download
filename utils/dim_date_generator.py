@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Database type
-DB_TYPE = os.getenv('DB_TYPE', 'mysql').lower()
+DB_TYPE = os.getenv('DB_TYPE', 'postgresql').lower()
 
 
 class DimDateGenerator:
