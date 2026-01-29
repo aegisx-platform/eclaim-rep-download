@@ -39,8 +39,8 @@ If you find this project helpful, consider buying me a coffee!
 
 **Revenue Intelligence System** (เดิมชื่อ E-Claim Downloader) เป็นระบบวิเคราะห์รายได้จากการเบิกจ่าย สปสช. สำหรับโรงพยาบาล ครอบคลุมตั้งแต่การ download ข้อมูล E-Claim, import เข้าฐานข้อมูล, วิเคราะห์รายได้, จนถึงกระทบยอดกับข้อมูล SMT Budget
 
-**Version:** v4.0.0
-**Last Updated:** 2026-01-20
+**Version:** v4.1.0
+**Last Updated:** 2026-01-29
 
 ### Data Sources
 
@@ -520,30 +520,24 @@ See **[Architecture Documentation](docs/technical/ARCHITECTURE.md)** for details
 
 See **[CHANGELOG.md](CHANGELOG.md)** for detailed version history.
 
-### Latest: v3.2.0 (2026-01-17)
+### Latest: v4.1.0 (2026-01-29)
 
-**New Features:**
-- **🏥 Hospital Settings & Per-Bed KPIs**
-  - Global Hospital Code setting (ใช้ทั้ง SMT และ Per-Bed KPIs)
-  - Per-bed performance metrics: รายได้/เตียง/เดือน, ส่วนต่าง/เตียง/เดือน, เคลม/เตียง
-  - Auto-fetch hospital info from health_offices (9,247 hospitals)
-- **📦 Auto-Seed Data in install.sh**
-  - Automatic seed data import on installation
-  - Post-install guidance for Hospital Code setup
-- **📚 Complete Documentation**
-  - Installation Guide (15KB)
-  - Testing Checklist (12KB)
+**Security Fixes:**
+- 🔒 Added authentication to `/api/clear-all` endpoint (was accessible without login)
+- 🔒 Password no longer shown in admin creation logs
+- 🔒 Fixed 7 bare `except:` clauses with specific exception handling
 
-**Improvements:**
-- Setup page with Hospital Code configuration
-- Dashboard shows hospital name and bed count
-- SMT uses global hospital_code instead of vendor_id
-- Analytics API includes hospital and per_bed objects
+**Bug Fixes:**
+- ✅ DB_TYPE centralization - switching databases now works consistently
+- ✅ GitHub Actions security scan permissions fixed
+- ✅ Fresh installation flow verified working
 
 ### Previous Releases
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v4.0.0 | 2026-01-19 | Blueprint Architecture, 83.4% code reduction, 12 modular blueprints |
+| v3.2.0 | 2026-01-17 | Hospital Settings, Per-Bed KPIs, Auto-Seed install.sh |
 | v3.1.0 | 2026-01-15 | TRAN_ID search, Job History, Benchmark, Master data |
 | v3.0.0 | 2026-01-11 | Revenue Intelligence, Dashboard, Reconciliation |
 | v2.0.0 | 2026-01-08 | Hospital Schema, Complete Field Mapping |
@@ -613,4 +607,4 @@ This software is **legal** when used correctly with authorized credentials and f
 
 **Made with love by [aegisx platform](https://github.com/aegisx-platform)**
 
-**Last Updated:** 2026-01-20 | **Version:** v4.0.0
+**Last Updated:** 2026-01-29 | **Version:** v4.1.0
