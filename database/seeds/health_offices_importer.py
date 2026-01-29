@@ -296,7 +296,7 @@ def import_health_offices(excel_path: str, batch_size: int = 1000) -> dict:
                             record[col] = f"{year:04d}-{int(month):02d}-{int(day):02d}"
                         else:
                             record[col] = None
-                    except:
+                    except (ValueError, TypeError, IndexError):
                         record[col] = None
                 else:
                     record[col] = None

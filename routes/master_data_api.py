@@ -337,7 +337,7 @@ def api_health_offices_import():
                                 if int(year) > 2500:
                                     year = str(int(year) - 543)
                                 return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
-                        except:
+                        except (ValueError, IndexError):
                             pass
                     return None
 
