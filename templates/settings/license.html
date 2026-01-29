@@ -151,8 +151,10 @@
     <!-- Tier Comparison (truncated for brevity - same as before) -->
 
 <script>
-    // License Portal URL (production)
-    const LICENSE_PORTAL_URL = 'https://license.aegisxplatform.com/portal';
+    // License Portal URL - detect environment
+    const LICENSE_PORTAL_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:5002/portal'  // Development
+        : 'https://license.aegisxplatform.com/portal';  // Production
 
     // Store current license data for verification
     let currentLicenseData = null;
