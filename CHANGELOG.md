@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-01-29
+
+### Security Fixes 🔒
+
+- **Critical**: Added `@login_required` and `@require_admin` to `/api/clear-all` endpoint - Previously accessible without authentication
+- **Fixed**: Password no longer shown in logs during admin creation - Now displays `[SAVED TO FILE - not shown in logs]`
+- **Fixed**: 7 bare `except:` clauses replaced with specific exception handling across multiple files:
+  - `utils/eclaim/importer_v2.py` (3 instances)
+  - `utils/stm_importer.py` (2 instances)
+  - `utils/import_runner.py` (1 instance)
+  - `utils/unified_import_runner.py` (1 instance)
+
+### Fixed
+
+- **DB_TYPE Centralization**: All files now import `DB_TYPE` from `config.database` instead of reading from environment directly
+  - Ensures switching between PostgreSQL and MySQL works consistently across all modules
+  - Files updated: `utils/dim_date_generator.py`, `utils/eclaim/importer_v2.py`, `utils/stm_importer.py`, `database/migrate.py`, `bulk_downloader.py`, `eclaim_import.py`, `stm_import.py`, `smt_budget_fetcher.py`
+- **GitHub Actions**: Fixed security-scan workflow permissions for SARIF upload to GitHub Security tab
+- **GitHub Actions**: Made Gitleaks secret scanning non-blocking (requires paid license for organizations)
+
+### Tested
+
+- ✅ Fresh installation via `install.sh` verified working
+- ✅ PostgreSQL mode tested and verified
+- ✅ MySQL mode tested and verified
+- ✅ All migrations run successfully
+- ✅ Seed data imports correctly (dim_date, health_offices, nhso_error_codes)
+
+---
+
 ## [4.0.0] - 2026-01-19
 
 ### Major Architectural Refactoring 🎉
@@ -189,7 +219,9 @@ None.
 - **Docker Support**: รองรับการ deploy ด้วย Docker
 - **File Types**: รองรับ OP, IP, ORF, IP_APPEAL
 
-[Unreleased]: https://github.com/aegisx-platform/eclaim-rep-download/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/aegisx-platform/eclaim-rep-download/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/aegisx-platform/eclaim-rep-download/compare/v4.0.0...v4.1.0
+[4.0.0]: https://github.com/aegisx-platform/eclaim-rep-download/compare/v3.1.0...v4.0.0
 [3.1.0]: https://github.com/aegisx-platform/eclaim-rep-download/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/aegisx-platform/eclaim-rep-download/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/aegisx-platform/eclaim-rep-download/compare/v1.1.0...v2.0.0
