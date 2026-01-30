@@ -274,6 +274,22 @@ echo -e "${GREEN}║              Installation Complete!                       �
 echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
+# Show admin credentials
+echo -e "${YELLOW}════════════════════════════════════════════════════════════${NC}"
+echo -e "${YELLOW}🔐 Admin Login Credentials${NC}"
+echo -e "${YELLOW}════════════════════════════════════════════════════════════${NC}"
+ADMIN_CREDS=$($DOCKER_COMPOSE exec -T web cat .admin-credentials 2>/dev/null | grep -E "^(Username|Password):" || true)
+if [ -n "$ADMIN_CREDS" ]; then
+    echo "$ADMIN_CREDS"
+    echo ""
+    echo -e "${RED}⚠️  บันทึกข้อมูลนี้ไว้! จะไม่แสดงอีก${NC}"
+    echo -e "${YELLOW}   แนะนำ: เปลี่ยนรหัสผ่านหลัง login ครั้งแรก${NC}"
+else
+    echo -e "ดู credentials: ${BLUE}docker compose exec web cat .admin-credentials${NC}"
+fi
+echo -e "${YELLOW}════════════════════════════════════════════════════════════${NC}"
+echo ""
+
 # Show sudo warning if running as root
 if [ "$EUID" -eq 0 ] || [ "$(id -u)" -eq 0 ]; then
     echo -e "${YELLOW}⚠️  คุณใช้ sudo ติดตั้ง - ต้องทำขั้นตอนนี้ก่อนใช้งาน:${NC}"
