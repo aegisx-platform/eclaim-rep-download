@@ -121,8 +121,8 @@ jobs:
       - name: Generate SBOM (CycloneDX)
         run: |
           pip install cyclonedx-bom
-          cyclonedx-py -r -i requirements.txt -o sbom-cyclonedx.json --format json
-          cyclonedx-py -r -i requirements.txt -o sbom-cyclonedx.xml --format xml
+          cyclonedx-py requirements requirements.txt -o sbom-cyclonedx.json --output-format json
+          cyclonedx-py requirements requirements.txt -o sbom-cyclonedx.xml --output-format xml
 
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
@@ -157,21 +157,5 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  secret-scan:
-    name: Secret Scanning
-    runs-on: ubuntu-latest
-    # Gitleaks requires license for organizations - make it non-blocking
-    continue-on-error: true
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Add GITLEAKS_LICENSE secret if you have one
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+  # Note: Secret scanning is handled by GitHub's built-in Secret Scanning feature
+  # which is free for public repositories. No need for Gitleaks.
