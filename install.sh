@@ -278,9 +278,11 @@ echo ""
 echo -e "${YELLOW}════════════════════════════════════════════════════════════${NC}"
 echo -e "${YELLOW}🔐 Admin Login Credentials${NC}"
 echo -e "${YELLOW}════════════════════════════════════════════════════════════${NC}"
-ADMIN_CREDS=$($DOCKER_COMPOSE exec -T web cat .admin-credentials 2>/dev/null | grep -E "^(Username|Password):" || true)
-if [ -n "$ADMIN_CREDS" ]; then
-    echo "$ADMIN_CREDS"
+ADMIN_USER=$($DOCKER_COMPOSE exec -T web cat .admin-credentials 2>/dev/null | grep "^Username:" | head -1)
+ADMIN_PASS=$($DOCKER_COMPOSE exec -T web cat .admin-credentials 2>/dev/null | grep "^Password:" | head -1)
+if [ -n "$ADMIN_USER" ] && [ -n "$ADMIN_PASS" ]; then
+    echo "$ADMIN_USER"
+    echo "$ADMIN_PASS"
     echo ""
     echo -e "${RED}⚠️  บันทึกข้อมูลนี้ไว้! จะไม่แสดงอีก${NC}"
     echo -e "${YELLOW}   แนะนำ: เปลี่ยนรหัสผ่านหลัง login ครั้งแรก${NC}"
