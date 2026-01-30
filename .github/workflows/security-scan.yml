@@ -157,21 +157,5 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  secret-scan:
-    name: Secret Scanning
-    runs-on: ubuntu-latest
-    # Gitleaks requires license for organizations - make it non-blocking
-    continue-on-error: true
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Add GITLEAKS_LICENSE secret if you have one
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+  # Note: Secret scanning is handled by GitHub's built-in Secret Scanning feature
+  # which is free for public repositories. No need for Gitleaks.
