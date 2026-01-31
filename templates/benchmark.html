@@ -136,7 +136,8 @@
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <!-- Total Revenue -->
-            <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="bg-white rounded-xl shadow-md p-6 relative group">
+                <button onclick="showInfoModal('revenue')" class="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-400 hover:text-gray-600 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity" title="ดูที่มาข้อมูล">i</button>
                 <div class="flex items-center justify-between">
                     <div class="flex-1">
                         <p class="text-sm text-gray-500">รายได้รวม</p>
@@ -155,7 +156,8 @@
             </div>
 
             <!-- Wait Amount -->
-            <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="bg-white rounded-xl shadow-md p-6 relative group">
+                <button onclick="showInfoModal('wait')" class="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-400 hover:text-gray-600 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity" title="ดูที่มาข้อมูล">i</button>
                 <div class="flex items-center justify-between">
                     <div class="flex-1">
                         <p class="text-sm text-gray-500">ยอดรอจ่าย</p>
@@ -175,7 +177,8 @@
             </div>
 
             <!-- Debt Amount -->
-            <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="bg-white rounded-xl shadow-md p-6 relative group">
+                <button onclick="showInfoModal('debt')" class="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-400 hover:text-gray-600 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity" title="ดูที่มาข้อมูล">i</button>
                 <div class="flex items-center justify-between">
                     <div class="flex-1">
                         <p class="text-sm text-gray-500">ยอดหนี้สิน</p>
@@ -195,7 +198,8 @@
             </div>
 
             <!-- Risk Score -->
-            <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="bg-white rounded-xl shadow-md p-6 relative group">
+                <button onclick="showInfoModal('risk')" class="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-400 hover:text-gray-600 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity" title="ดูที่มาข้อมูล">i</button>
                 <div class="flex items-center justify-between">
                     <div class="flex-1">
                         <p class="text-sm text-gray-500">Risk Score</p>
@@ -625,6 +629,31 @@
     </div>
 </div>
 
+<!-- Info Modal -->
+<div id="info-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+        <div class="p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h3 id="info-modal-title" class="text-xl font-bold text-gray-800">ที่มาของข้อมูล</h3>
+                <button onclick="closeInfoModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="info-modal-content" class="text-gray-600 space-y-4">
+                <!-- Content injected by JS -->
+            </div>
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <p class="text-xs text-gray-400">
+                    <strong>แหล่งข้อมูล:</strong> SMT สปสช. (Smart Money Transfer) <br>
+                    <strong>ความถี่อัพเดท:</strong> ทุกวันที่ 1 ของเดือน
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Chart.js Library -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
@@ -646,6 +675,127 @@ let hospitalYearsData = []; // { year, has_data, records, total_amount }
 let selectedYears = []; // Years selected by user
 let yearsDataCache = {}; // { year: apiResponse }
 let primaryYear = null; // Currently displayed year in summary
+
+// Info modal content definitions
+const infoContent = {
+    revenue: {
+        title: 'รายได้รวม (Total Revenue)',
+        content: `
+            <div class="space-y-3">
+                <p><strong>คำอธิบาย:</strong> ยอดรวมเงินที่โรงพยาบาลได้รับจาก สปสช. ในปีงบประมาณที่เลือก</p>
+                <div class="bg-blue-50 p-3 rounded-lg">
+                    <p class="font-medium text-blue-800">สูตรการคำนวณ:</p>
+                    <code class="text-sm">รายได้รวม = Σ ยอดเงินที่ได้รับจริง (ทุกกองทุน)</code>
+                </div>
+                <p><strong>ประกอบด้วย:</strong></p>
+                <ul class="list-disc list-inside text-sm space-y-1">
+                    <li>กองทุน OP (ผู้ป่วยนอก)</li>
+                    <li>กองทุน IP (ผู้ป่วยใน)</li>
+                    <li>กองทุน PP (สร้างเสริมสุขภาพ)</li>
+                    <li>กองทุนอื่นๆ ตามสิทธิ UC</li>
+                </ul>
+                <p class="text-sm"><strong>YoY:</strong> เปรียบเทียบกับปีก่อนหน้า (ถ้ามีข้อมูล)</p>
+            </div>
+        `
+    },
+    wait: {
+        title: 'ยอดรอจ่าย (Pending Amount)',
+        content: `
+            <div class="space-y-3">
+                <p><strong>คำอธิบาย:</strong> ยอดเงินที่ สปสช. ยังไม่ได้โอนให้โรงพยาบาล (อยู่ระหว่างดำเนินการ)</p>
+                <div class="bg-orange-50 p-3 rounded-lg">
+                    <p class="font-medium text-orange-800">สูตรการคำนวณ:</p>
+                    <code class="text-sm">ยอดรอจ่าย = Σ ยอดเรียกเก็บ - ยอดที่จ่ายแล้ว</code>
+                </div>
+                <p><strong>สาเหตุที่รอจ่าย:</strong></p>
+                <ul class="list-disc list-inside text-sm space-y-1">
+                    <li>รอตรวจสอบเอกสาร</li>
+                    <li>รอการอนุมัติ</li>
+                    <li>ติดปัญหาข้อมูลไม่ครบ</li>
+                    <li>รอรอบการโอนเงินถัดไป</li>
+                </ul>
+                <p class="text-sm"><strong>% ของยอดรวม:</strong> สัดส่วนยอดรอจ่ายต่อรายได้รวม (ยิ่งน้อยยิ่งดี)</p>
+            </div>
+        `
+    },
+    debt: {
+        title: 'ยอดหนี้สิน (Debt Amount)',
+        content: `
+            <div class="space-y-3">
+                <p><strong>คำอธิบาย:</strong> ยอดเงินที่ถูกปฏิเสธหรือหักลดจากที่เรียกเก็บ</p>
+                <div class="bg-red-50 p-3 rounded-lg">
+                    <p class="font-medium text-red-800">สูตรการคำนวณ:</p>
+                    <code class="text-sm">ยอดหนี้สิน = Σ ยอดเรียกเก็บ - ยอดอนุมัติ</code>
+                </div>
+                <p><strong>สาเหตุหลัก:</strong></p>
+                <ul class="list-disc list-inside text-sm space-y-1">
+                    <li>ข้อมูลไม่ตรงตามเกณฑ์</li>
+                    <li>รหัสวินิจฉัยไม่สอดคล้อง</li>
+                    <li>เกินอัตราที่กำหนด</li>
+                    <li>ส่งเบิกซ้ำซ้อน</li>
+                    <li>เอกสารไม่ครบถ้วน</li>
+                </ul>
+                <p class="text-sm text-red-600"><strong>⚠️ ยิ่งสูง = ยิ่งมีปัญหา</strong> ควรตรวจสอบสาเหตุและแก้ไข</p>
+            </div>
+        `
+    },
+    risk: {
+        title: 'Risk Score (คะแนนความเสี่ยง)',
+        content: `
+            <div class="space-y-3">
+                <p><strong>คำอธิบาย:</strong> คะแนนประเมินความเสี่ยงด้านการเงินของโรงพยาบาล (0-100)</p>
+                <div class="bg-purple-50 p-3 rounded-lg">
+                    <p class="font-medium text-purple-800">ปัจจัยที่ใช้คำนวณ:</p>
+                    <ul class="text-sm space-y-1 mt-2">
+                        <li>• อัตราส่วนหนี้สิน/รายได้ (40%)</li>
+                        <li>• อัตราส่วนรอจ่าย/รายได้ (30%)</li>
+                        <li>• แนวโน้มรายได้ YoY (20%)</li>
+                        <li>• ความผันผวนรายเดือน (10%)</li>
+                    </ul>
+                </div>
+                <p><strong>ระดับความเสี่ยง:</strong></p>
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                    <div class="bg-green-100 p-2 rounded">🟢 0-30: ต่ำ</div>
+                    <div class="bg-yellow-100 p-2 rounded">🟡 31-60: ปานกลาง</div>
+                    <div class="bg-orange-100 p-2 rounded">🟠 61-80: สูง</div>
+                    <div class="bg-red-100 p-2 rounded">🔴 81-100: วิกฤต</div>
+                </div>
+            </div>
+        `
+    }
+};
+
+// Show info modal
+function showInfoModal(type) {
+    var info = infoContent[type];
+    if (!info) return;
+
+    document.getElementById('info-modal-title').textContent = info.title;
+    document.getElementById('info-modal-content').innerHTML = info.content;
+    document.getElementById('info-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+// Close info modal
+function closeInfoModal() {
+    document.getElementById('info-modal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+// Close modal on backdrop click
+document.addEventListener('click', function(e) {
+    var modal = document.getElementById('info-modal');
+    if (e.target === modal) {
+        closeInfoModal();
+    }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeInfoModal();
+    }
+});
 
 // Chart colors for year comparison
 const yearColors = [
