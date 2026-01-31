@@ -26,6 +26,9 @@ VERSION="latest"
 INSTALL_DIR="nhso-revenue"
 DB_TYPE="postgresql"
 GITHUB_RAW="https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main"
+AUTO_YES=false
+ECLAIM_USER=""
+ECLAIM_PASS=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -34,6 +37,9 @@ while [[ $# -gt 0 ]]; do
         --no-db)    DB_TYPE="none"; shift ;;
         --dir)      INSTALL_DIR="$2"; shift 2 ;;
         --version)  VERSION="$2"; shift 2 ;;
+        -y|--yes)   AUTO_YES=true; shift ;;
+        --username) ECLAIM_USER="$2"; shift 2 ;;
+        --password) ECLAIM_PASS="$2"; shift 2 ;;
         -h|--help)
             echo "NHSO Revenue Intelligence Installer"
             echo ""
@@ -44,6 +50,9 @@ while [[ $# -gt 0 ]]; do
             echo "  --no-db      Download-only mode (no database)"
             echo "  --dir NAME   Installation directory (default: nhso-revenue)"
             echo "  --version V  Docker image version (default: latest)"
+            echo "  -y, --yes    Skip confirmation prompt (for automation)"
+            echo "  --username U E-Claim username (for automation)"
+            echo "  --password P E-Claim password (for automation)"
             exit 0
             ;;
         *) echo "Unknown option: $1"; exit 1 ;;
@@ -84,9 +93,13 @@ if [ -d "$INSTALL_DIR" ]; then
 fi
 
 # Ask for confirmation BEFORE doing anything
-read -p "ยืนยันการติดตั้ง? (Y/n): " -n 1 -r REPLY </dev/tty
-echo ""
-[[ $REPLY =~ ^[Nn]$ ]] && echo "Cancelled" && exit 1
+if [ "$AUTO_YES" = true ]; then
+    echo -e "${GREEN}✓ Auto-confirm enabled (--yes)${NC}"
+else
+    read -p "ยืนยันการติดตั้ง? (Y/n): " -n 1 -r REPLY </dev/tty
+    echo ""
+    [[ $REPLY =~ ^[Nn]$ ]] && echo "Cancelled" && exit 1
+fi
 
 echo ""
 
@@ -177,13 +190,17 @@ echo -e "${GREEN}✓ Created directories${NC}"
 
 # Create .env
 echo -e "${YELLOW}[4/7] Configuring credentials...${NC}"
-echo ""
-echo -e "${BLUE}กรุณาใส่ข้อมูลเข้าสู่ระบบ E-Claim:${NC}"
-echo ""
 
-read -p "ECLAIM_USERNAME: " ECLAIM_USER </dev/tty
-read -s -p "ECLAIM_PASSWORD: " ECLAIM_PASS </dev/tty
-echo ""
+if [ -z "$ECLAIM_USER" ] || [ -z "$ECLAIM_PASS" ]; then
+    echo ""
+    echo -e "${BLUE}กรุณาใส่ข้อมูลเข้าสู่ระบบ E-Claim:${NC}"
+    echo ""
+    read -p "ECLAIM_USERNAME: " ECLAIM_USER </dev/tty
+    read -s -p "ECLAIM_PASSWORD: " ECLAIM_PASS </dev/tty
+    echo ""
+else
+    echo -e "${GREEN}✓ Using provided credentials${NC}"
+fi
 
 cat > .env << EOF
 # NHSO Revenue Intelligence
