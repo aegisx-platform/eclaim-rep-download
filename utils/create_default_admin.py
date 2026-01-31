@@ -39,9 +39,9 @@ def get_db_connection():
 
 
 def generate_username(length=8):
-    """Generate random alphanumeric username."""
-    chars = string.ascii_lowercase + string.digits
-    return 'admin_' + ''.join(secrets.choice(chars) for _ in range(length))
+    """Generate default admin username."""
+    # Always use 'admin' as the default username
+    return 'admin'
 
 
 def generate_password(length=16):

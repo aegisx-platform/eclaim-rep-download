@@ -38,9 +38,18 @@ docker-compose exec web python database/migrate.py --seed
 docker-compose exec web python database/seeds/health_offices_importer.py
 docker-compose exec web python database/seeds/nhso_error_codes_importer.py
 
-# 6. Access web UI
+# 6. View admin credentials (auto-generated on first start)
+docker-compose exec web cat .admin-credentials
+
+# 7. Access web UI
 open http://localhost:5001
+# Login with: admin / (password from step 6)
 ```
+
+**Default Admin Credentials:**
+- Username: `admin`
+- Password: Randomly generated (shown during first startup)
+- Credentials saved to `.admin-credentials` inside container
 
 ---
 
@@ -304,6 +313,34 @@ curl -X POST http://localhost:5001/api/smt/fetch \
     "budget_year": "2568",
     "save_db": true
   }'
+```
+
+### ✅ User Management
+
+**View admin credentials:**
+```bash
+docker-compose exec web cat .admin-credentials
+```
+
+**Create additional users (development):**
+```bash
+# List all users
+docker-compose exec web python scripts/create_user.py --list
+
+# Create admin with random password
+docker-compose exec web python scripts/create_user.py
+
+# Create admin with specific password
+docker-compose exec web python scripts/create_user.py --password MyPass123
+
+# Create regular user
+docker-compose exec web python scripts/create_user.py --username john --role user
+
+# Force recreate admin (delete + create)
+docker-compose exec web python scripts/create_user.py --force
+
+# Delete user
+docker-compose exec web python scripts/create_user.py --delete john
 ```
 
 ---

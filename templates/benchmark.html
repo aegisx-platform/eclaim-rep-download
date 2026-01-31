@@ -82,7 +82,25 @@
         </div>
     </div>
 
-    <!-- No Data State -->
+    <!-- No Hospital Configured State -->
+    <div id="no-hospital-state" class="hidden">
+        <div class="bg-white rounded-xl shadow-md p-12 text-center">
+            <svg class="w-16 h-16 mx-auto mb-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            <h3 class="text-xl font-semibold text-gray-800 mb-2">ยังไม่ได้ตั้งค่าโรงพยาบาล</h3>
+            <p class="text-gray-500 mb-4">กรุณาไปตั้งค่ารหัสโรงพยาบาลก่อนใช้งาน SMT Budget</p>
+            <a href="/settings/hospital" class="inline-flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                ตั้งค่าโรงพยาบาล
+            </a>
+        </div>
+    </div>
+
+    <!-- No Data State (hospital configured but no SMT data) -->
     <div id="no-data-state" class="hidden">
         <div class="bg-white rounded-xl shadow-md p-12 text-center">
             <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -656,47 +674,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 async function loadDefaultHospital() {
     try {
-        // Priority 1: Check localStorage for user's last selected hospital
-        var savedVendor = localStorage.getItem('my_hospital_vendor');
-        var savedName = localStorage.getItem('my_hospital_name');
-
-        if (savedVendor) {
-            currentVendorId = savedVendor;
-            if (savedName) {
-                document.getElementById('search-hospital').value = savedName;
-            }
-            await loadHospitalYears();
-            return;
-        }
-
-        // Priority 2: Get default from SMT settings
-        var response = await fetch('/api/smt/settings');
-        var result = await response.json();
-
-        if (result.success && result.settings && result.settings.smt_vendor_id) {
-            currentVendorId = result.settings.smt_vendor_id;
-
-            // Fetch hospital name to display in search box
-            try {
-                var hospResponse = await fetch('/api/health-offices?search=' + encodeURIComponent(currentVendorId) + '&per_page=1');
-                var hospResult = await hospResponse.json();
-                if (hospResult.success && hospResult.data && hospResult.data.length > 0) {
-                    var hospital = hospResult.data[0];
-                    document.getElementById('search-hospital').value = hospital.name;
-                    // Save to localStorage for future visits
-                    localStorage.setItem('my_hospital_vendor', currentVendorId);
-                    localStorage.setItem('my_hospital_name', hospital.name);
-                }
-            } catch (hospErr) {
-                console.log('Could not fetch hospital name:', hospErr);
-                // Still continue - vendor_id is set
-            }
-
-            await loadHospitalYears();
-            return;
-        }
-
-        // Priority 3: Get default from Hospital Settings (Hospital Code or License)
+        // Priority 1: Get default from Hospital Settings (Hospital Code or License)
+        // This is the "My Hospital" setting - always use if configured
         try {
             var hcodeResponse = await fetch('/api/settings/hospital-code');
             var hcodeResult = await hcodeResponse.json();
@@ -734,11 +713,11 @@ async function loadDefaultHospital() {
             console.log('Could not fetch hospital code:', hcodeErr);
         }
 
-        // No default hospital found - show empty state
-        showNoDataState();
+        // No default hospital found - show setup required state
+        showNoHospitalState();
     } catch (e) {
         console.error('Error loading default hospital:', e);
-        showNoDataState();
+        showNoHospitalState();
     }
 }
 
@@ -747,6 +726,30 @@ async function loadHospitalYears() {
     if (!currentVendorId) {
         showNoDataState();
         return;
+    }
+
+    // Fetch and display hospital info first (using exact lookup)
+    try {
+        var hospResponse = await fetch('/api/health-offices/lookup/' + encodeURIComponent(currentVendorId));
+        var hospResult = await hospResponse.json();
+        if (hospResult.success && hospResult.data) {
+            var h = hospResult.data;
+            // Map API fields to expected format
+            var hospitalInfo = {
+                name: h.name,
+                vendor_no: h.hcode5 || h.hcode9,
+                level: h.hospital_level || h.service_type || '-',
+                province: h.province,
+                health_region: h.health_region ? h.health_region.replace('เขตสุขภาพที่ ', '') : null,
+                actual_beds: h.actual_beds || 0
+            };
+            currentHospitalInfo = hospitalInfo;
+            updateHospitalInfo(hospitalInfo);
+            // Update search box with correct name
+            document.getElementById('search-hospital').value = h.name;
+        }
+    } catch (e) {
+        console.log('Could not fetch hospital info:', e);
     }
 
     try {
@@ -1079,18 +1082,28 @@ async function loadSelectedYears() {
 
 function showLoading() {
     document.getElementById('loading-state').classList.remove('hidden');
+    document.getElementById('no-hospital-state').classList.add('hidden');
     document.getElementById('no-data-state').classList.add('hidden');
     document.getElementById('analytics-content').classList.add('hidden');
 }
 
 function showNoDataState() {
     document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('no-hospital-state').classList.add('hidden');
     document.getElementById('no-data-state').classList.remove('hidden');
+    document.getElementById('analytics-content').classList.add('hidden');
+}
+
+function showNoHospitalState() {
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('no-hospital-state').classList.remove('hidden');
+    document.getElementById('no-data-state').classList.add('hidden');
     document.getElementById('analytics-content').classList.add('hidden');
 }
 
 function showAnalytics() {
     document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('no-hospital-state').classList.add('hidden');
     document.getElementById('no-data-state').classList.add('hidden');
     document.getElementById('analytics-content').classList.remove('hidden');
 }

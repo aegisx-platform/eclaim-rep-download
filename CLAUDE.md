@@ -24,6 +24,29 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --no-db
 ```
 
+**Automation/CI Options:**
+```bash
+# Non-interactive install (for CI/CD or scripted deployments)
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | \
+  bash -s -- --yes --username myuser --password mypass
+
+# Options:
+#   --yes, -y          Skip confirmation prompt
+#   --username USER    E-Claim username (NHSO credentials)
+#   --password PASS    E-Claim password (NHSO credentials)
+```
+
+**Default Admin Credentials:**
+After installation, admin credentials are displayed and saved:
+- **Username:** `admin` (fixed)
+- **Password:** Random generated (displayed once during install)
+- **Credentials file:** `.admin-credentials` (auto-deleted after 7 days)
+
+```bash
+# View credentials after install
+docker compose exec web cat .admin-credentials
+```
+
 **Common Production Issues:**
 
 **Permission Denied:**
@@ -76,6 +99,14 @@ python eclaim_import.py downloads/filename.xls
 
 # Import all files in downloads/
 python eclaim_import.py downloads/
+
+# User management
+python scripts/create_user.py --list                    # List all users
+python scripts/create_user.py                           # Create admin with random password
+python scripts/create_user.py --password MyPass123      # Create admin with specific password
+python scripts/create_user.py --username john --role user  # Create regular user
+python scripts/create_user.py --force                   # Force recreate admin
+python scripts/create_user.py --delete john             # Delete user
 ```
 
 ### Docker Deployment

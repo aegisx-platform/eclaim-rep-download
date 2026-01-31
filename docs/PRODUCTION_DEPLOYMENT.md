@@ -41,12 +41,41 @@ curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download
 curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | bash -s -- --no-db
 ```
 
+**Automation Options (for CI/CD):**
+```bash
+# Non-interactive install (skip prompts)
+curl -fsSL https://raw.githubusercontent.com/aegisx-platform/eclaim-rep-download/main/install.sh | \
+  bash -s -- --yes --username myuser --password mypass
+
+# Available flags:
+#   --yes, -y          Skip confirmation prompt
+#   --username USER    E-Claim username (NHSO credentials)
+#   --password PASS    E-Claim password (NHSO credentials)
+#   --mysql            Use MySQL instead of PostgreSQL
+#   --no-db            External database mode
+#   --dir PATH         Installation directory
+#   --version TAG      Docker image version (default: latest)
+```
+
 **What happens:**
 1. Downloads `docker-compose-deploy.yml` (uses pre-built image from ghcr.io)
 2. Creates `.env` with credentials
 3. Pulls `ghcr.io/aegisx-platform/eclaim-rep-download:latest`
 4. Starts services
 5. Imports seed data automatically
+6. Creates default admin user
+
+**Default Admin Credentials:**
+```
+Username: admin
+Password: (randomly generated, displayed during install)
+```
+
+Credentials are saved to `.admin-credentials` file (auto-deleted after 7 days):
+```bash
+# View credentials after install
+docker compose exec web cat .admin-credentials
+```
 
 **Access:** http://localhost:5001
 

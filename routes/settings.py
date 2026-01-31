@@ -221,7 +221,7 @@ def test_connection():
 @settings_api_bp.route('/api/settings/hospital-code', methods=['GET', 'POST'])
 @login_required
 @require_admin
-@require_license_write_access_for_methods(['POST'])
+# NOTE: No license check - hospital code is required for SMT Budget (free tier feature)
 def hospital_code():
     """Get or set hospital code (HCODE)"""
     if request.method == 'GET':
