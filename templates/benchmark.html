@@ -217,7 +217,8 @@
         </div>
 
         <!-- Per-Bed Efficiency Metrics -->
-        <div class="bg-white rounded-xl shadow-md p-6">
+        <div class="bg-white rounded-xl shadow-md p-6 relative group">
+            <button onclick="showInfoModal('perbed')" class="absolute top-4 right-4 w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-400 hover:text-gray-600 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity" title="ดูที่มาข้อมูล">i</button>
             <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
@@ -248,7 +249,8 @@
         </div>
 
         <!-- Fund Category Breakdown -->
-        <div class="bg-white rounded-xl shadow-md p-6">
+        <div class="bg-white rounded-xl shadow-md p-6 relative group">
+            <button onclick="showInfoModal('fund')" class="absolute top-4 right-4 w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-400 hover:text-gray-600 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity" title="ดูที่มาข้อมูล">i</button>
             <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
@@ -760,6 +762,60 @@ const infoContent = {
                     <div class="bg-orange-100 p-2 rounded">🟠 61-80: สูง</div>
                     <div class="bg-red-100 p-2 rounded">🔴 81-100: วิกฤต</div>
                 </div>
+            </div>
+        `
+    },
+    perbed: {
+        title: 'ประสิทธิภาพต่อเตียง',
+        content: `
+            <div class="space-y-3">
+                <p><strong>คำอธิบาย:</strong> ตัวชี้วัดประสิทธิภาพการใช้ทรัพยากรเตียงผู้ป่วย</p>
+                <div class="bg-purple-50 p-3 rounded-lg">
+                    <p class="font-medium text-purple-800">สูตรการคำนวณ:</p>
+                    <ul class="text-sm space-y-1 mt-2">
+                        <li>• รายได้ IPD/เตียง = รายได้ผู้ป่วยใน ÷ จำนวนเตียง</li>
+                        <li>• ยอดรอจ่าย/เตียง = ยอดรอจ่ายรวม ÷ จำนวนเตียง</li>
+                        <li>• หนี้สิน/เตียง = ยอดหนี้สินรวม ÷ จำนวนเตียง</li>
+                    </ul>
+                </div>
+                <p><strong>ที่มาจำนวนเตียง:</strong></p>
+                <ul class="list-disc list-inside text-sm space-y-1">
+                    <li>ข้อมูลจาก hcode.moph.go.th</li>
+                    <li>จำนวนเตียงจริง (Actual Beds)</li>
+                    <li>อัพเดทตามการรายงานของ รพ.</li>
+                </ul>
+                <p class="text-sm text-purple-600"><strong>💡 ใช้เปรียบเทียบ:</strong> รพ. ขนาดใกล้เคียงกัน</p>
+            </div>
+        `
+    },
+    fund: {
+        title: 'สัดส่วนรายได้ตามประเภทกองทุน',
+        content: `
+            <div class="space-y-3">
+                <p><strong>คำอธิบาย:</strong> แสดงสัดส่วนรายได้จากกองทุนต่างๆ ของ สปสช.</p>
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-green-500 rounded"></div>
+                        <span class="text-sm"><strong>OPD</strong> - ผู้ป่วยนอก (OP/AE)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-blue-500 rounded"></div>
+                        <span class="text-sm"><strong>IPD</strong> - ผู้ป่วยใน (IP)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-purple-500 rounded"></div>
+                        <span class="text-sm"><strong>CR</strong> - ค่าใช้จ่ายสูง/อุบัติเหตุฉุกเฉิน</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-amber-500 rounded"></div>
+                        <span class="text-sm"><strong>PP</strong> - สร้างเสริมสุขภาพป้องกันโรค</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-gray-400 rounded"></div>
+                        <span class="text-sm"><strong>อื่นๆ</strong> - กองทุนพิเศษอื่นๆ</span>
+                    </div>
+                </div>
+                <p class="text-sm text-indigo-600 mt-2"><strong>💡 วิเคราะห์:</strong> ดู mix ของกองทุนเพื่อวางแผนบริการ</p>
             </div>
         `
     }
